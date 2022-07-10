@@ -1,0 +1,22 @@
+{
+  "name": "msm",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@noble/bls12-381": "^1.2.0",
+    "wabt": "^1.0.24",
+    "watever-js-wrapper": "file:../../watever/watever-js-wrapper",
+    "watever-js-wrapper-sync": "file:../../watever/watever-js-wrapper-sync"
+  },
+  "devDependencies": {
+    "watever": "file:../../watever"
+  }
+}
