@@ -1,3 +1,4 @@
 node_modules
 *.wat.js
 src/obsolete.js
+resources
