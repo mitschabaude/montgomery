@@ -20,6 +20,8 @@ export {
   modExp,
   add,
   subtract,
+  isZero,
+  equals,
   fieldToUint64Array,
   fieldFromUint64Array,
   fieldToMontgomeryPointer,
@@ -159,6 +161,13 @@ function equals(x, y) {
   let y_ = readField(y);
   for (let i = 0; i < 12; i++) {
     if (x_[i] !== y_[i]) return false;
+  }
+  return true;
+}
+function isZero(x) {
+  let x_ = readField(x);
+  for (let i = 0; i < 12; i++) {
+    if (x_[i] !== 0n) return false;
   }
   return true;
 }
@@ -385,6 +394,7 @@ function fieldToMontgomeryPointer(x) {
 function fieldFromMontgomeryPointer(x0) {
   let x1 = emptyField();
   multiply(x1, x0, field.legs.one);
+  reduceInPlace(x1);
   let x = fieldFromUint64Array(readField(x1));
   freeField(x1);
   return x;
