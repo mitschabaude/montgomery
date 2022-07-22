@@ -1,5 +1,6 @@
 export {
   multiply,
+  add,
   storeField,
   storeFieldIn,
   emptyField,
@@ -9,6 +10,7 @@ export {
 };
 
 declare function multiply(out: number, x: number, y: number): void;
+declare function add(out: number, x: number, y: number): void;
 declare function storeField(x: Field): number;
 declare function storeFieldIn(x: Field, pointer: number): void;
 declare function emptyField(): number;

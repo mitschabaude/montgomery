@@ -17,6 +17,12 @@ function bigintFromBytes(bytes) {
   return x;
 }
 
+/**
+ *
+ * @param {bigint} x
+ * @param {number | undefined} length
+ * @returns {Uint8Array}
+ */
 function bigintToBytes(x, length) {
   var bytes = [];
   for (; x > 0; x >>= 8n) {

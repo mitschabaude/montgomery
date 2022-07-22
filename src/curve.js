@@ -3,7 +3,6 @@
 // they point to 12 legs of 64 bit each which represent numbers moduly 2p, and only 32 bit of each leg is filled
 // multiply preserves those properties
 import {
-  add,
   field,
   fieldFromMontgomeryPointer,
   fieldToMontgomeryPointer,
@@ -16,6 +15,7 @@ import {
 } from "./finite-field.js";
 import {
   multiply,
+  add,
   freeField,
   emptyField,
   readField,
@@ -54,8 +54,8 @@ function randomCurvePoint() {
 
     // try computing square root to get y (works half the time, because half the field elements are squares)
     // console.log("sqrt", i);
-    modSqrt(y, ysquare);
-    if (y !== undefined) {
+    let yr = modSqrt(y, ysquare);
+    if (yr !== undefined) {
       break;
     } else {
       // if it didn't work, increase x by 1 and try again

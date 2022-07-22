@@ -14,12 +14,12 @@ export {
   randomBaseField,
   randomBaseFieldWasm,
   mod,
+  addJs,
   field,
   scalar,
   modSqrt,
   modInverseMontgomery,
   modExp,
-  add,
   subtract,
   isZero,
   equals,
@@ -60,6 +60,8 @@ let field = {
   R: 1n << 384n, // montgomery radix 2^k
   Rm1: (1n << 384n) - 1n, // for &ing
   k: 384n,
+  toWasm: fieldToMontgomeryPointer,
+  ofWasm: fieldFromMontgomeryPointer,
 };
 field = {
   ...field,
@@ -84,7 +86,7 @@ let Rminus2PLegs = fieldToUint64Array(field.R - 2n * field.p);
  * @param {number} x
  * @param {number} y
  */
-function add(result, x, y) {
+function addJs(result, x, y) {
   let x_ = readField(x);
   let y_ = readField(y);
   let t = new BigUint64Array(12);
@@ -92,7 +94,7 @@ function add(result, x, y) {
   for (let i = 0; i < 12; i++) {
     let tmp = x_[i] + y_[i] + carry;
     t[i] = tmp & 0xffffffffn;
-    carry = tmp >>= 32n;
+    carry = tmp >> 32n;
   }
   for (let i = 11; i >= 0; i--) {
     if (t[i] < twoPLegs[i]) {
@@ -107,7 +109,7 @@ function add(result, x, y) {
   for (let i = 0; i < 12; i++) {
     let tmp = t[i] - twoPLegs[i] - borrow + m;
     t[i] = tmp & 0xffffffffn;
-    borrow = 1n - (tmp >>= 32n);
+    borrow = 1n - (tmp >> 32n);
   }
   storeFieldIn(t, result);
 }
@@ -223,6 +225,10 @@ function randomScalars(n) {
   return scalars;
 }
 
+/**
+ *
+ * @returns {bigint}
+ */
 function randomBaseField() {
   while (true) {
     let bytes = randomBytes(48);
@@ -232,6 +238,10 @@ function randomBaseField() {
   }
 }
 
+/**
+ *
+ * @returns {number}
+ */
 function randomBaseFieldWasm() {
   return storeField(fieldToUint64Array(randomBaseField()));
 }

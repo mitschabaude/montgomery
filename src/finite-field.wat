@@ -12,6 +12,7 @@
 
   (export "multiplyWithReturn#lift" (func $multiplyWithReturn))
   (export "multiply" (func $multiply.381.12_leg))
+  (export "add" (func $add.381.12_leg))
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
@@ -25,18 +26,34 @@
   (global $p i32 (i32.const 0)) ;; 12 x i64 = 96 bytes
   (data (i32.const 0)
     ;; 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn
-    "\ab\aa\ff\ff\00\00\00\00" ;; ffffaaab
-    "\ff\ff\fe\b9\00\00\00\00" ;; b9feffff
-    "\ff\ff\53\b1\00\00\00\00" ;; b153ffff
-    "\fe\ff\ab\1e\00\00\00\00" ;; 1eabfffe
-    "\24\f6\b0\f6\00\00\00\00" ;; f6b0f624
-    "\a0\d2\30\67\00\00\00\00" ;; 6730d2a0
-    "\bf\12\85\f3\00\00\00\00" ;; f38512bf
-    "\84\4b\77\64\00\00\00\00" ;; 64774b84
-    "\d7\ac\4b\43\00\00\00\00" ;; 434bacd7
-    "\b6\a7\1b\4b\00\00\00\00" ;; 4b1ba7b6
-    "\9a\e6\7f\39\00\00\00\00" ;; 397fe69a
-    "\ea\11\01\1a\00\00\00\00" ;; 1a0111ea
+    "\ab\aa\ff\ff\00\00\00\00"
+    "\ff\ff\fe\b9\00\00\00\00"
+    "\ff\ff\53\b1\00\00\00\00"
+    "\fe\ff\ab\1e\00\00\00\00"
+    "\24\f6\b0\f6\00\00\00\00"
+    "\a0\d2\30\67\00\00\00\00"
+    "\bf\12\85\f3\00\00\00\00"
+    "\84\4b\77\64\00\00\00\00"
+    "\d7\ac\4b\43\00\00\00\00"
+    "\b6\a7\1b\4b\00\00\00\00"
+    "\9a\e6\7f\39\00\00\00\00"
+    "\ea\11\01\1a\00\00\00\00"
+  )
+  (global $p2 i32 (i32.const 96)) ;; 12 x i64 = 96 bytes
+  (data (i32.const 96)
+    ;; 0x340223d472ffcd3496374f6c869759aec8ee9709e70a257ece61a541ed61ec483d57fffd62a7ffff73fdffffffff5556
+    "\56\55\ff\ff\00\00\00\00"
+    "\ff\ff\fd\73\00\00\00\00"
+    "\ff\ff\a7\62\00\00\00\00"
+    "\fd\ff\57\3d\00\00\00\00"
+    "\48\ec\61\ed\00\00\00\00"
+    "\41\a5\61\ce\00\00\00\00"
+    "\7e\25\0a\e7\00\00\00\00"
+    "\09\97\ee\c8\00\00\00\00"
+    "\ae\59\97\86\00\00\00\00"
+    "\6c\4f\37\96\00\00\00\00"
+    "\34\cd\ff\72\00\00\00\00"
+    "\d4\23\02\34\00\00\00\00"
   )
 
   (global $mu i64 (i64.const 0x00000000fffcfffd)) ;; -p^(-1) mod 2^32
@@ -209,6 +226,83 @@
       (i32.add (local.get $xy) (local.get $i)) ;; xy[i] = 
       (i64.load (i32.add (local.get $t) (local.get $i))) ;; t[i]
       i64.store ;; xy[i] = t[i]
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+  )
+
+  (func $add.381.12_leg (param $out i32) (param $x i32) (param $y i32)
+    (local $i i32) (local $tmp i64) (local $carry i64) (local $p i64)
+
+    ;; let carry = 0n;
+    (local.set $carry (i64.const 0)) ;; let carry = 0n
+
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = x[i] + y[i] + carry;
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load (i32.add (local.get $y) (local.get $i))) ;; y[i]
+      local.get $carry ;; carry
+      i64.add ;; x[i] + y[i]
+      i64.add ;; x[i] + y[i] + carry
+      local.set $tmp ;; let tmp = x[i] + y[i] + carry
+      ;; out[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $out) (local.get $i)) ;; out[i]
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      i64.store ;; out[i] = tmp & 0xffffffffn
+      ;; carry = tmp >> 32n;
+      local.get $tmp
+      i64.const 32 ;; 32n
+      i64.shr_u ;; tmp >> 32n
+      local.set $carry ;; let carry = tmp >> 32n
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+    ;; }
+    ;; for (let i = 88; i >= 0; i-=8) {
+    (local.set $i (i32.const 88))
+    (loop
+      ;; if (t[i] < 2p[i]) return
+      (i64.load (i32.add (local.get $out) (local.get $i))) ;; out[i]
+      local.set $tmp
+      (i64.load (i32.add (global.get $p2) (local.get $i))) ;; 2p[i]
+      local.set $p
+      (i64.lt_u (local.get $tmp) (local.get $p))
+      if return end
+      ;; if (t[i] !== 2p[i]) break;
+      (br_if 0 (i32.and
+        (i64.eq (local.get $tmp) (local.get $p))
+        (i32.ne (i32.const -8)
+        (local.tee $i (i32.sub (local.get $i) (i32.const 8)))
+      )))
+    )
+    ;; if we're here, t >= 2p, so do t - 2p to get back in 0,..,2p-1
+    ;; let carry = 0n;
+    (local.set $carry (i64.const 0))
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = out[i] - 2p[i] - carry + 0x100000000n;
+      i64.const 0x100000000
+      (i64.load (i32.add (local.get $out) (local.get $i)))
+      i64.add
+      (i64.load (i32.add (global.get $p2) (local.get $i)))
+      i64.sub
+      local.get $carry
+      i64.sub
+      local.set $tmp
+      ;; out[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $out) (local.get $i))
+      (i64.and (local.get $tmp) (i64.const 0xffffffff))
+      i64.store
+      ;; carry = 1n - (tmp >> 32n);
+      i64.const 1
+      (i64.shr_u (local.get $tmp) (i64.const 32))
+      i64.sub
+      local.set $carry
       (br_if 0 (i32.ne (i32.const 96)
         (local.tee $i (i32.add (local.get $i) (i32.const 8)))
       ))
