@@ -17,6 +17,7 @@ export {
   field,
   scalar,
   modSqrt,
+  modInverseMontgomery,
   modExp,
   add,
   subtract,
@@ -143,6 +144,10 @@ function subtract(result, x, y) {
   storeFieldIn(t, result);
 }
 
+/**
+ *
+ * @param {number} x
+ */
 function reduceInPlace(x) {
   let x_ = readField(x);
   for (let i = 11; i >= 0; i--) {
@@ -160,6 +165,12 @@ function reduceInPlace(x) {
   storeFieldIn(x_, x);
 }
 
+/**
+ *
+ * @param {number} x
+ * @param {number} y
+ * @returns {boolean}
+ */
 function equals(x, y) {
   let x_ = readField(x);
   let y_ = readField(y);
@@ -168,6 +179,11 @@ function equals(x, y) {
   }
   return true;
 }
+/**
+ *
+ * @param {number} x
+ * @returns {boolean}
+ */
 function isZero(x) {
   let x_ = readField(x);
   for (let i = 0; i < 12; i++) {
@@ -220,6 +236,12 @@ function randomBaseFieldWasm() {
   return storeField(fieldToUint64Array(randomBaseField()));
 }
 
+/**
+ *
+ * @param {bigint} x
+ * @param {bigint} p
+ * @returns {bigint}
+ */
 function mod(x, p) {
   x = x % p;
   return x < 0n ? x + p : x;
@@ -261,6 +283,35 @@ function modExpMontgomery(x, a0, nBits) {
     multiply(a, a, a);
   }
   freeField(a);
+}
+
+/**
+ *
+ * @param {number} a0
+ * @returns {number} 1/a
+ */
+function modInverseMontgomery(a0) {
+  if (isZero(a0)) throw Error("cannot invert 0");
+  let a = fieldFromMontgomeryPointer(a0);
+  let b = field.p;
+  let x = 0n;
+  let y = 1n;
+  let u = 1n;
+  let v = 0n;
+  while (a !== 0n) {
+    let q = b / a;
+    let r = mod(b, a);
+    let m = x - u * q;
+    let n = y - v * q;
+    b = a;
+    a = r;
+    x = u;
+    y = v;
+    u = m;
+    v = n;
+  }
+  if (b !== 1n) throw Error("inverting failed (no inverse)");
+  return fieldToMontgomeryPointer(mod(x, field.p));
 }
 
 /**
@@ -390,11 +441,21 @@ function montgomeryMul12Leg(x, y, { legs: { p }, mu0 }) {
   return t;
 }
 
+/**
+ *
+ * @param {bigint} x
+ * @returns {number}
+ */
 function fieldToMontgomeryPointer(x) {
   let x0 = storeField(fieldToUint64Array(x));
   multiply(x0, x0, field.legs.R2mod);
   return x0;
 }
+/**
+ *
+ * @param {number} x0
+ * @returns {bigint}
+ */
 function fieldFromMontgomeryPointer(x0) {
   let x1 = emptyField();
   multiply(x1, x0, field.legs.one);

@@ -9,6 +9,7 @@ import {
   fieldToMontgomeryPointer,
   fieldToUint64Array,
   isZero,
+  modInverseMontgomery,
   modSqrt,
   randomBaseFieldWasm,
   scalar,
@@ -74,7 +75,9 @@ function randomCurvePoint() {
   // clear cofactor
   let minusZP = scaleProjective(scalar.asBits.minusZ, p); // -z*p
   addAssignProjective(p, minusZP); // p = p - z*p = -(z - 1) * p
-  let [x_, y_] = toPoint(p).toAffine();
+  let affineP = toAffine(p);
+  let x0 = fieldFromMontgomeryPointer(affineP.x);
+  let y0 = fieldFromMontgomeryPointer(affineP.y);
   // {
   //   let p0 = new PointG1(new Fp(x0), new Fp(y0));
   //   let minusZP0 = scaleProjectiveJs(scalar.minusZ, p0); // -z*p
@@ -85,19 +88,25 @@ function randomCurvePoint() {
   //     throw Error("not equal");
   //   }
   // }
-  // {
-  //   let point = new PointG1(new Fp(x0), new Fp(y0));
-  //   let reduced = point.clearCofactor();
-  //   let [x__, y__] = reduced.toAffine();
-  //   if (x__.value !== x_.value) {
-  //     console.log(x__.value === x_.value, y__.value === y_.value);
-  //     throw Error("not equal");
-  //   }
-  // }
 
   freePoint(minusZP);
   freePoint(p);
-  return [bigintToBytes(x_.value, 48), bigintToBytes(y_.value, 48), false];
+  return [bigintToBytes(x0, 48), bigintToBytes(y0, 48), false];
+}
+
+/**
+ *
+ * @param {{x: number, y: number, z:number}} point projective representation
+ * @return {{x: number, y: number}} affine representation
+ */
+function toAffine({ x, y, z }) {
+  // return x/z, y/z
+  let zinv = modInverseMontgomery(z);
+  let x0 = emptyField();
+  let y0 = emptyField();
+  multiply(x0, x, zinv);
+  multiply(y0, y, zinv);
+  return { x: x0, y: y0 };
 }
 
 /**
