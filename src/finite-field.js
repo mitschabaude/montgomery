@@ -15,6 +15,7 @@ export {
   randomScalars,
   randomBaseField,
   randomBaseFieldWasm,
+  randomBaseFieldInto,
   mod,
   addJs,
   field,
@@ -248,6 +249,14 @@ function randomBaseField() {
  */
 function randomBaseFieldWasm() {
   return storeField(fieldToUint64Array(randomBaseField()));
+}
+
+/**
+ * @param {number} x
+ * @returns {number}
+ */
+function randomBaseFieldInto(x) {
+  storeFieldIn(fieldToUint64Array(randomBaseField()), x);
 }
 
 /**

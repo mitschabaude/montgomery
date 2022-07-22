@@ -6,8 +6,11 @@ import {
   field,
   fieldFromMontgomeryPointer,
   fieldToMontgomeryPointer,
+  fieldToUint64Array,
   modInverseMontgomery,
   modSqrt,
+  randomBaseField,
+  randomBaseFieldInto,
   randomBaseFieldWasm,
   scalar,
 } from "./finite-field.js";
@@ -60,11 +63,14 @@ function randomCurvePoints(n) {
  * @param {number[]} scratchSpace
  * @returns {[Uint8Array, Uint8Array, boolean]}
  */
-function randomCurvePoint(scratchSpace) {
+function randomCurvePoint([x, y, ...scratchSpace]) {
   let { Rmod: one } = field.legs;
-  let x = randomBaseFieldWasm();
+  // randomBaseFieldInto(x);
+  // let x = randomBaseFieldWasm();
+  // let x = storeField(fieldToUint64Array(randomBaseField()));
+  storeFieldIn(fieldToUint64Array(randomBaseField()), x);
+  // let y = emptyField();
   let four = field.legs.four;
-  let y = emptyField();
   let [ysquare] = scratchSpace;
 
   // let i = 0;
@@ -86,8 +92,9 @@ function randomCurvePoint(scratchSpace) {
       // i++;
     }
   }
-
-  let p = { x, y, z: fieldToMontgomeryPointer(1n) };
+  // storeFieldIn(one, z);
+  let z = fieldToMontgomeryPointer(1n);
+  let p = { x, y, z };
   // clear cofactor
   let minusZP = scaleProjective(scratchSpace, scalar.asBits.minusZ, p); // -z*p
   addAssignProjective(scratchSpace, p, minusZP); // p = p - z*p = -(z - 1) * p
@@ -95,7 +102,9 @@ function randomCurvePoint(scratchSpace) {
   let x0 = fieldFromMontgomeryPointer(affineP.x);
   let y0 = fieldFromMontgomeryPointer(affineP.y);
   freePoint(minusZP);
-  freePoint(p);
+  // freeField(x);
+  // freeField(y);
+  freeField(z);
   freePoint(affineP);
   reset();
   return [bigintToBytes(x0, 48), bigintToBytes(y0, 48), false];
