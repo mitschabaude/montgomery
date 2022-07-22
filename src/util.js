@@ -76,8 +76,8 @@ function uint8ArrayToBigUint64(x8) {
  * @return {boolean[]}
  */
 function bigintToBits(x, bitLength) {
-  let bits = Array(bitLength);
-  for (let i = 0; i < bitLength; i++) {
+  let bits = Array(bitLength ?? 0);
+  for (let i = 0; bitLength ? i < bitLength : x > 0n; i++) {
     bits[i] = !!Number(x & 1n);
     x >>= 1n;
   }

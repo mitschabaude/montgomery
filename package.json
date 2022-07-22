@@ -17,6 +17,7 @@
     "watever-js-wrapper-sync": "file:../../watever/watever-js-wrapper-sync"
   },
   "devDependencies": {
+    "eslint": "^8.20.0",
     "watever": "file:../../watever"
   }
 }

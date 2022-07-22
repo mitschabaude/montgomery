@@ -1,13 +1,12 @@
 import { randomBytes } from "./builtin-crypto.js";
 import { bigintFromBytes, bigintToBits } from "./util.js";
 import {
-  multiply as multiplyWasm,
+  multiply,
   readField,
   storeField,
   storeFieldIn,
   freeField,
   emptyField,
-  reset,
 } from "./finite-field.wat.js";
 
 export {
@@ -16,6 +15,7 @@ export {
   randomBaseFieldWasm,
   mod,
   field,
+  scalar,
   modSqrt,
   modExp,
   add,
@@ -28,19 +28,23 @@ export {
   fieldFromMontgomeryPointer,
 };
 
-function multiply(...args) {
-  multiplyWasm(...args);
-  reset();
-}
+// function multiply(...args) {
+//   multiplyWasm(...args);
+//   reset();
+// }
 
 let scalar = {
   p: 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n,
+  minusZ: 0xd201000000010000n,
   bits: 255,
   bytes: 32,
   // montgomery stuff
   R: 1n << 256n, // montgomery radix 2^k
   Rm1: (1n << 256n) - 1n, // for &ing
   k: 256n,
+  asBits: {
+    minusZ: bigintToBits(0xd201000000010000n),
+  },
 };
 scalar.mu = modInverse(-scalar.p, scalar.R);
 scalar.mu0 = modInverse(-scalar.p, 1n << 32n);
