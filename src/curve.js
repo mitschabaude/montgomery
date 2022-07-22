@@ -20,24 +20,47 @@ import {
   emptyField,
   readField,
   storeField,
+  storeFieldIn,
+  reset,
 } from "./finite-field.wat.js";
 import { bigintToBytes } from "./util.js";
 
 export { randomCurvePoints, doubleInPlaceProjective, addAssignProjective };
 
+/**
+ * @typedef {{x: number; y: number; z: number}} Point
+ */
+
+const curve = {
+  zero: {
+    x: fieldToMontgomeryPointer(1n),
+    y: fieldToMontgomeryPointer(1n),
+    z: fieldToMontgomeryPointer(0n),
+  },
+};
+
+function getScratchSpace(n) {
+  let space = [];
+  for (let i = 0; i < n; i++) {
+    space.push(emptyField());
+  }
+  return space;
+}
+
 function randomCurvePoints(n) {
+  let scratchSpace = getScratchSpace(20);
   let points = Array(n);
   for (let i = 0; i < n; i++) {
-    points[i] = randomCurvePoint();
+    points[i] = randomCurvePoint(scratchSpace);
   }
   return points;
 }
 
 /**
- *
+ * @param {number[]} scratchSpace
  * @returns {[Uint8Array, Uint8Array, boolean]}
  */
-function randomCurvePoint() {
+function randomCurvePoint(scratchSpace) {
   let { Rmod: one } = field.legs;
   let x = randomBaseFieldWasm();
   let four = fieldToMontgomeryPointer(4n);
@@ -68,8 +91,8 @@ function randomCurvePoint() {
 
   let p = { x, y, z: fieldToMontgomeryPointer(1n) };
   // clear cofactor
-  let minusZP = scaleProjective(scalar.asBits.minusZ, p); // -z*p
-  addAssignProjective(p, minusZP); // p = p - z*p = -(z - 1) * p
+  let minusZP = scaleProjective(scratchSpace, scalar.asBits.minusZ, p); // -z*p
+  addAssignProjective(scratchSpace, p, minusZP); // p = p - z*p = -(z - 1) * p
   let affineP = toAffine(p);
   let x0 = fieldFromMontgomeryPointer(affineP.x);
   let y0 = fieldFromMontgomeryPointer(affineP.y);
@@ -81,7 +104,7 @@ function randomCurvePoint() {
 
 /**
  *
- * @param {{x: number, y: number, z:number}} point projective representation
+ * @param {Point} point projective representation
  * @return {{x: number, y: number}} affine representation
  */
 function toAffine({ x, y, z }) {
@@ -95,23 +118,27 @@ function toAffine({ x, y, z }) {
 }
 
 /**
+ * @param {number[]} scratchSpace
  * @param {boolean[]} scalar
- * @param {{x: number, y: number, z:number}} point
+ * @param {Point} point
  * @param {{ inPlace?: boolean }?}
- * @return {{x: number, y: number, z:number}} scalar * point
+ * @return {Point} scalar * point
  */
-function scaleProjective(scalar, point, { inPlace = false } = {}) {
-  let result = {
-    x: fieldToMontgomeryPointer(1n),
-    y: fieldToMontgomeryPointer(1n),
-    z: fieldToMontgomeryPointer(0n),
-  };
+function scaleProjective(
+  scratchSpace,
+  scalar,
+  point,
+  { inPlace = false } = {}
+) {
+  /** @type {Point} */
+  let result = copyPoint(curve.zero);
   if (!inPlace) point = copyPoint(point);
   for (let bit of scalar) {
     if (bit) {
-      addAssignProjective(result, point);
+      addAssignProjective(scratchSpace, result, point);
     }
-    doubleInPlaceProjective(point);
+    doubleInPlaceProjective(scratchSpace, point);
+    reset();
   }
   if (inPlace) {
     freePoint(point);
@@ -125,37 +152,32 @@ function scaleProjective(scalar, point, { inPlace = false } = {}) {
 
 /**
  * point *= 2
- * @param {{x: number, y: number, z:number}} point
+ * @param {number[]} scratchSpace
+ * @param {Point} point
  */
-function doubleInPlaceProjective({ x, y, z }) {
+function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z }) {
   if (isZero(z)) {
     // console.log("double: z is zero");
     return;
   }
-  let eight = fieldToMontgomeryPointer(8n);
+  let eight = field.legs.eight;
   // const W = x.multiply(x).multiply(3n);
-  let W = emptyField();
-  let S = emptyField();
   multiply(W, x, x);
   add(S, W, W);
   add(W, S, W);
   // const S = y.multiply(z);
   multiply(S, y, z);
   // const SS = S.multiply(S);
-  let SS = emptyField();
   multiply(SS, S, S);
   // const SSS = SS.multiply(S);
-  let SSS = emptyField();
   multiply(SSS, SS, S);
   // const B = x.multiply(y).multiply(S);
-  let B = emptyField();
   multiply(B, x, y);
   multiply(B, B, S);
   let fourB = B;
   add(B, B, B);
   add(fourB, B, B);
   // const H = W.multiply(W).subtract(B.multiply(8n));
-  let H = emptyField();
   multiply(H, W, W);
   subtract(H, H, fourB);
   subtract(H, H, fourB);
@@ -175,30 +197,28 @@ function doubleInPlaceProjective({ x, y, z }) {
   subtract(y, WtimesFourBminusH, y);
   // const Z3 = SSS.multiply(8n);
   multiply(z, SSS, eight);
-  freeField(S);
-  freeField(SS);
-  freeField(SSS);
-  freeField(W);
-  freeField(H);
-  freeField(B);
-  freeField(eight);
 }
 
 /**
  * p1 += p2
- * @param {{x: number, y: number, z:number}} p1
- * @param {{x: number, y: number, z:number}} p2
+ * @param {number[]} scratchSpace
+ * @param {Point} p1
+ * @param {Point} p2
  */
-function addAssignProjective(point, { x: x2, y: y2, z: z2 }) {
+function addAssignProjective(
+  [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a],
+  p1,
+  { x: x2, y: y2, z: z2 }
+) {
   // if (p1.isZero()) return p2;
   // if (p2.isZero()) return p1;
-  let { x: x1, y: y1, z: z1 } = point;
+  let { x: x1, y: y1, z: z1 } = p1;
   if (isZero(z1)) {
     // console.log("add: z1 is zero");
     let newPoint = copyPoint({ x: x2, y: y2, z: z2 });
-    point.x = newPoint.x;
-    point.y = newPoint.y;
-    point.z = newPoint.z;
+    p1.x = newPoint.x;
+    p1.y = newPoint.y;
+    p1.z = newPoint.z;
     return;
   }
   if (isZero(z2)) {
@@ -209,23 +229,12 @@ function addAssignProjective(point, { x: x2, y: y2, z: z2 }) {
   // const U2 = Y1.multiply(Z2);
   // const V1 = X2.multiply(Z1);
   // const V2 = X1.multiply(Z2);
-  let u1 = emptyField();
-  let u2 = emptyField();
-  let v1 = emptyField();
-  let v2 = emptyField();
   multiply(u1, y2, z1);
   multiply(u2, y1, z2);
   multiply(v1, x2, z1);
   multiply(v2, x1, z2);
   // if (V1.equals(V2) && U1.equals(U2)) return this.double();
   // if (V1.equals(V2)) return this.getZero();
-  let u = emptyField();
-  let v = emptyField();
-  let vv = emptyField();
-  let vvv = emptyField();
-  let v2vv = emptyField();
-  let w = emptyField();
-  let a = emptyField();
   // const U = U1.subtract(U2);
   subtract(u, u1, u2);
   // const V = V1.subtract(V2);
@@ -253,17 +262,6 @@ function addAssignProjective(point, { x: x2, y: y2, z: z2 }) {
   multiply(vvv, vvv, u2);
   multiply(y1, u, v2vv);
   subtract(y1, y1, vvv);
-  freeField(v);
-  freeField(w);
-  freeField(u);
-  freeField(u1);
-  freeField(u2);
-  freeField(v1);
-  freeField(v2);
-  freeField(vv);
-  freeField(vvv);
-  freeField(v2vv);
-  freeField(a);
 }
 
 /**
@@ -282,4 +280,17 @@ function copyPoint({ x, y, z }) {
     y: storeField(readField(y)),
     z: storeField(readField(z)),
   };
+}
+
+/**
+ *
+ * @param {Point} p
+ * @param {Point} q
+ * @return {Point}
+ */
+function copyPointInto(p, q) {
+  storeFieldIn(q.x, p.x);
+  storeFieldIn(q.y, p.y);
+  storeFieldIn(q.z, p.z);
+  return p;
 }

@@ -14,6 +14,7 @@
   (export "multiply" (func $multiply.381.12_leg))
   (export "add" (func $add.381.12_leg))
   (export "subtract" (func $subtract.381.12_leg))
+  (export "equals" (func $equals.381.12_leg))
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
@@ -389,6 +390,21 @@
         (local.tee $i (i32.add (local.get $i) (i32.const 8)))
       ))
     )
+  )
+
+  (func $equals.381.12_leg (param $x i32) (param $y i32) (result i32)
+    (local $i i32)
+    (local.set $i (i32.const 0))
+    (loop
+      (i64.load (i32.add (local.get $x) (local.get $i)))
+      (i64.load (i32.add (local.get $y) (local.get $i)))
+      i64.ne
+      if (return (i32.const 0)) end
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+    (i32.const 1)
   )
 
   (func $alloc_zero (param $length i32) (result i32)

@@ -7,6 +7,7 @@ import {
   storeFieldIn,
   freeField,
   emptyField,
+  equals,
 } from "./finite-field.wat.js";
 
 export {
@@ -22,7 +23,7 @@ export {
   modExp,
   subtractJs,
   isZero,
-  equals,
+  equalsJs,
   fieldToUint64Array,
   fieldFromUint64Array,
   fieldToMontgomeryPointer,
@@ -75,6 +76,7 @@ field.legs = {
   R2mod: storeField(fieldToUint64Array(field.R2mod)),
   one: storeField(fieldToUint64Array(1n)),
 };
+field.legs.eight = fieldToMontgomeryPointer(8n);
 
 let pLegs = fieldToUint64Array(field.p);
 let twoPLegs = fieldToUint64Array(2n * field.p);
@@ -173,7 +175,7 @@ function reduceInPlace(x) {
  * @param {number} y
  * @returns {boolean}
  */
-function equals(x, y) {
+function equalsJs(x, y) {
   let x_ = readField(x);
   let y_ = readField(y);
   for (let i = 0; i < 12; i++) {
