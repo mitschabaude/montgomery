@@ -67,9 +67,6 @@ function randomCurvePoint() {
   }
   freeField(ysquare);
   freeField(four);
-  // return { x, y };
-  // let x0 = fieldFromMontgomeryPointer(x);
-  // let y0 = fieldFromMontgomeryPointer(y);
 
   let p = { x, y, z: fieldToMontgomeryPointer(1n) };
   // clear cofactor
@@ -78,19 +75,9 @@ function randomCurvePoint() {
   let affineP = toAffine(p);
   let x0 = fieldFromMontgomeryPointer(affineP.x);
   let y0 = fieldFromMontgomeryPointer(affineP.y);
-  // {
-  //   let p0 = new PointG1(new Fp(x0), new Fp(y0));
-  //   let minusZP0 = scaleProjectiveJs(scalar.minusZ, p0); // -z*p
-  //   p0 = addProjectiveJs(p0, minusZP0);
-  //   let [x__, y__] = p0.toAffine();
-  //   if (x__.value !== x_.value) {
-  //     console.log(x__.value === x_.value, y__.value === y_.value);
-  //     throw Error("not equal");
-  //   }
-  // }
-
   freePoint(minusZP);
   freePoint(p);
+  freePoint(affineP);
   return [bigintToBytes(x0, 48), bigintToBytes(y0, 48), false];
 }
 
@@ -318,10 +305,14 @@ function addAssignProjective(point, { x: x2, y: y2, z: z2 }) {
   freeField(a);
 }
 
+/**
+ *
+ * @param {{x: number, y: number: z?:number}} point
+ */
 function freePoint({ x, y, z }) {
   freeField(x);
   freeField(y);
-  freeField(z);
+  if (z !== undefined) freeField(z);
 }
 
 function addProjectiveJs(p1, p2) {
