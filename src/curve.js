@@ -7,7 +7,6 @@ import {
   field,
   fieldFromMontgomeryPointer,
   fieldToMontgomeryPointer,
-  fieldToUint64Array,
   isZero,
   modInverseMontgomery,
   modSqrt,
@@ -15,7 +14,6 @@ import {
   scalar,
   subtract,
 } from "./finite-field.js";
-import { PointG1, Fp } from "@noble/bls12-381";
 import {
   multiply,
   freeField,
@@ -103,27 +101,17 @@ function toAffine({ x, y, z }) {
  * @return {{x: number, y: number, z:number}} scalar * point
  */
 function scaleProjective(scalar, point, { inPlace = false } = {}) {
-  // console.log("scale");
   let result = {
     x: fieldToMontgomeryPointer(1n),
     y: fieldToMontgomeryPointer(1n),
     z: fieldToMontgomeryPointer(0n),
   };
   if (!inPlace) point = copyPoint(point);
-  // printPoint(point);
   for (let bit of scalar) {
     if (bit) {
-      // console.log("adding");
-      // printPoint(result);
-      // printPoint(point);
       addAssignProjective(result, point);
-      // console.log("added point, printing");
-      // console.log("add result");
-      // printPoint(result);
     }
     doubleInPlaceProjective(point);
-    // console.log("doubled point, printing");
-    // printPoint(point);
   }
   if (inPlace) {
     freePoint(point);
@@ -133,33 +121,6 @@ function scaleProjective(scalar, point, { inPlace = false } = {}) {
     return;
   }
   return result;
-}
-
-/**
- *
- * @param {bigint} scalar
- * @param {PointG1} point
- * @returns {PointG1}
- */
-function scaleProjectiveJs(scalar, self) {
-  // console.log("scale js");
-  // let self = new PointG1(new Fp(input.x), new Fp(input.y), new Fp(input.z));
-  let n = self.validateScalar(scalar);
-  let point = self.getZero();
-  while (n > 0n) {
-    if (n & 1n) {
-      // console.log("adding");
-      // console.log({ x: point.x.value, y: point.y.value, z: point.z.value });
-      // console.log({ x: self.x.value, y: self.y.value, z: self.z.value });
-      point = point.add(self);
-      // console.log("add result");
-      // console.log({ x: point.x.value, y: point.y.value, z: point.z.value });
-    }
-    self = self.double();
-    n >>= 1n;
-  }
-  return point;
-  // return { x: point.x.value, y: point.y.value, z: point.z.value };
 }
 
 /**
@@ -315,65 +276,6 @@ function freePoint({ x, y, z }) {
   if (z !== undefined) freeField(z);
 }
 
-function addProjectiveJs(p1, p2) {
-  if (p1.isZero()) return p2;
-  if (p2.isZero()) return p1;
-  const X1 = p1.x;
-  const Y1 = p1.y;
-  const Z1 = p1.z;
-  const X2 = p2.x;
-  const Y2 = p2.y;
-  const Z2 = p2.z;
-  const U1 = Y2.multiply(Z1);
-  const U2 = Y1.multiply(Z2);
-  const V1 = X2.multiply(Z1);
-  const V2 = X1.multiply(Z2);
-  if (V1.equals(V2) && U1.equals(U2)) return p1.double();
-  if (V1.equals(V2)) return p1.getZero();
-  const U = U1.subtract(U2);
-  const V = V1.subtract(V2);
-  const VV = V.multiply(V);
-  const VVV = VV.multiply(V);
-  const V2VV = V2.multiply(VV);
-  const W = Z1.multiply(Z2);
-  const A = U.multiply(U).multiply(W).subtract(VVV).subtract(V2VV.multiply(2n));
-  const X3 = V.multiply(A);
-  const Y3 = U.multiply(V2VV.subtract(A)).subtract(VVV.multiply(U2));
-  const Z3 = VVV.multiply(W);
-  return p1.createPoint(X3, Y3, Z3);
-}
-
-function doubleProjectiveJs(point) {
-  let { x, y, z } = point;
-  const W = x.multiply(x).multiply(3n);
-  const S = y.multiply(z);
-  const SS = S.multiply(S);
-  const SSS = SS.multiply(S);
-  const B = x.multiply(y).multiply(S);
-  const H = W.multiply(W).subtract(B.multiply(8n));
-  const X3 = H.multiply(S).multiply(2n);
-  const Y3 = W.multiply(B.multiply(4n).subtract(H)).subtract(
-    y.multiply(y).multiply(8n).multiply(SS)
-  );
-  const Z3 = SSS.multiply(8n);
-  return point.createPoint(X3, Y3, Z3);
-}
-
-function toPoint({ x, y, z }) {
-  let x_ = fieldFromMontgomeryPointer(x);
-  let y_ = fieldFromMontgomeryPointer(y);
-  let z_ = z && fieldFromMontgomeryPointer(z);
-  return new PointG1(new Fp(x_), new Fp(y_), z_ && new Fp(z_));
-}
-
-function printPoint({ x, y, z }) {
-  console.log({
-    x: fieldFromMontgomeryPointer(x),
-    y: fieldFromMontgomeryPointer(y),
-    z: fieldFromMontgomeryPointer(z),
-  });
-}
-
 function copyPoint({ x, y, z }) {
   return {
     x: storeField(readField(x)),
@@ -381,42 +283,3 @@ function copyPoint({ x, y, z }) {
     z: storeField(readField(z)),
   };
 }
-
-// let p1 = {
-//   x: fieldToMontgomeryPointer(
-//     3315806368351782560278590083144565489746652636015433566067515073165026418777027645535904290309330490296584060284716n
-//   ),
-//   y: fieldToMontgomeryPointer(
-//     349182933258078050259523157531466844960159206018635835051506352504740558686861817108828677592491126707070689617765n
-//   ),
-//   z: fieldToMontgomeryPointer(
-//     2014259652617979319916491378628470402653466229654159696878746685217991800191041685122234338927930520199423341284592n
-//   ),
-// };
-// let p2 = {
-//   x: fieldToMontgomeryPointer(
-//     746770582125826314230378982614477579559793821614404877924462323898093038599304955366687092961300889405196899156130n
-//   ),
-//   y: fieldToMontgomeryPointer(
-//     965977510762565992007486797440735290892871732043763389194610852935542606391431307697342429659456484618131624743023n
-//   ),
-//   z: fieldToMontgomeryPointer(
-//     2758577146807377746763397813752322139350195052447095567436437933957387506941327577817487190479897820041011691969267n
-//   ),
-// };
-
-// let point1 = addProjectiveJs(toPoint(p1), toPoint(p2));
-// // console.log(readField(p1.x), readField(p1.y));
-// addAssignProjective(p1, p2);
-// console.log({
-//   x: fieldFromMontgomeryPointer(p1.x) === point1.x.value,
-//   y: fieldFromMontgomeryPointer(p1.y) === point1.y.value,
-//   z: fieldFromMontgomeryPointer(p1.z) === point1.z.value,
-// });
-// point1 = doubleProjectiveJs(toPoint(p1));
-// doubleInPlaceProjective(p1);
-// console.log({
-//   x: fieldFromMontgomeryPointer(p1.x) === point1.x.value,
-//   y: fieldFromMontgomeryPointer(p1.y) === point1.y.value,
-//   z: fieldFromMontgomeryPointer(p1.z) === point1.z.value,
-// });

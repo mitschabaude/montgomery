@@ -11,10 +11,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@noble/bls12-381": "^1.2.0",
-    "wabt": "^1.0.24",
-    "watever-js-wrapper": "file:../../watever/watever-js-wrapper",
-    "watever-js-wrapper-sync": "file:../../watever/watever-js-wrapper-sync"
+    "watever-js-wrapper": "file:../../watever/watever-js-wrapper"
   },
   "devDependencies": {
     "eslint": "^8.20.0",
