@@ -13,6 +13,7 @@
   (export "multiplyWithReturn#lift" (func $multiplyWithReturn))
   (export "multiply" (func $multiply.381.12_leg))
   (export "add" (func $add.381.12_leg))
+  (export "subtract" (func $subtract.381.12_leg))
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
@@ -54,6 +55,22 @@
     "\6c\4f\37\96\00\00\00\00"
     "\34\cd\ff\72\00\00\00\00"
     "\d4\23\02\34\00\00\00\00"
+  )
+  (global $rm2p i32 (i32.const 192)) ;; 12 x i64 = 96 bytes
+  (data (i32.const 192)
+    ;; 0xcbfddc2b8d0032cb69c8b0937968a651371168f618f5da81319e5abe129e13b7c2a800029d5800008c0200000000aaaa
+    "\aa\aa\00\00\00\00\00\00"
+    "\00\00\02\8c\00\00\00\00"
+    "\00\00\58\9d\00\00\00\00"
+    "\02\00\a8\c2\00\00\00\00"
+    "\b7\13\9e\12\00\00\00\00"
+    "\be\5a\9e\31\00\00\00\00"
+    "\81\da\f5\18\00\00\00\00"
+    "\f6\68\11\37\00\00\00\00"
+    "\51\a6\68\79\00\00\00\00"
+    "\93\b0\c8\69\00\00\00\00"
+    "\cb\32\00\8d\00\00\00\00"
+    "\2b\dc\fd\cb\00\00\00\00"
   )
 
   (global $mu i64 (i64.const 0x00000000fffcfffd)) ;; -p^(-1) mod 2^32
@@ -303,6 +320,71 @@
       (i64.shr_u (local.get $tmp) (i64.const 32))
       i64.sub
       local.set $carry
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+  )
+
+  (func $subtract.381.12_leg (param $out i32) (param $x i32) (param $y i32)
+    (local $i i32) (local $tmp i64) (local $borrow i64) (local $p i64)
+
+    ;; let borrow = 0n;
+    (local.set $borrow (i64.const 0))
+
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = 2**32 + x[i] - y[i] - borrow;
+      i64.const 0x100000000 ;; 2**32
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      i64.add ;; 2**32 + x[i]
+      (i64.load (i32.add (local.get $y) (local.get $i))) ;; y[i]
+      i64.sub ;; 2**32 + x[i] - y[i]
+      local.get $borrow ;; borrow
+      i64.sub ;; 2**32 + x[i] - y[i] - borrow
+      local.set $tmp ;; let tmp = 2**32 + x[i] - y[i] - borrow
+      ;; out[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $out) (local.get $i)) ;; out[i]
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      i64.store ;; out[i] = tmp & 0xffffffffn
+      ;; borrow = 1 - (tmp >> 32n);
+      i64.const 1
+      (i64.shr_u (local.get $tmp) (i64.const 32))
+      i64.sub
+      local.set $borrow
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+    ;; if (borrow === 0) return
+    (local.get $borrow) (i64.const 0) i64.eq
+    if return end
+    ;; if we're here, y > x and out = x - y + R, while we want x - y + 2p
+    ;; so do (out - (R - 2p))
+    ;; let borrow = 0n;
+    (local.set $borrow (i64.const 0))
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = 2**32 + out[i] - rm2p[i] - borrow;
+      i64.const 0x100000000
+      (i64.load (i32.add (local.get $out) (local.get $i)))
+      i64.add
+      (i64.load (i32.add (global.get $rm2p) (local.get $i)))
+      i64.sub
+      local.get $borrow
+      i64.sub
+      local.set $tmp
+      ;; out[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $out) (local.get $i))
+      (i64.and (local.get $tmp) (i64.const 0xffffffff))
+      i64.store
+      ;; borrow = 1n - (tmp >> 32n);
+      i64.const 1
+      (i64.shr_u (local.get $tmp) (i64.const 32))
+      i64.sub
+      local.set $borrow
       (br_if 0 (i32.ne (i32.const 96)
         (local.tee $i (i32.add (local.get $i) (i32.const 8)))
       ))

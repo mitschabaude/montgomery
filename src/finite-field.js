@@ -20,7 +20,7 @@ export {
   modSqrt,
   modInverseMontgomery,
   modExp,
-  subtract,
+  subtractJs,
   isZero,
   equals,
   fieldToUint64Array,
@@ -120,7 +120,7 @@ function addJs(result, x, y) {
  * @param {number} x
  * @param {number} y
  */
-function subtract(result, x, y) {
+function subtractJs(result, x, y) {
   let x_ = readField(x);
   let y_ = readField(y);
   let t = new BigUint64Array(12);

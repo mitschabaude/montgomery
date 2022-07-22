@@ -11,11 +11,11 @@ import {
   modSqrt,
   randomBaseFieldWasm,
   scalar,
-  subtract,
 } from "./finite-field.js";
 import {
   multiply,
   add,
+  subtract,
   freeField,
   emptyField,
   readField,

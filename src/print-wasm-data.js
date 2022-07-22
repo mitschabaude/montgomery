@@ -20,8 +20,11 @@ function printBigintAs12Legs(x0) {
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
+let R = 1n << 384n;
 
 console.log("p");
 console.log(printBigintAs12Legs(p));
 console.log("2p");
 console.log(printBigintAs12Legs(2n * p));
+console.log("R - 2p");
+console.log(printBigintAs12Legs(R - 2n * p));
