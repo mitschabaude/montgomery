@@ -2,6 +2,7 @@ import { randomBytes } from "./builtin-crypto.js";
 import { bigintFromBytes, bigintToBits } from "./util.js";
 import {
   multiply,
+  isZero,
   readField,
   storeField,
   storeFieldIn,
@@ -22,7 +23,7 @@ export {
   modInverseMontgomery,
   modExp,
   subtractJs,
-  isZero,
+  isZeroJs,
   equalsJs,
   fieldToUint64Array,
   fieldFromUint64Array,
@@ -76,6 +77,7 @@ field.legs = {
   R2mod: storeField(fieldToUint64Array(field.R2mod)),
   one: storeField(fieldToUint64Array(1n)),
 };
+field.legs.four = fieldToMontgomeryPointer(4n);
 field.legs.eight = fieldToMontgomeryPointer(8n);
 
 let pLegs = fieldToUint64Array(field.p);
@@ -188,7 +190,7 @@ function equalsJs(x, y) {
  * @param {number} x
  * @returns {boolean}
  */
-function isZero(x) {
+function isZeroJs(x) {
   let x_ = readField(x);
   for (let i = 0; i < 12; i++) {
     if (x_[i] !== 0n) return false;

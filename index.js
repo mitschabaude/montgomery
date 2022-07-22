@@ -6,7 +6,7 @@ import {
 import { randomScalars } from "./src/finite-field.js";
 import { randomCurvePoints } from "./src/curve.js";
 
-let n = 8;
+let n = 10;
 
 let t0 = performance.now();
 const _pointVec = new PointVectorInput(2 ** n);

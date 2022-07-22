@@ -6,7 +6,6 @@ import {
   field,
   fieldFromMontgomeryPointer,
   fieldToMontgomeryPointer,
-  isZero,
   modInverseMontgomery,
   modSqrt,
   randomBaseFieldWasm,
@@ -16,6 +15,7 @@ import {
   multiply,
   add,
   subtract,
+  isZero,
   freeField,
   emptyField,
   readField,
@@ -63,9 +63,9 @@ function randomCurvePoints(n) {
 function randomCurvePoint(scratchSpace) {
   let { Rmod: one } = field.legs;
   let x = randomBaseFieldWasm();
-  let four = fieldToMontgomeryPointer(4n);
-  let ysquare = emptyField();
+  let four = field.legs.four;
   let y = emptyField();
+  let [ysquare] = scratchSpace;
 
   // let i = 0;
   while (true) {
@@ -86,8 +86,6 @@ function randomCurvePoint(scratchSpace) {
       // i++;
     }
   }
-  freeField(ysquare);
-  freeField(four);
 
   let p = { x, y, z: fieldToMontgomeryPointer(1n) };
   // clear cofactor
@@ -99,6 +97,7 @@ function randomCurvePoint(scratchSpace) {
   freePoint(minusZP);
   freePoint(p);
   freePoint(affineP);
+  reset();
   return [bigintToBytes(x0, 48), bigintToBytes(y0, 48), false];
 }
 
@@ -138,7 +137,6 @@ function scaleProjective(
       addAssignProjective(scratchSpace, result, point);
     }
     doubleInPlaceProjective(scratchSpace, point);
-    reset();
   }
   if (inPlace) {
     freePoint(point);
