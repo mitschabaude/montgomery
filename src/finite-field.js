@@ -3,13 +3,11 @@ import { bigintFromBytes, bigintToBits } from "./util.js";
 import {
   multiply,
   isZero,
-  readField,
   storeField,
   storeFieldIn,
-  freeField,
-  emptyField,
   equals,
 } from "./finite-field.wat.js";
+import { readField, writeFieldInto } from "./wasm.js";
 
 export {
   randomScalars,
@@ -31,11 +29,6 @@ export {
   fieldToMontgomeryPointer,
   fieldFromMontgomeryPointer,
 };
-
-// function multiply(...args) {
-//   multiplyWasm(...args);
-//   reset();
-// }
 
 let scalar = {
   p: 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n,
@@ -167,9 +160,11 @@ function reduceInPlace(x) {
   for (let i = 0; i < 12; i++) {
     let tmp = x_[i] - pLegs[i] - borrow + m;
     x_[i] = tmp & 0xffffffffn;
-    borrow = 1n - (tmp >>= 32n);
+    borrow = 1n - (tmp >> 32n);
   }
+  // TODO!! offset must be multiple pf 8
   storeFieldIn(x_, x);
+  // writeFieldInto(x, x_);
 }
 
 /**
@@ -272,50 +267,50 @@ function mod(x, p) {
 
 let fieldPlus1Div4 = bigintToBits((field.p + 1n) / 4n, field.bits);
 
-function modSqrt(root, x) {
-  // let root0 = modExp(fieldFromMontgomeryPointer(x), (field.p + 1n) / 4n, field);
-  modExpMontgomery(root, x, fieldPlus1Div4);
-  // if (root0 !== fieldFromMontgomeryPointer(root)) throw Error("not equal");
-
-  let tmp = emptyField();
+/**
+ *
+ * @param {number[]} scratchSpace
+ * @param {number} root
+ * @param {number} x
+ * @returns boolean indicating whether taking the root was successful
+ */
+function modSqrt([tmp], root, x) {
+  // let root0 = modExp(fieldFromMontgomeryPointer([tmp], x), (field.p + 1n) / 4n, field);
+  modExpMontgomery([tmp], root, x, fieldPlus1Div4);
+  // if (root0 !== fieldFromMontgomeryPointer([tmp], root)) throw Error("not equal");
   multiply(tmp, root, root);
   reduceInPlace(tmp);
   reduceInPlace(x);
   if (!equals(tmp, x)) {
-    freeField(tmp);
-    return;
+    return false;
   }
-  freeField(tmp);
-  return root;
+  return true;
 }
 
 /**
- *
+ * @param {number[]} scratchSpace
+ * @param {number} x a^n
  * @param {number} a
  * @param {boolean[]} nBits
- * @returns {number} x
  */
-function modExpMontgomery(x, a0, nBits) {
+function modExpMontgomery([a], x, a0, nBits) {
   let { Rmod } = field.legs;
-  storeFieldIn(readField(Rmod), x); // 1R
-  let a = storeField(readField(a0));
+  storeFieldIn(Rmod, x); // 1R
+  storeFieldIn(a0, a);
   for (let bit of nBits) {
-    if (bit) {
-      multiply(x, x, a);
-    }
+    if (bit) multiply(x, x, a);
     multiply(a, a, a);
   }
-  freeField(a);
 }
 
 /**
  *
+ * @param {number} ainv
  * @param {number} a0
- * @returns {number} 1/a
  */
-function modInverseMontgomery(a0) {
+function modInverseMontgomery(ainv, a0) {
   if (isZero(a0)) throw Error("cannot invert 0");
-  let a = fieldFromMontgomeryPointer(a0);
+  let a = fieldFromMontgomeryPointer([ainv], a0);
   let b = field.p;
   let x = 0n;
   let y = 1n;
@@ -334,36 +329,7 @@ function modInverseMontgomery(a0) {
     v = n;
   }
   if (b !== 1n) throw Error("inverting failed (no inverse)");
-  return fieldToMontgomeryPointer(mod(x, field.p));
-}
-
-/**
- *
- * @param {bigint} a0
- * @param {boolean[]} nBits
- * @param {any} field
- * @returns {bigint}
- */
-function modExpMontgomery_(a0, nBits, field) {
-  let { p } = field;
-  let { Rmod, R2mod, one } = field.legs;
-  a0 = mod(a0, p);
-  let a = storeField(fieldToUint64Array(a0));
-  multiply(a, a, R2mod); // aR
-  let x = storeField(readField(Rmod)); // 1R
-  for (let bit of nBits) {
-    if (bit) {
-      multiply(x, x, a);
-    }
-    multiply(a, a, a);
-  }
-  // now x = a^n*R mod p -> convert back to a^n mod p
-  multiply(x, x, one);
-  let x0 = fieldFromUint64Array(readField(x));
-  freeField(x);
-  freeField(a);
-  if (x0 >= p) x0 = x0 - p;
-  return x0;
+  fieldToMontgomeryPointer(mod(x, field.p), ainv);
 }
 
 function modExp(a, n, { p }) {
@@ -467,27 +433,37 @@ function montgomeryMul12Leg(x, y, { legs: { p }, mu0 }) {
 /**
  *
  * @param {bigint} x
+ * @param {number?} pointer
  * @returns {number}
  */
-function fieldToMontgomeryPointer(x) {
-  let x0 = storeField(fieldToUint64Array(x));
-  multiply(x0, x0, field.legs.R2mod);
-  return x0;
+function fieldToMontgomeryPointer(x, pointer) {
+  let xArray = fieldToUint64Array(x);
+  if (pointer) {
+    writeFieldInto(pointer, xArray);
+  } else {
+    pointer = storeField(xArray);
+  }
+  multiply(pointer, pointer, field.legs.R2mod);
+  return pointer;
 }
 /**
  *
- * @param {number} x0
+ * @param {number[]} scratchSpace
+ * @param {number} pointer
  * @returns {bigint}
  */
-function fieldFromMontgomeryPointer(x0) {
-  let x1 = emptyField();
-  multiply(x1, x0, field.legs.one);
-  reduceInPlace(x1);
-  let x = fieldFromUint64Array(readField(x1));
-  freeField(x1);
+function fieldFromMontgomeryPointer([tmp], pointer) {
+  multiply(tmp, pointer, field.legs.one);
+  reduceInPlace(tmp);
+  let x = fieldFromUint64Array(readField(tmp));
   return x;
 }
 
+/**
+ *
+ * @param {bigint} x
+ * @returns
+ */
 function fieldToUint64Array(x) {
   let arr = new BigUint64Array(12);
   for (let i = 0; i < 12; i++, x >>= 32n) {
@@ -496,6 +472,11 @@ function fieldToUint64Array(x) {
   return arr;
 }
 
+/**
+ *
+ * @param {BigUint64Array} arr
+ * @returns
+ */
 function fieldFromUint64Array(arr) {
   let x = 0n;
   let bitPosition = 0n;

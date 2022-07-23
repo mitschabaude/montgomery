@@ -10,8 +10,6 @@ import {
   modInverseMontgomery,
   modSqrt,
   randomBaseField,
-  randomBaseFieldInto,
-  randomBaseFieldWasm,
   scalar,
 } from "./finite-field.js";
 import {
@@ -19,19 +17,18 @@ import {
   add,
   subtract,
   isZero,
-  freeField,
   emptyField,
-  readField,
   storeField,
   storeFieldIn,
-  reset,
 } from "./finite-field.wat.js";
+import { readField, writeFieldInto } from "./wasm.js";
 import { bigintToBytes } from "./util.js";
 
 export { randomCurvePoints, doubleInPlaceProjective, addAssignProjective };
 
 /**
  * @typedef {{x: number; y: number; z: number}} Point
+ * @typedef {{x: number; y: number}} AffinePoint
  */
 
 const curve = {
@@ -51,7 +48,7 @@ function getScratchSpace(n) {
 }
 
 function randomCurvePoints(n) {
-  let scratchSpace = getScratchSpace(20);
+  let scratchSpace = getScratchSpace(32);
   let points = Array(n);
   for (let i = 0; i < n; i++) {
     points[i] = randomCurvePoint(scratchSpace);
@@ -63,14 +60,9 @@ function randomCurvePoints(n) {
  * @param {number[]} scratchSpace
  * @returns {[Uint8Array, Uint8Array, boolean]}
  */
-function randomCurvePoint([x, y, ...scratchSpace]) {
-  let { Rmod: one } = field.legs;
-  // randomBaseFieldInto(x);
-  // let x = randomBaseFieldWasm();
-  // let x = storeField(fieldToUint64Array(randomBaseField()));
-  storeFieldIn(fieldToUint64Array(randomBaseField()), x);
-  // let y = emptyField();
-  let four = field.legs.four;
+function randomCurvePoint([x, y, z, ...scratchSpace]) {
+  let { Rmod: one, four } = field.legs;
+  writeFieldInto(x, fieldToUint64Array(randomBaseField()));
   let [ysquare] = scratchSpace;
 
   // let i = 0;
@@ -83,8 +75,8 @@ function randomCurvePoint([x, y, ...scratchSpace]) {
 
     // try computing square root to get y (works half the time, because half the field elements are squares)
     // console.log("sqrt", i);
-    let yr = modSqrt(y, ysquare);
-    if (yr !== undefined) {
+    let isRoot = modSqrt(scratchSpace, y, ysquare);
+    if (isRoot) {
       break;
     } else {
       // if it didn't work, increase x by 1 and try again
@@ -92,69 +84,46 @@ function randomCurvePoint([x, y, ...scratchSpace]) {
       // i++;
     }
   }
-  // storeFieldIn(one, z);
-  let z = fieldToMontgomeryPointer(1n);
+  storeFieldIn(one, z);
   let p = { x, y, z };
+  let minusZP = takePoint(scratchSpace);
   // clear cofactor
-  let minusZP = scaleProjective(scratchSpace, scalar.asBits.minusZ, p); // -z*p
+  scaleProjective(scratchSpace, minusZP, scalar.asBits.minusZ, p); // -z*p
   addAssignProjective(scratchSpace, p, minusZP); // p = p - z*p = -(z - 1) * p
-  let affineP = toAffine(p);
-  let x0 = fieldFromMontgomeryPointer(affineP.x);
-  let y0 = fieldFromMontgomeryPointer(affineP.y);
-  freePoint(minusZP);
-  // freeField(x);
-  // freeField(y);
-  freeField(z);
-  freePoint(affineP);
-  reset();
+  let affineP = takeAffinePoint(scratchSpace);
+  toAffine(scratchSpace, affineP, p);
+  let x0 = fieldFromMontgomeryPointer(scratchSpace, affineP.x);
+  let y0 = fieldFromMontgomeryPointer(scratchSpace, affineP.y);
   return [bigintToBytes(x0, 48), bigintToBytes(y0, 48), false];
 }
 
 /**
- *
+ * @param {number[]} scratchSpace
+ * @param {AffinePoint} affine affine representation
  * @param {Point} point projective representation
- * @return {{x: number, y: number}} affine representation
  */
-function toAffine({ x, y, z }) {
+function toAffine([zinv], { x: x0, y: y0 }, { x, y, z }) {
   // return x/z, y/z
-  let zinv = modInverseMontgomery(z);
-  let x0 = emptyField();
-  let y0 = emptyField();
+  modInverseMontgomery(zinv, z);
   multiply(x0, x, zinv);
   multiply(y0, y, zinv);
-  return { x: x0, y: y0 };
 }
 
 /**
  * @param {number[]} scratchSpace
+ * @param {Point} result
  * @param {boolean[]} scalar
  * @param {Point} point
- * @param {{ inPlace?: boolean }?}
- * @return {Point} scalar * point
  */
-function scaleProjective(
-  scratchSpace,
-  scalar,
-  point,
-  { inPlace = false } = {}
-) {
-  /** @type {Point} */
-  let result = copyPoint(curve.zero);
-  if (!inPlace) point = copyPoint(point);
+function scaleProjective([x, y, z, ...scratchSpace], result, scalar, point) {
+  writePointInto(result, curve.zero);
+  point = writePointInto({ x, y, z }, point);
   for (let bit of scalar) {
     if (bit) {
       addAssignProjective(scratchSpace, result, point);
     }
     doubleInPlaceProjective(scratchSpace, point);
   }
-  if (inPlace) {
-    freePoint(point);
-    point.x = result.x;
-    point.y = result.y;
-    point.z = result.z;
-    return;
-  }
-  return result;
 }
 
 /**
@@ -271,16 +240,6 @@ function addAssignProjective(
   subtract(y1, y1, vvv);
 }
 
-/**
- *
- * @param {{x: number, y: number: z?:number}} point
- */
-function freePoint({ x, y, z }) {
-  freeField(x);
-  freeField(y);
-  if (z !== undefined) freeField(z);
-}
-
 function copyPoint({ x, y, z }) {
   return {
     x: storeField(readField(x)),
@@ -288,16 +247,33 @@ function copyPoint({ x, y, z }) {
     z: storeField(readField(z)),
   };
 }
+/**
+ *
+ * @param {Point} targetPoint
+ * @param {Point} point
+ */
+function writePointInto(targetPoint, point) {
+  storeFieldIn(point.x, targetPoint.x);
+  storeFieldIn(point.y, targetPoint.y);
+  storeFieldIn(point.z, targetPoint.z);
+  return targetPoint;
+}
 
 /**
  *
- * @param {Point} p
- * @param {Point} q
- * @return {Point}
+ * @param {number[]} scratchSpace
+ * @returns
  */
-function copyPointInto(p, q) {
-  storeFieldIn(q.x, p.x);
-  storeFieldIn(q.y, p.y);
-  storeFieldIn(q.z, p.z);
-  return p;
+function takePoint(scratchSpace) {
+  let [x, y, z] = scratchSpace.splice(0, 3);
+  return { x, y, z };
+}
+/**
+ *
+ * @param {number[]} scratchSpace
+ * @returns
+ */
+function takeAffinePoint(scratchSpace) {
+  let [x, y] = scratchSpace.splice(0, 2);
+  return { x, y };
 }

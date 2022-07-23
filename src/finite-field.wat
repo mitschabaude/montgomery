@@ -19,7 +19,6 @@
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
-  (export "readField#lift" (func $readField))
   (export "freeField" (func $freeField))
 
   ;; note: wasm is LITTLE-ENDIAN (least significant byte first),
@@ -107,9 +106,6 @@
     local.tee $x
     call $keep
     local.get $x
-  )
-  (func $readField (param $x i32) (result i32)
-    (call $lift_bytes (local.get $x))
   )
   (func $freeField (param $x i32)
     (call $free (local.get $x))
