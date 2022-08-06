@@ -18,10 +18,9 @@ import {
   subtract,
   isZero,
   emptyField,
-  storeField,
   storeFieldIn,
 } from "./finite-field.wat.js";
-import { readField, writeFieldInto } from "./wasm.js";
+import { writeFieldInto } from "./wasm.js";
 import { bigintToBytes } from "./util.js";
 
 export {
