@@ -19,6 +19,7 @@ export {
   modSqrt,
   modInverseMontgomery,
   modExp,
+  modInverse,
   fieldToUint64Array,
   fieldFromUint64Array,
   fieldToMontgomeryPointer,

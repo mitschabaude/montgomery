@@ -5,7 +5,13 @@ import {
   storeFieldIn,
   subtract,
 } from "./src/finite-field.wat.js";
-import { field, mod, randomBaseField } from "./src/finite-field.js";
+import {
+  field,
+  mod,
+  modInverse,
+  modInverseMontgomery,
+  randomBaseField,
+} from "./src/finite-field.js";
 import { getScratchSpace } from "./src/curve.js";
 
 let { p, toWasm, ofWasm } = field;
@@ -42,6 +48,15 @@ function test() {
   reduceInPlace(z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("reduceInPlace");
+
+  // inverse
+  z0 = modInverse(x0, p);
+  modInverseMontgomery(z, x);
+  z1 = ofWasm(scratch, z);
+  if (z0 !== z1) throw Error("inverse");
+  multiply(z, z, x);
+  z1 = ofWasm(scratch, z);
+  if (z1 !== 1n) throw Error("inverse");
 }
 
 for (let i = 0; i < 20; i++) {
