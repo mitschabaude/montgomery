@@ -24,7 +24,12 @@ import {
 import { readField, writeFieldInto } from "./wasm.js";
 import { bigintToBytes } from "./util.js";
 
-export { randomCurvePoints, doubleInPlaceProjective, addAssignProjective };
+export {
+  randomCurvePoints,
+  doubleInPlaceProjective,
+  addAssignProjective,
+  getScratchSpace,
+};
 
 /**
  * @typedef {{x: number; y: number; z: number}} Point
