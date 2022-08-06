@@ -162,9 +162,7 @@ function reduceInPlace(x) {
     x_[i] = tmp & 0xffffffffn;
     borrow = 1n - (tmp >> 32n);
   }
-  // TODO!! offset must be multiple pf 8
-  storeFieldIn(x_, x);
-  // writeFieldInto(x, x_);
+  writeFieldInto(x, x_);
 }
 
 /**

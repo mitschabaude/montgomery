@@ -195,15 +195,10 @@ function addAssignProjective(
   // if (p2.isZero()) return p1;
   let { x: x1, y: y1, z: z1 } = p1;
   if (isZero(z1)) {
-    // console.log("add: z1 is zero");
-    let newPoint = copyPoint({ x: x2, y: y2, z: z2 });
-    p1.x = newPoint.x;
-    p1.y = newPoint.y;
-    p1.z = newPoint.z;
+    writePointInto(p1, { x: x2, y: y2, z: z2 });
     return;
   }
   if (isZero(z2)) {
-    // console.log("add: z2 is zero");
     return;
   }
   // const U1 = Y2.multiply(Z1);
@@ -245,13 +240,6 @@ function addAssignProjective(
   subtract(y1, y1, vvv);
 }
 
-function copyPoint({ x, y, z }) {
-  return {
-    x: storeField(readField(x)),
-    y: storeField(readField(y)),
-    z: storeField(readField(z)),
-  };
-}
 /**
  *
  * @param {Point} targetPoint
