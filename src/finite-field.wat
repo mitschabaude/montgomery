@@ -14,6 +14,7 @@
   (export "multiply" (func $multiply.381.12_leg))
   (export "add" (func $add.381.12_leg))
   (export "subtract" (func $subtract.381.12_leg))
+  (export "reduceInPlace" (func $reduce.381.12_leg))
   (export "equals" (func $equals.381.12_leg))
   (export "isZero" (func $isZero.381.12_leg))
   (export "storeField" (func $storeField))
@@ -379,6 +380,59 @@
       (i64.and (local.get $tmp) (i64.const 0xffffffff))
       i64.store
       ;; borrow = 1n - (tmp >> 32n);
+      i64.const 1
+      (i64.shr_u (local.get $tmp) (i64.const 32))
+      i64.sub
+      local.set $borrow
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+  )
+
+  ;; takes x, 0 <= x < 2p, and modifies it in-place ensuring 0 <= x < p
+  ;; pseudo-code:
+  ;; if (x < p) return;
+  ;; x -= p;
+  (func $reduce.381.12_leg (param $x i32)
+  (local $i i32) (local $tmp i64) (local $borrow i64) (local $p i64)
+    ;; for (let i = 88; i >= 0; i-=8) {
+    (local.set $i (i32.const 88))
+    (loop
+      ;; load x[i], p[i] into local variables
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      local.set $tmp
+      (i64.load (i32.add (global.get $p) (local.get $i))) ;; p[i]
+      local.set $p
+      ;; if (x[i] < p[i]) return
+      (i64.lt_u (local.get $tmp) (local.get $p))
+      if return end
+      ;; if (x[i] === p[i] && (i -= 8) !== -8) continue;
+      (br_if 0 (i32.and
+        (i64.eq (local.get $tmp) (local.get $p))
+        (i32.ne (i32.const -8)
+        (local.tee $i (i32.sub (local.get $i) (i32.const 8)))
+      )))
+    )
+    ;; if we're here, x >= p. since we assume x < 2p, we do x - p to reduce
+    (local.set $borrow (i64.const 0))
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = x[i] - p[i] - borrow + 0x100000000n;
+      i64.const 0x100000000
+      (i64.load (i32.add (local.get $x) (local.get $i)))
+      i64.add
+      (i64.load (i32.add (global.get $p) (local.get $i)))
+      i64.sub
+      local.get $borrow
+      i64.sub
+      local.set $tmp
+      ;; x[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $x) (local.get $i))
+      (i64.and (local.get $tmp) (i64.const 0xffffffff))
+      i64.store
+      ;; carry = 1n - (tmp >> 32n);
       i64.const 1
       (i64.shr_u (local.get $tmp) (i64.const 32))
       i64.sub

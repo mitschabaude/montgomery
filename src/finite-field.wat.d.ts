@@ -2,6 +2,7 @@ export {
   multiply,
   add,
   subtract,
+  reduceInPlace,
   equals,
   storeField,
   storeFieldIn,
@@ -17,6 +18,7 @@ declare let memory: WebAssembly.Memory;
 function multiply(out: number, x: number, y: number): void;
 function add(out: number, x: number, y: number): void;
 function subtract(out: number, x: number, y: number): void;
+function reduceInPlace(x: number): void;
 function equals(x: number, y: number): boolean;
 function storeField(x: Field): number;
 function storeFieldIn(x: Field | number, pointer: number): void;

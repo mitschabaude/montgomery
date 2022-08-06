@@ -6,6 +6,7 @@ import {
   storeField,
   storeFieldIn,
   equals,
+  reduceInPlace,
 } from "./finite-field.wat.js";
 import { readField, writeFieldInto } from "./wasm.js";
 
@@ -148,7 +149,7 @@ function subtractJs(result, x, y) {
  *
  * @param {number} x
  */
-function reduceInPlace(x) {
+function reduceInPlaceJs(x) {
   let x_ = readField(x);
   for (let i = 11; i >= 0; i--) {
     if (x_[i] < pLegs[i]) return;
