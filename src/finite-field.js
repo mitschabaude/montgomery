@@ -7,6 +7,8 @@ import {
   storeFieldIn,
   equals,
   reduceInPlace,
+  subtract,
+  add,
 } from "./finite-field.wat.js";
 import { readField, writeFieldInto } from "./wasm.js";
 
@@ -20,6 +22,8 @@ export {
   modInverseMontgomery,
   modExp,
   modInverse,
+  rightShiftInPlace,
+  leftShiftInPlace,
   fieldToUint64Array,
   fieldFromUint64Array,
   fieldToMontgomeryPointer,
@@ -73,6 +77,8 @@ field.legs = {
   Rmod: storeField(fieldToUint64Array(field.Rmod)),
   R2mod: storeField(fieldToUint64Array(field.R2mod)),
   one: storeField(fieldToUint64Array(1n)),
+  zero: storeField(fieldToUint64Array(0n)),
+  p: storeField(fieldToUint64Array(p)),
 };
 field.legs.four = fieldToMontgomeryPointer(4n);
 field.legs.eight = fieldToMontgomeryPointer(8n);
@@ -164,10 +170,11 @@ function modExpMontgomery([a], x, a0, nBits) {
 
 /**
  *
+ * @param {number[]} scratchSpace
  * @param {number} ainv
  * @param {number} a0
  */
-function modInverseMontgomery(ainv, a0) {
+function modInverseMontgomery_(scratchSpace, ainv, a0) {
   if (isZero(a0)) throw Error("cannot invert 0");
   let a = fieldFromMontgomeryPointer([ainv], a0);
   let b = field.p;
@@ -189,6 +196,189 @@ function modInverseMontgomery(ainv, a0) {
   }
   if (b !== 1n) throw Error("inverting failed (no inverse)");
   fieldToMontgomeryPointer(mod(x, field.p), ainv);
+}
+
+/**
+ *
+ * @param {number[]} scratchSpace
+ * @param {number} ainv
+ * @param {number} a0
+ */
+function modInverseMontgomery(scratchSpace, r, a) {
+  if (isZero(a)) throw Error("cannot invert 0");
+  reduceInPlace(a);
+  let k = almostInverseMontgomery(scratchSpace, r, a);
+  // TODO: negation -- special case which is simpler
+  reduceInPlace(r);
+  console.log(fieldFromUint64Array(readField(r)) < p);
+  subtractNoReduce(r, field.legs.p, r);
+  // console.log(readField(r));
+
+  let k1 = (k + (k & 1)) / 2;
+  let k2 = k - k1;
+  console.log(k1 + k2 === k);
+
+  let [t, r1] = scratchSpace;
+  multiply(t, a, r);
+  // console.log(readField(t));
+  multiply(t, t, field.legs.R2mod);
+  // console.log(readField(t));
+
+  writeFieldInto(r1, fieldToUint64Array(mod(1n << BigInt(k1), field.p)));
+  multiply(t, t, r1);
+  // console.log(readField(t));
+  writeFieldInto(r1, fieldToUint64Array(mod(1n << BigInt(k2), field.p)));
+  multiply(t, t, r1);
+  console.log(readField(t));
+  let result = fieldFromUint64Array(readField(t));
+  let l = result.toString(2).length - 1;
+  console.log(result === 1n << BigInt(l), l < 381);
+  console.log(l, k1, k2, k - l, k + l);
+  let lower = 384 - 3;
+  let upper = 2 * 384 - 4;
+  console.log({ lower, k, upper });
+
+  // TODO: efficient creation of power of 2
+  // or efficient multiplication with power of 2?
+  writeFieldInto(r1, fieldToUint64Array(1n << (field.k - BigInt(k1) + 2n)));
+  multiply(r, r, r1);
+  if (k1 !== k2)
+    writeFieldInto(r1, fieldToUint64Array(1n << (field.k - BigInt(k2) + 2n)));
+  multiply(r, r, r1);
+  writeFieldInto(r1, fieldToUint64Array(1n << (field.k - 4n)));
+  multiply(r, r, r1);
+}
+
+// TODO: addNoReduce, subNoReduce
+function almostInverseMontgomery([u, v, s], r, a) {
+  let a0 = fieldFromUint64Array(readField(a));
+  // u = p, v = a, r = 0, s = 1
+  writeFieldInto(u, pLegs);
+  storeFieldIn(a, v);
+  storeFieldIn(field.legs.zero, r);
+  storeFieldIn(field.legs.one, s);
+  let k = 0;
+  for (; !isZero(v); ) {
+    if (isEven(u)) {
+      rightShiftInPlace(u);
+      leftShiftInPlace(s);
+    } else if (isEven(v)) {
+      rightShiftInPlace(v);
+      leftShiftInPlace(r);
+    } else if (greaterThan(u, v)) {
+      subtractNoReduce(u, u, v);
+      rightShiftInPlace(u);
+      addNoReduce(r, r, s);
+      leftShiftInPlace(s);
+    } else {
+      subtractNoReduce(v, v, u);
+      rightShiftInPlace(v);
+      addNoReduce(s, r, s);
+      leftShiftInPlace(r);
+    }
+    k++;
+    let u0 = fieldFromUint64Array(readField(u));
+    let v0 = fieldFromUint64Array(readField(v));
+    let r0 = fieldFromUint64Array(readField(r));
+    let s0 = fieldFromUint64Array(readField(s));
+    if (u0 * s0 + v0 * r0 !== p) throw Error("invariant violated 1");
+    if (mod(a0 * r0, p) !== mod(-u0 * (1n << BigInt(k)), p)) {
+      throw Error("invariant violated 2");
+    }
+    if (mod(a0 * s0, p) !== mod(v0 * (1n << BigInt(k)), p)) {
+      throw Error("invariant violated 3");
+    }
+  }
+  return k;
+}
+
+/**
+ *
+ * @param {number} x
+ * @param {number} k
+ */
+function rightShiftInPlace(x, k = 1) {
+  if (k !== 1) throw Error("unimplemented");
+  let xarr = readField(x);
+  let carry = 0n;
+  let tmp;
+  for (let i = 11; i >= 0; i--) {
+    tmp = carry;
+    carry = xarr[i] & 1n;
+    xarr[i] = (xarr[i] >> 1n) | (tmp << 31n);
+  }
+  writeFieldInto(x, xarr);
+}
+/**
+ *
+ * @param {number} x
+ * @param {number} k
+ */
+function leftShiftInPlace(x, k = 1) {
+  if (k !== 1) throw Error("unimplemented");
+  let xarr = readField(x);
+  let carry = 0n;
+  let tmp;
+  for (let i = 0; i < 12; i++) {
+    tmp = carry;
+    carry = (xarr[i] & 0x80000000n) >> 31n;
+    xarr[i] = ((xarr[i] << 1n) & 0xffffffffn) | tmp;
+  }
+  writeFieldInto(x, xarr);
+}
+
+function isEven(x) {
+  return (readField(x)[0] & 1n) === 0n;
+}
+function greaterThan(x, y) {
+  let xarr = readField(x);
+  let yarr = readField(y);
+  for (let i = 11; i >= 0; i--) {
+    if (xarr[i] > yarr[i]) return true;
+    if (xarr[i] < yarr[i]) break;
+  }
+  return false;
+}
+
+/**
+ * addition; reduces by -2p if result > 2p
+ * @param {number} result where we store x + y
+ * @param {number} x
+ * @param {number} y
+ */
+function addNoReduce(result, x, y) {
+  let x_ = readField(x);
+  let y_ = readField(y);
+  let t = new BigUint64Array(12);
+  let carry = 0n;
+  for (let i = 0; i < 12; i++) {
+    let tmp = x_[i] + y_[i] + carry;
+    t[i] = tmp & 0xffffffffn;
+    carry = tmp >> 32n;
+  }
+  if (carry !== 0n) throw Error("aaaa");
+  writeFieldInto(result, t);
+}
+
+/**
+ * subtraction; adds +2p if result < 0
+ * @param {number} result where we store x - y
+ * @param {number} x
+ * @param {number} y
+ */
+function subtractNoReduce(result, x, y) {
+  let x_ = readField(x);
+  let y_ = readField(y);
+  let t = new BigUint64Array(12);
+  let borrow = 0n;
+  let m = 0x100000000n;
+  for (let i = 0; i < 12; i++) {
+    let tmp = x_[i] - y_[i] - borrow + m;
+    t[i] = tmp & 0xffffffffn;
+    borrow = 1n - (tmp >> 32n);
+  }
+  if (borrow !== 0n) throw Error("aaaa");
+  writeFieldInto(result, t);
 }
 
 function modExp(a, n, { p }) {

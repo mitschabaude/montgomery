@@ -7,12 +7,16 @@ import {
 } from "./src/finite-field.wat.js";
 import {
   field,
+  fieldFromUint64Array,
+  leftShiftInPlace,
   mod,
   modInverse,
   modInverseMontgomery,
   randomBaseField,
+  rightShiftInPlace,
 } from "./src/finite-field.js";
 import { getScratchSpace } from "./src/curve.js";
+import { readField } from "./src/wasm.js";
 
 let { p, toWasm, ofWasm } = field;
 
@@ -51,12 +55,28 @@ function test() {
 
   // inverse
   z0 = modInverse(x0, p);
-  modInverseMontgomery(z, x);
+  modInverseMontgomery(scratch, z, x);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("inverse");
   multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");
+
+  // right shift
+  storeFieldIn(x, z);
+  z0 = fieldFromUint64Array(readField(z));
+  rightShiftInPlace(z);
+  z0 >>= 1n;
+  z1 = fieldFromUint64Array(readField(z));
+  if (z0 !== z1) throw Error("rightShiftInPlace");
+
+  // left shift
+  storeFieldIn(x, z);
+  z0 = fieldFromUint64Array(readField(z));
+  leftShiftInPlace(z);
+  z0 <<= 1n;
+  z1 = fieldFromUint64Array(readField(z));
+  if (z0 !== z1) throw Error("leftShiftInPlace");
 }
 
 for (let i = 0; i < 20; i++) {

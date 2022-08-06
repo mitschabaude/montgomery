@@ -106,9 +106,9 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
  * @param {AffinePoint} affine affine representation
  * @param {Point} point projective representation
  */
-function toAffine([zinv], { x: x0, y: y0 }, { x, y, z }) {
+function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
   // return x/z, y/z
-  modInverseMontgomery(zinv, z);
+  modInverseMontgomery(scratchSpace, zinv, z);
   multiply(x0, x, zinv);
   multiply(y0, y, zinv);
 }
