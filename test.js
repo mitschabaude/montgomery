@@ -1,11 +1,10 @@
-import { add, multiply, subtract } from "./finite-field.wat.js";
-import { field, mod, randomBaseField } from "./finite-field.js";
-import { getScratchSpace } from "./curve.js";
+import { add, multiply, subtract } from "./src/finite-field.wat.js";
+import { field, mod, randomBaseField } from "./src/finite-field.js";
+import { getScratchSpace } from "./src/curve.js";
 
 let { p, toWasm, ofWasm } = field;
 
 let [x, y, z, ...scratch] = getScratchSpace(10);
-console.log(x, y, z, scratch);
 
 let x0 = randomBaseField() + randomBaseField();
 let y0 = randomBaseField() + randomBaseField();
