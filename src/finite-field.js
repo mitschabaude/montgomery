@@ -9,6 +9,7 @@ import {
   reduceInPlace,
   subtract,
   add,
+  isGreater,
 } from "./finite-field.wat.js";
 import { readField, writeFieldInto } from "./wasm.js";
 
@@ -80,6 +81,7 @@ field.legs = {
   zero: storeField(fieldToUint64Array(0n)),
   p: storeField(fieldToUint64Array(p)),
   R2mod64: storeField(fieldToUint64Array(mod(field.R2mod * 64n, p))),
+  R2mod128: storeField(fieldToUint64Array(mod(field.R2mod * 128n, p))),
 };
 field.legs.four = fieldToMontgomeryPointer(4n);
 field.legs.eight = fieldToMontgomeryPointer(8n);
@@ -210,18 +212,23 @@ function modInverseMontgomery(scratchSpace, r, a) {
   reduceInPlace(a);
   let k = almostInverseMontgomery(scratchSpace, r, a);
   // TODO: negation -- special case which is simpler
-  reduceInPlace(r);
+  // don't have to reduce r here, because it's already < p
+  // reduceInPlace(r);
   subtractNoReduce(r, field.legs.p, r);
 
   // mutliply by 2**(2n - k), where n = 381 = bit length of p
   // TODO: efficient multiplication by power-of-2?
+  // we use k+1 here because that's the valuethe theory is about:
+  // n <= k+1 <= 2n, so that 0 <= 2n-(k+1) <= n, so that
+  // 1 <= 2**(2n-(k+1)) <= 2**n < 2p
+  // (in practice, k seems to be normally distributed around ~1.5n and never reach either n or 2n)
+  let l = 2 * 381 - (k + 1);
   let [r1] = scratchSpace;
-  let l = 2 * 381 - k;
   let r1_ = new BigUint64Array(12);
   r1_[l >> 5] = 1n << BigInt(l % 32);
   writeFieldInto(r1, r1_);
   multiply(r, r, r1);
-  multiply(r, r, field.legs.R2mod64);
+  multiply(r, r, field.legs.R2mod128);
   // let a0 = fieldFromUint64Array(readField(a));
   // let r0 = fieldFromUint64Array(readField(r));
   // console.log(
@@ -230,6 +237,10 @@ function modInverseMontgomery(scratchSpace, r, a) {
   // );
 }
 
+// this is modified from the algorithms in papers in that it
+// * returns k-1 instead of k
+// * returns r < p without unconditionally
+// * allows to batch left- / right-shifts
 function almostInverseMontgomery([u, v, s], r, a) {
   // u = p, v = a, r = 0, s = 1
   writeFieldInto(u, pLegs);
@@ -256,11 +267,11 @@ function almostInverseMontgomery([u, v, s], r, a) {
       addNoReduce(s, r, s);
     }
   }
-  // TODO: I don't understand why this works without r << 1 another time at the end
+  // TODO: this works without r << 1 another time at the end because k is 1 lower
   return k;
 }
 
-function almostInverseMontgomery_([u, v, s], r, a) {
+function almostInverseMontgomeryOriginal([u, v, s], r, a) {
   // u = p, v = a, r = 0, s = 1
   writeFieldInto(u, pLegs);
   storeFieldIn(a, v);
@@ -340,7 +351,7 @@ function leftShiftInPlace(x, k = 1) {
 function isEven(x) {
   return (readField(x)[0] & 1n) === 0n;
 }
-function isGreater(x, y) {
+function isGreaterJs(x, y) {
   let xarr = readField(x);
   let yarr = readField(y);
   for (let i = 11; i >= 0; i--) {

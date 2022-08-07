@@ -17,6 +17,7 @@
   (export "reduceInPlace" (func $reduce.381.12_leg))
   (export "equals" (func $equals.381.12_leg))
   (export "isZero" (func $isZero.381.12_leg))
+  (export "isGreater" (func $isGreater.381.12_leg))
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
@@ -471,6 +472,25 @@
       ))
     )
     (i32.const 1)
+  )
+
+  (func $isGreater.381.12_leg (param $x i32) (param $y i32) (result i32)
+    (local $i i32) (local $xi i64) (local $yi i64)
+    (local.set $i (i32.const 88))
+    (loop
+      (i64.load (i32.add (local.get $x) (local.get $i)))
+      local.set $xi
+      (i64.load (i32.add (local.get $y) (local.get $i)))
+      local.set $yi
+      (i64.gt_u (local.get $xi) (local.get $yi))
+      if (return (i32.const 1)) end
+      (br_if 0 (i32.and
+        (i64.eq (local.get $xi) (local.get $yi))
+        (i32.ne (i32.const -8)
+        (local.tee $i (i32.sub (local.get $i) (i32.const 8)))
+      )))
+    )
+    (i32.const 0)
   )
 
   (func $alloc_zero (param $length i32) (result i32)

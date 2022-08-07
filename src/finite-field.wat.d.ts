@@ -4,6 +4,8 @@ export {
   subtract,
   reduceInPlace,
   equals,
+  isZero,
+  isGreater,
   storeField,
   storeFieldIn,
   emptyField,
@@ -20,6 +22,8 @@ function add(out: number, x: number, y: number): void;
 function subtract(out: number, x: number, y: number): void;
 function reduceInPlace(x: number): void;
 function equals(x: number, y: number): boolean;
+function isZero(x: number): boolean;
+function isGreater(x: number, y: number): boolean;
 function storeField(x: Field): number;
 function storeFieldIn(x: Field | number, pointer: number): void;
 function emptyField(): number;
