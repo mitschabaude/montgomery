@@ -8,15 +8,15 @@ import {
 import {
   field,
   fieldFromUint64Array,
+  fieldToUint64Array,
   leftShiftInPlace,
   mod,
-  modInverse,
   modInverseMontgomery,
   randomBaseField,
   rightShiftInPlace,
 } from "./src/finite-field.js";
 import { getScratchSpace } from "./src/curve.js";
-import { readField } from "./src/wasm.js";
+import { readField, writeFieldInto } from "./src/wasm.js";
 
 let { p, toWasm, ofWasm } = field;
 
@@ -62,16 +62,16 @@ function test() {
   // right shift
   storeFieldIn(x, z);
   z0 = fieldFromUint64Array(readField(z));
-  rightShiftInPlace(z);
-  z0 >>= 1n;
+  rightShiftInPlace(z, 27);
+  z0 >>= 27n;
   z1 = fieldFromUint64Array(readField(z));
   if (z0 !== z1) throw Error("rightShiftInPlace");
 
   // left shift
-  storeFieldIn(x, z);
+  writeFieldInto(z, fieldToUint64Array(2934n));
   z0 = fieldFromUint64Array(readField(z));
-  leftShiftInPlace(z);
-  z0 <<= 1n;
+  leftShiftInPlace(z, 28);
+  z0 <<= 28n;
   z1 = fieldFromUint64Array(readField(z));
   if (z0 !== z1) throw Error("leftShiftInPlace");
 }

@@ -13,7 +13,9 @@
   (export "multiplyWithReturn#lift" (func $multiplyWithReturn))
   (export "multiply" (func $multiply.381.12_leg))
   (export "add" (func $add.381.12_leg))
+  (export "addNoReduce" (func $addNoReduce.381.12_leg))
   (export "subtract" (func $subtract.381.12_leg))
+  (export "subtractNoReduce" (func $subtractNoReduce.381.12_leg))
   (export "reduceInPlace" (func $reduce.381.12_leg))
   (export "equals" (func $equals.381.12_leg))
   (export "isZero" (func $isZero.381.12_leg))
@@ -326,6 +328,35 @@
     )
   )
 
+  (func $addNoReduce.381.12_leg (param $out i32) (param $x i32) (param $y i32)
+    (local $i i32) (local $tmp i64) (local $carry i64) (local $p i64)
+    ;; let carry = 0n;
+    (local.set $carry (i64.const 0)) ;; let carry = 0n
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = x[i] + y[i] + carry;
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load (i32.add (local.get $y) (local.get $i))) ;; y[i]
+      local.get $carry ;; carry
+      i64.add ;; x[i] + y[i]
+      i64.add ;; x[i] + y[i] + carry
+      local.set $tmp ;; let tmp = x[i] + y[i] + carry
+      ;; out[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $out) (local.get $i)) ;; out[i]
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      i64.store ;; out[i] = tmp & 0xffffffffn
+      ;; carry = tmp >> 32n;
+      local.get $tmp
+      i64.const 32 ;; 32n
+      i64.shr_u ;; tmp >> 32n
+      local.set $carry ;; let carry = tmp >> 32n
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+  )
+
   (func $subtract.381.12_leg (param $out i32) (param $x i32) (param $y i32)
     (local $i i32) (local $tmp i64) (local $borrow i64) (local $p i64)
 
@@ -381,6 +412,36 @@
       (i64.and (local.get $tmp) (i64.const 0xffffffff))
       i64.store
       ;; borrow = 1n - (tmp >> 32n);
+      i64.const 1
+      (i64.shr_u (local.get $tmp) (i64.const 32))
+      i64.sub
+      local.set $borrow
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+  )
+
+  (func $subtractNoReduce.381.12_leg (param $out i32) (param $x i32) (param $y i32)
+    (local $i i32) (local $tmp i64) (local $borrow i64) (local $p i64)
+    (local.set $borrow (i64.const 0))
+    ;; for (let i = 0; i < 96; i+=8) {
+    (local.set $i (i32.const 0))
+    (loop
+      ;; let tmp = 2**32 + x[i] - y[i] - borrow;
+      i64.const 0x100000000 ;; 2**32
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      i64.add ;; 2**32 + x[i]
+      (i64.load (i32.add (local.get $y) (local.get $i))) ;; y[i]
+      i64.sub ;; 2**32 + x[i] - y[i]
+      local.get $borrow ;; borrow
+      i64.sub ;; 2**32 + x[i] - y[i] - borrow
+      local.set $tmp ;; let tmp = 2**32 + x[i] - y[i] - borrow
+      ;; out[i] = tmp & 0xffffffffn;
+      (i32.add (local.get $out) (local.get $i)) ;; out[i]
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      i64.store ;; out[i] = tmp & 0xffffffffn
+      ;; borrow = 1 - (tmp >> 32n);
       i64.const 1
       (i64.shr_u (local.get $tmp) (i64.const 32))
       i64.sub
@@ -491,6 +552,51 @@
       )))
     )
     (i32.const 0)
+  )
+
+  (func $makeOdd.381.12_leg (param $u i32) (param $s i32) (result i32)
+    (local $k i32) (local $u0 i64)
+    ;; k = count_trailing_zeroes(u[0]) -- by how much we have to right-shift u
+    (i64.load (local.get $u))
+    local.tee $u0
+    i64.ctz i32.wrap_i64
+    local.tee $k
+    ;; if it's 64 (i.e., u[0] === 0), shift by a whole word and call this function again
+    ;; (note: u is not supposed to be 0, so u[0] = 0 implies that u is divisible by 2^32)
+    (i32.const 64) (i32.eq)
+    if 
+      (call $shiftByWord.381.12_leg (local.get $u) (local.get $s))
+      (call $makeOdd.381.12_leg (local.get $u) (local.get $s)) ;; returns k'
+      i32.const 32
+      i32.add
+      return
+    end
+    ;; here, we know that k = 0,...,31
+    ;; TODO
+  )
+
+  (func $shiftByWord.381.12_leg (param $u i32) (param $s i32)
+    (local $i i32)
+    (local.set $i (i32.const 0))
+    (loop
+      ;; u[i] = u[i+1]
+      (i64.store 
+        (i32.add (local.get $u) (local.get $i))
+        (i64.load (i32.add (i32.add (local.get $u) (local.get $i)) (i32.const 8)))
+      )
+      ;; s[11-i] = s[11-i-1]
+      (i64.store offset=88
+        (i32.sub (local.get $s) (local.get $i))
+        (i64.load offset=88 (i32.sub (i32.sub (local.get $s) (local.get $i)) (i32.const 8)))
+      )
+      (br_if 0 (i32.ne (i32.const 88)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+    ;; s[0] = 0
+    (i64.store (local.get $s) (i64.const 0))
+    ;; u[11] = 0
+    (i64.store offset=88 (local.get $u) (i64.const 0))
   )
 
   (func $alloc_zero (param $length i32) (result i32)

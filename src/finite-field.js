@@ -7,9 +7,9 @@ import {
   storeFieldIn,
   equals,
   reduceInPlace,
-  subtract,
-  add,
   isGreater,
+  subtractNoReduce,
+  addNoReduce,
 } from "./finite-field.wat.js";
 import { readField, writeFieldInto } from "./wasm.js";
 
@@ -249,16 +249,8 @@ function almostInverseMontgomery([u, v, s], r, a) {
   storeFieldIn(field.legs.one, s);
   let k = 0;
   for (; !isZero(v); ) {
-    while (isEven(u)) {
-      rightShiftInPlace(u);
-      leftShiftInPlace(s);
-      k++;
-    }
-    while (isEven(v)) {
-      rightShiftInPlace(v);
-      leftShiftInPlace(r);
-      k++;
-    }
+    k += makeOdd(u, s);
+    k += makeOdd(v, r);
     if (isGreater(u, v)) {
       subtractNoReduce(u, u, v);
       addNoReduce(r, r, s);
@@ -267,7 +259,18 @@ function almostInverseMontgomery([u, v, s], r, a) {
       addNoReduce(s, r, s);
     }
   }
-  // TODO: this works without r << 1 another time at the end because k is 1 lower
+  // TODO: this works without r << 1 at the end because k is also not incremented
+  // so the invariant a*r = 2^k (mod p) is still true with a factor 2 less on both sides
+  return k;
+}
+
+function makeOdd(u, s) {
+  let k = 0;
+  while (isEven(u)) {
+    rightShiftInPlace(u);
+    leftShiftInPlace(s);
+    k++;
+  }
   return k;
 }
 
@@ -319,15 +322,14 @@ function almostInverseMontgomeryOriginal([u, v, s], r, a) {
  * @param {number} k
  */
 function rightShiftInPlace(x, k = 1) {
-  if (k !== 1) throw Error("unimplemented");
+  if (k > 32) throw Error("unimplemented");
+  k = BigInt(k);
+  let l = 32n - k;
   let xarr = readField(x);
-  let carry = 0n;
-  let tmp;
-  for (let i = 11; i >= 0; i--) {
-    tmp = carry;
-    carry = xarr[i] & 1n;
-    xarr[i] = (xarr[i] >> 1n) | (tmp << 31n);
+  for (let i = 0; i < 11; i++) {
+    xarr[i] = (xarr[i] >> k) | ((xarr[i + 1] << l) & 0xffffffffn);
   }
+  xarr[11] = xarr[11] >> k;
   writeFieldInto(x, xarr);
 }
 /**
@@ -336,15 +338,14 @@ function rightShiftInPlace(x, k = 1) {
  * @param {number} k
  */
 function leftShiftInPlace(x, k = 1) {
-  if (k !== 1) throw Error("unimplemented");
+  if (k > 32) throw Error("unimplemented");
+  k = BigInt(k);
+  let l = 32n - k;
   let xarr = readField(x);
-  let carry = 0n;
-  let tmp;
-  for (let i = 0; i < 12; i++) {
-    tmp = carry;
-    carry = (xarr[i] & 0x80000000n) >> 31n;
-    xarr[i] = ((xarr[i] << 1n) & 0xffffffffn) | tmp;
+  for (let i = 11; i > 0; i--) {
+    xarr[i] = ((xarr[i] << k) & 0xffffffffn) | (xarr[i - 1] >> l);
   }
+  xarr[0] = (xarr[0] << k) & 0xffffffffn;
   writeFieldInto(x, xarr);
 }
 
@@ -367,7 +368,7 @@ function isGreaterJs(x, y) {
  * @param {number} x
  * @param {number} y
  */
-function addNoReduce(result, x, y) {
+function addNoReduceJs(result, x, y) {
   let x_ = readField(x);
   let y_ = readField(y);
   let t = new BigUint64Array(12);
@@ -387,7 +388,7 @@ function addNoReduce(result, x, y) {
  * @param {number} x
  * @param {number} y
  */
-function subtractNoReduce(result, x, y) {
+function subtractNoReduceJs(result, x, y) {
   let x_ = readField(x);
   let y_ = readField(y);
   let t = new BigUint64Array(12);
