@@ -79,6 +79,7 @@ field.legs = {
   one: storeField(fieldToUint64Array(1n)),
   zero: storeField(fieldToUint64Array(0n)),
   p: storeField(fieldToUint64Array(p)),
+  R2mod64: storeField(fieldToUint64Array(mod(field.R2mod * 64n, p))),
 };
 field.legs.four = fieldToMontgomeryPointer(4n);
 field.legs.eight = fieldToMontgomeryPointer(8n);
@@ -210,48 +211,56 @@ function modInverseMontgomery(scratchSpace, r, a) {
   let k = almostInverseMontgomery(scratchSpace, r, a);
   // TODO: negation -- special case which is simpler
   reduceInPlace(r);
-  console.log(fieldFromUint64Array(readField(r)) < p);
   subtractNoReduce(r, field.legs.p, r);
-  // console.log(readField(r));
 
-  let k1 = (k + (k & 1)) / 2;
-  let k2 = k - k1;
-  console.log(k1 + k2 === k);
-
-  let [t, r1] = scratchSpace;
-  multiply(t, a, r);
-  // console.log(readField(t));
-  multiply(t, t, field.legs.R2mod);
-  // console.log(readField(t));
-
-  writeFieldInto(r1, fieldToUint64Array(mod(1n << BigInt(k1), field.p)));
-  multiply(t, t, r1);
-  // console.log(readField(t));
-  writeFieldInto(r1, fieldToUint64Array(mod(1n << BigInt(k2), field.p)));
-  multiply(t, t, r1);
-  console.log(readField(t));
-  let result = fieldFromUint64Array(readField(t));
-  let l = result.toString(2).length - 1;
-  console.log(result === 1n << BigInt(l), l < 381);
-  console.log(l, k1, k2, k - l, k + l);
-  let lower = 384 - 3;
-  let upper = 2 * 384 - 4;
-  console.log({ lower, k, upper });
-
-  // TODO: efficient creation of power of 2
-  // or efficient multiplication with power of 2?
-  writeFieldInto(r1, fieldToUint64Array(1n << (field.k - BigInt(k1) + 2n)));
+  // mutliply by 2**(2n - k), where n = 381 = bit length of p
+  // TODO: efficient multiplication by power-of-2?
+  let [r1] = scratchSpace;
+  let l = 2 * 381 - k;
+  let r1_ = new BigUint64Array(12);
+  r1_[l >> 5] = 1n << BigInt(l % 32);
+  writeFieldInto(r1, r1_);
   multiply(r, r, r1);
-  if (k1 !== k2)
-    writeFieldInto(r1, fieldToUint64Array(1n << (field.k - BigInt(k2) + 2n)));
-  multiply(r, r, r1);
-  writeFieldInto(r1, fieldToUint64Array(1n << (field.k - 4n)));
-  multiply(r, r, r1);
+  multiply(r, r, field.legs.R2mod64);
+  // let a0 = fieldFromUint64Array(readField(a));
+  // let r0 = fieldFromUint64Array(readField(r));
+  // console.log(
+  //   "1n",
+  //   montgomeryReduction(montgomeryReduction(r0 * a0, field), field)
+  // );
 }
 
-// TODO: addNoReduce, subNoReduce
 function almostInverseMontgomery([u, v, s], r, a) {
-  let a0 = fieldFromUint64Array(readField(a));
+  // u = p, v = a, r = 0, s = 1
+  writeFieldInto(u, pLegs);
+  storeFieldIn(a, v);
+  storeFieldIn(field.legs.zero, r);
+  storeFieldIn(field.legs.one, s);
+  let k = 0;
+  for (; !isZero(v); ) {
+    while (isEven(u)) {
+      rightShiftInPlace(u);
+      leftShiftInPlace(s);
+      k++;
+    }
+    while (isEven(v)) {
+      rightShiftInPlace(v);
+      leftShiftInPlace(r);
+      k++;
+    }
+    if (isGreater(u, v)) {
+      subtractNoReduce(u, u, v);
+      addNoReduce(r, r, s);
+    } else {
+      subtractNoReduce(v, v, u);
+      addNoReduce(s, r, s);
+    }
+  }
+  // TODO: I don't understand why this works without r << 1 another time at the end
+  return k;
+}
+
+function almostInverseMontgomery_([u, v, s], r, a) {
   // u = p, v = a, r = 0, s = 1
   writeFieldInto(u, pLegs);
   storeFieldIn(a, v);
@@ -265,7 +274,7 @@ function almostInverseMontgomery([u, v, s], r, a) {
     } else if (isEven(v)) {
       rightShiftInPlace(v);
       leftShiftInPlace(r);
-    } else if (greaterThan(u, v)) {
+    } else if (isGreater(u, v)) {
       subtractNoReduce(u, u, v);
       rightShiftInPlace(u);
       addNoReduce(r, r, s);
@@ -277,17 +286,18 @@ function almostInverseMontgomery([u, v, s], r, a) {
       leftShiftInPlace(r);
     }
     k++;
-    let u0 = fieldFromUint64Array(readField(u));
-    let v0 = fieldFromUint64Array(readField(v));
-    let r0 = fieldFromUint64Array(readField(r));
-    let s0 = fieldFromUint64Array(readField(s));
-    if (u0 * s0 + v0 * r0 !== p) throw Error("invariant violated 1");
-    if (mod(a0 * r0, p) !== mod(-u0 * (1n << BigInt(k)), p)) {
-      throw Error("invariant violated 2");
-    }
-    if (mod(a0 * s0, p) !== mod(v0 * (1n << BigInt(k)), p)) {
-      throw Error("invariant violated 3");
-    }
+    // let a0 = fieldFromUint64Array(readField(a));
+    // let u0 = fieldFromUint64Array(readField(u));
+    // let v0 = fieldFromUint64Array(readField(v));
+    // let r0 = fieldFromUint64Array(readField(r));
+    // let s0 = fieldFromUint64Array(readField(s));
+    // if (u0 * s0 + v0 * r0 !== p) throw Error("invariant violated 1");
+    // if (mod(a0 * r0, p) !== mod(-u0 * (1n << BigInt(k)), p)) {
+    //   throw Error("invariant violated 2");
+    // }
+    // if (mod(a0 * s0, p) !== mod(v0 * (1n << BigInt(k)), p)) {
+    //   throw Error("invariant violated 3");
+    // }
   }
   return k;
 }
@@ -330,7 +340,7 @@ function leftShiftInPlace(x, k = 1) {
 function isEven(x) {
   return (readField(x)[0] & 1n) === 0n;
 }
-function greaterThan(x, y) {
+function isGreater(x, y) {
   let xarr = readField(x);
   let yarr = readField(y);
   for (let i = 11; i >= 0; i--) {

@@ -54,10 +54,7 @@ function test() {
   if (z0 !== z1) throw Error("reduceInPlace");
 
   // inverse
-  z0 = modInverse(x0, p);
   modInverseMontgomery(scratch, z, x);
-  z1 = ofWasm(scratch, z);
-  if (z0 !== z1) throw Error("inverse");
   multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");

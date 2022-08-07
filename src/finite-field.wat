@@ -395,7 +395,7 @@
   ;; if (x < p) return;
   ;; x -= p;
   (func $reduce.381.12_leg (param $x i32)
-  (local $i i32) (local $tmp i64) (local $borrow i64) (local $p i64)
+    (local $i i32) (local $tmp i64) (local $borrow i64) (local $p i64)
     ;; for (let i = 88; i >= 0; i-=8) {
     (local.set $i (i32.const 88))
     (loop
