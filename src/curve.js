@@ -74,18 +74,12 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
     multiply(ysquare, x, x);
     multiply(ysquare, ysquare, x);
     add(ysquare, ysquare, four);
-    // let ysquare = mod(x ** 3n + 4n, field.p);
 
     // try computing square root to get y (works half the time, because half the field elements are squares)
-    // console.log("sqrt", i);
     let isRoot = modSqrt(scratchSpace, y, ysquare);
-    if (isRoot) {
-      break;
-    } else {
-      // if it didn't work, increase x by 1 and try again
-      add(x, x, one);
-      // i++;
-    }
+    if (isRoot) break;
+    // if it didn't work, increase x by 1 and try again
+    add(x, x, one);
   }
   storeFieldIn(one, z);
   let p = { x, y, z };
@@ -93,6 +87,7 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
   // clear cofactor
   scaleProjective(scratchSpace, minusZP, scalar.asBits.minusZ, p); // -z*p
   addAssignProjective(scratchSpace, p, minusZP); // p = p - z*p = -(z - 1) * p
+  // convert to affine point, back to normal representation and to byte arrays
   let affineP = takeAffinePoint(scratchSpace);
   toAffine(scratchSpace, affineP, p);
   fromMontgomery(affineP.x);
