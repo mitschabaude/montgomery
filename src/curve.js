@@ -4,9 +4,9 @@
 // multiply preserves those properties
 import {
   field,
-  fieldFromMontgomeryPointer,
   fieldToMontgomeryPointer,
   fieldToUint64Array,
+  fromMontgomery,
   modInverseMontgomery,
   modSqrt,
   randomBaseField,
@@ -20,8 +20,7 @@ import {
   emptyField,
   storeFieldIn,
 } from "./finite-field.wat.js";
-import { writeFieldInto } from "./wasm.js";
-import { bigintToBytes } from "./util.js";
+import { readFieldBytes, writeFieldInto } from "./wasm.js";
 
 export {
   randomCurvePoints,
@@ -96,9 +95,9 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
   addAssignProjective(scratchSpace, p, minusZP); // p = p - z*p = -(z - 1) * p
   let affineP = takeAffinePoint(scratchSpace);
   toAffine(scratchSpace, affineP, p);
-  let x0 = fieldFromMontgomeryPointer(scratchSpace, affineP.x);
-  let y0 = fieldFromMontgomeryPointer(scratchSpace, affineP.y);
-  return [bigintToBytes(x0, 48), bigintToBytes(y0, 48), false];
+  fromMontgomery(affineP.x);
+  fromMontgomery(affineP.y);
+  return [readFieldBytes(affineP.x), readFieldBytes(affineP.y), false];
 }
 
 /**

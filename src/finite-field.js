@@ -24,12 +24,14 @@ export {
   modInverseMontgomery,
   modExp,
   modInverse,
-  rightShiftInPlace,
-  leftShiftInPlace,
+  fromMontgomery,
+  toMontgomery,
   fieldToUint64Array,
   fieldFromUint64Array,
   fieldToMontgomeryPointer,
   fieldFromMontgomeryPointer,
+  rightShiftInPlace,
+  leftShiftInPlace,
 };
 
 let scalar = {
@@ -235,39 +237,6 @@ function almostInverseMontgomery([u, v, s], r, a) {
   return k;
 }
 
-/**
- *
- * @param {number} x
- * @param {number} k
- */
-function rightShiftInPlace(x, k = 1) {
-  if (k > 32) throw Error("unimplemented");
-  k = BigInt(k);
-  let l = 32n - k;
-  let xarr = readField(x);
-  for (let i = 0; i < 11; i++) {
-    xarr[i] = (xarr[i] >> k) | ((xarr[i + 1] << l) & 0xffffffffn);
-  }
-  xarr[11] = xarr[11] >> k;
-  writeFieldInto(x, xarr);
-}
-/**
- *
- * @param {number} x
- * @param {number} k
- */
-function leftShiftInPlace(x, k = 1) {
-  if (k > 32) throw Error("unimplemented");
-  k = BigInt(k);
-  let l = 32n - k;
-  let xarr = readField(x);
-  for (let i = 10; i >= 0; i--) {
-    xarr[i + 1] = (xarr[i] >> l) | ((xarr[i + 1] << k) & 0xffffffffn);
-  }
-  xarr[0] = (xarr[0] << k) & 0xffffffffn;
-  writeFieldInto(x, xarr);
-}
-
 function modExp(a, n, { p }) {
   a = mod(a, p);
   // this assumes that p is prime, so that a^(p-1) % p = 1
@@ -303,6 +272,22 @@ function modInverse(a, p) {
   }
   if (b !== 1n) throw Error("inverting failed (no inverse)");
   return mod(x, p);
+}
+
+/**
+ *
+ * @param {number} x
+ */
+function fromMontgomery(x) {
+  multiply(x, x, field.legs.one);
+  reduceInPlace(x);
+}
+/**
+ *
+ * @param {number} x
+ */
+function toMontgomery(x) {
+  multiply(x, x, field.legs.R2mod);
 }
 
 /**
@@ -365,6 +350,39 @@ function fieldFromUint64Array(arr) {
 // ---------------------------------------------------------------------
 
 // obsolete JS versions of arithmetic
+
+/**
+ *
+ * @param {number} x
+ * @param {number} k
+ */
+function rightShiftInPlace(x, k = 1) {
+  if (k > 32) throw Error("unimplemented");
+  k = BigInt(k);
+  let l = 32n - k;
+  let xarr = readField(x);
+  for (let i = 0; i < 11; i++) {
+    xarr[i] = (xarr[i] >> k) | ((xarr[i + 1] << l) & 0xffffffffn);
+  }
+  xarr[11] = xarr[11] >> k;
+  writeFieldInto(x, xarr);
+}
+/**
+ *
+ * @param {number} x
+ * @param {number} k
+ */
+function leftShiftInPlace(x, k = 1) {
+  if (k > 32) throw Error("unimplemented");
+  k = BigInt(k);
+  let l = 32n - k;
+  let xarr = readField(x);
+  for (let i = 10; i >= 0; i--) {
+    xarr[i + 1] = (xarr[i] >> l) | ((xarr[i + 1] << k) & 0xffffffffn);
+  }
+  xarr[0] = (xarr[0] << k) & 0xffffffffn;
+  writeFieldInto(x, xarr);
+}
 
 function makeOddJs(u, s) {
   let k = 0;
