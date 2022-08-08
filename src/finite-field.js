@@ -178,36 +178,6 @@ function modExpMontgomery([a], x, a0, nBits) {
  * @param {number} ainv
  * @param {number} a0
  */
-function modInverseMontgomery_(scratchSpace, ainv, a0) {
-  if (isZero(a0)) throw Error("cannot invert 0");
-  let a = fieldFromMontgomeryPointer([ainv], a0);
-  let b = field.p;
-  let x = 0n;
-  let y = 1n;
-  let u = 1n;
-  let v = 0n;
-  while (a !== 0n) {
-    let q = b / a;
-    let r = mod(b, a);
-    let m = x - u * q;
-    let n = y - v * q;
-    b = a;
-    a = r;
-    x = u;
-    y = v;
-    u = m;
-    v = n;
-  }
-  if (b !== 1n) throw Error("inverting failed (no inverse)");
-  fieldToMontgomeryPointer(mod(x, field.p), ainv);
-}
-
-/**
- *
- * @param {number[]} scratchSpace
- * @param {number} ainv
- * @param {number} a0
- */
 function modInverseMontgomery(scratchSpace, r, a) {
   if (isZero(a)) throw Error("cannot invert 0");
   reduceInPlace(a);
@@ -244,7 +214,7 @@ function modInverseMontgomery(scratchSpace, r, a) {
 // * allows to batch left- / right-shifts
 function almostInverseMontgomery([u, v, s], r, a) {
   // u = p, v = a, r = 0, s = 1
-  writeFieldInto(u, pLegs);
+  storeFieldIn(field.legs.p, u);
   storeFieldIn(a, v);
   storeFieldIn(field.legs.zero, r);
   storeFieldIn(field.legs.one, s);
@@ -262,58 +232,6 @@ function almostInverseMontgomery([u, v, s], r, a) {
   }
   // TODO: this works without r << 1 at the end because k is also not incremented
   // so the invariant a*r = 2^k (mod p) is still true with a factor 2 less on both sides
-  return k;
-}
-
-function makeOddJs(u, s) {
-  let k = 0;
-  while (isEven(u)) {
-    rightShiftInPlace(u);
-    leftShiftInPlace(s);
-    k++;
-  }
-  return k;
-}
-
-function almostInverseMontgomeryOriginal([u, v, s], r, a) {
-  // u = p, v = a, r = 0, s = 1
-  writeFieldInto(u, pLegs);
-  storeFieldIn(a, v);
-  storeFieldIn(field.legs.zero, r);
-  storeFieldIn(field.legs.one, s);
-  let k = 0;
-  for (; !isZero(v); ) {
-    if (isEven(u)) {
-      rightShiftInPlace(u);
-      leftShiftInPlace(s);
-    } else if (isEven(v)) {
-      rightShiftInPlace(v);
-      leftShiftInPlace(r);
-    } else if (isGreater(u, v)) {
-      subtractNoReduce(u, u, v);
-      rightShiftInPlace(u);
-      addNoReduce(r, r, s);
-      leftShiftInPlace(s);
-    } else {
-      subtractNoReduce(v, v, u);
-      rightShiftInPlace(v);
-      addNoReduce(s, r, s);
-      leftShiftInPlace(r);
-    }
-    k++;
-    // let a0 = fieldFromUint64Array(readField(a));
-    // let u0 = fieldFromUint64Array(readField(u));
-    // let v0 = fieldFromUint64Array(readField(v));
-    // let r0 = fieldFromUint64Array(readField(r));
-    // let s0 = fieldFromUint64Array(readField(s));
-    // if (u0 * s0 + v0 * r0 !== p) throw Error("invariant violated 1");
-    // if (mod(a0 * r0, p) !== mod(-u0 * (1n << BigInt(k)), p)) {
-    //   throw Error("invariant violated 2");
-    // }
-    // if (mod(a0 * s0, p) !== mod(v0 * (1n << BigInt(k)), p)) {
-    //   throw Error("invariant violated 3");
-    // }
-  }
   return k;
 }
 
@@ -348,60 +266,6 @@ function leftShiftInPlace(x, k = 1) {
   }
   xarr[0] = (xarr[0] << k) & 0xffffffffn;
   writeFieldInto(x, xarr);
-}
-
-function isEven(x) {
-  return (readField(x)[0] & 1n) === 0n;
-}
-function isGreaterJs(x, y) {
-  let xarr = readField(x);
-  let yarr = readField(y);
-  for (let i = 11; i >= 0; i--) {
-    if (xarr[i] > yarr[i]) return true;
-    if (xarr[i] < yarr[i]) break;
-  }
-  return false;
-}
-
-/**
- * addition; reduces by -2p if result > 2p
- * @param {number} result where we store x + y
- * @param {number} x
- * @param {number} y
- */
-function addNoReduceJs(result, x, y) {
-  let x_ = readField(x);
-  let y_ = readField(y);
-  let t = new BigUint64Array(12);
-  let carry = 0n;
-  for (let i = 0; i < 12; i++) {
-    let tmp = x_[i] + y_[i] + carry;
-    t[i] = tmp & 0xffffffffn;
-    carry = tmp >> 32n;
-  }
-  if (carry !== 0n) throw Error("aaaa");
-  writeFieldInto(result, t);
-}
-
-/**
- * subtraction; adds +2p if result < 0
- * @param {number} result where we store x - y
- * @param {number} x
- * @param {number} y
- */
-function subtractNoReduceJs(result, x, y) {
-  let x_ = readField(x);
-  let y_ = readField(y);
-  let t = new BigUint64Array(12);
-  let borrow = 0n;
-  let m = 0x100000000n;
-  for (let i = 0; i < 12; i++) {
-    let tmp = x_[i] - y_[i] - borrow + m;
-    t[i] = tmp & 0xffffffffn;
-    borrow = 1n - (tmp >> 32n);
-  }
-  if (borrow !== 0n) throw Error("aaaa");
-  writeFieldInto(result, t);
 }
 
 function modExp(a, n, { p }) {
@@ -501,6 +365,112 @@ function fieldFromUint64Array(arr) {
 // ---------------------------------------------------------------------
 
 // obsolete JS versions of arithmetic
+
+function makeOddJs(u, s) {
+  let k = 0;
+  while (isEven(u)) {
+    rightShiftInPlace(u);
+    leftShiftInPlace(s);
+    k++;
+  }
+  return k;
+}
+
+function almostInverseMontgomeryOriginal([u, v, s], r, a) {
+  // u = p, v = a, r = 0, s = 1
+  writeFieldInto(u, pLegs);
+  storeFieldIn(a, v);
+  storeFieldIn(field.legs.zero, r);
+  storeFieldIn(field.legs.one, s);
+  let k = 0;
+  for (; !isZero(v); ) {
+    if (isEven(u)) {
+      rightShiftInPlace(u);
+      leftShiftInPlace(s);
+    } else if (isEven(v)) {
+      rightShiftInPlace(v);
+      leftShiftInPlace(r);
+    } else if (isGreater(u, v)) {
+      subtractNoReduce(u, u, v);
+      rightShiftInPlace(u);
+      addNoReduce(r, r, s);
+      leftShiftInPlace(s);
+    } else {
+      subtractNoReduce(v, v, u);
+      rightShiftInPlace(v);
+      addNoReduce(s, r, s);
+      leftShiftInPlace(r);
+    }
+    k++;
+    // let a0 = fieldFromUint64Array(readField(a));
+    // let u0 = fieldFromUint64Array(readField(u));
+    // let v0 = fieldFromUint64Array(readField(v));
+    // let r0 = fieldFromUint64Array(readField(r));
+    // let s0 = fieldFromUint64Array(readField(s));
+    // if (u0 * s0 + v0 * r0 !== p) throw Error("invariant violated 1");
+    // if (mod(a0 * r0, p) !== mod(-u0 * (1n << BigInt(k)), p)) {
+    //   throw Error("invariant violated 2");
+    // }
+    // if (mod(a0 * s0, p) !== mod(v0 * (1n << BigInt(k)), p)) {
+    //   throw Error("invariant violated 3");
+    // }
+  }
+  return k;
+}
+
+function isEven(x) {
+  return (readField(x)[0] & 1n) === 0n;
+}
+function isGreaterJs(x, y) {
+  let xarr = readField(x);
+  let yarr = readField(y);
+  for (let i = 11; i >= 0; i--) {
+    if (xarr[i] > yarr[i]) return true;
+    if (xarr[i] < yarr[i]) break;
+  }
+  return false;
+}
+
+/**
+ * addition; reduces by -2p if result > 2p
+ * @param {number} result where we store x + y
+ * @param {number} x
+ * @param {number} y
+ */
+function addNoReduceJs(result, x, y) {
+  let x_ = readField(x);
+  let y_ = readField(y);
+  let t = new BigUint64Array(12);
+  let carry = 0n;
+  for (let i = 0; i < 12; i++) {
+    let tmp = x_[i] + y_[i] + carry;
+    t[i] = tmp & 0xffffffffn;
+    carry = tmp >> 32n;
+  }
+  if (carry !== 0n) throw Error("aaaa");
+  writeFieldInto(result, t);
+}
+
+/**
+ * subtraction; adds +2p if result < 0
+ * @param {number} result where we store x - y
+ * @param {number} x
+ * @param {number} y
+ */
+function subtractNoReduceJs(result, x, y) {
+  let x_ = readField(x);
+  let y_ = readField(y);
+  let t = new BigUint64Array(12);
+  let borrow = 0n;
+  let m = 0x100000000n;
+  for (let i = 0; i < 12; i++) {
+    let tmp = x_[i] - y_[i] - borrow + m;
+    t[i] = tmp & 0xffffffffn;
+    borrow = 1n - (tmp >> 32n);
+  }
+  if (borrow !== 0n) throw Error("aaaa");
+  writeFieldInto(result, t);
+}
 
 /**
  * addition; reduces by -2p if result > 2p
@@ -721,4 +691,34 @@ function montgomeryMul12LegOriginal(X, Y, { pArray, mu0, p }) {
   //   }
   // }
   return t;
+}
+
+/**
+ *
+ * @param {number[]} scratchSpace
+ * @param {number} ainv
+ * @param {number} a0
+ */
+function modInverseMontgomeryJs(scratchSpace, ainv, a0) {
+  if (isZero(a0)) throw Error("cannot invert 0");
+  let a = fieldFromMontgomeryPointer([ainv], a0);
+  let b = field.p;
+  let x = 0n;
+  let y = 1n;
+  let u = 1n;
+  let v = 0n;
+  while (a !== 0n) {
+    let q = b / a;
+    let r = mod(b, a);
+    let m = x - u * q;
+    let n = y - v * q;
+    b = a;
+    a = r;
+    x = u;
+    y = v;
+    u = m;
+    v = n;
+  }
+  if (b !== 1n) throw Error("inverting failed (no inverse)");
+  fieldToMontgomeryPointer(mod(x, field.p), ainv);
 }
