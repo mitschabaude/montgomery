@@ -4,6 +4,9 @@ import {
   reduceInPlace,
   storeFieldIn,
   subtract,
+  countTrailingZeroes,
+  shiftByWord,
+  makeOdd,
 } from "./src/finite-field.wat.js";
 import {
   field,
@@ -74,6 +77,27 @@ function test() {
   z0 <<= 28n;
   z1 = fieldFromUint64Array(readField(z));
   if (z0 !== z1) throw Error("leftShiftInPlace");
+
+  // countTrailingZeroes
+  let kTarget = 120;
+  writeFieldInto(z, fieldToUint64Array(1n << BigInt(kTarget)));
+  let k = countTrailingZeroes(z);
+  if (k !== kTarget) throw Error("countTrailingZeroes");
+
+  // shiftByWord
+  writeFieldInto(x, fieldToUint64Array(1n << 120n));
+  writeFieldInto(z, fieldToUint64Array(1n));
+  shiftByWord(x, z);
+  if (countTrailingZeroes(x) !== 120 - 32) throw Error("shiftByWord");
+  if (countTrailingZeroes(z) !== 32) throw Error("shiftByWord");
+
+  // makeOdd
+  writeFieldInto(x, fieldToUint64Array(5n << 120n));
+  writeFieldInto(z, fieldToUint64Array(3n));
+  makeOdd(x, z);
+  x0 = fieldFromUint64Array(readField(x));
+  z0 = fieldFromUint64Array(readField(z));
+  if (!(x0 === 5n && z0 === 3n << 120n)) throw Error("makeOdd");
 }
 
 for (let i = 0; i < 20; i++) {

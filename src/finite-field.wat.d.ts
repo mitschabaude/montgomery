@@ -8,6 +8,9 @@ export {
   equals,
   isZero,
   isGreater,
+  makeOdd,
+  countTrailingZeroes,
+  shiftByWord,
   storeField,
   storeFieldIn,
   emptyField,
@@ -28,6 +31,9 @@ function subtractNoReduce(out: number, x: number, y: number): void;
 function equals(x: number, y: number): boolean;
 function isZero(x: number): boolean;
 function isGreater(x: number, y: number): boolean;
+function makeOdd(u: number, s: number): number;
+function countTrailingZeroes(x: number): number;
+function shiftByWord(x: number): number;
 function storeField(x: Field): number;
 function storeFieldIn(x: Field | number, pointer: number): void;
 function emptyField(): number;

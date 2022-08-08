@@ -10,6 +10,7 @@ import {
   isGreater,
   subtractNoReduce,
   addNoReduce,
+  makeOdd,
 } from "./finite-field.wat.js";
 import { readField, writeFieldInto } from "./wasm.js";
 
@@ -264,7 +265,7 @@ function almostInverseMontgomery([u, v, s], r, a) {
   return k;
 }
 
-function makeOdd(u, s) {
+function makeOddJs(u, s) {
   let k = 0;
   while (isEven(u)) {
     rightShiftInPlace(u);
@@ -342,8 +343,8 @@ function leftShiftInPlace(x, k = 1) {
   k = BigInt(k);
   let l = 32n - k;
   let xarr = readField(x);
-  for (let i = 11; i > 0; i--) {
-    xarr[i] = ((xarr[i] << k) & 0xffffffffn) | (xarr[i - 1] >> l);
+  for (let i = 10; i >= 0; i--) {
+    xarr[i + 1] = (xarr[i] >> l) | ((xarr[i + 1] << k) & 0xffffffffn);
   }
   xarr[0] = (xarr[0] << k) & 0xffffffffn;
   writeFieldInto(x, xarr);

@@ -6,7 +6,8 @@
   (import "watever/memory.wat" "alloc" (func $alloc (param i32) (result i32)))
   (import "watever/memory.wat" "keep" (func $keep (param i32)))
 	(import "watever/memory.wat" "free" (func $free (param i32)))
-  (import "watever/memory.wat" "reset" (func $reset (param i32)))
+  (import "watever/memory.wat" "reset" (func $reset))
+  (import "watever/memory.wat" "memory" (memory 1))
   (import "watever/glue.wat" "lift_uint64array" (func $lift_bytes (param i32) (result i32)))
   (import "watever/glue.wat" "lift_raw_uint64array" (func $lift_raw_bytes (param i32 i32) (result i32)))
 
@@ -20,6 +21,9 @@
   (export "equals" (func $equals.381.12_leg))
   (export "isZero" (func $isZero.381.12_leg))
   (export "isGreater" (func $isGreater.381.12_leg))
+  (export "makeOdd" (func $makeOdd.381.12_leg))
+  (export "countTrailingZeroes" (func $countTrailingZeroes.381.12_leg))
+  (export "shiftByWord" (func $shiftByWord.381.12_leg))
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
@@ -555,27 +559,119 @@
   )
 
   (func $makeOdd.381.12_leg (param $u i32) (param $s i32) (result i32)
-    (local $k i32) (local $u0 i64)
+    (local $i i32) (local $k i64) (local $l i64)
     ;; k = count_trailing_zeroes(u[0]) -- by how much we have to right-shift u
-    (i64.load (local.get $u))
-    local.tee $u0
-    i64.ctz i32.wrap_i64
+    (i64.ctz (i64.load (local.get $u)))
     local.tee $k
     ;; if it's 64 (i.e., u[0] === 0), shift by a whole word and call this function again
     ;; (note: u is not supposed to be 0, so u[0] = 0 implies that u is divisible by 2^32)
-    (i32.const 64) (i32.eq)
+    (i64.const 64) (i64.eq)
     if 
       (call $shiftByWord.381.12_leg (local.get $u) (local.get $s))
       (call $makeOdd.381.12_leg (local.get $u) (local.get $s)) ;; returns k'
-      i32.const 32
-      i32.add
+      i64.extend_i32_u
+      i64.const 32
+      i64.add
+      i32.wrap_i64
       return
     end
     ;; here, we know that k = 0,...,31
-    ;; TODO
+    ;; let l = 32n - k;
+    (local.set $l (i64.sub (i64.const 32) (local.get $k)))
+    ;;
+    ;; u >> k
+    ;; 
+    ;; for (let i = 0; i < 11; i++) {
+    ;;   u[i] = (u[i] >> k) | ((u[i + 1] << l) & 0xffffffffn);
+    ;; }
+    ;; u[11] = u[11] >> k;
+    (local.set $i (i32.const 0))
+    (loop
+      (i32.add (local.get $u) (local.get $i)) ;; u[i] =
+
+      (i64.load (i32.add (local.get $u) (local.get $i))) ;; u[i]
+      (local.get $k) (i64.shr_u) ;; u[i] >> k
+
+      (i64.load offset=8 (i32.add (local.get $u) (local.get $i))) ;; u[i+1]
+      (local.get $l) (i64.shl) ;; u[i+1] << l
+      (i64.const 0xffffffff) (i64.and) ;; (u[i+1] << l) & 0xffffffffn
+
+      i64.or ;; (u[i] >> k) | ((u[i+1] << l) & 0xffffffffn)
+      i64.store
+      (br_if 0 (i32.ne (i32.const 88)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+    (local.get $u) ;; u[11] =
+    (i64.load offset=88 (local.get $u)) ;; u[11]
+    (local.get $k) (i64.shr_u) ;; u[11] >> k
+    i64.store offset=88
+    ;;
+    ;; s << k
+    ;;
+    ;; for (let i = 10; i >= 0; i--) {
+    ;;   s[i+1] = (s[i] >> l) | ((s[i+1] << k) & 0xffffffffn);
+    ;; }
+    ;; s[0] = (s[0] << k) & 0xffffffffn;
+    (local.set $i (i32.const 80))
+    (loop
+      (i32.add (local.get $s) (local.get $i)) ;; s[i+1] =
+
+      (i64.load (i32.add (local.get $s) (local.get $i))) ;; s[i]
+      (local.get $l) (i64.shr_u) ;; s[i] >> l
+
+      (i64.load offset=8 (i32.add (local.get $s) (local.get $i))) ;; s[i+1]
+      (local.get $k) (i64.shl) ;; s[i+1] << k
+      (i64.const 0xffffffff) (i64.and) ;; (s[i+1] << k) & 0xffffffffn
+
+      i64.or ;; (s[i] >> l) | ((s[i+1] << k) & 0xffffffffn)
+      i64.store offset=8
+      (br_if 0 (i32.ne (i32.const -8)
+        (local.tee $i (i32.sub (local.get $i) (i32.const 8)))
+      ))
+    )
+    (local.get $s) ;; s[0] =
+    (i64.load (local.get $s))
+    (local.get $k) (i64.shl)
+    (i64.const 0xffffffff) (i64.and) ;; (s[0] << k) & 0xffffffffn
+    i64.store
+    local.get $k 
+    i32.wrap_i64
+  )
+
+  (func $countTrailingZeroes.381.12_leg (param $u i32) (result i32)
+    (local $i i32) (local $k0 i32) (local $k i32)
+    (local.set $i (i32.const 0))
+    (loop
+      (i64.load (i32.add (local.get $u) (local.get $i)))
+      i64.ctz i32.wrap_i64
+      local.tee $k0
+      i32.const 64
+      i32.ne
+      if ;; (k0 !== 64)
+        (i32.add (local.get $k) (local.get $k0))
+        return
+      else
+        (local.set $k (i32.add (local.get $k) (i32.const 32)))
+      end
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+    local.get $k
   )
 
   (func $shiftByWord.381.12_leg (param $u i32) (param $s i32)
+    ;; TODO this should use memory.copy / memory.fill
+    ;; (local.get $u)
+    ;; (i32.add (local.get $u) (local.get $k))
+    ;; (local.get $minusk)
+    ;; memory.copy
+    ;; (i32.add (local.get $s) (local.get $k))
+    ;; (local.get $s)
+    ;; (local.get $minusk)
+    ;; memory.copy
+
     (local $i i32)
     (local.set $i (i32.const 0))
     (loop
