@@ -166,8 +166,8 @@ function modSqrt([tmp], root, x) {
  */
 function modExpMontgomery([a], x, a0, nBits) {
   let { Rmod } = field.legs;
-  storeFieldIn(Rmod, x); // 1R
-  storeFieldIn(a0, a);
+  storeFieldIn(x, Rmod); // 1R
+  storeFieldIn(a, a0);
   for (let bit of nBits) {
     if (bit) multiply(x, x, a);
     multiply(a, a, a);
@@ -216,10 +216,10 @@ function modInverseMontgomery(scratchSpace, r, a) {
 // * allows to batch left- / right-shifts
 function almostInverseMontgomery([u, v, s], r, a) {
   // u = p, v = a, r = 0, s = 1
-  storeFieldIn(field.legs.p, u);
-  storeFieldIn(a, v);
-  storeFieldIn(field.legs.zero, r);
-  storeFieldIn(field.legs.one, s);
+  storeFieldIn(u, field.legs.p);
+  storeFieldIn(v, a);
+  storeFieldIn(r, field.legs.zero);
+  storeFieldIn(s, field.legs.one);
   let k = 0;
   for (; !isZero(v); ) {
     k += makeOdd(u, s);
@@ -397,9 +397,9 @@ function makeOddJs(u, s) {
 function almostInverseMontgomeryOriginal([u, v, s], r, a) {
   // u = p, v = a, r = 0, s = 1
   writeFieldInto(u, pLegs);
-  storeFieldIn(a, v);
-  storeFieldIn(field.legs.zero, r);
-  storeFieldIn(field.legs.one, s);
+  storeFieldIn(v, a);
+  storeFieldIn(r, field.legs.zero);
+  storeFieldIn(s, field.legs.one);
   let k = 0;
   for (; !isZero(v); ) {
     if (isEven(u)) {
@@ -508,7 +508,7 @@ function addJs(result, x, y) {
   }
   for (let i = 11; i >= 0; i--) {
     if (t[i] < twoPLegs[i]) {
-      storeFieldIn(t, result);
+      storeFieldIn(result, t);
       return;
     }
     if (t[i] > twoPLegs[i]) break;
@@ -521,7 +521,7 @@ function addJs(result, x, y) {
     t[i] = tmp & 0xffffffffn;
     borrow = 1n - (tmp >> 32n);
   }
-  storeFieldIn(t, result);
+  storeFieldIn(result, t);
 }
 
 /**
@@ -542,7 +542,7 @@ function subtractJs(result, x, y) {
     borrow = 1n - (tmp >> 32n);
   }
   if (borrow === 0n) {
-    storeFieldIn(t, result);
+    storeFieldIn(result, t);
     return;
   }
   // if we're here, y > x and t = x - y + R, while we want x - y + 2p
@@ -553,7 +553,7 @@ function subtractJs(result, x, y) {
     t[i] = tmp & 0xffffffffn;
     borrow = 1n - (tmp >> 32n);
   }
-  storeFieldIn(t, result);
+  storeFieldIn(result, t);
 }
 
 /**

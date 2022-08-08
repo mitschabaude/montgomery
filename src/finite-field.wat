@@ -11,7 +11,6 @@
   (import "watever/glue.wat" "lift_uint64array" (func $lift_bytes (param i32) (result i32)))
   (import "watever/glue.wat" "lift_raw_uint64array" (func $lift_raw_bytes (param i32 i32) (result i32)))
 
-  (export "multiplyWithReturn#lift" (func $multiplyWithReturn))
   (export "multiply" (func $multiply.381.12_leg))
   (export "add" (func $add.381.12_leg))
   (export "addNoReduce" (func $addNoReduce.381.12_leg))
@@ -94,7 +93,7 @@
     (call $keep (local.get $x))
     (local.get $x)
   )
-  (func $storeFieldIn (param $x i32) (param $pointer i32)
+  (func $storeFieldIn (param $pointer i32) (param $x i32)
     (local $i i32)
     ;;  for (let i = 0; i < 96; i+=8) {
     ;;    pointer[i] = x[i];

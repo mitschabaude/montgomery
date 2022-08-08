@@ -35,7 +35,7 @@ function makeOdd(u: number, s: number): number;
 function countTrailingZeroes(x: number): number;
 function shiftByWord(x: number): number;
 function storeField(x: Field): number;
-function storeFieldIn(x: Field | number, pointer: number): void;
+function storeFieldIn(pointer: number, x: Field | number): void;
 function emptyField(): number;
 function freeField(x: number): void;
 function reset(): void;

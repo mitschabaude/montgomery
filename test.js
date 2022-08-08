@@ -51,7 +51,7 @@ function test() {
 
   // reduceInPlace
   z0 = x0 >= p ? x0 - p : x0;
-  storeFieldIn(x, z);
+  storeFieldIn(z, x);
   reduceInPlace(z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("reduceInPlace");
@@ -63,7 +63,7 @@ function test() {
   if (z1 !== 1n) throw Error("inverse");
 
   // right shift
-  storeFieldIn(x, z);
+  storeFieldIn(z, x);
   z0 = fieldFromUint64Array(readField(z));
   rightShiftInPlace(z, 27);
   z0 >>= 27n;

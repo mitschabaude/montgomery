@@ -81,7 +81,7 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
     // if it didn't work, increase x by 1 and try again
     add(x, x, one);
   }
-  storeFieldIn(one, z);
+  storeFieldIn(z, one);
   let p = { x, y, z };
   let minusZP = takePoint(scratchSpace);
   // clear cofactor
@@ -239,9 +239,9 @@ function addAssignProjective(
  * @param {Point} point
  */
 function writePointInto(targetPoint, point) {
-  storeFieldIn(point.x, targetPoint.x);
-  storeFieldIn(point.y, targetPoint.y);
-  storeFieldIn(point.z, targetPoint.z);
+  storeFieldIn(targetPoint.x, point.x);
+  storeFieldIn(targetPoint.y, point.y);
+  storeFieldIn(targetPoint.z, point.z);
   return targetPoint;
 }
 
