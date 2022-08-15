@@ -568,10 +568,7 @@
     if 
       (call $shiftByWord.381.12_leg (local.get $u) (local.get $s))
       (call $makeOdd.381.12_leg (local.get $u) (local.get $s)) ;; returns k'
-      i64.extend_i32_u
-      i64.const 32
-      i64.add
-      i32.wrap_i64
+      (i32.const 32) (i32.add)
       return
     end
     ;; here, we know that k = 0,...,31
