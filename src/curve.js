@@ -19,6 +19,7 @@ import {
   isZero,
   emptyField,
   storeFieldIn,
+  reset,
 } from "./finite-field.wat.js";
 import { readFieldBytes, writeFieldBytes, writeFieldInto } from "./wasm.js";
 
@@ -146,7 +147,8 @@ function msm(scalars, inputPoints) {
     };
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
-  return finalSum;
+  // TODO read out and return result
+  reset();
 }
 
 function getScratchSpace(n) {
@@ -163,6 +165,7 @@ function randomCurvePoints(n) {
   for (let i = 0; i < n; i++) {
     points[i] = randomCurvePoint(scratchSpace);
   }
+  reset();
   return points;
 }
 
