@@ -1,6 +1,6 @@
 import { memory } from "./finite-field.wat.js";
 
-export { readField, writeFieldInto, readFieldBytes };
+export { readField, writeFieldInto, readFieldBytes, writeFieldBytes };
 
 /**
  *
@@ -35,4 +35,19 @@ function readFieldBytes(pointer) {
 function writeFieldInto(pointer, x) {
   let copy = new BigUint64Array(memory.buffer, pointer, 12);
   copy.set(x);
+}
+
+/**
+ *
+ * @param {number} pointer
+ * @param {Uint8Array} bytes
+ */
+function writeFieldBytes(pointer, bytes) {
+  let viewIn = new DataView(bytes.buffer);
+  let viewWasm = new DataView(memory.buffer, pointer, 96);
+  for (let offset = 0; offset < 48; offset += 4) {
+    let u32 = viewIn.getUint32(offset, true);
+    viewWasm.setUint32(offset * 2, u32, true);
+  }
+  return bytes;
 }

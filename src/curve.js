@@ -4,13 +4,13 @@
 // multiply preserves those properties
 import {
   field,
-  fieldToMontgomeryPointer,
   fieldToUint64Array,
   fromMontgomery,
   modInverseMontgomery,
   modSqrt,
   randomBaseField,
   scalar,
+  toMontgomery,
 } from "./finite-field.js";
 import {
   multiply,
@@ -20,9 +20,10 @@ import {
   emptyField,
   storeFieldIn,
 } from "./finite-field.wat.js";
-import { readFieldBytes, writeFieldInto } from "./wasm.js";
+import { readFieldBytes, writeFieldBytes, writeFieldInto } from "./wasm.js";
 
 export {
+  msm,
   randomCurvePoints,
   doubleInPlaceProjective,
   addAssignProjective,
@@ -43,27 +44,40 @@ const curve = {
 /**
  *
  * @param {CompatibleScalar[]} scalars
- * @param {CompatiblePoint[]} points
+ * @param {CompatiblePoint[]} inputPoints
  */
-function msm(scalars, points) {
+function msm(scalars, inputPoints) {
   // initialize buckets
   let n = scalars.length;
-  let c = 16; // TODO: determine c from n and hand-optimized lookup table
+  let c = 8; // TODO: determine c from n and hand-optimized lookup table
   let C = c / 8; // c in bytes
   // TODO: can we get an advantage by allowing non-multiples of 8 for c?
   let K = Math.ceil(256 / c); // number of partitions
-  let m = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
-  let buckets = getScratchSpace(m * K * 3); // initialize buckets
-  let hasBucketPoint = Array(m * K).fill(false);
+  let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
+  let points = getScratchSpace(n * 3); // initialize points
+  let buckets = getScratchSpace(L * K * 3); // initialize buckets
+  let bucketSums = getScratchSpace(K * 3);
+  let partialSums = getScratchSpace(K * 3);
+  let finalSum = getScratchSpace(3);
+  let hasBucketPoint = Array(L * K).fill(false);
   let scratchSpace = getScratchSpace(20);
+  let affinePoint = takeAffinePoint(scratchSpace);
 
+  // first loop -- compute buckets
   for (let i = 0; i < n; i++) {
     let scalar = scalars[i];
-    let compatiblePoint = points[i];
+    let inputPoint = inputPoints[i];
     // convert point to projective
-    // TODO
-    let point = compatiblePoint;
-    // first loop -- compute buckets
+    writeFieldBytes(affinePoint.x, inputPoint[0]);
+    writeFieldBytes(affinePoint.y, inputPoint[1]);
+    toMontgomery(affinePoint.x);
+    toMontgomery(affinePoint.y);
+    // TODO: make points have contiguous memory representation
+    let x = points[i * 2];
+    let y = points[i * 2 + 1];
+    let z = points[i * 2 + 2];
+    let point = { x, y, z };
+    fromAffine(point, affinePoint);
     // partition 32-byte scalar into C-byte chunks
     for (let k = 0, k0 = 0; k < K; k++, k0 += C) {
       // compute k-th digit from scalar
@@ -73,23 +87,66 @@ function msm(scalars, points) {
         l += scalar[k0 + j];
       }
       if (l === 0) continue;
-      // TODO: make points have contiguous memory representation
-      let idx = k * m + (l - 1);
+      // get bucket for digit and add point to it
+      let idx = k * L + (l - 1);
       let x = buckets[idx * 3];
       let y = buckets[idx * 3 + 1];
       let z = buckets[idx * 3 + 2];
+      let bucket = { x, y, z };
       if (hasBucketPoint[idx]) {
-        addAssignProjective(scratchSpace, { x, y, z }, point);
+        addAssignProjective(scratchSpace, bucket, point);
       } else {
-        writePointInto({ x, y, z }, point);
+        writePointInto(bucket, point);
         hasBucketPoint[idx] = true;
       }
     }
-    // second loop -- sum up buckets to partial sums
-    // TODO
-    // third loop -- copute final sum using horner's rule
-    // TODO
   }
+  // second loop -- sum up buckets to partial sums
+  for (let l = L; l > 0; l--) {
+    for (let k = 0; k < K; k++) {
+      let idx = k * L + (l - 1);
+      let bucket = {
+        x: buckets[idx * 3],
+        y: buckets[idx * 3 + 1],
+        z: buckets[idx * 3 + 2],
+      };
+      let bucketSum = {
+        x: bucketSums[k * 3],
+        y: bucketSums[k * 3 + 1],
+        z: bucketSums[k * 3 + 2],
+      };
+      let partialSum = {
+        x: partialSums[k * 3],
+        y: partialSums[k * 3 + 1],
+        z: partialSums[k * 3 + 2],
+      };
+      // TODO: this should have faster paths if a summand is zero
+      // (bucket is zero pretty often; bucketSum at the beginning)
+      addAssignProjective(scratchSpace, bucketSum, bucket);
+      addAssignProjective(scratchSpace, partialSum, bucketSum);
+    }
+  }
+  // third loop -- compute final sum using horner's rule
+  let k = K - 1;
+  let partialSum = {
+    x: partialSums[k * 3],
+    y: partialSums[k * 3 + 1],
+    z: partialSums[k * 3 + 2],
+  };
+  writePointInto(finalSum, partialSum);
+  k--;
+  for (; k >= 0; k--) {
+    for (let j = 0; j < c; j++) {
+      doubleInPlaceProjective(scratchSpace, finalSum);
+    }
+    let partialSum = {
+      x: partialSums[k * 3],
+      y: partialSums[k * 3 + 1],
+      z: partialSums[k * 3 + 2],
+    };
+    addAssignProjective(scratchSpace, finalSum, partialSum);
+  }
+  return finalSum;
 }
 
 function getScratchSpace(n) {
