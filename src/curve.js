@@ -32,15 +32,65 @@ export {
 /**
  * @typedef {{x: number; y: number; z: number}} Point
  * @typedef {{x: number; y: number}} AffinePoint
+ * @typedef {[xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean]} CompatiblePoint
+ * @typedef {Uint8Array} CompatibleScalar
  */
 
 const curve = {
-  zero: {
-    x: fieldToMontgomeryPointer(1n),
-    y: fieldToMontgomeryPointer(1n),
-    z: fieldToMontgomeryPointer(0n),
-  },
+  zero: { x: field.legs.Rmod, y: field.legs.Rmod, z: field.legs.zero },
 };
+
+/**
+ *
+ * @param {CompatibleScalar[]} scalars
+ * @param {CompatiblePoint[]} points
+ */
+function msm(scalars, points) {
+  // initialize buckets
+  let n = scalars.length;
+  let c = 16; // TODO: determine c from n and hand-optimized lookup table
+  let C = c / 8; // c in bytes
+  // TODO: can we get an advantage by allowing non-multiples of 8 for c?
+  let K = Math.ceil(256 / c); // number of partitions
+  let m = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
+  let buckets = getScratchSpace(m * K * 3); // initialize buckets
+  let hasBucketPoint = Array(m * K).fill(false);
+  let scratchSpace = getScratchSpace(20);
+
+  for (let i = 0; i < n; i++) {
+    let scalar = scalars[i];
+    let compatiblePoint = points[i];
+    // convert point to projective
+    // TODO
+    let point = compatiblePoint;
+    // first loop -- compute buckets
+    // partition 32-byte scalar into C-byte chunks
+    for (let k = 0, k0 = 0; k < K; k++, k0 += C) {
+      // compute k-th digit from scalar
+      let l = scalar[k0];
+      for (let j = 1; j < C; j++) {
+        l <<= 8;
+        l += scalar[k0 + j];
+      }
+      if (l === 0) continue;
+      // TODO: make points have contiguous memory representation
+      let idx = k * m + (l - 1);
+      let x = buckets[idx * 3];
+      let y = buckets[idx * 3 + 1];
+      let z = buckets[idx * 3 + 2];
+      if (hasBucketPoint[idx]) {
+        addAssignProjective(scratchSpace, { x, y, z }, point);
+      } else {
+        writePointInto({ x, y, z }, point);
+        hasBucketPoint[idx] = true;
+      }
+    }
+    // second loop -- sum up buckets to partial sums
+    // TODO
+    // third loop -- copute final sum using horner's rule
+    // TODO
+  }
+}
 
 function getScratchSpace(n) {
   let space = [];
@@ -61,7 +111,7 @@ function randomCurvePoints(n) {
 
 /**
  * @param {number[]} scratchSpace
- * @returns {[Uint8Array, Uint8Array, boolean]}
+ * @returns {CompatiblePoint}
  */
 function randomCurvePoint([x, y, z, ...scratchSpace]) {
   let { Rmod: one, four } = field.legs;
@@ -105,6 +155,17 @@ function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
   modInverseMontgomery(scratchSpace, zinv, z);
   multiply(x0, x, zinv);
   multiply(y0, y, zinv);
+}
+
+/**
+ *
+ * @param {Point} point
+ * @param {AffinePoint} affinePoint
+ */
+function fromAffine({ x, y, z }, affinePoint) {
+  storeFieldIn(x, affinePoint.x);
+  storeFieldIn(y, affinePoint.y);
+  storeFieldIn(z, field.legs.Rmod); // 1
 }
 
 /**

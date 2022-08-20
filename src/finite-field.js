@@ -93,9 +93,16 @@ let pLegs = fieldToUint64Array(field.p);
 let twoPLegs = fieldToUint64Array(2n * field.p);
 let Rminus2PLegs = fieldToUint64Array(field.R - 2n * field.p);
 
+/**
+ *
+ * @param {number} n
+ */
 function randomScalars(n) {
   let N = n * 32 * 2;
   let bytes = randomBytes(N);
+  /**
+   * @type {Uint8Array[]}
+   */
   let scalars = Array(n);
   for (let i = 0, j = 0; i < n; i++) {
     while (true) {
