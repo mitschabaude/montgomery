@@ -2,15 +2,12 @@ import {
   PointVectorInput,
   ScalarVectorInput,
   compute_msm,
-} from "./src/reference.node.js";
+} from "./src/reference.js";
 import { msm } from "./src/curve.js";
-import { tic, toc } from "./src/tictoc.js";
-import { load } from "./src/store-inputs.js";
+import { tic, toc } from "./src/tictoc.web.js";
+import { load } from "./src/store-inputs.web.js";
 
-// node crypto
-globalThis.crypto = (await import("crypto")).webcrypto;
-
-let n = process.argv[2] ?? 14;
+let n = 12;
 console.log(`running msm with 2^${n} inputs`);
 
 tic("load inputs & convert to rust");
