@@ -12,6 +12,7 @@ console.log(`running msm with 2^${n} inputs`);
 
 tic("load inputs & convert to rust");
 let { points, scalars } = await load(n);
+// TODO: loading into Rust memory fails for n >= 15
 let scalarVec = ScalarVectorInput.fromJsArray(scalars);
 let pointVec = PointVectorInput.fromJsArray(points);
 toc();
