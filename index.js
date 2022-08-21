@@ -3,38 +3,23 @@ import {
   ScalarVectorInput,
   compute_msm,
 } from "./src/reference.node.js";
-import { randomScalars } from "./src/finite-field.js";
-import { msm, randomCurvePoints } from "./src/curve.js";
+import { msm } from "./src/curve.js";
+import { tic, toc } from "./src/tictoc.js";
+import { load } from "./src/store-inputs.js";
 
-let n = 16;
-let t0, t1;
+let n = process.argv[2] ?? 14;
+console.log(`running msm with 2^${n} inputs`);
 
-// t0 = performance.now();
-// const pointVec = new PointVectorInput(2 ** n);
-// const scalarVec = new ScalarVectorInput(2 ** n);
-// t1 = performance.now();
-// console.log(`create inputs (rust): ${((t1 - t0) / 1000).toFixed(3)} sec`);
+tic("load inputs & convert to rust");
+let { points, scalars } = await load(n);
+let scalarVec = ScalarVectorInput.fromJsArray(scalars);
+let pointVec = PointVectorInput.fromJsArray(points);
+toc();
 
-t0 = performance.now();
-let points = randomCurvePoints(2 ** n);
-t1 = performance.now();
-console.log(`create inputs (js): ${((t1 - t0) / 1000).toFixed(3)} sec`);
+tic("msm (rust)");
+compute_msm(pointVec, scalarVec);
+toc();
 
-let scalars = randomScalars(2 ** n);
-
-// t0 = performance.now();
-// let scalarVec = ScalarVectorInput.fromJsArray(scalars);
-// let pointVec = PointVectorInput.fromJsArray(points);
-// t1 = performance.now();
-// console.log(`convert inputs from js: ${((t1 - t0) / 1000).toFixed(3)} sec`);
-
-// t0 = performance.now();
-// compute_msm(pointVec, scalarVec);
-// t1 = performance.now();
-// console.log(`msm (rust): ${((t1 - t0) / 1000).toFixed(3)} sec`);
-
-t0 = performance.now();
+tic("msm (ours)");
 msm(scalars, points);
-// msm(scalarVec.toJsArray(), pointVec.toJsArray());
-t1 = performance.now();
-console.log(`msm (ours): ${((t1 - t0) / 1000).toFixed(3)} sec`);
+toc();

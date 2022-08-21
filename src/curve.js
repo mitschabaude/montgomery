@@ -159,8 +159,15 @@ function getScratchSpace(n) {
   return space;
 }
 
+/**
+ *
+ * @param {number} n
+ */
 function randomCurvePoints(n) {
   let scratchSpace = getScratchSpace(32);
+  /**
+   * @type {CompatiblePoint[]}
+   */
   let points = Array(n);
   for (let i = 0; i < n; i++) {
     points[i] = randomCurvePoint(scratchSpace);

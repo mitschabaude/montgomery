@@ -5,6 +5,7 @@ export {
   uint8ArrayToBigUint64,
   bigintToBits,
   logBytesAsBigint,
+  log2,
 };
 
 function bigintFromBytes(bytes) {
@@ -93,4 +94,14 @@ function bigintToBits(x, bitLength) {
 function logBytesAsBigint(bytes) {
   let x = bigintFromBytes(bytes);
   console.log(x);
+}
+
+/**
+ * ceil(log2(n))
+ * @param {number | bigint} n
+ */
+function log2(n) {
+  if (typeof n === "number") n = BigInt(n);
+  if (n === 1n) return 0;
+  return (n - 1n).toString(2).length;
 }
