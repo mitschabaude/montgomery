@@ -14,6 +14,7 @@
     ;; all 12xi64s are stored little-endian (small first)
     (local $i i32) (local $j i32) (local $q i32) (local $t i32)
     (local $C i64) (local $A i64) (local $tmp i64) (local $m i64)
+    (local $xi i64)
 
     (local.set $q (global.get $p))
 
@@ -23,12 +24,15 @@
 
     ;; for (let i = 0; i < 96; i+=8) {
     (local.set $i (i32.const 0))
-    (loop 
+    (loop
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      local.set $xi
+
       ;;  let tmp = t[0] + x[i] * y[0];
       ;;  t[0] = tmp & 0xffffffffn;
       ;;  let A = tmp >> 32n;
       (i64.load (local.get $t)) ;; t[0]
-      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      local.get $xi
       (i64.load (local.get $y)) ;; y[i]
       i64.mul ;; x[i] * y[0]
       i64.add ;; t[0] + x[i] * y[0]
@@ -57,13 +61,13 @@
       i64.const 32 ;; 32n
       i64.shr_u ;; (t[0] + m * q[0]) >> 32n
       local.set $C ;; let C = (t[0] + m * q[0]) >> 32n
-      
+
       ;; for (let j = 8; j < 96; j+=8) {
       (local.set $j (i32.const 8))
       (loop
         ;;  let tmp = t[j] + x[i] * y[j] + A;
         (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
-        (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+        local.get $xi
         (i64.load (i32.add (local.get $y) (local.get $j))) ;; y[j]
         i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
         local.set $tmp
