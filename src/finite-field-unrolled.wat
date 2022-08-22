@@ -65,31 +65,24 @@
         (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
         (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
         (i64.load (i32.add (local.get $y) (local.get $j))) ;; y[j]
-        i64.mul ;; x[i] * y[j]
-        i64.add ;; t[j] + x[i] * y[j]
-        local.get $A ;; A
-        i64.add ;; t[j] + x[i] * y[j] + A
-        local.set $tmp ;; let tmp = t[j] + x[i] * y[j] + A
+        i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+        local.set $tmp
 
         ;;  t[j] = tmp & 0xffffffffn;
-        (i32.add (local.get $t) (local.get $j)) ;; t[j] =
-        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
-        i64.store ;; t[j] = tmp & 0xffffffffn
+        (i64.store
+          (i32.add (local.get $t) (local.get $j)) ;; t[j] =
+          (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+        )
 
         ;;  A = tmp >> 32n;
-        local.get $tmp
-        i64.const 32 ;; 32n
-        i64.shr_u ;; tmp >> 32n
-        local.set $A ;; let A = tmp >> 32n
+        (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
+        local.set $A
 
         ;;  tmp = t[j] + m * q[j] + C;
         (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
         local.get $m ;; m
         (i64.load (i32.add (local.get $q) (local.get $j))) ;; q[j]
-        i64.mul ;; m * q[j]
-        i64.add ;; t[j] + m * q[j]
-        local.get $C ;; C
-        i64.add ;; t[j] + m * q[j] + C
+        i64.mul i64.add (local.get $C) i64.add ;; t[j] + m * q[j] + C
         local.set $tmp ;; let tmp = t[j] + m * q[j] + C
 
         ;;  t[j - 1] = tmp & 0xffffffffn;
@@ -98,10 +91,8 @@
         i64.store ;; t[j - 1] = tmp & 0xffffffffn
 
         ;;  C = tmp >> 32n;
-        local.get $tmp
-        i64.const 32 ;; 32n
-        i64.shr_u ;; tmp >> 32n
-        local.set $C ;; let C = tmp >> 32n
+        (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
+        local.set $C
 
         (br_if 0 (i32.ne (i32.const 96)
           (local.tee $j (i32.add (local.get $j) (i32.const 8)))
