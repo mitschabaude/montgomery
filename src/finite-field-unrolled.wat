@@ -76,41 +76,215 @@
       ;; C = tmp >> 32n;
       (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
       
-
-      ;; for (let j = 16; j < 96; j+=8) {
-      (local.set $j (i32.const 16))
-      (loop
-        ;; let tmp = t[j] + x[i] * y[j] + A;
-        (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
-        local.get $xi
-        (i64.load (i32.add (local.get $y) (local.get $j))) ;; y[j]
-        i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
-        local.set $tmp
-
-        ;; A = tmp >> 32n;
-        (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
-        local.set $A
-
-        ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      ;; j = 16
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=16 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=16 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=16 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=8 (local.get $t) ;; t[j - 1] = 
         (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
-        local.get $m ;; m
-        (i64.load (i32.add (local.get $q) (local.get $j))) ;; q[j]
-        i64.mul i64.add (local.get $C) i64.add ;; t[j] + m * q[j] + C
-        local.set $tmp ;; let tmp = t[j] + m * q[j] + C
-
-        ;; t[j - 1] = tmp & 0xffffffffn;
-        (i32.sub (i32.add (local.get $t) (local.get $j)) (i32.const 8)) ;; t[j - 1] = 
-        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
-        i64.store ;; t[j - 1] = tmp & 0xffffffffn
-
-        ;; C = tmp >> 32n;
-        (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
-        local.set $C
-
-        (br_if 0 (i32.ne (i32.const 96)
-          (local.tee $j (i32.add (local.get $j) (i32.const 8)))
-        ))
       )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 24
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=24 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=24 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=24 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=16 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 32
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=32 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=32 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=32 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=24 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 40
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=40 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=40 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=40 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=32 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 48
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=48 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=48 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=48 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=40 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 56
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=56 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=56 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=56 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=48 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 64
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=64 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=64 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=64 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=56 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 72
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=72 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=72 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=72 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=64 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+      ;; j = 80
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=80 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=80 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=80 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=72 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+      
+      ;; j = 88
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=88 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=88 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=88 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=80 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
 
       ;; t[11] = A + C;
       (i32.add (local.get $t) (i32.const 88)) ;; t[11] =
