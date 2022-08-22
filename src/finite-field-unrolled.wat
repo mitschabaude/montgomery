@@ -68,18 +68,12 @@
         i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
         local.set $tmp
 
-        ;;  t[j] = tmp & 0xffffffffn;
-        (i64.store
-          (i32.add (local.get $t) (local.get $j)) ;; t[j] =
-          (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
-        )
-
         ;;  A = tmp >> 32n;
         (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
         local.set $A
 
-        ;;  tmp = t[j] + m * q[j] + C;
-        (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
+        ;;  tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
         local.get $m ;; m
         (i64.load (i32.add (local.get $q) (local.get $j))) ;; q[j]
         i64.mul i64.add (local.get $C) i64.add ;; t[j] + m * q[j] + C
