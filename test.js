@@ -20,6 +20,9 @@ import {
 } from "./src/finite-field.js";
 import { getScratchSpace } from "./src/curve.js";
 import { readField, writeFieldInto } from "./src/wasm.js";
+import { webcrypto } from "node:crypto";
+// web crypto compat
+globalThis.crypto = webcrypto;
 
 let { p, toWasm, ofWasm } = field;
 

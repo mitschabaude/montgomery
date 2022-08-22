@@ -9,9 +9,9 @@ import { load } from "./src/store-inputs.js";
 import { cpus } from "node:os";
 import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
-
-// node crypto
-globalThis.crypto = (await import("crypto")).webcrypto;
+import { webcrypto } from "node:crypto";
+// web crypto compat
+globalThis.crypto = webcrypto;
 
 let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} inputs`);
@@ -30,6 +30,8 @@ let ref = toc();
 tic("msm (ours)");
 msm(scalars, points);
 let ours = toc();
+
+if (n < 14) process.exit(0);
 
 let commit = execSync("git rev-parse --short HEAD").toString().trim();
 let cpu = cpus()[0].model;
