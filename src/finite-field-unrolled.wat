@@ -28,39 +28,32 @@
       (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
       local.set $xi
 
-      ;;  let tmp = t[0] + x[i] * y[0];
-      ;;  t[0] = tmp & 0xffffffffn;
-      ;;  let A = tmp >> 32n;
+      ;; j=0 -- different from other iterations
+
+      ;; let tmp = t[0] + x[i] * y[0];
       (i64.load (local.get $t)) ;; t[0]
       local.get $xi
       (i64.load (local.get $y)) ;; y[i]
-      i64.mul ;; x[i] * y[0]
-      i64.add ;; t[0] + x[i] * y[0]
+      i64.mul i64.add ;; t[0] + x[i] * y[0]
       local.set $tmp ;; let tmp = t[0] + x[i] * y[0]
-      ;; (call $logLeg (local.get $t))
-      local.get $t ;; t[0] =
-      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
-      i64.store ;; t[0] = tmp & 0xffffffffn
+      ;; let A = tmp >> 32n
       (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
-      local.set $A ;; let A = tmp >> 32n
-      
-      ;;  let m = (t[0] * mu0) & 0xffffffffn;
-      (i64.load (local.get $t)) ;; t[0]
-      (global.get $mu) ;; mu0
-      i64.mul ;; t[0] * mu0
-      i64.const 0xffffffff ;; 0xffffffffn
-      i64.and ;; (t[0] * mu0) & 0xffffffffn
-      local.set $m ;; let m = (t[0] * mu0) & 0xffffffffn
+      local.set $A ;; 
+      ;; tmp = tmp & 0xffffffffn
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      local.set $tmp
 
-      ;;  let C = (t[0] + m * q[0]) >> 32n;
-      (i64.load (local.get $t)) ;; t[0]
+      ;; let m = (tmp * mu0) & 0xffffffffn;
+      (local.get $tmp) (global.get $mu) i64.mul
+      (i64.const 0xffffffff) i64.and ;; (tmp * mu0) & 0xffffffffn
+      local.set $m ;; let m = (tmp * mu0) & 0xffffffffn
+
+      ;;  let C = (tmp + m * q[0]) >> 32n;
+      local.get $tmp ;; tmp
       local.get $m ;; m
       (i64.load (local.get $q)) ;; q[0]
-      i64.mul ;; m * q[0]
-      i64.add ;; t[0] + m * q[0]
-      i64.const 32 ;; 32n
-      i64.shr_u ;; (t[0] + m * q[0]) >> 32n
-      local.set $C ;; let C = (t[0] + m * q[0]) >> 32n
+      i64.mul i64.add (i64.const 32) ;; tmp + m * q[0]
+      i64.shr_u (local.set $C) ;; let C = (tmp + m * q[0]) >> 32n
 
       ;; for (let j = 8; j < 96; j+=8) {
       (local.set $j (i32.const 8))
