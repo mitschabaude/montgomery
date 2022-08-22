@@ -48,40 +48,62 @@
       (i64.const 0xffffffff) i64.and ;; (tmp * mu0) & 0xffffffffn
       local.set $m ;; let m = (tmp * mu0) & 0xffffffffn
 
-      ;;  let C = (tmp + m * q[0]) >> 32n;
+      ;; let C = (tmp + m * q[0]) >> 32n;
       local.get $tmp ;; tmp
       local.get $m ;; m
       (i64.load (local.get $q)) ;; q[0]
       i64.mul i64.add (i64.const 32) ;; tmp + m * q[0]
       i64.shr_u (local.set $C) ;; let C = (tmp + m * q[0]) >> 32n
 
-      ;; for (let j = 8; j < 96; j+=8) {
-      (local.set $j (i32.const 8))
+      ;; j = 8
+      ;; let tmp = t[j] + x[i] * y[j] + A;
+      (i64.load offset=8 (local.get $t)) ;; t[j]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      (i64.load offset=8 (local.get $y)) ;; y[j]
+      i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
+      local.set $tmp
+      ;;  A = tmp >> 32n;
+      (local.set $A (i64.shr_u (local.get $tmp) (i64.const 32)))
+      ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+      (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      (i64.mul (local.get $m) (i64.load offset=8 (local.get $q))) ;; m * q[j]
+      (local.get $C) i64.add i64.add ;; (tmp & 0xffffffffn) + m * q[j] + C
+      local.set $tmp ;; let tmp = (tmp & 0xffffffffn) + m * q[j] + C
+      ;; t[j - 1] = tmp & 0xffffffffn;
+      (i64.store offset=0 (local.get $t) ;; t[j - 1] = 
+        (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
+      )
+      ;; C = tmp >> 32n;
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+      
+
+      ;; for (let j = 16; j < 96; j+=8) {
+      (local.set $j (i32.const 16))
       (loop
-        ;;  let tmp = t[j] + x[i] * y[j] + A;
+        ;; let tmp = t[j] + x[i] * y[j] + A;
         (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
         local.get $xi
         (i64.load (i32.add (local.get $y) (local.get $j))) ;; y[j]
         i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
         local.set $tmp
 
-        ;;  A = tmp >> 32n;
+        ;; A = tmp >> 32n;
         (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
         local.set $A
 
-        ;;  tmp = (tmp & 0xffffffffn) + m * q[j] + C;
+        ;; tmp = (tmp & 0xffffffffn) + m * q[j] + C;
         (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
         local.get $m ;; m
         (i64.load (i32.add (local.get $q) (local.get $j))) ;; q[j]
         i64.mul i64.add (local.get $C) i64.add ;; t[j] + m * q[j] + C
         local.set $tmp ;; let tmp = t[j] + m * q[j] + C
 
-        ;;  t[j - 1] = tmp & 0xffffffffn;
+        ;; t[j - 1] = tmp & 0xffffffffn;
         (i32.sub (i32.add (local.get $t) (local.get $j)) (i32.const 8)) ;; t[j - 1] = 
         (i64.and (local.get $tmp) (i64.const 0xffffffff)) ;; tmp & 0xffffffffn
         i64.store ;; t[j - 1] = tmp & 0xffffffffn
 
-        ;;  C = tmp >> 32n;
+        ;; C = tmp >> 32n;
         (i64.shr_u (local.get $tmp) (i64.const 32)) ;; tmp >> 32n
         local.set $C
 
