@@ -82,5 +82,12 @@
   "ours": 2.551,
   "commit": "2bf0a4c",
   "cpu": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz"
+ },
+ {
+  "n": 14,
+  "ref": 2.579,
+  "ours": 2.622,
+  "commit": "65bbdb6",
+  "cpu": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz"
  }
 ]

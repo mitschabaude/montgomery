@@ -17,6 +17,22 @@
     (local $t0 i64) (local $t1 i64) (local $t2 i64) (local $t3 i64)
     (local $t4 i64) (local $t5 i64) (local $t6 i64) (local $t7 i64)
     (local $t8 i64) (local $t9 i64) (local $t10 i64) (local $t11 i64)
+    (local $y0 i64) (local $y1 i64) (local $y2 i64) (local $y3 i64)
+    (local $y4 i64) (local $y5 i64) (local $y6 i64) (local $y7 i64)
+    (local $y8 i64) (local $y9 i64) (local $y10 i64) (local $y11 i64)
+
+    (local.set $y0 (i64.load offset=00 (local.get $y)))
+    (local.set $y1 (i64.load offset=08 (local.get $y)))
+    (local.set $y2 (i64.load offset=16 (local.get $y)))
+    (local.set $y3 (i64.load offset=24 (local.get $y)))
+    (local.set $y4 (i64.load offset=32 (local.get $y)))
+    (local.set $y5 (i64.load offset=40 (local.get $y)))
+    (local.set $y6 (i64.load offset=48 (local.get $y)))
+    (local.set $y7 (i64.load offset=56 (local.get $y)))
+    (local.set $y8 (i64.load offset=64 (local.get $y)))
+    (local.set $y9 (i64.load offset=72 (local.get $y)))
+    (local.set $y10 (i64.load offset=80 (local.get $y)))
+    (local.set $y11 (i64.load offset=88 (local.get $y)))
 
     ;; for (let i = 0; i < 96; i+=8) {
     (local.set $i (i32.const 0))
@@ -29,7 +45,7 @@
       ;; let tmp = t[0] + x[i] * y[0];
       (local.get $t0) ;; t[0]
       (local.get $xi) ;; x[i]
-      (i64.load (local.get $y)) ;; y[i]
+      (local.get $y0) ;; y[j]
       i64.mul i64.add ;; t[0] + x[i] * y[0]
       local.set $tmp ;; let tmp = t[0] + x[i] * y[0]
       ;; let A = tmp >> 32n
@@ -54,7 +70,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t1) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=8 (local.get $y)) ;; y[j]
+      (local.get $y1) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -75,7 +91,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t2) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=16 (local.get $y)) ;; y[j]
+      (local.get $y2) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -96,7 +112,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t3) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=24 (local.get $y)) ;; y[j]
+      (local.get $y3) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -117,7 +133,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t4) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=32 (local.get $y)) ;; y[j]
+      (local.get $y4) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -138,7 +154,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t5) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=40 (local.get $y)) ;; y[j]
+      (local.get $y5) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -159,7 +175,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t6) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=48 (local.get $y)) ;; y[j]
+      (local.get $y6) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -180,7 +196,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t7) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=56 (local.get $y)) ;; y[j]
+      (local.get $y7) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -201,7 +217,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t8) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=64 (local.get $y)) ;; y[j]
+      (local.get $y8) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -222,7 +238,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t9) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=72 (local.get $y)) ;; y[j]
+      (local.get $y9) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -243,7 +259,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t10) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=80 (local.get $y)) ;; y[j]
+      (local.get $y10) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
@@ -264,7 +280,7 @@
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t11) ;; t[j]
       (local.get $xi) ;; x[i]
-      (i64.load offset=88 (local.get $y)) ;; y[j]
+      (local.get $y11) ;; y[j]
       i64.mul (local.get $A) i64.add i64.add ;; t[j] + x[i] * y[j] + A
       local.set $tmp
       ;;  A = tmp >> 32n;
