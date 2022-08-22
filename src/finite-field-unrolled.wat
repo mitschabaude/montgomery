@@ -287,12 +287,10 @@
       (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
 
       ;; t[11] = A + C;
-      (i32.add (local.get $t) (i32.const 88)) ;; t[11] =
-      local.get $A ;; A
-      local.get $C ;; C
-      i64.add ;; A + C
-      i64.store ;; t[11] = A + C
-
+      (i64.store offset=88 (local.get $t)
+        (i64.add (local.get $A) (local.get $C))
+      )
+      
       (br_if 0 (i32.ne (i32.const 96)
         (local.tee $i (i32.add (local.get $i) (i32.const 8)))
       ))
