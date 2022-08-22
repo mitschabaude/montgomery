@@ -14,6 +14,7 @@ export {
   storeField,
   storeFieldIn,
   emptyField,
+  emptyFields,
   freeField,
   reset,
   memory,
@@ -37,6 +38,7 @@ function shiftByWord(x: number): number;
 function storeField(x: Field): number;
 function storeFieldIn(pointer: number, x: Field | number): void;
 function emptyField(): number;
+function emptyFields(n: number): number;
 function freeField(x: number): void;
 function reset(): void;
 

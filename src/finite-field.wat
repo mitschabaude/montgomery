@@ -33,6 +33,7 @@
   (export "storeField" (func $storeField))
   (export "storeFieldIn" (func $storeFieldIn))
   (export "emptyField" (func $emptyField))
+  (export "emptyFields" (func $emptyFields))
   (export "freeField" (func $freeField))
 
   (func $logField (param $x i32)
@@ -62,6 +63,14 @@
   )
   (func $emptyField (result i32) (local $x i32)
     (call $alloc_zero (i32.const 96 (; 12 * 8 ;)))
+    local.tee $x
+    call $keep
+    local.get $x
+  )
+  (func $emptyFields (param $n i32) (result i32) (local $x i32)
+    (call $alloc_zero
+      (i32.mul (i32.const 96 (; 12 * 8 ;)) (local.get $n))
+    )
     local.tee $x
     call $keep
     local.get $x
@@ -642,14 +651,15 @@
 	)
 
 	(func $zero (param $x i32) (param $xLength i32)
+    ;; TODO use memory.fill
 		(local $I i32)
 		(local $end i32)
 		(local.set $end (i32.add (local.get $x) (local.get $xLength)))
 		(local.set $I (local.get $x))
 		(loop
-			(i32.store8 (local.get $I) (i32.const 0))
+			(i64.store (local.get $I) (i64.const 0))
 			(br_if 0 (i32.ne (local.get $end)
-				(local.tee $I (i32.add (local.get $I) (i32.const 1)))
+				(local.tee $I (i32.add (local.get $I) (i32.const 8)))
 			))
 		)
 	)

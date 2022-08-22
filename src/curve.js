@@ -17,9 +17,9 @@ import {
   add,
   subtract,
   isZero,
-  emptyField,
   storeFieldIn,
   reset,
+  emptyFields,
 } from "./finite-field.wat.js";
 import { bigintFromBytes, log2 } from "./util.js";
 import { readFieldBytes, writeFieldBytes, writeFieldInto } from "./wasm.js";
@@ -151,9 +151,10 @@ function msm(scalars, inputPoints) {
 }
 
 function getScratchSpace(n) {
-  let space = [];
-  for (let i = 0; i < n; i++) {
-    space.push(emptyField());
+  let space = Array(n);
+  let n0 = emptyFields(n);
+  for (let i = 0, ni = n0; i < n; i++, ni += 96) {
+    space[i] = ni;
   }
   return space;
 }
