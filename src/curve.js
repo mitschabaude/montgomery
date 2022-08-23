@@ -16,7 +16,6 @@ import {
   multiply,
   add,
   subtract,
-  isZero,
   storeFieldIn,
   reset,
   emptyFields,
@@ -33,14 +32,19 @@ export {
 };
 
 /**
- * @typedef {{x: number; y: number; z: number}} Point
+ * @typedef {{x: number; y: number; z: number, isZero?: boolean}} Point
  * @typedef {{x: number; y: number}} AffinePoint
  * @typedef {[xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean]} CompatiblePoint
  * @typedef {Uint8Array} CompatibleScalar
  */
 
 const curve = {
-  zero: { x: field.legs.Rmod, y: field.legs.Rmod, z: field.legs.zero },
+  zero: {
+    x: field.legs.Rmod,
+    y: field.legs.Rmod,
+    z: field.legs.zero,
+    isZero: true,
+  },
 };
 
 /**
@@ -57,10 +61,18 @@ function msm(scalars, inputPoints) {
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
   let points = getScratchSpace(n * 3); // initialize points
   let buckets = getScratchSpace(L * K * 3); // initialize buckets
+  let bucketsZero = Array(L * K).fill(true);
   let bucketSums = getScratchSpace(K * 3);
+  let bucketSumsZero = Array(K).fill(true);
   let partialSums = getScratchSpace(K * 3);
-  let finalSum = getScratchSpace(3);
-  let hasBucketPoint = Array(L * K).fill(false);
+  let partialSumsZero = Array(K).fill(true);
+  let finalSumXyz = getScratchSpace(3);
+  let finalSum = {
+    x: finalSumXyz[0],
+    y: finalSumXyz[1],
+    z: finalSumXyz[2],
+    isZero: true,
+  };
   let scratchSpace = getScratchSpace(20);
   let affinePoint = takeAffinePoint(scratchSpace);
 
@@ -77,7 +89,7 @@ function msm(scalars, inputPoints) {
     let x = points[i * 2];
     let y = points[i * 2 + 1];
     let z = points[i * 2 + 2];
-    let point = { x, y, z };
+    let point = { x, y, z, isZero: false };
     fromAffine(point, affinePoint);
     // partition 32-byte scalar into c-bit chunks
     for (let k = 0; k < K; k++) {
@@ -89,13 +101,10 @@ function msm(scalars, inputPoints) {
       let x = buckets[idx * 3];
       let y = buckets[idx * 3 + 1];
       let z = buckets[idx * 3 + 2];
-      let bucket = { x, y, z };
-      if (hasBucketPoint[idx]) {
-        addAssignProjective(scratchSpace, bucket, point);
-      } else {
-        writePointInto(bucket, point);
-        hasBucketPoint[idx] = true;
-      }
+      let isZero = bucketsZero[idx];
+      let bucket = { x, y, z, isZero };
+      addAssignProjective(scratchSpace, bucket, point);
+      bucketsZero[idx] = bucket.isZero;
     }
   }
   // second loop -- sum up buckets to partial sums
@@ -106,21 +115,26 @@ function msm(scalars, inputPoints) {
         x: buckets[idx * 3],
         y: buckets[idx * 3 + 1],
         z: buckets[idx * 3 + 2],
+        isZero: bucketsZero[idx],
       };
       let bucketSum = {
         x: bucketSums[k * 3],
         y: bucketSums[k * 3 + 1],
         z: bucketSums[k * 3 + 2],
+        isZero: bucketSumsZero[k],
       };
       let partialSum = {
         x: partialSums[k * 3],
         y: partialSums[k * 3 + 1],
         z: partialSums[k * 3 + 2],
+        isZero: partialSumsZero[k],
       };
       // TODO: this should have faster paths if a summand is zero
       // (bucket is zero pretty often; bucketSum at the beginning)
       addAssignProjective(scratchSpace, bucketSum, bucket);
+      bucketSumsZero[k] = bucketSum.isZero;
       addAssignProjective(scratchSpace, partialSum, bucketSum);
+      partialSumsZero[k] = partialSum.isZero;
     }
   }
   // third loop -- compute final sum using horner's rule
@@ -129,6 +143,7 @@ function msm(scalars, inputPoints) {
     x: partialSums[k * 3],
     y: partialSums[k * 3 + 1],
     z: partialSums[k * 3 + 2],
+    isZero: partialSumsZero[k],
   };
   writePointInto(finalSum, partialSum);
   k--;
@@ -140,6 +155,7 @@ function msm(scalars, inputPoints) {
       x: partialSums[k * 3],
       y: partialSums[k * 3 + 1],
       z: partialSums[k * 3 + 2],
+      isZero: partialSumsZero[k],
     };
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
@@ -196,7 +212,7 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
     add(x, x, one);
   }
   storeFieldIn(z, one);
-  let p = { x, y, z };
+  let p = { x, y, z, isZero: false };
   let minusZP = takePoint(scratchSpace);
   // clear cofactor
   scaleProjective(scratchSpace, minusZP, scalar.asBits.minusZ, p); // -z*p
@@ -254,11 +270,8 @@ function scaleProjective([x, y, z, ...scratchSpace], result, scalar, point) {
  * @param {number[]} scratchSpace
  * @param {Point} point
  */
-function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z }) {
-  if (isZero(z)) {
-    // console.log("double: z is zero");
-    return;
-  }
+function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z, isZero }) {
+  if (isZero) return;
   let eight = field.legs.eight;
   // const W = x.multiply(x).multiply(3n);
   multiply(W, x, x);
@@ -307,18 +320,17 @@ function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z }) {
 function addAssignProjective(
   [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a],
   p1,
-  { x: x2, y: y2, z: z2 }
+  { x: x2, y: y2, z: z2, isZero: isZero2 }
 ) {
   // if (p1.isZero()) return p2;
   // if (p2.isZero()) return p1;
-  let { x: x1, y: y1, z: z1 } = p1;
-  if (isZero(z1)) {
-    writePointInto(p1, { x: x2, y: y2, z: z2 });
+  let { x: x1, y: y1, z: z1, isZero: isZero1 } = p1;
+  if (isZero1) {
+    writePointInto(p1, { x: x2, y: y2, z: z2, isZero: isZero2 });
     return;
   }
-  if (isZero(z2)) {
-    return;
-  }
+  if (isZero2) return;
+  p1.isZero = false;
   // const U1 = Y2.multiply(Z1);
   // const U2 = Y1.multiply(Z2);
   // const V1 = X2.multiply(Z1);
@@ -367,6 +379,7 @@ function writePointInto(targetPoint, point) {
   storeFieldIn(targetPoint.x, point.x);
   storeFieldIn(targetPoint.y, point.y);
   storeFieldIn(targetPoint.z, point.z);
+  targetPoint.isZero = point.isZero;
   return targetPoint;
 }
 
