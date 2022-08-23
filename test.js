@@ -40,6 +40,12 @@ function test() {
   multiply(z, x, y);
   let z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("multiply");
+  z0 = 0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffffn; // test overflow resistance
+  toWasm(z0, z);
+  z0 = mod(z0 * z0, p);
+  multiply(z, z, z);
+  z1 = ofWasm(scratch, z);
+  if (z0 !== z1) throw Error("multiply");
 
   // add
   z0 = mod(x0 + y0, p);
