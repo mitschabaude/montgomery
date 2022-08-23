@@ -67,6 +67,7 @@
       (i64.const 32) i64.shr_u (local.set $C) ;; let C = (tmp + m * q[0]) >> 32n
 
       ;; j = 8
+      ;; NB: this can't overflow 64 bits, because (2^32 - 1)^2 + 2*(2^32 - 1) = 2^64 - 1
       ;; let tmp = t[j] + x[i] * y[j] + A;
       (local.get $t1) ;; t[j]
       (local.get $xi) ;; x[i]
