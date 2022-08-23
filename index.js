@@ -3,13 +3,14 @@ import {
   ScalarVectorInput,
   compute_msm,
 } from "./src/reference.node.js";
-import { msm } from "./src/curve.js";
+import { msm, randomCurvePoints } from "./src/curve.js";
 import { tic, toc } from "./src/tictoc.js";
 import { load } from "./src/store-inputs.js";
 import { cpus } from "node:os";
 import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { webcrypto } from "node:crypto";
+import { randomScalars } from "./src/finite-field.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
@@ -17,7 +18,15 @@ let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} inputs`);
 
 tic("load inputs & convert to rust");
-let { points, scalars } = await load(n);
+let points, scalars;
+if (n >= 12) {
+  let result = await load(n);
+  points = result.points;
+  scalars = result.scalars;
+} else {
+  points = randomCurvePoints(2 ** n);
+  scalars = randomScalars(2 ** n);
+}
 // TODO: loading into Rust memory fails for n >= 15
 let scalarVec = ScalarVectorInput.fromJsArray(scalars);
 let pointVec = PointVectorInput.fromJsArray(points);
