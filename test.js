@@ -21,6 +21,7 @@ import {
 import { getScratchSpace } from "./src/curve.js";
 import { readField, writeFieldInto } from "./src/wasm.js";
 import { webcrypto } from "node:crypto";
+import { extractBitSlice } from "./src/util.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
@@ -101,6 +102,17 @@ function test() {
   x0 = fieldFromUint64Array(readField(x));
   z0 = fieldFromUint64Array(readField(z));
   if (!(x0 === 5n && z0 === 3n << 120n)) throw Error("makeOdd");
+
+  // extractBitSlice
+  let arr = new Uint8Array([0b0010_0110, 0b1101_0101, 0b1111_1111]);
+  let e = Error("extractBitSlice");
+  if (extractBitSlice(arr, 2, 4) !== 0b10_01) throw e;
+  if (extractBitSlice(arr, 0, 2) !== 0b10) throw e;
+  if (extractBitSlice(arr, 0, 8) !== 0b0010_0110) throw e;
+  if (extractBitSlice(arr, 3, 9) !== 0b0101_0010_0) throw e;
+  if (extractBitSlice(arr, 8, 8) !== 0b1101_0101) throw e;
+  if (extractBitSlice(arr, 5, 3 + 8 + 2) !== 0b11_1101_0101_001) throw e;
+  if (extractBitSlice(arr, 16, 10) !== 0b1111_1111) throw e;
 }
 
 for (let i = 0; i < 20; i++) {

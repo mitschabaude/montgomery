@@ -6,6 +6,7 @@ export {
   bigintToBits,
   logBytesAsBigint,
   log2,
+  extractBitSlice,
 };
 
 function bigintFromBytes(bytes) {
@@ -104,4 +105,29 @@ function log2(n) {
   if (typeof n === "number") n = BigInt(n);
   if (n === 1n) return 0;
   return (n - 1n).toString(2).length;
+}
+
+/**
+ *
+ * @param {Uint8Array} bytes
+ * @param {number} startBit
+ * @param {number} bitLength
+ */
+function extractBitSlice(bytes, startBit, bitLength) {
+  let endBit = startBit + bitLength;
+  let startByte = startBit >> 3;
+  startBit -= startByte << 3;
+  let endByte = endBit >> 3;
+  endBit -= endByte << 3;
+  if (startByte === endByte) {
+    return ((bytes[startByte] ?? 0) & ((1 << endBit) - 1)) >> startBit;
+  }
+  let slice = (bytes[startByte] ?? 0) >> startBit;
+  let position = 8 - startBit;
+  for (let i = startByte + 1; i < endByte; i++) {
+    slice += (bytes[i] ?? 0) << position;
+    position += 8;
+  }
+  slice += ((bytes[endByte] ?? 0) & ((1 << endBit) - 1)) << position;
+  return slice;
 }

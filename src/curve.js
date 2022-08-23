@@ -21,7 +21,7 @@ import {
   reset,
   emptyFields,
 } from "./finite-field.wat.js";
-import { bigintFromBytes, log2 } from "./util.js";
+import { extractBitSlice, log2 } from "./util.js";
 import { readFieldBytes, writeFieldBytes, writeFieldInto } from "./wasm.js";
 
 export {
@@ -53,10 +53,8 @@ function msm(scalars, inputPoints) {
   let n = scalars.length;
   let c = log2(n) - 2; // TODO: determine c from n and hand-optimized lookup table
   // TODO: do less computations for last, smaller chunk of scalar
-  let cBigint = BigInt(c);
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
-  let LBigint = BigInt(L);
   let points = getScratchSpace(n * 3); // initialize points
   let buckets = getScratchSpace(L * K * 3); // initialize buckets
   let bucketSums = getScratchSpace(K * 3);
@@ -69,7 +67,6 @@ function msm(scalars, inputPoints) {
   // first loop -- compute buckets
   for (let i = 0; i < n; i++) {
     let scalar = scalars[i];
-    let scalarBigint = bigintFromBytes(scalar);
     let inputPoint = inputPoints[i];
     // convert point to projective
     writeFieldBytes(affinePoint.x, inputPoint[0]);
@@ -83,9 +80,9 @@ function msm(scalars, inputPoints) {
     let point = { x, y, z };
     fromAffine(point, affinePoint);
     // partition 32-byte scalar into c-bit chunks
-    for (let k = 0; k < K; k++, scalarBigint >>= cBigint) {
+    for (let k = 0; k < K; k++) {
       // compute k-th digit from scalar
-      let l = Number(scalarBigint & LBigint);
+      let l = extractBitSlice(scalar, k * c, c);
       if (l === 0) continue;
       // get bucket for digit and add point to it
       let idx = k * L + (l - 1);
