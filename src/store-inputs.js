@@ -3,6 +3,8 @@ import { randomCurvePoints } from "./curve.js";
 import fs from "node:fs/promises";
 import { tic, toc } from "./tictoc.js";
 import { log2 } from "./util.js";
+import { webcrypto } from "node:crypto";
+globalThis.crypto = webcrypto;
 
 export { load };
 
