@@ -145,5 +145,12 @@
   "ours": 1.402,
   "commit": "728ba4b",
   "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 14,
+  "ref": 1.694,
+  "ours": 2.175,
+  "commit": "afef355",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
  }
 ]
