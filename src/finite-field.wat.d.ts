@@ -1,45 +1,23 @@
-export {
-  multiply,
-  add,
-  subtract,
-  reduceInPlace,
-  addNoReduce,
-  subtractNoReduce,
-  equals,
-  isZero,
-  isGreater,
-  makeOdd,
-  countTrailingZeroes,
-  shiftByWord,
-  storeField,
-  storeFieldIn,
-  emptyField,
-  emptyFields,
-  freeField,
-  reset,
-  memory,
-  Field,
-};
+export let memory: WebAssembly.Memory;
 
-declare let memory: WebAssembly.Memory;
+export function multiply(out: number, x: number, y: number): void;
+export function square(out: number, x: number): void;
+export function add(out: number, x: number, y: number): void;
+export function subtract(out: number, x: number, y: number): void;
+export function reduceInPlace(x: number): void;
+export function addNoReduce(out: number, x: number, y: number): void;
+export function subtractNoReduce(out: number, x: number, y: number): void;
+export function equals(x: number, y: number): boolean;
+export function isZero(x: number): boolean;
+export function isGreater(x: number, y: number): boolean;
+export function makeOdd(u: number, s: number): number;
+export function countTrailingZeroes(x: number): number;
+export function shiftByWord(x: number): number;
+export function storeField(x: Field): number;
+export function storeFieldIn(pointer: number, x: Field | number): void;
+export function emptyField(): number;
+export function emptyFields(n: number): number;
+export function freeField(x: number): void;
+export function reset(): void;
 
-function multiply(out: number, x: number, y: number): void;
-function add(out: number, x: number, y: number): void;
-function subtract(out: number, x: number, y: number): void;
-function reduceInPlace(x: number): void;
-function addNoReduce(out: number, x: number, y: number): void;
-function subtractNoReduce(out: number, x: number, y: number): void;
-function equals(x: number, y: number): boolean;
-function isZero(x: number): boolean;
-function isGreater(x: number, y: number): boolean;
-function makeOdd(u: number, s: number): number;
-function countTrailingZeroes(x: number): number;
-function shiftByWord(x: number): number;
-function storeField(x: Field): number;
-function storeFieldIn(pointer: number, x: Field | number): void;
-function emptyField(): number;
-function emptyFields(n: number): number;
-function freeField(x: number): void;
-function reset(): void;
-
-type Field = BigUint64Array;
+export type Field = BigUint64Array;

@@ -19,6 +19,7 @@
   (import "./finite-field-unrolled.wat" "multiply" (func $multiply.unrolled (param i32 i32 i32)))
 
   (export "multiply" (func $multiply.unrolled))
+  (export "square" (func $square.381.12_leg))
   (export "add" (func $add.381.12_leg))
   (export "addNoReduce" (func $addNoReduce.381.12_leg))
   (export "subtract" (func $subtract.381.12_leg))
@@ -200,6 +201,183 @@
       (i32.add (local.get $xy) (local.get $i)) ;; xy[i] = 
       (i64.load (i32.add (local.get $t) (local.get $i))) ;; t[i]
       i64.store ;; xy[i] = t[i]
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+  )
+
+  (func $square.381.12_leg (param $xx i32) (param $x i32)
+    (local $i i32) (local $j i32) (local $q i32) (local $t i32)
+    (local $C i64) (local $A i64) (local $tmp i64) (local $tmp1 i64) (local $xixj i64)
+    (local $m i64) (local $xi i64) (local $p i64)
+
+    (local.set $q (global.get $p))
+
+    ;; let t = new BigUint64Array(12);
+		(call $alloc_zero (i32.const 96 (; 12 * 8 ;)))
+		local.set $t
+
+    ;; for i=0 to N-2
+    (local.set $i (i32.const 0))
+    (loop
+      ;; load x[i]
+      (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+      local.set $xi
+
+      ;; C, t[i] = x[i] * x[i] + t[i]
+      (i64.mul (local.get $xi) (local.get $xi))
+      (i64.load (i32.add (local.get $t) (local.get $i)))
+      i64.add
+      (local.tee $tmp) (i64.const 32) i64.shr_u (local.set $C)
+      (i64.store
+        (i32.add (local.get $t) (local.get $i))
+        (i64.and (local.get $tmp) (i64.const 0xffffffff))
+      )
+
+      ;; p = 0
+      (local.set $p (i64.const 0))
+
+      ;; for j=i+1 to N-1
+      (local.set $j (i32.add (local.get $i) (i32.const 8)))
+      (loop
+        ;; p,C,t[j] = 2*x[j]*x[i] + t[j] + (p,C)
+
+        ;; tmp1 = t[j] + (p,C)
+        (local.get $C) (local.get $p) (i64.const 32) i64.shl i64.or ;; (p, C)
+        (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
+        i64.add (local.set $tmp1)
+
+        ;; (p, tmp) = 2*x[i]*x[j]
+        (local.get $xi) ;; x[i]
+        (i64.load (i32.add (local.get $x) (local.get $j))) ;; x[j]
+        i64.mul (local.tee $xixj) ;; xixj = x[i] * y[j]
+        (i64.const 1) i64.shl (local.set $tmp)
+        (i64.extend_i32_u (i64.gt_u (local.get $xixj) (local.get $tmp)))
+        (local.set $p)
+
+        ;; (p0, tmp) = tmp + t[j] + (p,C)
+        ;; p |= p0
+        ;; (C, t[j]) = tmp
+        (i64.add (local.get $tmp) (local.get $tmp1)) ;; tmp + t[j] + (p,C)
+        (local.set $tmp)
+        (i64.extend_i32_u (i64.gt_u (local.get $tmp1) (local.get $tmp)))
+        (local.get $p) i64.or (local.set $p)
+        (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+        (i64.store
+          (i32.add (local.get $t) (local.get $j))
+          (i64.and (local.get $tmp) (i64.const 0xffffffff))
+        )
+        (br_if 0 (i32.ne (i32.const 96)
+          (local.tee $j (i32.add (local.get $j) (i32.const 8)))
+        ))
+      )
+
+      ;; A = C
+      (local.set $A (local.get $C))
+
+      ;; (_, m) = t[0] * q'[0]
+      (i64.load (local.get $t)) ;; t[0]
+      global.get $mu ;; mu0
+      i64.mul (i64.const 0xffffffff) i64.and
+      local.set $m
+
+      ;; C, _ = t[0] + q[0]*m
+      (i64.load (local.get $t))
+      (i64.mul (i64.load (local.get $q)) (local.get $m))
+      i64.add (i64.const 32) i64.shr_u
+      local.set $C
+
+      ;; for j=1 to N-1
+      (local.set $j (i32.const 8))
+      (loop
+        ;; C, t[j-1] = q[j]*m +  t[j] + C
+        (i64.mul
+          (i64.load (i32.add (local.get $q) (local.get $j)))
+          (local.get $m)
+        )
+        (i64.load (i32.add (local.get $t) (local.get $j)))
+        local.get $C
+        i64.add i64.add (local.set $tmp)
+        (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+        (i64.store
+          (i32.sub (i32.add (local.get $t) (local.get $j)) (i32.const 8))
+          (i64.and (local.get $tmp) (i64.const 0xffffffff))
+        )
+        (br_if 0 (i32.ne (i32.const 96)
+          (local.tee $j (i32.add (local.get $j) (i32.const 8)))
+        ))
+      )
+
+      ;; t[N-1] = C + A
+      (i64.store offset=88 (local.get $t)
+        (i64.add (local.get $C) (local.get $A))
+      )
+
+      (br_if 0 (i32.ne (i32.const 88)
+        (local.tee $i (i32.add (local.get $i) (i32.const 8)))
+      ))
+    )
+
+    ;; special logic for i = 88
+    ;; load x[i]
+    (i64.load (i32.add (local.get $x) (local.get $i))) ;; x[i]
+    local.set $xi
+    ;; C, t[i] = x[i] * x[i] + t[i]
+    (i64.mul (local.get $xi) (local.get $xi))
+    (i64.load (i32.add (local.get $t) (local.get $i)))
+    i64.add
+    (local.tee $tmp) (i64.const 32) i64.shr_u (local.set $C)
+    (i64.store
+      (i32.add (local.get $t) (local.get $i))
+      (i64.and (local.get $tmp) (i64.const 0xffffffff))
+    )
+    ;; p = 0
+    (local.set $p (i64.const 0))
+    ;; A = C
+    (local.set $A (local.get $C))
+    ;; (_, m) = t[0] * q'[0]
+    (i64.load (local.get $t)) ;; t[0]
+    global.get $mu ;; mu0
+    i64.mul (i64.const 0xffffffff) i64.and
+    local.set $m
+    ;; C, _ = t[0] + q[0]*m
+    (i64.load (local.get $t))
+    (i64.mul (i64.load (local.get $q)) (local.get $m))
+    i64.add (i64.const 32) i64.shr_u
+    local.set $C
+    ;; for j=1 to N-1
+    (local.set $j (i32.const 8))
+    (loop
+      ;; C, t[j-1] = q[j]*m +  t[j] + C
+      (i64.mul
+        (i64.load (i32.add (local.get $q) (local.get $j)))
+        (local.get $m)
+      )
+      (i64.load (i32.add (local.get $t) (local.get $j)))
+      local.get $C
+      i64.add i64.add (local.set $tmp)
+      (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+      (i64.store
+        (i32.sub (i32.add (local.get $t) (local.get $j)) (i32.const 8))
+        (i64.and (local.get $tmp) (i64.const 0xffffffff))
+      )
+      (br_if 0 (i32.ne (i32.const 96)
+        (local.tee $j (i32.add (local.get $j) (i32.const 8)))
+      ))
+    )
+    ;; t[N-1] = C + A
+    (i64.store offset=88 (local.get $t)
+      (i64.add (local.get $C) (local.get $A))
+    )
+
+    ;;  for (let i = 0; i < 96; i+=8) { xx[i] = t[i]; }
+    (local.set $i (i32.const 0))
+    (loop
+      (i64.store
+        (i32.add (local.get $xx) (local.get $i))
+        (i64.load (i32.add (local.get $t) (local.get $i)))
+      )
       (br_if 0 (i32.ne (i32.const 96)
         (local.tee $i (i32.add (local.get $i) (i32.const 8)))
       ))

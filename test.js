@@ -7,6 +7,7 @@ import {
   countTrailingZeroes,
   shiftByWord,
   makeOdd,
+  square,
 } from "./src/finite-field.wat.js";
 import {
   field,
@@ -46,6 +47,12 @@ function test() {
   multiply(z, z, z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("multiply");
+
+  // square
+  z0 = mod(x0 * x0, p);
+  square(z, x);
+  z1 = ofWasm(scratch, z);
+  if (z0 !== z1) throw Error("square");
 
   // add
   z0 = mod(x0 + y0, p);
