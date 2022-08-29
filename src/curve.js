@@ -19,6 +19,7 @@ import {
   storeFieldIn,
   reset,
   emptyFields,
+  square,
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 import { readFieldBytes, writeFieldBytes, writeFieldInto } from "./wasm.js";
@@ -274,13 +275,13 @@ function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z, isZero }) {
   if (isZero) return;
   let eight = field.legs.eight;
   // const W = x.multiply(x).multiply(3n);
-  multiply(W, x, x);
+  square(W, x);
   add(S, W, W);
   add(W, S, W);
   // const S = y.multiply(z);
   multiply(S, y, z);
   // const SS = S.multiply(S);
-  multiply(SS, S, S);
+  square(SS, S);
   // const SSS = SS.multiply(S);
   multiply(SSS, SS, S);
   // const B = x.multiply(y).multiply(S);
@@ -290,7 +291,7 @@ function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z, isZero }) {
   add(B, B, B);
   add(fourB, B, B);
   // const H = W.multiply(W).subtract(B.multiply(8n));
-  multiply(H, W, W);
+  square(H, W);
   subtract(H, H, fourB);
   subtract(H, H, fourB);
   // const X3 = H.multiply(S).multiply(2n);
@@ -303,7 +304,7 @@ function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z, isZero }) {
   subtract(fourBminusH, fourB, H);
   let WtimesFourBminusH = H;
   multiply(WtimesFourBminusH, W, fourBminusH);
-  multiply(y, y, y);
+  square(y, y);
   multiply(y, y, eight);
   multiply(y, y, SS);
   subtract(y, WtimesFourBminusH, y);
@@ -346,7 +347,7 @@ function addAssignProjective(
   // const V = V1.subtract(V2);
   subtract(v, v1, v2);
   // const VV = V.multiply(V);
-  multiply(vv, v, v);
+  square(vv, v);
   // const VVV = VV.multiply(V);
   multiply(vvv, vv, v);
   // const V2VV = V2.multiply(VV);
@@ -354,7 +355,7 @@ function addAssignProjective(
   // const W = Z1.multiply(Z2);
   multiply(w, z1, z2);
   // const A = U.multiply(U).multiply(W).subtract(VVV).subtract(V2VV.multiply(2n));
-  multiply(a, u, u);
+  square(a, u);
   multiply(a, a, w);
   subtract(a, a, vvv);
   subtract(a, a, v2vv);
