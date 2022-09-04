@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "build": "node src/finite-field-generate.js && npx watever src/finite-field.wat --sync --no-auto-free && node test.js",
     "test": "node test.js"
   },
   "keywords": [],
