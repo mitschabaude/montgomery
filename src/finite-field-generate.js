@@ -8,7 +8,7 @@ let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
 
 let w = 32;
-let writer = generateMultiply(p, w);
+let writer = generateMultiply32(p, w);
 let { n } = computeMontgomeryParams(p, w);
 writer.wrap(
   (text) => `;; generated for w=${w}, n=${n}, n*w=${n * w}
@@ -23,7 +23,7 @@ await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
  * @param {bigint} p modulus
  * @param {number} w word size in bits
  */
-function generateMultiply(p, w) {
+function generateMultiply32(p, w) {
   let { n } = computeMontgomeryParams(p, w);
 
   // constants
@@ -34,109 +34,111 @@ function generateMultiply(p, w) {
 
   let W = Writer();
   let { line, lines, comment } = W;
-  let { i64, i32, local } = ops;
+  let { i64, i32, local, param32 } = ops;
   let join = (...args) => args.join(" ");
 
   // head
-  W.tab();
-  line('(export "multiply" (func $multiply))');
-  line("(func $multiply (param $xy i32) (param $x i32) (param $y i32)");
   W.tab();
 
   let x = "$x";
   let y = "$y";
   let xy = "$xy";
-  let tmp = "$tmp";
-  let carry = "$carry";
-  let A = "$A";
-  let m = "$m";
-  let xi = "$xi";
-  let i = "$i";
 
-  // tmp locals
-  line(
-    local(tmp, "i64"),
-    local(carry, "i64"),
-    local(m, "i64"),
-    local(A, "i64")
-  );
-  line(local(xi, "i64"), local(i, "i32"));
-  line();
+  exportFunc(W, "multiply");
+  func(W, "multiply", [param32(xy), param32(x), param32(y)], () => {
+    let tmp = "$tmp";
+    let carry = "$carry";
+    let A = "$A";
+    let m = "$m";
+    let xi = "$xi";
+    let i = "$i";
 
-  // locals for input y and output xy
-  let Y = defineLocals(W, "y", n);
-  line();
-  let T = defineLocals(W, "t", n);
-  line();
-
-  Y.forEach((yi, i) =>
-    line(local.set(yi, i64.load(`offset=${i * 8}`, local.get(y))))
-  );
-  line();
-  forLoop8(W, i, 0, n, () => {
-    line(local.set(xi, i64.load(i32.add(x, i))));
-
-    // j=0 loop, where m = m[i] is computed and we neglect t[0]
-    comment(`j = 0`);
-    comment("(A, tmp) = t[0] + x[i]*y[0]");
-    lines(
-      local.get(T[0]),
-      i64.mul(xi, Y[0]),
-      i64.add(),
-      local.set(tmp),
-      i64.shr_u(tmp, w),
-      local.set(A),
-      i64.and(tmp, wordMax),
-      local.set(tmp)
+    // tmp locals
+    line(
+      local(tmp, "i64"),
+      local(carry, "i64"),
+      local(m, "i64"),
+      local(A, "i64")
     );
-    comment("m = tmp * mu (mod 2^w)");
-    lines(i64.mul(tmp, mu), join(i64.const(wordMax), i64.and()), local.set(m));
-    comment("carry = (tmp + m * p[0]) >> w");
-    lines(
-      local.get(tmp),
-      i64.mul(m, P[0]),
-      i64.add(),
-      join(i64.const(w), i64.shr_u(), local.set(carry))
-    );
+    line(local(xi, "i64"), local(i, "i32"));
     line();
 
-    for (let j = 1; j < n; j++) {
-      comment(`j = ${j}`);
-      // NB: this can't overflow 64 bits, because (2^32 - 1)^2 + 2*(2^32 - 1) = 2^64 - 1
-      comment("tmp = t[j] + x[i] * y[j] + A");
+    // locals for input y and output xy
+    let Y = defineLocals(W, "y", n);
+    line();
+    let T = defineLocals(W, "t", n);
+    line();
+
+    Y.forEach((yi, i) =>
+      line(local.set(yi, i64.load(`offset=${i * 8}`, local.get(y))))
+    );
+    line();
+    forLoop8(W, i, 0, n, () => {
+      line(local.set(xi, i64.load(i32.add(x, i))));
+
+      // j=0 loop, where m = m[i] is computed and we neglect t[0]
+      comment(`j = 0`);
+      comment("(A, tmp) = t[0] + x[i]*y[0]");
       lines(
-        local.get(T[j]),
-        local.get(xi),
-        local.get(Y[j]),
-        join(i64.mul(), local.get(A), i64.add(), i64.add()),
-        local.set(tmp)
-      );
-      comment("A = tmp >> w");
-      line(local.set(A, i64.shr_u(tmp, w)));
-      comment("tmp = (tmp & 0xffffffffn) + m * p[j] + C");
-      lines(
+        local.get(T[0]),
+        i64.mul(xi, Y[0]),
+        i64.add(),
+        local.set(tmp),
+        i64.shr_u(tmp, w),
+        local.set(A),
         i64.and(tmp, wordMax),
-        i64.mul(m, P[j]),
-        join(local.get(carry), i64.add(), i64.add()),
         local.set(tmp)
       );
-      comment("(C, t[j - 1]) = tmp");
+      comment("m = tmp * mu (mod 2^w)");
       lines(
-        local.set(T[j - 1], i64.and(tmp, wordMax)),
-        local.set(carry, i64.shr_u(tmp, w))
+        i64.mul(tmp, mu),
+        join(i64.const(wordMax), i64.and()),
+        local.set(m)
+      );
+      comment("carry = (tmp + m * p[0]) >> w");
+      lines(
+        local.get(tmp),
+        i64.mul(m, P[0]),
+        i64.add(),
+        join(i64.const(w), i64.shr_u(), local.set(carry))
       );
       line();
-    }
-    comment("t[11] = A + C");
-    line(local.set(T[n - 1], i64.add(A, carry)));
-  });
 
-  for (let i = 0; i < n; i++) {
-    line(i64.store(`offset=${8 * i}`, xy, T[i]));
-  }
-  // end
-  W.untab();
-  line(")");
+      for (let j = 1; j < n; j++) {
+        comment(`j = ${j}`);
+        // NB: this can't overflow 64 bits, because (2^32 - 1)^2 + 2*(2^32 - 1) = 2^64 - 1
+        comment("tmp = t[j] + x[i] * y[j] + A");
+        lines(
+          local.get(T[j]),
+          local.get(xi),
+          local.get(Y[j]),
+          join(i64.mul(), local.get(A), i64.add(), i64.add()),
+          local.set(tmp)
+        );
+        comment("A = tmp >> w");
+        line(local.set(A, i64.shr_u(tmp, w)));
+        comment("tmp = (tmp & 0xffffffffn) + m * p[j] + C");
+        lines(
+          i64.and(tmp, wordMax),
+          i64.mul(m, P[j]),
+          join(local.get(carry), i64.add(), i64.add()),
+          local.set(tmp)
+        );
+        comment("(C, t[j - 1]) = tmp");
+        lines(
+          local.set(T[j - 1], i64.and(tmp, wordMax)),
+          local.set(carry, i64.shr_u(tmp, w))
+        );
+        line();
+      }
+      comment("t[11] = A + C");
+      line(local.set(T[n - 1], i64.add(A, carry)));
+    });
+
+    for (let i = 0; i < n; i++) {
+      line(i64.store(`offset=${8 * i}`, xy, T[i]));
+    }
+  });
   W.untab();
   return W;
 }
@@ -253,7 +255,23 @@ function getOperations() {
       tee: op("local.tee"),
     }),
     br_if: op("br_if"),
+    param: op("param"),
+    param32: (name) => op("param")(name, "i32"),
+    param64: (name) => op("param")(name, "i64"),
+    result: op("result"),
+    export: op("export"),
   };
+}
+
+function func({ line, tab, untab }, name, args, callback) {
+  line("(func", "$" + name, ...args);
+  tab();
+  callback();
+  untab();
+  line(")");
+}
+function exportFunc({ line }, name) {
+  line(ops.export(`"${name}"`, `(func $${name})`));
 }
 
 function forLoop8(writer, i, i0, length, callback) {
