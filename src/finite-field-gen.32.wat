@@ -1,6 +1,9 @@
-;; generated for w=32, n=12, n*w=384
-(module
+;; ;; generated for w=32, n=12, n*w=384
+(module 
+  (export "memory" (memory $memory))
+  (memory $memory 100)
   (export "multiply" (func $multiply))
+  (export "benchMultiply" (func $benchMultiply))
   (func $multiply (param $xy i32) (param $x i32) (param $y i32)
     (local $tmp i64) (local $carry i64) (local $m i64) (local $A i64)
     (local $xi i64) (local $i i32)
@@ -27,7 +30,7 @@
     (local.set $y11 (i64.load offset=88 (local.get $y)))
     
     (local.set $i (i32.const 0))
-    (loop
+    (loop 
       (local.set $xi (i64.load (i32.add (local.get $x) (local.get $i))))
       ;; j = 0
       ;; (A, tmp) = t[0] + x[i]*y[0]
@@ -249,10 +252,8 @@
       
       ;; t[11] = A + C
       (local.set $t11 (i64.add (local.get $A) (local.get $carry)))
-      
       (br_if 0 (i32.ne (i32.const 96) (local.tee $i (i32.add (local.get $i) (i32.const 8)))))
     )
-    
     (i64.store offset=0 (local.get $xy) (local.get $t00))
     (i64.store offset=8 (local.get $xy) (local.get $t01))
     (i64.store offset=16 (local.get $xy) (local.get $t02))
@@ -266,4 +267,13 @@
     (i64.store offset=80 (local.get $xy) (local.get $t10))
     (i64.store offset=88 (local.get $xy) (local.get $t11))
   )
+  (func $benchMultiply (param $x i32) (param $N i32)
+    (local $i i32)
+    (local.set $i (i32.const 0))
+    (loop 
+      (call $multiply (local.get $x) (local.get $x) (local.get $x))
+      (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 1)))))
+    )
+  )
+  
 )

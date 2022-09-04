@@ -1,21 +1,64 @@
 import { bigintToLegs, log2 } from "./util.js";
 import fs from "node:fs/promises";
 import { modInverse } from "./finite-field.js";
+import { toBase64 } from "fast-base64";
+
+export { jsHelpers, wasmArithmetic };
+let wabt;
+const wasmFeatures = {
+  exceptions: true,
+  mutable_globals: true,
+  sat_float_to_int: true,
+  sign_extension: true,
+  simd: true,
+  threads: true,
+  multi_value: true,
+  tail_call: true,
+  bulk_memory: true,
+  reference_types: true,
+  annotations: true,
+  gc: true,
+};
 
 let ops = getOperations();
-
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
 
-let w = 32;
-let writer = generateMultiply32(p, w);
-let { n } = computeMontgomeryParams(p, w);
-writer.wrap(
-  (text) => `;; generated for w=${w}, n=${n}, n*w=${n * w}
-(module
-${text})`
-);
-await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
+let isMain = process.argv[1] === import.meta.url.slice(7);
+
+if (isMain) {
+  let w = 32;
+  let writer = generateMultiply32(p, w);
+  finishModule(writer, p, w);
+  let js = await compileWat(writer);
+  await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
+  await fs.writeFile("./src/finite-field-gen.32.wat.js", js);
+}
+
+async function wasmArithmetic(p, w) {
+  let writer = generateMultiply32(p, w);
+  finishModule(writer, p, w);
+  await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
+  return await interpretWat(writer);
+}
+
+function finishModule(writer, p, w) {
+  let { n } = computeMontgomeryParams(p, w);
+  let writer2 = Writer();
+  let { line, write, remove, comment } = writer2;
+  comment(`;; generated for w=${w}, n=${n}, n*w=${n * w}`);
+  block("module")(writer2, [], () => {
+    addExport(writer2, "memory", ops.memory("memory"));
+    line(ops.memory("memory", 100));
+    remove(2);
+    write(writer.text);
+    line();
+  });
+  for (let e of writer2.exports) {
+    writer.exports.add(e);
+  }
+  writer.text = writer2.text;
+}
 
 /**
  * Generate wasm code for montgomery product
@@ -34,24 +77,24 @@ function generateMultiply32(p, w) {
 
   let W = Writer();
   let { line, lines, comment } = W;
-  let { i64, i32, local, param32 } = ops;
+  let { i64, i32, local, param32, local32, call } = ops;
   let join = (...args) => args.join(" ");
-
-  // head
-  W.tab();
 
   let x = "$x";
   let y = "$y";
   let xy = "$xy";
+  let i = "$i";
 
-  exportFunc(W, "multiply");
+  W.tab();
+  addFuncExport(W, "multiply");
+  addFuncExport(W, "benchMultiply");
+
   func(W, "multiply", [param32(xy), param32(x), param32(y)], () => {
     let tmp = "$tmp";
     let carry = "$carry";
     let A = "$A";
     let m = "$m";
     let xi = "$xi";
-    let i = "$i";
 
     // tmp locals
     line(
@@ -139,7 +182,14 @@ function generateMultiply32(p, w) {
       line(i64.store(`offset=${8 * i}`, xy, T[i]));
     }
   });
-  W.untab();
+
+  let N = "$N";
+  func(W, "benchMultiply", [param32(x), param32(N)], () => {
+    line(local32(i));
+    forLoop1(W, i, 0, local.get(N), () => {
+      line(call("multiply", local.get(x), local.get(x), local.get(x)));
+    });
+  });
   return W;
 }
 
@@ -148,7 +198,7 @@ function defineLocals(t, name, n) {
   for (let i = 0; i < n; ) {
     for (let j = 0; j < 4 && i < n; j++, i++) {
       let x = "$" + name + String(i).padStart(2, "0");
-      t.write(`(local ${x} i64)`);
+      t.write(`(local ${x} i64) `);
       locals.push(x);
     }
     t.line();
@@ -159,23 +209,21 @@ function defineLocals(t, name, n) {
 function Writer(initial = "") {
   let indent = "";
   let text = initial;
+  let write = (l) => {
+    w.text += l;
+  };
+  let remove = (n) => {
+    w.text = w.text.slice(0, w.text.length - n);
+  };
   let spaces = (n) => {
     let n0 = w.indent.length;
-    if (n > n0) {
-      w.text += Array(n - n0)
-        .fill(" ")
-        .join("");
-    }
-    if (n < n0) {
-      w.text = w.text.slice(0, w.text.length - (n0 - n));
-    }
-    w.indent = Array(n).fill(" ").join("");
+    if (n > n0) write(" ".repeat(n - n0));
+    if (n < n0) remove(n0 - n);
+    w.indent = " ".repeat(n);
   };
   let tab = () => spaces(w.indent.length + 2);
   let untab = () => spaces(w.indent.length - 2);
-  let write = (l) => {
-    w.text += l + " ";
-  };
+
   let line = (...args) => {
     args.forEach((arg) => {
       if (typeof arg === "function" || typeof arg === "object") {
@@ -191,13 +239,17 @@ function Writer(initial = "") {
   };
   let wrap = (callback) => (w.text = callback(w.text));
   let comment = (s = "") => line(";; " + s);
+
   let w = {
     text,
     indent,
+    exports: new Set(),
+    imports: {},
+    write,
+    remove,
     spaces,
     tab,
     untab,
-    write,
     line,
     lines,
     wrap,
@@ -206,13 +258,23 @@ function Writer(initial = "") {
   return w;
 }
 
+function op(name) {
+  return function (...args) {
+    if (args.length === 0) return name;
+    else return `(${name} ${args.join(" ")})`;
+  };
+}
+function block(name) {
+  return function (writer, args, callback) {
+    writer.line(`(${name} ${args.join(" ")}`);
+    writer.tab();
+    callback();
+    writer.untab();
+    writer.line(")");
+  };
+}
+
 function getOperations() {
-  function op(name) {
-    return function (...args) {
-      if (args.length === 0) return name;
-      else return `(${name} ${args.join(" ")})`;
-    };
-  }
   function int(bits) {
     let constOp = (a) => {
       let op_ = op(`i${bits}.const`);
@@ -254,24 +316,30 @@ function getOperations() {
       set: op("local.set"),
       tee: op("local.tee"),
     }),
+    local32: (name) => op("local")(name, "i32"),
+    local64: (name) => op("local")(name, "i64"),
     br_if: op("br_if"),
     param: op("param"),
     param32: (name) => op("param")(name, "i32"),
     param64: (name) => op("param")(name, "i64"),
     result: op("result"),
-    export: op("export"),
+    export: (name, ...args) => op("export")(`"${name}"`, ...args),
+    call: (name, ...args) => op("call")("$" + name, ...args),
+    memory: (name, ...args) => op("memory")("$" + name, ...args),
+    func: (name, ...args) => op("func")("$" + name, ...args),
   };
 }
 
-function func({ line, tab, untab }, name, args, callback) {
-  line("(func", "$" + name, ...args);
-  tab();
-  callback();
-  untab();
-  line(")");
+function func(writer, name, args, callback) {
+  block("func")(writer, ["$" + name, ...args], callback);
 }
-function exportFunc({ line }, name) {
-  line(ops.export(`"${name}"`, `(func $${name})`));
+function addExport(W, name, thing) {
+  W.exports.add(name);
+  W.line(ops.export(name, thing));
+}
+function addFuncExport(W, name) {
+  W.exports.add(name);
+  W.line(ops.export(name, ops.func(name)));
 }
 
 function forLoop8(writer, i, i0, length, callback) {
@@ -279,18 +347,21 @@ function forLoop8(writer, i, i0, length, callback) {
   writer.line(local.set(i, i32.const(i0)));
   loop(writer, () => {
     callback();
-    writer.line();
     writer.line(br_if(0, i32.ne(8 * length, local.tee(i, i32.add(i, 8)))));
   });
 }
 
+function forLoop1(writer, i, i0, length, callback) {
+  let { local, i32, br_if } = ops;
+  writer.line(local.set(i, i32.const(i0)));
+  loop(writer, () => {
+    callback();
+    writer.line(br_if(0, i32.ne(length, local.tee(i, i32.add(i, 1)))));
+  });
+}
+
 function loop(writer, callback) {
-  writer.line("(loop");
-  writer.tab();
-  callback();
-  writer.untab();
-  writer.line(")");
-  writer.line();
+  block("loop")(writer, [], callback);
 }
 
 /**
@@ -312,5 +383,59 @@ function computeMontgomeryParams(p, w) {
   let n = Math.ceil(minK / w);
   let K = n * w;
   let R = 1n << BigInt(K);
-  return { n, K, R };
+  let wn = BigInt(w);
+  return { n, K, R, wn, wordMax: (1n << wn) - 1n };
+}
+
+/**
+ *
+ * @param {bigint} p modulus
+ * @param {number} w word size
+ */
+function jsHelpers(p, w, memory) {
+  let { n, wn, wordMax } = computeMontgomeryParams(p, w);
+  return {
+    /**
+     *
+     * @param {number} x
+     * @param {bigint} x0
+     */
+    writeBigint(x, x0) {
+      let arr = new BigUint64Array(memory.buffer, x, n);
+      for (let i = 0; i < n; i++) {
+        arr[i] = x0 & wordMax;
+        x0 >>= wn;
+      }
+    },
+  };
+}
+
+async function compileWat({ text, exports }) {
+  // TODO: imports
+  let wat = text;
+  wabt ??= await (await import("wabt")).default();
+  let wabtModule = wabt.parseWat("", wat, wasmFeatures);
+  let wasmBytes = new Uint8Array(
+    wabtModule.toBinary({ write_debug_names: true }).buffer
+  );
+  let base64 = await toBase64(wasmBytes);
+  return `// compiled from wat
+import { toBytes } from 'fast-base64';
+let wasmBytes = await toBytes("${base64}");
+let { instance } = await WebAssembly.instantiate(wasmBytes, {});
+let { ${[...exports].join(", ")} } = instance.exports;
+export { ${[...exports].join(", ")} };
+`;
+}
+
+async function interpretWat({ text }) {
+  // TODO: imports
+  let wat = text;
+  wabt ??= await (await import("wabt")).default();
+  let wabtModule = wabt.parseWat("", wat, wasmFeatures);
+  let wasmBytes = new Uint8Array(
+    wabtModule.toBinary({ write_debug_names: true }).buffer
+  );
+  let { instance } = await WebAssembly.instantiate(wasmBytes, {});
+  return instance.exports;
 }

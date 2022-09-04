@@ -17,6 +17,7 @@ import { readField, writeFieldInto } from "./wasm.js";
 export {
   randomScalars,
   randomBaseField,
+  randomBaseFieldx2,
   mod,
   field,
   scalar,
@@ -133,6 +134,19 @@ function randomBaseField() {
     bytes[47] &= 0x1f;
     let x = bigintFromBytes(bytes);
     if (x < field.p) return x;
+  }
+}
+
+/**
+ *
+ * @returns {bigint}
+ */
+function randomBaseFieldx2() {
+  while (true) {
+    let bytes = randomBytes(48);
+    bytes[47] &= 0x3f;
+    let x = bigintFromBytes(bytes);
+    if (x < 2n * field.p) return x;
   }
 }
 

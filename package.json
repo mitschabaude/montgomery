@@ -12,6 +12,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "fast-base64": "^0.1.8",
+    "wabt": "^1.0.29",
     "watever-js-wrapper": "file:../../watever/watever-js-wrapper"
   },
   "devDependencies": {

@@ -16,7 +16,7 @@ import {
   leftShiftInPlace,
   mod,
   modInverseMontgomery,
-  randomBaseField,
+  randomBaseFieldx2,
   rightShiftInPlace,
 } from "./src/finite-field.js";
 import { getScratchSpace } from "./src/curve.js";
@@ -31,8 +31,8 @@ let { p, toWasm, ofWasm } = field;
 let [x, y, z, ...scratch] = getScratchSpace(10);
 
 function test() {
-  let x0 = randomBaseField() + randomBaseField();
-  let y0 = randomBaseField() + randomBaseField();
+  let x0 = randomBaseFieldx2();
+  let y0 = randomBaseFieldx2();
   toWasm(x0, x);
   toWasm(y0, y);
 
