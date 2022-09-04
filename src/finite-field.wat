@@ -210,7 +210,7 @@
   (func $square.381.12_leg (param $xx i32) (param $x i32)
     (local $i i32) (local $j i32) (local $q i32) (local $t i32)
     (local $C i64) (local $A i64) (local $tmp i64) (local $tmp1 i64) (local $xixj i64)
-    (local $m i64) (local $xi i64) (local $p i64)
+    (local $m i64) (local $xi i64)
 
     (local.set $q (global.get $p))
 
@@ -235,35 +235,36 @@
         (i64.and (local.get $tmp) (i64.const 0xffffffff))
       )
 
-      ;; p = 0
-      (local.set $p (i64.const 0))
-
       ;; for j=i+1 to N-1
       (local.set $j (i32.add (local.get $i) (i32.const 8)))
       (loop
-        ;; p,C,t[j] = 2*x[j]*x[i] + t[j] + (p,C)
+        ;; C,t[j] = 2*x[j]*x[i] + t[j] + C
 
-        ;; tmp1 = t[j] + (p,C)
-        (local.get $C) (local.get $p) (i64.const 32) i64.shl i64.or ;; (p, C)
+        ;; tmp1 = t[j] + C
+        (local.get $C)
         (i64.load (i32.add (local.get $t) (local.get $j))) ;; t[j]
         i64.add (local.set $tmp1)
 
-        ;; (p, tmp) = 2*x[i]*x[j]
+        ;; (C, tmp) = 2*x[i]*x[j]
         (local.get $xi) ;; x[i]
         (i64.load (i32.add (local.get $x) (local.get $j))) ;; x[j]
-        i64.mul (local.tee $xixj) ;; xixj = x[i] * y[j]
-        (i64.const 1) i64.shl (local.set $tmp)
-        (i64.extend_i32_u (i64.gt_u (local.get $xixj) (local.get $tmp)))
-        (local.set $p)
-
-        ;; (p0, tmp) = tmp + t[j] + (p,C)
-        ;; p |= p0
-        ;; (C, t[j]) = tmp
-        (i64.add (local.get $tmp) (local.get $tmp1)) ;; tmp + t[j] + (p,C)
+        i64.mul (local.tee $tmp) ;; xixj = x[i] * y[j]
+        (i64.const 31) i64.shr_u (local.set $C) ;; C = xi*xj >> 31 (not 32 because we're shifting up by 1 later)
+        (i64.shl 
+          (i64.and (local.get $tmp) (i64.const 0x7fffffff))
+          (i64.const 1)
+        )
         (local.set $tmp)
-        (i64.extend_i32_u (i64.gt_u (local.get $tmp1) (local.get $tmp)))
-        (local.get $p) i64.or (local.set $p)
-        (local.set $C (i64.shr_u (local.get $tmp) (i64.const 32)))
+
+        ;; (C0, t[j]) = tmp + tmp1
+        ;; C += C0
+        (i64.add (local.get $tmp) (local.get $tmp1)) ;; tmp += tmp1
+        (local.set $tmp)
+        (i64.add
+          (local.get $C)
+          (i64.shr_u (local.get $tmp) (i64.const 32))
+        )
+        (local.set $C)
         (i64.store
           (i32.add (local.get $t) (local.get $j))
           (i64.and (local.get $tmp) (i64.const 0xffffffff))
@@ -332,8 +333,6 @@
       (i32.add (local.get $t) (local.get $i))
       (i64.and (local.get $tmp) (i64.const 0xffffffff))
     )
-    ;; p = 0
-    (local.set $p (i64.const 0))
     ;; A = C
     (local.set $A (local.get $C))
     ;; (_, m) = t[0] * q'[0]
