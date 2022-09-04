@@ -56,7 +56,10 @@ function finishModule(writer, p, w) {
 }
 
 /**
- * Generate wasm code for montgomery product
+ * generate wasm code for montgomery product
+ *
+ * this is specific to w=32, in that two carry variables are needed
+ * to efficiently stay within 64 bits
  *
  * @param {bigint} p modulus
  * @param {number} w word size in bits
@@ -86,17 +89,17 @@ function generateMultiply32(p, w) {
 
   func(W, "multiply", [param32(xy), param32(x), param32(y)], () => {
     let tmp = "$tmp";
-    let carry = "$carry";
-    let A = "$A";
+    let carry1 = "$carry1";
+    let carry2 = "$carry2";
     let m = "$m";
     let xi = "$xi";
 
     // tmp locals
     line(
       local(tmp, "i64"),
-      local(carry, "i64"),
+      local(carry2, "i64"),
       local(m, "i64"),
-      local(A, "i64")
+      local(carry1, "i64")
     );
     line(local(xi, "i64"), local(i, "i32"));
     line();
@@ -123,7 +126,7 @@ function generateMultiply32(p, w) {
         i64.add(),
         local.set(tmp),
         i64.shr_u(tmp, w),
-        local.set(A),
+        local.set(carry1),
         i64.and(tmp, wordMax),
         local.set(tmp)
       );
@@ -138,7 +141,7 @@ function generateMultiply32(p, w) {
         local.get(tmp),
         i64.mul(m, P[0]),
         i64.add(),
-        join(i64.const(w), i64.shr_u(), local.set(carry))
+        join(i64.const(w), i64.shr_u(), local.set(carry2))
       );
       line();
 
@@ -150,27 +153,27 @@ function generateMultiply32(p, w) {
           local.get(T[j]),
           local.get(xi),
           local.get(Y[j]),
-          join(i64.mul(), local.get(A), i64.add(), i64.add()),
+          join(i64.mul(), local.get(carry1), i64.add(), i64.add()),
           local.set(tmp)
         );
         comment("A = tmp >> w");
-        line(local.set(A, i64.shr_u(tmp, w)));
+        line(local.set(carry1, i64.shr_u(tmp, w)));
         comment("tmp = (tmp & 0xffffffffn) + m * p[j] + C");
         lines(
           i64.and(tmp, wordMax),
           i64.mul(m, P[j]),
-          join(local.get(carry), i64.add(), i64.add()),
+          join(local.get(carry2), i64.add(), i64.add()),
           local.set(tmp)
         );
         comment("(C, t[j - 1]) = tmp");
         lines(
           local.set(T[j - 1], i64.and(tmp, wordMax)),
-          local.set(carry, i64.shr_u(tmp, w))
+          local.set(carry2, i64.shr_u(tmp, w))
         );
         line();
       }
       comment("t[11] = A + C");
-      line(local.set(T[n - 1], i64.add(A, carry)));
+      line(local.set(T[n - 1], i64.add(carry1, carry2)));
     });
 
     for (let i = 0; i < n; i++) {
@@ -230,10 +233,11 @@ function computeMontgomeryParams(p, w) {
  * @param {number} w word size
  */
 function jsHelpers(p, w, memory) {
-  let { n, wn, wordMax } = computeMontgomeryParams(p, w);
-  return {
+  let { n, wn, wordMax, R } = computeMontgomeryParams(p, w);
+  let obj = {
+    n,
+    R,
     /**
-     *
      * @param {number} x
      * @param {bigint} x0
      */
@@ -244,5 +248,43 @@ function jsHelpers(p, w, memory) {
         x0 >>= wn;
       }
     },
+
+    /**
+     * @param {number} x
+     */
+    readBigInt(x) {
+      let arr = new BigUint64Array(memory.buffer.slice(x, x + n * 8));
+      let x0 = 0n;
+      let bitPosition = 0n;
+      for (let i = 0; i < arr.length; i++) {
+        x0 += arr[i] << bitPosition;
+        bitPosition += wn;
+      }
+      return x0;
+    },
+
+    offset: 0,
+
+    /**
+     * @param {number} N
+     */
+    getPointers(N) {
+      /**
+       * @type {number[]}
+       */
+      let pointers = Array(N);
+      let offset = obj.offset;
+      let n8 = n * 8;
+      for (let i = 0; i < N; i++) {
+        pointers[i] = offset;
+        offset += n8;
+      }
+      obj.offset = offset;
+      return pointers;
+    },
+    resetPointers() {
+      obj.offset = 0;
+    },
   };
+  return obj;
 }
