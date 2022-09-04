@@ -30,24 +30,6 @@ if (isMain) {
   await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
 }
 
-function finishModule(writer, p, w) {
-  let { n } = computeMontgomeryParams(p, w);
-  let writer2 = Writer();
-  let { line, write, remove, comment } = writer2;
-  comment(`;; generated for w=${w}, n=${n}, n*w=${n * w}`);
-  block("module")(writer2, [], () => {
-    addExport(writer2, "memory", ops.memory("memory"));
-    line(ops.memory("memory", 100));
-    remove(2);
-    write(writer.text);
-    line();
-  });
-  for (let e of writer2.exports) {
-    writer.exports.add(e);
-  }
-  writer.text = writer2.text;
-}
-
 /**
  * generate wasm code for montgomery product
  *
@@ -192,6 +174,24 @@ function generateMultiply32(p, w, { unrollOuter }) {
     });
   });
   return W;
+}
+
+function finishModule(writer, p, w) {
+  let { n } = computeMontgomeryParams(p, w);
+  let writer2 = Writer();
+  let { line, write, remove, comment } = writer2;
+  comment(`;; generated for w=${w}, n=${n}, n*w=${n * w}`);
+  block("module")(writer2, [], () => {
+    addExport(writer2, "memory", ops.memory("memory"));
+    line(ops.memory("memory", 100));
+    remove(2);
+    write(writer.text);
+    line();
+  });
+  for (let e of writer2.exports) {
+    writer.exports.add(e);
+  }
+  writer.text = writer2.text;
 }
 
 function defineLocals(t, name, n) {
