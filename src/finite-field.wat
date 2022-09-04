@@ -18,8 +18,14 @@
 
   (import "./finite-field-unrolled.wat" "multiply" (func $multiply.unrolled (param i32 i32 i32)))
 
-  (export "multiply" (func $multiply.381.12_leg))
-  (export "square" (func $square.381.12_leg))
+  (import "./finite-field-gen.32.wat" "multiply" (func $multiply.32 (param i32 i32 i32)))
+
+  (func $square.32 (param $xx i32) (param $x i32)
+    (call $multiply.32 (local.get $xx) (local.get $x) (local.get $x))
+  )
+
+  (export "multiply" (func $multiply.32))
+  (export "square" (func $square.32))
   (export "add" (func $add.381.12_leg))
   (export "addNoReduce" (func $addNoReduce.381.12_leg))
   (export "subtract" (func $subtract.381.12_leg))

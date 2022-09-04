@@ -4,6 +4,7 @@ export {
   bigUint64toUint8Array,
   uint8ArrayToBigUint64,
   bigintToBits,
+  bigintToLegs,
   logBytesAsBigint,
   log2,
   extractBitSlice,
@@ -92,6 +93,23 @@ function bigintToBits(x, bitLength) {
   return bits;
 }
 
+/**
+ * Split bigint into n w-bit legs, which are also bigints
+ * @param {bigint} x0
+ * @param {number} w word size
+ * @param {number} n number of legs
+ */
+function bigintToLegs(x, w, n) {
+  let legs = Array(n);
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  for (let i = 0; i < n; i++) {
+    legs[i] = x & wordMax;
+    x >>= wn;
+  }
+  return legs;
+}
+
 function logBytesAsBigint(bytes) {
   let x = bigintFromBytes(bytes);
   console.log(x);
@@ -99,6 +117,7 @@ function logBytesAsBigint(bytes) {
 
 /**
  * ceil(log2(n))
+ * = smallest k such that n <= 2^k
  * @param {number | bigint} n
  */
 function log2(n) {
