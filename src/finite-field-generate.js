@@ -14,7 +14,7 @@ import {
   Writer,
 } from "./wasm-generate.js";
 
-export { jsHelpers, wasmArithmetic };
+export { jsHelpers, generateMultiply32, finishModule, interpretWat };
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -23,18 +23,11 @@ let isMain = process.argv[1] === import.meta.url.slice(7);
 
 if (isMain) {
   let w = 32;
-  let writer = generateMultiply32(p, w);
+  let writer = generateMultiply32(p, w, { unrollOuter: false });
   finishModule(writer, p, w);
   let js = await compileWat(writer);
-  await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
-  await fs.writeFile("./src/finite-field-gen.32.wat.js", js);
-}
-
-async function wasmArithmetic(p, w) {
-  let writer = generateMultiply32(p, w);
-  finishModule(writer, p, w);
-  await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
-  return await interpretWat(writer);
+  await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
+  await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
 }
 
 function finishModule(writer, p, w) {
@@ -64,7 +57,7 @@ function finishModule(writer, p, w) {
  * @param {bigint} p modulus
  * @param {number} w word size in bits
  */
-function generateMultiply32(p, w) {
+function generateMultiply32(p, w, { unrollOuter }) {
   let { n } = computeMontgomeryParams(p, w);
 
   // constants
@@ -114,9 +107,7 @@ function generateMultiply32(p, w) {
       line(local.set(yi, i64.load(`offset=${i * 8}`, local.get(y))))
     );
     line();
-    forLoop8(W, i, 0, n, () => {
-      line(local.set(xi, i64.load(i32.add(x, i))));
-
+    function outerLoop() {
       // j=0 loop, where m = m[i] is computed and we neglect t[0]
       comment(`j = 0`);
       comment("(A, tmp) = t[0] + x[i]*y[0]");
@@ -174,8 +165,20 @@ function generateMultiply32(p, w) {
       }
       comment("t[11] = A + C");
       line(local.set(T[n - 1], i64.add(carry1, carry2)));
-    });
-
+    }
+    if (unrollOuter) {
+      for (let i = 0; i < n; i++) {
+        comment(`i = ${i}`);
+        line(local.set(xi, i64.load(`offset=${i * 8}`, x)));
+        outerLoop();
+        line();
+      }
+    } else {
+      forLoop8(W, i, 0, n, () => {
+        line(local.set(xi, i64.load(i32.add(x, i))));
+        outerLoop();
+      });
+    }
     for (let i = 0; i < n; i++) {
       line(i64.store(`offset=${8 * i}`, xy, T[i]));
     }
