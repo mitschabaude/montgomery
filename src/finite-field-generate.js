@@ -1,4 +1,4 @@
-import { bigintToBytes, bigintToLegs, log2 } from "./util.js";
+import { bigintToLegs, log2 } from "./util.js";
 import fs from "node:fs/promises";
 import { modInverse } from "./finite-field.js";
 
@@ -13,8 +13,7 @@ let { n } = computeMontgomeryParams(p, w);
 writer.wrap(
   (text) => `;; generated for w=${w}, n=${n}, n*w=${n * w}
 (module
-${text}  
-)`
+${text})`
 );
 await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
 
@@ -25,7 +24,7 @@ await fs.writeFile("./src/finite-field-gen.32.wat", writer.text);
  * @param {number} w word size in bits
  */
 function generateMultiply(p, w) {
-  let { n, K, R } = computeMontgomeryParams(p, w);
+  let { n } = computeMontgomeryParams(p, w);
 
   // constants
   let wn = BigInt(w);
@@ -34,15 +33,15 @@ function generateMultiply(p, w) {
   let P = bigintToLegs(p, w, n);
 
   let W = Writer();
-  let { spaces, line, lines, comment } = W;
-  let { i64, local } = ops;
+  let { line, lines, comment } = W;
+  let { i64, i32, local } = ops;
   let join = (...args) => args.join(" ");
 
   // head
-  spaces(2);
+  W.tab();
   line('(export "multiply" (func $multiply))');
   line("(func $multiply (param $xy i32) (param $x i32) (param $y i32)");
-  spaces(4);
+  W.tab();
 
   let x = "$x";
   let y = "$y";
@@ -51,6 +50,8 @@ function generateMultiply(p, w) {
   let carry = "$carry";
   let A = "$A";
   let m = "$m";
+  let xi = "$xi";
+  let i = "$i";
 
   // tmp locals
   line(
@@ -59,38 +60,21 @@ function generateMultiply(p, w) {
     local(m, "i64"),
     local(A, "i64")
   );
+  line(local(xi, "i64"), local(i, "i32"));
   line();
 
-  // locals for inputs x, y and output xy
-  let X = defineLocals(W, "x", n);
-  line();
+  // locals for input y and output xy
   let Y = defineLocals(W, "y", n);
   line();
   let T = defineLocals(W, "t", n);
   line();
 
-  // load x, y
-  X.forEach((xi, i) =>
-    line(local.set(xi, i64.load(`offset=${i * 8}`, local.get(x))))
-  );
-  line();
   Y.forEach((yi, i) =>
     line(local.set(yi, i64.load(`offset=${i * 8}`, local.get(y))))
   );
   line();
-
-  for (let i = 0; i < n; i++) {
-    comment(`i = ${i}`);
-    // t = (t + x[i] * y + m[i] * p) * 2^(-w)
-    // where m[i] is such that the term is divisible by 2^w:
-    // m[i] = (t + x[i]*y)*m0 mod 2^w = (t[0] + x[i]*y[0])*m0 mod 2^w
-    // m0 := -p^(-1) mod 2^w
-    // => m[i]*p === t + x[i]*y (mod 2^w)
-
-    // NB: *2^(-w) just means shifting t by one word, t[i-1] = (t[i] + ...)
-    // (losing the lowest word t[0])
-
-    let xi = X[i];
+  forLoop8(W, i, 0, n, () => {
+    line(local.set(xi, i64.load(i32.add(x, i))));
 
     // j=0 loop, where m = m[i] is computed and we neglect t[0]
     comment(`j = 0`);
@@ -122,7 +106,7 @@ function generateMultiply(p, w) {
       comment("tmp = t[j] + x[i] * y[j] + A");
       lines(
         local.get(T[j]),
-        local.get(X[i]),
+        local.get(xi),
         local.get(Y[j]),
         join(i64.mul(), local.get(A), i64.add(), i64.add()),
         local.set(tmp)
@@ -145,15 +129,15 @@ function generateMultiply(p, w) {
     }
     comment("t[11] = A + C");
     line(local.set(T[n - 1], i64.add(A, carry)));
-    line();
-  }
+  });
 
   for (let i = 0; i < n; i++) {
     line(i64.store(`offset=${8 * i}`, xy, T[i]));
   }
   // end
-  spaces(2);
+  W.untab();
   line(")");
+  W.untab();
   return W;
 }
 
@@ -185,6 +169,8 @@ function Writer(initial = "") {
     }
     w.indent = Array(n).fill(" ").join("");
   };
+  let tab = () => spaces(w.indent.length + 2);
+  let untab = () => spaces(w.indent.length - 2);
   let write = (l) => {
     w.text += l + " ";
   };
@@ -203,7 +189,18 @@ function Writer(initial = "") {
   };
   let wrap = (callback) => (w.text = callback(w.text));
   let comment = (s = "") => line(";; " + s);
-  let w = { text, indent, spaces, write, line, lines, wrap, comment };
+  let w = {
+    text,
+    indent,
+    spaces,
+    tab,
+    untab,
+    write,
+    line,
+    lines,
+    wrap,
+    comment,
+  };
   return w;
 }
 
@@ -242,6 +239,9 @@ function getOperations() {
       or: iOp("or"),
       shr_u: iOp("shr_u"),
       shl: iOp("shl"),
+      eq: iOp("eq"),
+      ne: iOp("ne"),
+      eqz: iOp("eqz"),
     };
   }
   return {
@@ -252,20 +252,27 @@ function getOperations() {
       set: op("local.set"),
       tee: op("local.tee"),
     }),
+    br_if: op("br_if"),
   };
 }
 
-function printBigintAsConstI64(x0, name) {
-  let bytes = bigintToBytes(x0, 48);
-  let str = `;; $${name} = 0x${x0.toString(16)}\n`;
-  for (let i = 0; i < 12; i++) {
-    let leg = "";
-    for (let j = 0; j < 4; j++) {
-      leg += `${bytes[(i + 1) * 4 - j - 1].toString(16).padStart(2, "0")}`;
-    }
-    str += `(global $${name}_${i} i64 (i64.const 0x${leg}))\n`;
-  }
-  return str;
+function forLoop8(writer, i, i0, length, callback) {
+  let { local, i32, br_if } = ops;
+  writer.line(local.set(i, i32.const(i0)));
+  loop(writer, () => {
+    callback();
+    writer.line();
+    writer.line(br_if(0, i32.ne(8 * length, local.tee(i, i32.add(i, 8)))));
+  });
+}
+
+function loop(writer, callback) {
+  writer.line("(loop");
+  writer.tab();
+  callback();
+  writer.untab();
+  writer.line(")");
+  writer.line();
 }
 
 /**
