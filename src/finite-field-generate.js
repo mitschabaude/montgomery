@@ -48,7 +48,7 @@ function generateMultiply32(p, w, { unrollOuter }) {
 
   let W = Writer();
   let { line, lines, comment } = W;
-  let { i64, i32, local, param32, local32, call } = ops;
+  let { i64, i32, local, local32, local64, param32, call } = ops;
   let join = (...args) => args.join(" ");
 
   let x = "$x";
@@ -68,13 +68,8 @@ function generateMultiply32(p, w, { unrollOuter }) {
     let xi = "$xi";
 
     // tmp locals
-    line(
-      local(tmp, "i64"),
-      local(carry2, "i64"),
-      local(m, "i64"),
-      local(carry1, "i64")
-    );
-    line(local(xi, "i64"), local(i, "i32"));
+    line(local64(tmp), local64(carry1), local64(carry2), local64(m));
+    line(local64(xi), local32(i));
     line();
 
     // locals for input y and output xy
