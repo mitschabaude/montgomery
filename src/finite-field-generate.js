@@ -40,11 +40,9 @@ if (isMain) {
  * @param {number} w word size in bits
  */
 function generateMultiply32(p, w, { unrollOuter }) {
-  let { n } = computeMontgomeryParams(p, w);
+  let { n, wn, wordMax } = computeMontgomeryParams(p, w);
 
   // constants
-  let wn = BigInt(w);
-  let wordMax = (1n << wn) - 1n;
   let mu = modInverse(-p, 1n << wn);
   let P = bigintToLegs(p, w, n);
 
