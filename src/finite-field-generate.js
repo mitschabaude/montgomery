@@ -61,7 +61,7 @@ if (isMain) {
  * - in each step, compute (S + x_i*y) * 2^(-w) mod p by doing the montgomery reduction trick:
  *   add a multiple of p which makes the result divisible by 2^w!
  *
- * so in each step we want (S + x_i*y + q_i*p) * 2^(-w), where S + x_i*y + q_i*p = C * 2^w for some C
+ * so in each step we want (S + x_i*y + q_i*p) * 2^(-w), where S + x_i*y + q_i*p = 0 mod 2^w
  * that's true if q_i = (-p)^(-1) * (S + x_i*y) mod 2^w
  * since the equality is mod 2^w, we can take all the factors mod 2^w -- which just means taking the lowest word!
  * ==> q_i = mu * (S_0 + x_i*y_0) mod 2^w, where mu = (-p)^(-1) mod 2^w is precomputed
