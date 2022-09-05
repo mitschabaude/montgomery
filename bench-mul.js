@@ -37,7 +37,7 @@ for (let w of [24, 26, 28, 30]) {
 }
 {
   let w = 32;
-  let unrollOuter = 1;
+  let unrollOuter = 0;
   let { n } = montgomeryParams(p, w);
   let writer = Writer();
   moduleWithMemory(
@@ -58,7 +58,7 @@ for (let w of [24, 26, 28, 30]) {
 }
 {
   let w = 32;
-  let unrollOuter = 0;
+  let unrollOuter = 1;
   let { n } = montgomeryParams(p, w);
   let writer = Writer();
   moduleWithMemory(

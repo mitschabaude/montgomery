@@ -116,6 +116,8 @@ function generateMultiply(writer, p, w) {
   let P = bigintToLegs(p, w, n);
   // how much j steps we can do before a carry:
   let nSafeSteps = 32 - w;
+  // strategy is to use a carry at j=0, plus whenever we reach nSafeSteps
+  // (and finally at the end)
   // how many carry variables we need
   let nCarry = 1 + Math.floor(n / nSafeSteps);
 
@@ -129,16 +131,8 @@ function generateMultiply(writer, p, w) {
     let [tmp] = ["$tmp"];
     let [i, xi, qi] = ["$i", "$xi", "$qi"];
 
-    // strategy is to use a carry at j=0, plus whenever we reach nSafeSteps
-    let carries = {};
-    for (let j = 0; j < n; j++) {
-      if (j % nSafeSteps === 0) carries[j] = `$carry${j}`;
-    }
-    let carry = carries[0];
-
     // locals
     line(local64(tmp));
-    line(...Object.values(carries).map((c) => local64(c)));
     line(local64(qi), local64(xi), local32(i));
     let Y = defineLocals(writer, "y", n);
     let S = defineLocals(writer, "t", n);
@@ -151,8 +145,6 @@ function generateMultiply(writer, p, w) {
       // load x[i]
       line(local.set(xi, i64.load(i32.add(x, i))));
 
-      // and finally at the end
-
       // j=0, compute q_i
       comment("j = 0");
       lines(
@@ -162,10 +154,10 @@ function generateMultiply(writer, p, w) {
         local.set(tmp),
         // qi = mu * (tmp & wordMax) & wordMax
         local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
-        // (S[0], _) = tmp + qi*p[0]
+        // (carry, _) = tmp + qi*p[0]
         // note: rest of new S[0] is computed in the j=1 step. this is just the carry
         local.set(tmp, i64.add(tmp, i64.mul(qi, P[0]))),
-        local.set(S[0], i64.shr_u(tmp, w))
+        i64.shr_u(tmp, w) // we just put carry on the stack, use it later
       );
 
       for (let j = 1; j < n; j++) {
@@ -173,7 +165,10 @@ function generateMultiply(writer, p, w) {
         // S[j] + x[i]*y[j] + qi*p[j]
         let Sj = i64.add(i64.add(S[j], i64.mul(xi, Y[j])), i64.mul(qi, P[j]));
         if ((j - 1) % nSafeSteps === 0) {
-          lines(local.get(S[j - 1]), Sj, i64.add());
+          lines(
+            Sj,
+            i64.add() // add carry from stack
+          );
         } else {
           line(Sj);
         }
@@ -182,15 +177,15 @@ function generateMultiply(writer, p, w) {
           lines(
             local.set(tmp),
             local.set(S[j - 1], i64.and(tmp, wordMax)),
-            local.set(S[j], i64.shr_u(tmp, w))
+            i64.shr_u(tmp, w) // put carry on the stack
           );
         } else {
           line(local.set(S[j - 1]));
         }
       }
-      // if ((n - 1) % nSafeSteps === 0) {
-      //   lines(local.get(S[n - 1]), i64.add(), local.set(S[n - 1]));
-      // }
+      if ((n - 1) % nSafeSteps === 0) {
+        lines(local.set(S[n - 1]));
+      }
     });
     // outside i loop: final pass of collecting carries
     comment("final carrying");
