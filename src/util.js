@@ -8,6 +8,7 @@ export {
   logBytesAsBigint,
   log2,
   extractBitSlice,
+  mapRange,
 };
 
 function bigintFromBytes(bytes) {
@@ -152,4 +153,16 @@ function extractBitSlice(bytes, startBit, bitLength) {
   }
   slice += ((bytes[endByte] ?? 0) & ((1 << endBit) - 1)) << position;
   return slice;
+}
+
+/**
+ * @template T
+ * @param {number} n
+ * @param {(i: number) => T} callback
+ * @returns T[]
+ */
+function mapRange(n, callback) {
+  return Array(n)
+    .fill(0)
+    .map((_, i) => callback(i));
 }

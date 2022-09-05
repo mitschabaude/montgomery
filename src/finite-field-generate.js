@@ -1,4 +1,4 @@
-import { bigintToLegs, log2 } from "./util.js";
+import { bigintToLegs, log2, mapRange } from "./util.js";
 import fs from "node:fs/promises";
 import { modInverse } from "./finite-field.js";
 import {
@@ -16,6 +16,7 @@ import {
 
 export {
   jsHelpers,
+  generateMultiply,
   generateMultiply32,
   benchMultiply,
   moduleWithMemory,
@@ -29,61 +30,182 @@ let p =
 let isMain = process.argv[1] === import.meta.url.slice(7);
 
 if (isMain) {
-  let w = 32;
-  let { n } = montgomeryParams(p, w);
-  let writer = Writer();
-  moduleWithMemory(
-    writer,
-    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
-    () => {
-      generateMultiply32(writer, p, w, { unrollOuter: false });
-      benchMultiply(writer);
-    }
-  );
-  let js = await compileWat(writer);
-  await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
-  await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
+  {
+    let w = 30;
+    let { n } = montgomeryParams(p, w);
+    let writer = Writer();
+    moduleWithMemory(
+      writer,
+      `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+      () => {
+        generateMultiply(writer, p, w);
+        benchMultiply(writer);
+      }
+    );
+    // let js = await compileWat(writer);
+    // console.log(writer.text);
+    await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+    // await fs.writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
+  }
+
+  {
+    let w = 32;
+    let { n } = montgomeryParams(p, w);
+    let writer = Writer();
+    moduleWithMemory(
+      writer,
+      `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+      () => {
+        generateMultiply32(writer, p, w, { unrollOuter: false });
+        benchMultiply(writer);
+      }
+    );
+    // let js = await compileWat(writer);
+    await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
+    // await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
+  }
 }
 
 /**
+ * montgomery product
+ *
  * ideas of the algorithm:
  *
  * - we compute x*y*2^(-n*w) mod p
  * - x, y and p are represented as arrays of size n, with w-bit elements, each stored as int64
- * - w <= 32 so that we can just multiply two elements x_i * y_j as int64
- * - to compute x*y*2^(-n*w) mod p, we write x = Sum_i( x_i * 2^(i*w) ), so we get
- *   x*y*2^(-n*w) = Sum_i( x_i*y*2^(i*w) ) * 2^(-n*w) =
- *   Sum_i( x_i*y*2^(-(n-i)*w) ) =: S
- * - this sum can be computed iteratively:
+ * - in math, x = Sum_i=0...(n-1)( x_i*2^(i*w) )
+ * - w <= 32 so that we can just multiply two elements x_i*y_j as int64
+ * - important: let's be flexible w.r.t. w; the literature says w=32, but might not be ideal
+ *
+ * - to compute x*y*2^(-n*w) mod p, we expand x = Sum_i( x_i*2^(i*w) ), so we get
+ *   S := x*y*2^(-n*w) = Sum_i( x_i*y*2^(i*w) ) * 2^(-n*w) =
+ *      = Sum_i( x_i*y*2^(-(n-i)*w) ) mod p
+ * - this sum mod p can be computed iteratively:
  *   - initialize S = 0
  *   - for i=0,...,n-1 : S = (S + x_i*y) * 2^(-w) mod p
- *   - earlier terms in the sum get more multiplied by more 2^(-w) factors!
+ *   - note: earlier terms in the sum get multiplied by more 2^(-w) factors!
  * - in each step, compute (S + x_i*y) * 2^(-w) mod p by doing the montgomery reduction trick:
- *   add a multiple of p which makes the result divisible by 2^w!
+ *   add a multiple of p which makes the result divisible by 2^w, so *2^(-w) becomes a normal division!
  *
- * so in each step we want (S + x_i*y + q_i*p) * 2^(-w), where S + x_i*y + q_i*p = 0 mod 2^w
+ * so in each step we want (S + x_i*y + q_i*p) * 2^(-w), where q_i is such that S + x_i*y + q_i*p = 0 mod 2^w
  * that's true if q_i = (-p)^(-1) * (S + x_i*y) mod 2^w
- * since the equality is mod 2^w, we can take all the factors mod 2^w -- which just means taking the lowest word!
- * ==> q_i = mu * (S_0 + x_i*y_0) mod 2^w, where mu = (-p)^(-1) mod 2^w is precomputed
- * in this, S_0 + x_i*y_0 needs to be computed anyway as part of S + x_i*y + q_i*p
- * multiplying by 2^(-w) just means shifting the array S_0,...,S_(n-1) by one term, so that (S_1 + ...) becomes S_0
- * in general, computation on each word can result in a carry to the next word
- * so, the new S_j needs to add the carry from computations on the old S_j (which resulted in S_(j-1))
- * the new S_(n-1) will JUST be the carry from computations on the old S_(n-1)
+ * since the equality is mod 2^w, we can take all the parts mod 2^w -- which means taking the lowest word of S and y!
+ * ==> q_i = mu * (S_0 + x_i*y_0) mod 2^w, where mu = (-p)^(-1) mod 2^w is precomputed, and is a single word
+ * (of this expression, S_0 + x_i*y_0 needs to be computed anyway as part of S + x_i*y + q_i*p)
+ *
+ * in detail, S + x_i*y + q_i*p is computed by computing up terms like
+ * S_j + x_i*y_j + q_i*p_j
+ * and, when needed, carrying over to the next term. which means the term we compute are more like
+ * carry_(j-1) + S_j + x_i*y_j + q_i*p_j
+ *
+ * multiplying by 2^(-w) just means shifting the array S_0,...,S_(n-1) by one term, so that e.g. (S_1 + ...) becomes S_0
+ * so we get something like
+ * S_(j-1) = carry_(j-1) + S_j + x_i*y_j + q_i*p_j
+ * (S_(n-1) = carry_(n-1))
+ *
+ * this is the gist, but in fact the number of carry operations depends on the bit length w
+ * the w=32 case needs more carry operations than shown above, since x_i*y_j + q_i*p_j would have 65 bits already
+ * on the other hand, w<32 doesn't need a carry in every j step
+ *
+ * so, by making w < 32, we get more S_j + x_i*y_j + q_i*p_j terms, but (much) less carries
  */
 function generateMultiply(writer, p, w) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
   // constants
   let mu = modInverse(-p, 1n << wn);
   let P = bigintToLegs(p, w, n);
+  // how much j steps we can do before a carry:
+  let nSafeSteps = 32 - w;
+  // how many carry variables we need
+  let nCarry = 1 + Math.floor(n / nSafeSteps);
 
-  let { line, lines, comment, join } = writer;
+  let { write, line, lines, comment, join } = writer;
   let { i64, i32, local, local32, local64, param32 } = ops;
 
   addFuncExport(writer, "multiply");
 
   let [x, y, xy] = ["$x", "$y", "$xy"];
-  func(writer, "multiply", [param32(xy), param32(x), param32(y)], () => {});
+  func(writer, "multiply", [param32(xy), param32(x), param32(y)], () => {
+    let [tmp] = ["$tmp"];
+    let [i, xi, qi] = ["$i", "$xi", "$qi"];
+
+    // strategy is to use a carry at j=0, plus whenever we reach nSafeSteps
+    let carries = {};
+    for (let j = 0; j < n; j++) {
+      if (j % nSafeSteps === 0) carries[j] = `$carry${j}`;
+    }
+    let carry = carries[0];
+
+    // locals
+    line(local64(tmp));
+    line(...Object.values(carries).map((c) => local64(c)));
+    line(local64(qi), local64(xi), local32(i));
+    let Y = defineLocals(writer, "y", n);
+    let S = defineLocals(writer, "t", n);
+    // load y
+    for (let i = 0; i < n; i++) {
+      line(local.set(Y[i], i64.load(`offset=${i * 8}`, local.get(y))));
+    }
+
+    forLoop8(writer, i, 0, n, () => {
+      // load x[i]
+      line(local.set(xi, i64.load(i32.add(x, i))));
+
+      // and finally at the end
+
+      // j=0, compute q_i
+      comment("j = 0");
+      lines(
+        // S[0] + x[i]*y[0]
+        i64.add(S[0], i64.mul(xi, Y[0])),
+        // = tmp
+        local.set(tmp),
+        // qi = mu * (tmp & wordMax) & wordMax
+        local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
+        // (S[0], _) = tmp + qi*p[0]
+        // note: rest of new S[0] is computed in the j=1 step. this is just the carry
+        local.set(tmp, i64.add(tmp, i64.mul(qi, P[0]))),
+        local.set(S[0], i64.shr_u(tmp, w))
+      );
+
+      for (let j = 1; j < n; j++) {
+        comment(`j = ${j}`);
+        // S[j] + x[i]*y[j] + qi*p[j]
+        let Sj = i64.add(i64.add(S[j], i64.mul(xi, Y[j])), i64.mul(qi, P[j]));
+        if ((j - 1) % nSafeSteps === 0) {
+          lines(local.get(S[j - 1]), Sj, i64.add());
+        } else {
+          line(Sj);
+        }
+        // ... = S[j-1]
+        if (j % nSafeSteps === 0) {
+          lines(
+            local.set(tmp),
+            local.set(S[j - 1], i64.and(tmp, wordMax)),
+            local.set(S[j], i64.shr_u(tmp, w))
+          );
+        } else {
+          line(local.set(S[j - 1]));
+        }
+      }
+      // if ((n - 1) % nSafeSteps === 0) {
+      //   lines(local.get(S[n - 1]), i64.add(), local.set(S[n - 1]));
+      // }
+    });
+    // outside i loop: final pass of collecting carries
+    comment("final carrying");
+    for (let j = 1; j < n; j++) {
+      lines(
+        local.set(tmp, local.get(S[j - 1])),
+        local.set(S[j - 1], i64.and(tmp, wordMax)),
+        local.set(S[j], i64.add(S[j], i64.shr_u(tmp, w)))
+      );
+    }
+    comment("store result");
+    for (let i = 0; i < n; i++) {
+      line(i64.store(`offset=${8 * i}`, xy, S[i]));
+    }
+  });
 }
 
 /**
@@ -109,23 +231,20 @@ function generateMultiply32(writer, p, w, { unrollOuter }) {
 
   addFuncExport(writer, "multiply");
   func(writer, "multiply", [param32(xy), param32(x), param32(y)], () => {
-    let [tmp, carry1, carry2, m] = ["$tmp", "$carry1", "$carry2", "$m"];
+    let [tmp, carry1, carry2, qi] = ["$tmp", "$carry1", "$carry2", "$qi"];
     let [xi, i] = ["$xi", "$i"];
 
     // tmp locals
-    line(local64(tmp), local64(carry1), local64(carry2), local64(m));
+    line(local64(tmp), local64(carry1), local64(carry2), local64(qi));
     line(local64(xi), local32(i));
     line();
-
     // locals for input y and output xy
     let Y = defineLocals(writer, "y", n);
-    line();
     let T = defineLocals(writer, "t", n);
-    line();
-
-    Y.forEach((yi, i) =>
-      line(local.set(yi, i64.load(`offset=${i * 8}`, local.get(y))))
-    );
+    // load y
+    for (let i = 0; i < n; i++) {
+      line(local.set(Y[i], i64.load(`offset=${i * 8}`, local.get(y))));
+    }
     line();
     function innerLoop() {
       // j=0 step, where m = m[i] is computed and we neglect t[0]
@@ -145,12 +264,12 @@ function generateMultiply32(writer, p, w, { unrollOuter }) {
       lines(
         i64.mul(tmp, mu),
         join(i64.const(wordMax), i64.and()),
-        local.set(m)
+        local.set(qi)
       );
       comment("carry = (tmp + m * p[0]) >> w");
       lines(
         local.get(tmp),
-        i64.mul(m, P[0]),
+        i64.mul(qi, P[0]),
         i64.add(),
         join(i64.const(w), i64.shr_u(), local.set(carry2))
       );
@@ -172,7 +291,7 @@ function generateMultiply32(writer, p, w, { unrollOuter }) {
         comment("tmp = (tmp & 0xffffffffn) + m * p[j] + C");
         lines(
           i64.and(tmp, wordMax),
-          i64.mul(m, P[j]),
+          i64.mul(qi, P[j]),
           join(local.get(carry2), i64.add(), i64.add()),
           local.set(tmp)
         );
@@ -233,7 +352,7 @@ function defineLocals(t, name, n) {
   for (let i = 0; i < n; ) {
     for (let j = 0; j < 4 && i < n; j++, i++) {
       let x = "$" + name + String(i).padStart(2, "0");
-      t.write(`(local ${x} i64) `);
+      t.write(ops.local64(x) + " ");
       locals.push(x);
     }
     t.line();

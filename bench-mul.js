@@ -9,12 +9,32 @@ import {
   interpretWat,
   jsHelpers,
   moduleWithMemory,
+  generateMultiply,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
 globalThis.crypto = webcrypto;
 
 let p = field.p;
 let N = 1e7;
+for (let w of [24, 26, 28, 30]) {
+  let { n } = montgomeryParams(p, w);
+  let writer = Writer();
+  moduleWithMemory(
+    writer,
+    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    () => {
+      generateMultiply(writer, p, w);
+      benchMultiply(writer);
+    }
+  );
+  await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+  let wasm = await interpretWat(writer);
+  let x = testCorrectness(p, w, wasm);
+  tic(`multiply (w=${w}) x ${N}`);
+  wasm.benchMultiply(x, N);
+  let time = toc();
+  console.log(`${(N / time / 1e6).toFixed(3)} mio. mul / s`);
+}
 {
   let w = 32;
   let unrollOuter = 1;

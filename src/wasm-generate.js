@@ -38,7 +38,9 @@ function Writer(initial = "") {
     args.forEach((arg) => {
       if (typeof arg === "function" || typeof arg === "object") {
         console.log("Cannot print", arg);
-        throw Error(`Cannot print argument of type ${typeof arg}`);
+        throw Error(
+          `writer.line(): Cannot print argument of type ${typeof arg}`
+        );
       }
     });
     w.text += args.join(" ") + "\n" + w.indent;
