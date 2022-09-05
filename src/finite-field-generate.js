@@ -45,6 +45,32 @@ if (isMain) {
   await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
 }
 
+/**
+ * ideas of the algorithm:
+ *
+ * - we compute x*y*2^(-n*w) mod p
+ * - x, y and p are represented as arrays of size n, with w-bit elements, each stored as int64
+ * - w <= 32 so that we can just multiply two elements x_i * y_j as int64
+ * - to compute x*y*2^(-n*w) mod p, we write x = Sum_i( x_i * 2^(i*w) ), so we get
+ *   x*y*2^(-n*w) = Sum_i( x_i*y*2^(i*w) ) * 2^(-n*w) =
+ *   Sum_i( x_i*y*2^(-(n-i)*w) ) =: S
+ * - this sum can be computed iteratively:
+ *   - initialize S = 0
+ *   - for i=0,...,n-1 : S = (S + x_i*y) * 2^(-w) mod p
+ *   - earlier terms in the sum get more multiplied by more 2^(-w) factors!
+ * - in each step, compute (S + x_i*y) * 2^(-w) mod p by doing the montgomery reduction trick:
+ *   add a multiple of p which makes the result divisible by 2^w!
+ *
+ * so in each step we want (S + x_i*y + q_i*p) * 2^(-w), where S + x_i*y + q_i*p = C * 2^w for some C
+ * that's true if q_i = (-p)^(-1) * (S + x_i*y) mod 2^w
+ * since the equality is mod 2^w, we can take all the factors mod 2^w -- which just means taking the lowest word!
+ * ==> q_i = mu * (S_0 + x_i*y_0) mod 2^w, where mu = (-p)^(-1) mod 2^w is precomputed
+ * in this, S_0 + x_i*y_0 needs to be computed anyway as part of S + x_i*y + q_i*p
+ * multiplying by 2^(-w) just means shifting the array S_0,...,S_(n-1) by one term, so that (S_1 + ...) becomes S_0
+ * in general, computation on each word can result in a carry to the next word
+ * so, the new S_j needs to add the carry from computations on the old S_j (which resulted in S_(j-1))
+ * the new S_(n-1) will JUST be the carry from computations on the old S_(n-1)
+ */
 function generateMultiply(writer, p, w) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
   // constants
@@ -54,7 +80,10 @@ function generateMultiply(writer, p, w) {
   let { line, lines, comment, join } = writer;
   let { i64, i32, local, local32, local64, param32 } = ops;
 
+  addFuncExport(writer, "multiply");
+
   let [x, y, xy] = ["$x", "$y", "$xy"];
+  func(writer, "multiply", [param32(xy), param32(x), param32(y)], () => {});
 }
 
 /**
