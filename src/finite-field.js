@@ -271,6 +271,12 @@ function modExp(a, n, { p }) {
 }
 
 // inverting with EGCD, 1/a in Z_p
+/**
+ *
+ * @param {bigint} a
+ * @param {bigint} p
+ * @returns 1/a (mod p)
+ */
 function modInverse(a, p) {
   if (a === 0n) throw Error("cannot invert 0");
   a = mod(a, p);

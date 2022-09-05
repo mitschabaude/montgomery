@@ -64,6 +64,7 @@ function Writer(initial = "") {
     lines,
     wrap,
     comment,
+    join: (...args) => args.join(" "),
   };
   return w;
 }

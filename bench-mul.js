@@ -3,11 +3,14 @@ import { randomBaseFieldx2, field, mod } from "./src/finite-field.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
-  finishModule,
+  benchMultiply,
+  montgomeryParams,
   generateMultiply32,
   interpretWat,
   jsHelpers,
+  moduleWithMemory,
 } from "./src/finite-field-generate.js";
+import { Writer } from "./src/wasm-generate.js";
 globalThis.crypto = webcrypto;
 
 let p = field.p;
@@ -15,8 +18,16 @@ let N = 1e7;
 {
   let w = 32;
   let unrollOuter = 1;
-  let writer = generateMultiply32(p, w, { unrollOuter });
-  finishModule(writer, p, w);
+  let { n } = montgomeryParams(p, w);
+  let writer = Writer();
+  moduleWithMemory(
+    writer,
+    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    () => {
+      generateMultiply32(writer, p, w, { unrollOuter });
+      benchMultiply(writer);
+    }
+  );
   await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
   let wasm = await interpretWat(writer);
   let x = testCorrectness(p, w, wasm);
@@ -28,8 +39,16 @@ let N = 1e7;
 {
   let w = 32;
   let unrollOuter = 0;
-  let writer = generateMultiply32(p, w, { unrollOuter });
-  finishModule(writer, p, w);
+  let { n } = montgomeryParams(p, w);
+  let writer = Writer();
+  moduleWithMemory(
+    writer,
+    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    () => {
+      generateMultiply32(writer, p, w, { unrollOuter });
+      benchMultiply(writer);
+    }
+  );
   await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
   let wasm = await interpretWat(writer);
   let x = testCorrectness(p, w, wasm);

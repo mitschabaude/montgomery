@@ -14,7 +14,14 @@ import {
   Writer,
 } from "./wasm-generate.js";
 
-export { jsHelpers, generateMultiply32, finishModule, interpretWat };
+export {
+  jsHelpers,
+  generateMultiply32,
+  benchMultiply,
+  moduleWithMemory,
+  interpretWat,
+  montgomeryParams,
+};
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -23,15 +30,35 @@ let isMain = process.argv[1] === import.meta.url.slice(7);
 
 if (isMain) {
   let w = 32;
-  let writer = generateMultiply32(p, w, { unrollOuter: false });
-  finishModule(writer, p, w);
+  let { n } = montgomeryParams(p, w);
+  let writer = Writer();
+  moduleWithMemory(
+    writer,
+    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    () => {
+      generateMultiply32(writer, p, w, { unrollOuter: false });
+      benchMultiply(writer);
+    }
+  );
   let js = await compileWat(writer);
   await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
   await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
 }
 
+function generateMultiply(writer, p, w) {
+  let { n, wn, wordMax } = montgomeryParams(p, w);
+  // constants
+  let mu = modInverse(-p, 1n << wn);
+  let P = bigintToLegs(p, w, n);
+
+  let { line, lines, comment, join } = writer;
+  let { i64, i32, local, local32, local64, param32 } = ops;
+
+  let [x, y, xy] = ["$x", "$y", "$xy"];
+}
+
 /**
- * generate wasm code for montgomery product
+ * montgomery product
  *
  * this is specific to w=32, in that two carry variables are needed
  * to efficiently stay within 64 bits
@@ -39,33 +66,22 @@ if (isMain) {
  * @param {bigint} p modulus
  * @param {number} w word size in bits
  */
-function generateMultiply32(p, w, { unrollOuter }) {
-  let { n, wn, wordMax } = computeMontgomeryParams(p, w);
+function generateMultiply32(writer, p, w, { unrollOuter }) {
+  let { n, wn, wordMax } = montgomeryParams(p, w);
 
   // constants
   let mu = modInverse(-p, 1n << wn);
   let P = bigintToLegs(p, w, n);
 
-  let W = Writer();
-  let { line, lines, comment } = W;
-  let { i64, i32, local, local32, local64, param32, call } = ops;
-  let join = (...args) => args.join(" ");
+  let { line, lines, comment, join } = writer;
+  let { i64, i32, local, local32, local64, param32 } = ops;
 
-  let x = "$x";
-  let y = "$y";
-  let xy = "$xy";
-  let i = "$i";
+  let [x, y, xy] = ["$x", "$y", "$xy"];
 
-  W.tab();
-  addFuncExport(W, "multiply");
-  addFuncExport(W, "benchMultiply");
-
-  func(W, "multiply", [param32(xy), param32(x), param32(y)], () => {
-    let tmp = "$tmp";
-    let carry1 = "$carry1";
-    let carry2 = "$carry2";
-    let m = "$m";
-    let xi = "$xi";
+  addFuncExport(writer, "multiply");
+  func(writer, "multiply", [param32(xy), param32(x), param32(y)], () => {
+    let [tmp, carry1, carry2, m] = ["$tmp", "$carry1", "$carry2", "$m"];
+    let [xi, i] = ["$xi", "$i"];
 
     // tmp locals
     line(local64(tmp), local64(carry1), local64(carry2), local64(m));
@@ -73,17 +89,17 @@ function generateMultiply32(p, w, { unrollOuter }) {
     line();
 
     // locals for input y and output xy
-    let Y = defineLocals(W, "y", n);
+    let Y = defineLocals(writer, "y", n);
     line();
-    let T = defineLocals(W, "t", n);
+    let T = defineLocals(writer, "t", n);
     line();
 
     Y.forEach((yi, i) =>
       line(local.set(yi, i64.load(`offset=${i * 8}`, local.get(y))))
     );
     line();
-    function outerLoop() {
-      // j=0 loop, where m = m[i] is computed and we neglect t[0]
+    function innerLoop() {
+      // j=0 step, where m = m[i] is computed and we neglect t[0]
       comment(`j = 0`);
       comment("(A, tmp) = t[0] + x[i]*y[0]");
       lines(
@@ -145,46 +161,42 @@ function generateMultiply32(p, w, { unrollOuter }) {
       for (let i = 0; i < n; i++) {
         comment(`i = ${i}`);
         line(local.set(xi, i64.load(`offset=${i * 8}`, x)));
-        outerLoop();
+        innerLoop();
         line();
       }
     } else {
-      forLoop8(W, i, 0, n, () => {
+      forLoop8(writer, i, 0, n, () => {
         line(local.set(xi, i64.load(i32.add(x, i))));
-        outerLoop();
+        innerLoop();
       });
     }
     for (let i = 0; i < n; i++) {
       line(i64.store(`offset=${8 * i}`, xy, T[i]));
     }
   });
+}
 
-  let N = "$N";
+function benchMultiply(W) {
+  let { line } = W;
+  let { local, local32, param32, call } = ops;
+  let [x, N, i] = ["$x", "$N", "$i"];
+  addFuncExport(W, "benchMultiply");
   func(W, "benchMultiply", [param32(x), param32(N)], () => {
     line(local32(i));
     forLoop1(W, i, 0, local.get(N), () => {
       line(call("multiply", local.get(x), local.get(x), local.get(x)));
     });
   });
-  return W;
 }
 
-function finishModule(writer, p, w) {
-  let { n } = computeMontgomeryParams(p, w);
-  let writer2 = Writer();
-  let { line, write, remove, comment } = writer2;
-  comment(`;; generated for w=${w}, n=${n}, n*w=${n * w}`);
-  block("module")(writer2, [], () => {
-    addExport(writer2, "memory", ops.memory("memory"));
+function moduleWithMemory(writer, comment_, callback) {
+  let { line, comment } = writer;
+  comment(comment_);
+  block("module")(writer, [], () => {
+    addExport(writer, "memory", ops.memory("memory"));
     line(ops.memory("memory", 100));
-    remove(2);
-    write(writer.text);
-    line();
+    callback(writer);
   });
-  for (let e of writer2.exports) {
-    writer.exports.add(e);
-  }
-  writer.text = writer2.text;
 }
 
 function defineLocals(t, name, n) {
@@ -205,7 +217,7 @@ function defineLocals(t, name, n) {
  * @param {bigint} p modulus
  * @param {number} w word size in bits
  */
-function computeMontgomeryParams(p, w) {
+function montgomeryParams(p, w) {
   // word size has to be <= 32, to be able to multiply 2 words as i64
   if (w > 32) {
     throw Error("word size has to be <= 32 for efficient multiplication");
@@ -229,7 +241,7 @@ function computeMontgomeryParams(p, w) {
  * @param {number} w word size
  */
 function jsHelpers(p, w, memory) {
-  let { n, wn, wordMax, R } = computeMontgomeryParams(p, w);
+  let { n, wn, wordMax, R } = montgomeryParams(p, w);
   let obj = {
     n,
     R,

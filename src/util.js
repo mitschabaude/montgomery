@@ -99,13 +99,16 @@ function bigintToBits(x, bitLength) {
  * @param {number} w word size
  * @param {number} n number of legs
  */
-function bigintToLegs(x, w, n) {
+function bigintToLegs(x0, w, n) {
+  /**
+   * @type {bigint[]}
+   */
   let legs = Array(n);
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
   for (let i = 0; i < n; i++) {
-    legs[i] = x & wordMax;
-    x >>= wn;
+    legs[i] = x0 & wordMax;
+    x0 >>= wn;
   }
   return legs;
 }
