@@ -166,13 +166,13 @@ function generateMultiply(writer, p, w) {
         join(i64.const(w), i64.shr_u()) // we just put carry on the stack, use it later
       );
 
-      for (let j = 1; j < n; j++) {
-        didCarry = doCarry;
-        doCarry = j % nSafeSteps === 0;
-        comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+      for (let j = 1; j < n - 1; j++) {
         // S[j] + x[i]*y[j] + qi*p[j], or
         // stack + S[j] + x[i]*y[j] + qi*p[j]
         // ... = S[j-1], or  = (stack, S[j-1])
+        didCarry = doCarry;
+        doCarry = j % nSafeSteps === 0;
+        comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
         lines(
           local.get(S[j]),
           didCarry && i64.add(), // add carry from stack
@@ -185,8 +185,34 @@ function generateMultiply(writer, p, w) {
           local.set(S[j - 1])
         );
       }
-      if ((n - 1) % nSafeSteps === 0) {
-        lines(local.set(S[n - 1]));
+      let j = n - 1;
+      didCarry = doCarry;
+      doCarry = j % nSafeSteps === 0;
+      comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+      if (doCarry) {
+        lines(
+          local.get(S[j]),
+          didCarry && i64.add(), // add carry from stack
+          i64.mul(xi, Y[j]),
+          i64.add(),
+          i64.mul(qi, P[j]),
+          i64.add(),
+          doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
+          doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
+          local.set(S[j - 1])
+        );
+        // if the last iteration does a carry, S[n-1] is set to it
+        lines(local.set(S[j]));
+      } else {
+        // if the last iteration doesn't do a carry, then S[n-1] is never set,
+        // so we also don't have to get it & can save 1 addition
+        lines(
+          i64.mul(xi, Y[j]),
+          didCarry && i64.add(), // add carry from stack
+          i64.mul(qi, P[j]),
+          i64.add(),
+          local.set(S[j - 1])
+        );
       }
     });
     // outside i loop: final pass of collecting carries
