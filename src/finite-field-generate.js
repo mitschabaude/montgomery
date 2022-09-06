@@ -176,6 +176,7 @@ function generateMultiply(writer, p, w) {
         // ... = S[j-1], or
         // ... = (stack, S[j-1])
         if (j % nSafeSteps === 0) {
+          // note: there's one set + get which could be made a tee, but zero performance difference
           lines(
             local.set(tmp),
             local.set(S[j - 1], i64.and(tmp, wordMax)),
