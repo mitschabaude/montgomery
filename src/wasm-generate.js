@@ -46,8 +46,7 @@ function Writer(initial = "") {
     w.text += args.join(" ") + "\n" + w.indent;
   };
   let lines = (...args) => {
-    args.forEach((arg) => line(arg));
-    // line();
+    args.filter((l) => !!l || l === "").forEach((arg) => line(arg));
   };
   let wrap = (callback) => (w.text = callback(w.text));
   let comment = (s = "") => line(";; " + s);

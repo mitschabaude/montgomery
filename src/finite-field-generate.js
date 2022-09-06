@@ -114,6 +114,8 @@ function generateMultiply(writer, p, w) {
   // constants
   let mu = modInverse(-p, 1n << wn);
   let P = bigintToLegs(p, w, n);
+  // how much terms we can add before a carry
+  let nSafeTerms = 64 - 2 * w + 1;
   // how much j steps we can do before a carry:
   let nSafeSteps = 32 - w;
   // strategy is to use a carry at j=0, plus whenever we reach nSafeSteps
@@ -121,7 +123,7 @@ function generateMultiply(writer, p, w) {
   // how many carry variables we need
   let nCarry = 1 + Math.floor(n / nSafeSteps);
 
-  let { write, line, lines, comment, join } = writer;
+  let { line, lines, comment, join } = writer;
   let { i64, i32, local, local32, local64, param32 } = ops;
 
   addFuncExport(writer, "multiply");
@@ -146,45 +148,42 @@ function generateMultiply(writer, p, w) {
       line(local.set(xi, i64.load(i32.add(x, i))));
 
       // j=0, compute q_i
-      comment("j = 0");
+      let didCarry = false;
+      let doCarry = 0 % nSafeSteps === 0;
+      comment("j = 0, do carry, ignore result below carry");
       lines(
-        // S[0] + x[i]*y[0]
-        i64.add(S[0], i64.mul(xi, Y[0])),
-        // = tmp
-        local.set(tmp),
+        // tmp = S[0] + x[i]*y[0]
+        local.get(S[0]),
+        i64.mul(xi, Y[0]),
+        i64.add(),
         // qi = mu * (tmp & wordMax) & wordMax
+        local.set(tmp),
         local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
-        // (carry, _) = tmp + qi*p[0]
-        // note: rest of new S[0] is computed in the j=1 step. this is just the carry
-        local.set(tmp, i64.add(tmp, i64.mul(qi, P[0]))),
-        i64.shr_u(tmp, w) // we just put carry on the stack, use it later
+        local.get(tmp),
+        // (stack, _) = tmp + qi*p[0]
+        i64.mul(qi, P[0]),
+        i64.add(),
+        join(i64.const(w), i64.shr_u()) // we just put carry on the stack, use it later
       );
 
       for (let j = 1; j < n; j++) {
-        comment(`j = ${j}`);
+        didCarry = doCarry;
+        doCarry = j % nSafeSteps === 0;
+        comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
         // S[j] + x[i]*y[j] + qi*p[j], or
-        // S[j] + x[i]*y[j] + qi*p[j] + stack
-        let Sj = i64.add(i64.add(S[j], i64.mul(xi, Y[j])), i64.mul(qi, P[j]));
-        if ((j - 1) % nSafeSteps === 0) {
-          lines(
-            Sj,
-            i64.add() // add carry from stack
-          );
-        } else {
-          line(Sj);
-        }
-        // ... = S[j-1], or
-        // ... = (stack, S[j-1])
-        if (j % nSafeSteps === 0) {
-          // note: there's one set + get which could be made a tee, but zero performance difference
-          lines(
-            local.set(tmp),
-            local.set(S[j - 1], i64.and(tmp, wordMax)),
-            i64.shr_u(tmp, w) // put carry on the stack
-          );
-        } else {
-          line(local.set(S[j - 1]));
-        }
+        // stack + S[j] + x[i]*y[j] + qi*p[j]
+        // ... = S[j-1], or  = (stack, S[j-1])
+        lines(
+          local.get(S[j]),
+          didCarry && i64.add(), // add carry from stack
+          i64.mul(xi, Y[j]),
+          i64.add(),
+          i64.mul(qi, P[j]),
+          i64.add(),
+          doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
+          doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
+          local.set(S[j - 1])
+        );
       }
       if ((n - 1) % nSafeSteps === 0) {
         lines(local.set(S[n - 1]));
