@@ -72,20 +72,20 @@ if (isMain) {
  * ideas of the algorithm:
  *
  * - we compute x*y*2^(-n*w) mod p
- * - x, y and p are represented as arrays of size n, with w-bit elements, each stored as int64
- * - in math, x = Sum_i=0...(n-1)( x_i*2^(i*w) )
+ * - x, y and p are represented as arrays of size n, with w-bit legs/digits, each stored as int64
+ * - in math, x = Sum_i=0...(n-1)( x_i*2^(i*w) ), where x_i \in [0,2^w)
  * - w <= 32 so that we can just multiply two elements x_i*y_j as int64
- * - important: let's be flexible w.r.t. w; the literature says w=32, but might not be ideal
+ * - important: be flexible w.r.t. w; the literature says w=32, but that's not be ideal here
  *
- * - to compute x*y*2^(-n*w) mod p, we expand x = Sum_i( x_i*2^(i*w) ), so we get
+ * to compute x*y*2^(-n*w) mod p, we expand x = Sum_i( x_i*2^(i*w) ), so we get
  *   S := x*y*2^(-n*w) = Sum_i( x_i*y*2^(i*w) ) * 2^(-n*w) =
  *      = Sum_i( x_i*y*2^(-(n-i)*w) ) mod p
- * - this sum mod p can be computed iteratively:
- *   - initialize S = 0
- *   - for i=0,...,n-1 : S = (S + x_i*y) * 2^(-w) mod p
- *   - note: earlier terms in the sum get multiplied by more 2^(-w) factors!
- * - in each step, compute (S + x_i*y) * 2^(-w) mod p by doing the montgomery reduction trick:
- *   add a multiple of p which makes the result divisible by 2^w, so *2^(-w) becomes a normal division!
+ * this sum mod p can be computed iteratively:
+ * - initialize S = 0
+ * - for i=0,...,n-1 : S = (S + x_i*y) * 2^(-w) mod p
+ * - note: earlier terms in the sum get multiplied by more 2^(-w) factors!
+ * in each step, compute (S + x_i*y) * 2^(-w) mod p by doing the montgomery reduction trick:
+ * add a multiple of p which makes the result divisible by 2^w, so *2^(-w) becomes a normal division!
  *
  * so in each step we want (S + x_i*y + q_i*p) * 2^(-w), where q_i is such that S + x_i*y + q_i*p = 0 mod 2^w
  * that's true if q_i = (-p)^(-1) * (S + x_i*y) mod 2^w
@@ -94,19 +94,19 @@ if (isMain) {
  * (of this expression, S_0 + x_i*y_0 needs to be computed anyway as part of S + x_i*y + q_i*p)
  *
  * in detail, S + x_i*y + q_i*p is computed by computing up terms like
- * S_j + x_i*y_j + q_i*p_j
+ *   S_j + x_i*y_j + q_i*p_j
  * and, when needed, carrying over to the next term. which means the term we compute are more like
- * carry_(j-1) + S_j + x_i*y_j + q_i*p_j
+ *   carry_(j-1) + S_j + x_i*y_j + q_i*p_j
  *
  * multiplying by 2^(-w) just means shifting the array S_0,...,S_(n-1) by one term, so that e.g. (S_1 + ...) becomes S_0
  * so we get something like
- * S_(j-1) = carry_(j-1) + S_j + x_i*y_j + q_i*p_j
- * (S_(n-1) = carry_(n-1))
+ *   (carry_0, _) = S_0 + x_i*y_0 + q_i*p_0
+ *   (carry_j, S_(j-1)) = carry_(j-1) + S_j + x_i*y_j + q_i*p_j    for j=1,...,(n-1)
+ *   S_(n-1) = carry_(n-1)
  *
  * this is the gist, but in fact the number of carry operations depends on the bit length w
  * the w=32 case needs more carry operations than shown above, since x_i*y_j + q_i*p_j would have 65 bits already
  * on the other hand, w<32 doesn't need a carry in every j step
- *
  * so, by making w < 32, we get more S_j + x_i*y_j + q_i*p_j terms, but (much) less carries
  */
 function generateMultiply(writer, p, w) {
@@ -162,7 +162,8 @@ function generateMultiply(writer, p, w) {
 
       for (let j = 1; j < n; j++) {
         comment(`j = ${j}`);
-        // S[j] + x[i]*y[j] + qi*p[j]
+        // S[j] + x[i]*y[j] + qi*p[j], or
+        // S[j] + x[i]*y[j] + qi*p[j] + stack
         let Sj = i64.add(i64.add(S[j], i64.mul(xi, Y[j])), i64.mul(qi, P[j]));
         if ((j - 1) % nSafeSteps === 0) {
           lines(
@@ -172,7 +173,8 @@ function generateMultiply(writer, p, w) {
         } else {
           line(Sj);
         }
-        // ... = S[j-1]
+        // ... = S[j-1], or
+        // ... = (stack, S[j-1])
         if (j % nSafeSteps === 0) {
           lines(
             local.set(tmp),
