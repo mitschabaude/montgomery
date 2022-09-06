@@ -190,18 +190,14 @@ function generateMultiply(writer, p, w) {
       }
     });
     // outside i loop: final pass of collecting carries
-    comment("final carrying");
+    comment("final carrying & storing");
     for (let j = 1; j < n; j++) {
       lines(
-        local.set(tmp, local.get(S[j - 1])),
-        local.set(S[j - 1], i64.and(tmp, wordMax)),
-        local.set(S[j], i64.add(S[j], i64.shr_u(tmp, w)))
+        i64.store(`offset=${8 * (j - 1)}`, xy, i64.and(S[j - 1], wordMax)),
+        local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
       );
     }
-    comment("store result");
-    for (let i = 0; i < n; i++) {
-      line(i64.store(`offset=${8 * i}`, xy, S[i]));
-    }
+    line(i64.store(`offset=${8 * (n - 1)}`, xy, S[n - 1]));
   });
 }
 
