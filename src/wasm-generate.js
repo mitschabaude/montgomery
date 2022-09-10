@@ -107,10 +107,13 @@ function getOperations() {
     }
     return {
       const: constOp,
-      load: iOp("load"),
-      store: iOp("store"),
+      load: (from, { offset = 0 } = {}) =>
+        iOp("load")(`offset=${offset}`, from),
+      store: (to, value, { offset = 0 } = {}) =>
+        iOp("store")(`offset=${offset}`, to, value),
       mul: iOp("mul"),
       add: iOp("add"),
+      sub: iOp("sub"),
       and: iOp("and"),
       or: iOp("or"),
       shr_u: iOp("shr_u"),
@@ -118,6 +121,8 @@ function getOperations() {
       eq: iOp("eq"),
       ne: iOp("ne"),
       eqz: iOp("eqz"),
+      lt_u: iOp("lt_u"),
+      gt_u: iOp("lt_u"),
     };
   }
   return {
@@ -128,6 +133,10 @@ function getOperations() {
       set: op("local.set"),
       tee: op("local.tee"),
     }),
+    global: {
+      get: op("global.get"),
+      set: op("global.set"),
+    },
     local32: (name) => op("local")(name, "i32"),
     local64: (name) => op("local")(name, "i64"),
     br_if: op("br_if"),

@@ -1,11 +1,10 @@
-import { bigintToLegs, log2, mapRange } from "./util.js";
+import { bigintToLegs, log2 } from "./util.js";
 import fs from "node:fs/promises";
 import { modInverse } from "./finite-field.js";
 import {
   addExport,
   addFuncExport,
   block,
-  compileWat,
   forLoop1,
   forLoop8,
   func,
@@ -16,9 +15,11 @@ import {
 
 export {
   jsHelpers,
-  generateMultiply,
-  generateMultiply32,
+  multiply,
+  add,
+  multiply32,
   benchMultiply,
+  benchAdd,
   moduleWithMemory,
   interpretWat,
   montgomeryParams,
@@ -31,15 +32,19 @@ let isMain = process.argv[1] === import.meta.url.slice(7);
 
 if (isMain) {
   {
-    let w = 30;
+    let w = 28;
     let { n } = montgomeryParams(p, w);
     let writer = Writer();
     moduleWithMemory(
       writer,
       `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
       () => {
-        generateMultiply(writer, p, w);
+        multiply(writer, p, w);
+
+        add(writer, p, w);
+
         benchMultiply(writer);
+        benchAdd(writer);
       }
     );
     // let js = await compileWat(writer);
@@ -56,7 +61,7 @@ if (isMain) {
       writer,
       `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
       () => {
-        generateMultiply32(writer, p, w, { unrollOuter: false });
+        multiply32(writer, p, w, { unrollOuter: false });
         benchMultiply(writer);
       }
     );
@@ -75,7 +80,7 @@ if (isMain) {
  * - x, y and p are represented as arrays of size n, with w-bit legs/digits, each stored as int64
  * - in math, x = Sum_i=0...(n-1)( x_i*2^(i*w) ), where x_i \in [0,2^w)
  * - w <= 32 so that we can just multiply two elements x_i*y_j as int64
- * - important: be flexible w.r.t. w; the literature says w=32, but that's not be ideal here
+ * - important: be flexible w.r.t. w; the literature says w=32, but that's not ideal here
  *
  * to compute x*y*2^(-n*w) mod p, we expand x = Sum_i( x_i*2^(i*w) ), so we get
  *   S := x*y*2^(-n*w) = Sum_i( x_i*y*2^(i*w) ) * 2^(-n*w) =
@@ -109,7 +114,7 @@ if (isMain) {
  * on the other hand, w<32 doesn't need a carry in every j step
  * so, by making w < 32, we get more S_j + x_i*y_j + q_i*p_j terms, but (much) less carries
  */
-function generateMultiply(writer, p, w) {
+function multiply(writer, p, w) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
   // constants
   let mu = modInverse(-p, 1n << wn);
@@ -140,7 +145,7 @@ function generateMultiply(writer, p, w) {
     let S = defineLocals(writer, "t", n);
     // load y
     for (let i = 0; i < n; i++) {
-      line(local.set(Y[i], i64.load(`offset=${i * 8}`, local.get(y))));
+      line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
     }
 
     forLoop8(writer, i, 0, n, () => {
@@ -219,15 +224,95 @@ function generateMultiply(writer, p, w) {
     comment("final carrying & storing");
     for (let j = 1; j < n; j++) {
       lines(
-        i64.store(`offset=${8 * (j - 1)}`, xy, i64.and(S[j - 1], wordMax)),
+        i64.store(xy, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
         local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
       );
     }
-    line(i64.store(`offset=${8 * (n - 1)}`, xy, S[n - 1]));
+    line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
   });
 }
 
 /**
+ * addition modulo 2p
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ */
+function add(writer, p, w) {
+  let { n, wn, wordMax } = montgomeryParams(p, w);
+  // constants
+  let P2 = bigintToLegs(2n * p, w, n);
+  let { line, lines, comment, join } = writer;
+  let { i64, local, local64, param32, br_if } = ops;
+
+  let [x, y, out] = ["$x", "$y", "$out"];
+  let [tmp, carry] = ["$tmp", "$carry"];
+
+  function addition({ doReduce }) {
+    line(local64(tmp), local64(carry));
+
+    // first loop: x + y
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, out[i]) = x[i] + y[i] + carry;
+        i64.load(x, { offset: 8 * i }),
+        i64.load(y, { offset: 8 * i }),
+        join(i64.add(), local.get(carry), i64.add()),
+        // split result
+        join(local.tee(tmp), i64.const(w), i64.shr_u(), local.set(carry)),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i })
+      );
+    }
+    if (!doReduce) return;
+    // second loop: check if we overflowed by checking x + y < 2p
+    block("block")(writer, [], () => {
+      for (let i = n - 1; i >= 0; i--) {
+        lines(
+          // if (out[i] < 2p[i]) return
+          local.set(tmp, i64.load(out, { offset: 8 * i })),
+          i64.lt_u(tmp, P2[i]),
+          `if return end`,
+          // if (out[i] !== 2p[i]) break;
+          br_if(0, i64.eq(tmp, P2[i]))
+        );
+      }
+    });
+    // third loop
+    // if we're here, t >= 2p, so do t - 2p to get back in 0,..,2p-1
+    line(local.set(carry, i64.const(0)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, out[i]) = 2^w + out[i] - 2p[i] - carry;
+        // carry = 1 - carry
+        i64.const(1n << wn),
+        i64.load(out, { offset: 8 * i }),
+        i64.add(),
+        i64.const(P2[i]),
+        i64.sub(),
+        local.get(carry),
+        i64.sub(),
+        local.set(tmp),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(carry, i64.sub(1, i64.shr_u(tmp, w)))
+      );
+    }
+  }
+
+  addFuncExport(writer, "add");
+  func(writer, "add", [param32(out), param32(x), param32(y)], () =>
+    addition({ doReduce: true })
+  );
+
+  addFuncExport(writer, "addNoReduce");
+  func(writer, "addNoReduce", [param32(out), param32(x), param32(y)], () =>
+    addition({ doReduce: false })
+  );
+}
+
+/**
+ * MOSTLY OBSOLETE
  * montgomery product
  *
  * this is specific to w=32, in that two carry variables are needed
@@ -236,7 +321,7 @@ function generateMultiply(writer, p, w) {
  * @param {bigint} p modulus
  * @param {number} w word size in bits
  */
-function generateMultiply32(writer, p, w, { unrollOuter }) {
+function multiply32(writer, p, w, { unrollOuter }) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
 
   // constants
@@ -262,7 +347,7 @@ function generateMultiply32(writer, p, w, { unrollOuter }) {
     let T = defineLocals(writer, "t", n);
     // load y
     for (let i = 0; i < n; i++) {
-      line(local.set(Y[i], i64.load(`offset=${i * 8}`, local.get(y))));
+      line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
     }
     line();
     function innerLoop() {
@@ -327,7 +412,7 @@ function generateMultiply32(writer, p, w, { unrollOuter }) {
     if (unrollOuter) {
       for (let i = 0; i < n; i++) {
         comment(`i = ${i}`);
-        line(local.set(xi, i64.load(`offset=${i * 8}`, x)));
+        line(local.set(xi, i64.load(x, { offset: i * 8 })));
         innerLoop();
         line();
       }
@@ -338,7 +423,7 @@ function generateMultiply32(writer, p, w, { unrollOuter }) {
       });
     }
     for (let i = 0; i < n; i++) {
-      line(i64.store(`offset=${8 * i}`, xy, T[i]));
+      line(i64.store(xy, T[i], { offset: 8 * i }));
     }
   });
 }
@@ -352,6 +437,18 @@ function benchMultiply(W) {
     line(local32(i));
     forLoop1(W, i, 0, local.get(N), () => {
       line(call("multiply", local.get(x), local.get(x), local.get(x)));
+    });
+  });
+}
+function benchAdd(W) {
+  let { line } = W;
+  let { local, local32, param32, call } = ops;
+  let [x, N, i] = ["$x", "$N", "$i"];
+  addFuncExport(W, "benchAdd");
+  func(W, "benchAdd", [param32(x), param32(N)], () => {
+    line(local32(i));
+    forLoop1(W, i, 0, local.get(N), () => {
+      line(call("add", local.get(x), local.get(x), local.get(x)));
     });
   });
 }

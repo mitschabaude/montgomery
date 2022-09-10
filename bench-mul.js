@@ -5,11 +5,13 @@ import { webcrypto } from "node:crypto";
 import {
   benchMultiply,
   montgomeryParams,
-  generateMultiply32,
+  multiply32,
   interpretWat,
   jsHelpers,
   moduleWithMemory,
-  generateMultiply,
+  multiply,
+  add,
+  benchAdd,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
 globalThis.crypto = webcrypto;
@@ -23,8 +25,12 @@ for (let w of [24, 26, 28, 30]) {
     writer,
     `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
     () => {
-      generateMultiply(writer, p, w);
+      multiply(writer, p, w);
+
+      add(writer, p, w);
+
       benchMultiply(writer);
+      benchAdd(writer);
     }
   );
   await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
@@ -34,6 +40,11 @@ for (let w of [24, 26, 28, 30]) {
   wasm.benchMultiply(x, N);
   let time = toc();
   console.log(`${(N / time / 1e6).toFixed(3)} mio. mul / s`);
+
+  tic(`add (w=${w}) x ${N}`);
+  wasm.benchAdd(x, N);
+  time = toc();
+  console.log(`${(N / time / 1e6).toFixed(3)} mio. add / s`);
 }
 {
   let w = 32;
@@ -44,7 +55,7 @@ for (let w of [24, 26, 28, 30]) {
     writer,
     `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
     () => {
-      generateMultiply32(writer, p, w, { unrollOuter });
+      multiply32(writer, p, w, { unrollOuter });
       benchMultiply(writer);
     }
   );
@@ -65,7 +76,7 @@ for (let w of [24, 26, 28, 30]) {
     writer,
     `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
     () => {
-      generateMultiply32(writer, p, w, { unrollOuter });
+      multiply32(writer, p, w, { unrollOuter });
       benchMultiply(writer);
     }
   );
@@ -79,20 +90,34 @@ for (let w of [24, 26, 28, 30]) {
 }
 
 function testCorrectness(p, w, wasm) {
-  let { memory, multiply } = wasm;
+  let { memory, multiply, add } = wasm;
   let { R, writeBigint, readBigInt, getPointers } = jsHelpers(p, w, memory);
-  let x0 = randomBaseFieldx2();
-  let y0 = randomBaseFieldx2();
   let [x, y, z, R2] = getPointers(4);
-  writeBigint(x, x0);
-  writeBigint(y, y0);
-  writeBigint(R2, mod(R * R, p));
-  multiply(z, x, y);
-  let z0 = mod(x0 * y0, p);
-  multiply(z, z, R2);
-  let z1 = readBigInt(z);
-  if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
-    throw Error("bad multiplication");
+  for (let i = 0; i < 20; i++) {
+    let x0 = randomBaseFieldx2();
+    let y0 = randomBaseFieldx2();
+    writeBigint(x, x0);
+    writeBigint(y, y0);
+    writeBigint(R2, mod(R * R, p));
+    multiply(z, x, y);
+    let z0 = mod(x0 * y0, p);
+    multiply(z, z, R2);
+    let z1 = readBigInt(z);
+    if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
+      throw Error("bad multiplication");
+    }
+
+    if (add) {
+      add(z, x, y);
+      z0 = mod(x0 + y0, p);
+      z1 = readBigInt(z);
+      if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
+        console.log(z0);
+        console.log(z0 + p);
+        console.log(z1);
+        throw Error("bad addition");
+      }
+    }
   }
   return x;
 }
