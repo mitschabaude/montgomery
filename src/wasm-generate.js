@@ -72,10 +72,18 @@ function Writer(initial = "") {
   return w;
 }
 
+/**
+ *
+ * @param {string} name
+ * @returns
+ */
 function op(name) {
   return function (...args) {
     if (args.length === 0) return name;
-    else return `(${name} ${args.join(" ")})`;
+    else
+      return `(${name} ${args
+        .filter((a) => a != undefined && a !== "")
+        .join(" ")})`;
   };
 }
 function blockOp(name) {
@@ -126,11 +134,13 @@ function getOperations() {
       eqz: iOp("eqz"),
       lt_u: iOp("lt_u"),
       gt_u: iOp("gt_u"),
+      ctz: iOp("ctz"),
+      clz: iOp("clz"),
     };
   }
   return {
     i64: int(64),
-    i32: int(32),
+    i32: { ...int(32), wrap_i64: op("i32.wrap_i64") },
     local: Object.assign(op("local"), {
       get: op("local.get"),
       set: op("local.set"),
@@ -151,7 +161,19 @@ function getOperations() {
     result64: op("result")("i64"),
     export: (name, ...args) => op("export")(`"${name}"`, ...args),
     call: (name, ...args) => op("call")("$" + name, ...args),
-    memory: (name, ...args) => op("memory")("$" + name, ...args),
+    memory: Object.assign(
+      (name, ...args) => op("memory")("$" + name, ...args),
+      {
+        /**
+         * @param {number} target
+         * @param {number} source
+         * @param {number} length length in bytes
+         */
+        copy: (target, source, length) =>
+          op("memory.copy")(target, source, length),
+        fill: op("memory.fill"),
+      }
+    ),
     func: (name, ...args) => op("func")("$" + name, ...args),
     return_: op("return"),
   };

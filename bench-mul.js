@@ -16,6 +16,7 @@ import {
   benchSubtract,
   reduce,
   finiteFieldHelpers,
+  makeOdd,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
 globalThis.crypto = webcrypto;
@@ -36,7 +37,7 @@ for (let w of [28]) {
       subtract(writer, p, w);
 
       reduce(writer, p, w);
-
+      makeOdd(writer, p, w);
       finiteFieldHelpers(writer, p, w);
 
       benchMultiply(writer);
@@ -94,8 +95,18 @@ for (let w of [28]) {
 }
 
 function testCorrectness(p, w, wasm) {
-  let { memory, multiply, add, subtract, reduce, isEqual, isZero, isGreater } =
-    wasm;
+  let {
+    memory,
+    multiply,
+    add,
+    subtract,
+    reduce,
+    isEqual,
+    isZero,
+    isGreater,
+    makeOdd,
+    shiftByWord,
+  } = wasm;
   let { R, writeBigint, readBigInt, getPointers } = jsHelpers(p, w, memory);
   let [x, y, z, R2] = getPointers(4);
   for (let i = 0; i < 100; i++) {
@@ -148,6 +159,27 @@ function testCorrectness(p, w, wasm) {
       if (isGreater(z, x) !== 1) throw Error("bad isGreater");
       if (isGreater(x, x) !== 0) throw Error("bad isGreater");
       if (isGreater(x, z) !== 0) throw Error("bad isGreater");
+    }
+    if (makeOdd) {
+      // shiftByWord
+      let wn = BigInt(w);
+      writeBigint(x, (x0 >> 120n) << 120n);
+      writeBigint(z, 1n);
+      shiftByWord(x, z);
+      if (readBigInt(x) !== (x0 >> 120n) << (120n - wn))
+        throw Error("bad shiftByWord");
+      if (readBigInt(z) !== 1n << wn) throw Error("bad shiftByWord");
+
+      // makeOdd
+      let m = 117;
+      writeBigint(x, 5n << BigInt(m));
+      writeBigint(z, 3n);
+      let k = makeOdd(x, z);
+      if (k !== m) throw Error("bad makeOdd");
+      if (readBigInt(x) !== 5n) throw Error("bad makeOdd");
+      if (readBigInt(z) !== 3n << BigInt(m)) throw Error("bad makeOdd");
+
+      writeBigint(x, x0);
     }
   }
   return [x, z];

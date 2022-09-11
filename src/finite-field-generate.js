@@ -22,6 +22,7 @@ export {
   add2,
   subtract,
   reduce,
+  makeOdd,
   finiteFieldHelpers,
   multiply32,
   benchMultiply,
@@ -443,6 +444,106 @@ function reduce(writer, p, w, d = 1) {
         local.set(carry, i64.shr_u(tmp, w))
       );
     }
+  });
+}
+
+/**
+ * a core building block for montgomery inversion
+ *
+ * takes u, s < p. sets k=0. while u is even, update u /= 2 and s *= 2 and increment j++
+ * at the end, u <- u/2^k, s <- s*2^k and the new u is odd
+ * returns k
+ * (the implementation shifts u >> k and s << k at once if k < w, and shifts by whole words until k < w)
+ *
+ * in the inversion algorithm it's guaranteed that s << k will remain < p,
+ * so everything holds modulo p
+ *
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ */
+function makeOdd(writer, p, w) {
+  let { n, wordMax } = montgomeryParams(p, w);
+  let { line, lines, join, comment } = writer;
+  let { i64, i32, local, local64, param32, result32, memory, return_, call } =
+    ops;
+
+  let [u, s, k, l, tmp] = ["$u", "$s", "$k", "$l", "$tmp"];
+
+  addFuncExport(writer, "makeOdd");
+  func(writer, "makeOdd", [param32(u), param32(s), result32], () => {
+    line(local64(k), local64(l), local64(tmp));
+
+    lines(
+      // k = count_trailing_zeros(u[0])
+      local.tee(k, i64.ctz(i64.load(u))),
+      // if it's 64 (i.e., u[0] === 0), shift by a whole word and call this function again
+      // (note: u is not supposed to be 0, so u[0] = 0 implies that u is divisible by 2^w),
+      join(i64.const(64), i64.eq())
+    );
+    if_(writer, () => {
+      lines(
+        //
+        call("shiftByWord", local.get(u), local.get(s)),
+        call("makeOdd", local.get(u), local.get(s)), // returns k'
+        join(i32.const(w), i32.add()), // k = k' + w
+        return_()
+      );
+    });
+    // here we know that k \in 0,...,w-1
+    // l = w - k
+    line(local.set(l, i64.sub(w, k)));
+    comment("u >> k");
+    // for (let i = 0; i < n-1; i++) {
+    //   u[i] = (u[i] >> k) | ((u[i + 1] << l) & wordMax);
+    // }
+    // u[n-1] = u[n-1] >> k;
+    line(local.set(tmp, i64.load(u)));
+    for (let i = 0; i < n - 1; i++) {
+      lines(
+        local.get(u),
+        i64.shr_u(tmp, k),
+        i64.and(
+          i64.shl(local.tee(tmp, i64.load(u, { offset: 8 * (i + 1) })), l),
+          wordMax
+        ),
+        i64.or(),
+        i64.store("", "", { offset: 8 * i })
+      );
+    }
+    line(i64.store(u, i64.shr_u(tmp, k), { offset: 8 * (n - 1) }));
+    comment("s << k");
+    // for (let i = 10; i >= 0; i--) {
+    //   s[i+1] = (s[i] >> l) | ((s[i+1] << k) & wordMax);
+    // }
+    // s[0] = (s[0] << k) & wordMax;
+    line(local.set(tmp, i64.load(s, { offset: 8 * (n - 1) })));
+    for (let i = n - 2; i >= 0; i--) {
+      lines(
+        local.get(s),
+        i64.and(i64.shl(tmp, k), wordMax),
+        i64.shr_u(local.tee(tmp, i64.load(s, { offset: 8 * i })), l),
+        i64.or(),
+        i64.store(null, null, { offset: 8 * (i + 1) })
+      );
+    }
+    line(i64.store(s, i64.and(i64.shl(tmp, k), wordMax)));
+    comment("return k");
+    line(i32.wrap_i64(local.get(k)));
+  });
+
+  addFuncExport(writer, "shiftByWord");
+  func(writer, "shiftByWord", [param32(u), param32(s)], () => {
+    lines(
+      // copy u[1],...,u[n-1] --> u[0],...,u[n-1]
+      memory.copy(local.get(u), i32.add(u, 8), i32.const((n - 1) * 8)),
+      // u[n-1] = 0
+      i64.store(u, 0, { offset: 8 * (n - 1) }),
+      // copy s[0],...,u[n-2] --> s[1],...,s[n-1]
+      memory.copy(i32.add(s, 8), local.get(s), i32.const((n - 1) * 8)),
+      // s[0] = 0
+      i64.store(s, 0)
+    );
   });
 }
 
