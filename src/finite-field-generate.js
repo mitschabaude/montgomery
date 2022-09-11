@@ -535,7 +535,7 @@ function makeOdd(writer, p, w) {
   addFuncExport(writer, "shiftByWord");
   func(writer, "shiftByWord", [param32(u), param32(s)], () => {
     lines(
-      // copy u[1],...,u[n-1] --> u[0],...,u[n-1]
+      // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
       memory.copy(local.get(u), i32.add(u, 8), i32.const((n - 1) * 8)),
       // u[n-1] = 0
       i64.store(u, 0, { offset: 8 * (n - 1) }),
@@ -549,7 +549,7 @@ function makeOdd(writer, p, w) {
 
 /**
  * various helpers for finite field arithmetic:
- * isEqual, isZero, isGreater
+ * isEqual, isZero, isGreater, copy
  * @param {any} writer
  * @param {bigint} p
  * @param {number} w
@@ -557,10 +557,12 @@ function makeOdd(writer, p, w) {
 function finiteFieldHelpers(writer, p, w) {
   let { n } = montgomeryParams(p, w);
   let { line, lines } = writer;
-  let { i64, i32, local, local64, param32, result32, return_, br_if } = ops;
+  let { i64, i32, local, local64, param32, result32, return_, br_if, memory } =
+    ops;
 
   let [x, y, xi, yi] = ["$x", "$y", "$xi", "$yi"];
 
+  // x === y
   addFuncExport(writer, "isEqual");
   func(writer, "isEqual", [param32(x), param32(y), result32], () => {
     for (let i = 0; i < n; i++) {
@@ -574,6 +576,7 @@ function finiteFieldHelpers(writer, p, w) {
     line(i32.const(1));
   });
 
+  // x === 0
   addFuncExport(writer, "isZero");
   func(writer, "isZero", [param32(x), result32], () => {
     for (let i = 0; i < n; i++) {
@@ -585,11 +588,12 @@ function finiteFieldHelpers(writer, p, w) {
     line(i32.const(1));
   });
 
+  // x > y
   addFuncExport(writer, "isGreater");
   func(writer, "isGreater", [param32(x), param32(y), result32], () => {
     line(local64(xi), local64(yi));
     block(writer, () => {
-      for (let i = 0; i < n; i++) {
+      for (let i = n - 1; i >= 0; i--) {
         lines(
           local.tee(xi, i64.load(x, { offset: 8 * i })),
           local.tee(yi, i64.load(y, { offset: 8 * i })),
@@ -602,6 +606,13 @@ function finiteFieldHelpers(writer, p, w) {
       }
     });
     line(i32.const(0));
+  });
+
+  // copy contents of y into x
+  // this should just be inlined if possible
+  addFuncExport(writer, "copy");
+  func(writer, "copy", [param32(x), param32(y)], () => {
+    line(memory.copy(local.get(x), local.get(y), i32.const(8 * n)));
   });
 }
 
