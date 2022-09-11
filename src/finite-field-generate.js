@@ -8,6 +8,7 @@ import {
   forLoop1,
   forLoop8,
   func,
+  if_,
   interpretWat,
   module,
   ops,
@@ -21,6 +22,7 @@ export {
   add2,
   subtract,
   reduce,
+  finiteFieldHelpers,
   multiply32,
   benchMultiply,
   benchAdd,
@@ -284,8 +286,7 @@ function add(writer, p, w) {
         lines(
           // if (out[i] < 2p[i]) return
           local.set(tmp, i64.load(out, { offset: 8 * i })),
-          i64.lt_u(tmp, P2[i]),
-          `if return end`,
+          br_if(1, i64.lt_u(tmp, P2[i])),
           // if (out[i] !== 2p[i]) break;
           br_if(0, i64.ne(tmp, P2[i]))
         );
@@ -420,8 +421,7 @@ function reduce(writer, p, w, d = 1) {
         lines(
           // if (x[i] < d*p[i]) return
           local.set(tmp, i64.load(x, { offset: 8 * i })),
-          i64.lt_u(tmp, dp[i]),
-          `if return end`,
+          br_if(1, i64.lt_u(tmp, dp[i])),
           // if (x[i] !== d*p[i]) break;
           br_if(0, i64.ne(tmp, dp[i]))
         );
@@ -443,6 +443,64 @@ function reduce(writer, p, w, d = 1) {
         local.set(carry, i64.shr_u(tmp, w))
       );
     }
+  });
+}
+
+/**
+ * various helpers for finite field arithmetic:
+ * isEqual, isZero, isGreater
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ */
+function finiteFieldHelpers(writer, p, w) {
+  let { n } = montgomeryParams(p, w);
+  let { line, lines } = writer;
+  let { i64, i32, local, local64, param32, result32, return_, br_if } = ops;
+
+  let [x, y, xi, yi] = ["$x", "$y", "$xi", "$yi"];
+
+  addFuncExport(writer, "isEqual");
+  func(writer, "isEqual", [param32(x), param32(y), result32], () => {
+    for (let i = 0; i < n; i++) {
+      line(
+        i64.ne(i64.load(x, { offset: 8 * i }), i64.load(y, { offset: 8 * i }))
+      );
+      if_(writer, () => {
+        line(return_(i32.const(0)));
+      });
+    }
+    line(i32.const(1));
+  });
+
+  addFuncExport(writer, "isZero");
+  func(writer, "isZero", [param32(x), result32], () => {
+    for (let i = 0; i < n; i++) {
+      line(i64.ne(i64.load(x, { offset: 8 * i }), 0));
+      if_(writer, () => {
+        line(return_(i32.const(0)));
+      });
+    }
+    line(i32.const(1));
+  });
+
+  addFuncExport(writer, "isGreater");
+  func(writer, "isGreater", [param32(x), param32(y), result32], () => {
+    line(local64(xi), local64(yi));
+    block(writer, () => {
+      for (let i = 0; i < n; i++) {
+        lines(
+          local.tee(xi, i64.load(x, { offset: 8 * i })),
+          local.tee(yi, i64.load(y, { offset: 8 * i })),
+          i64.gt_u()
+        );
+        if_(writer, () => {
+          line(return_(i32.const(1)));
+        });
+        line(br_if(0, i64.ne(xi, yi)));
+      }
+    });
+    line(i32.const(0));
   });
 }
 

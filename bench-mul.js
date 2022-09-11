@@ -15,6 +15,7 @@ import {
   subtract,
   benchSubtract,
   reduce,
+  finiteFieldHelpers,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
 globalThis.crypto = webcrypto;
@@ -35,6 +36,8 @@ for (let w of [28]) {
       subtract(writer, p, w);
 
       reduce(writer, p, w);
+
+      finiteFieldHelpers(writer, p, w);
 
       benchMultiply(writer);
       benchAdd(writer);
@@ -91,7 +94,8 @@ for (let w of [28]) {
 }
 
 function testCorrectness(p, w, wasm) {
-  let { memory, multiply, add, subtract, reduce } = wasm;
+  let { memory, multiply, add, subtract, reduce, isEqual, isZero, isGreater } =
+    wasm;
   let { R, writeBigint, readBigInt, getPointers } = jsHelpers(p, w, memory);
   let [x, y, z, R2] = getPointers(4);
   for (let i = 0; i < 100; i++) {
@@ -113,9 +117,6 @@ function testCorrectness(p, w, wasm) {
       z0 = mod(x0 + y0, p);
       z1 = readBigInt(z);
       if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
-        console.log(z0);
-        console.log(z0 + p);
-        console.log(z1);
         throw Error("bad addition");
       }
     }
@@ -124,9 +125,6 @@ function testCorrectness(p, w, wasm) {
       z0 = mod(x0 - y0, p);
       z1 = readBigInt(z);
       if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
-        console.log(z0);
-        console.log(z0 + p);
-        console.log(z1);
         throw Error("bad subtraction");
       }
     }
@@ -135,12 +133,21 @@ function testCorrectness(p, w, wasm) {
       z0 = mod(x0, p);
       z1 = readBigInt(x);
       if (z0 !== z1) {
-        console.log(z0);
-        console.log(z0 + p);
-        console.log(z1);
         throw Error("bad reduce");
       }
       writeBigint(x, x0);
+    }
+    if (isEqual) {
+      if (isEqual(x, x) !== 1) throw Error("bad isEqual");
+      if (isEqual(x, y) !== 0) throw Error("bad isEqual");
+      writeBigint(z, 0n);
+      if (isZero(z) !== 1) throw Error("bad isZero");
+      if (isZero(x) !== 0) throw Error("bad isZero");
+      writeBigint(z, 1n);
+      add(z, x, z);
+      if (isGreater(z, x) !== 1) throw Error("bad isGreater");
+      if (isGreater(x, x) !== 0) throw Error("bad isGreater");
+      if (isGreater(x, z) !== 0) throw Error("bad isGreater");
     }
   }
   return [x, z];

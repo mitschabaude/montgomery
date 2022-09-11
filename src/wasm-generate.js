@@ -7,6 +7,7 @@ export {
   block,
   func,
   loop,
+  if_,
   module,
   forLoop8,
   forLoop1,
@@ -117,13 +118,14 @@ function getOperations() {
       sub: iOp("sub"),
       and: iOp("and"),
       or: iOp("or"),
+      not: iOp("not"),
       shr_u: iOp("shr_u"),
       shl: iOp("shl"),
       eq: iOp("eq"),
       ne: iOp("ne"),
       eqz: iOp("eqz"),
       lt_u: iOp("lt_u"),
-      gt_u: iOp("lt_u"),
+      gt_u: iOp("gt_u"),
     };
   }
   return {
@@ -145,10 +147,13 @@ function getOperations() {
     param32: (name) => op("param")(name, "i32"),
     param64: (name) => op("param")(name, "i64"),
     result: op("result"),
+    result32: op("result")("i32"),
+    result64: op("result")("i64"),
     export: (name, ...args) => op("export")(`"${name}"`, ...args),
     call: (name, ...args) => op("call")("$" + name, ...args),
     memory: (name, ...args) => op("memory")("$" + name, ...args),
     func: (name, ...args) => op("func")("$" + name, ...args),
+    return_: op("return"),
   };
 }
 
@@ -190,6 +195,25 @@ function block(writer, callback) {
 }
 function module(writer, callback) {
   blockOp("module")(writer, [], callback);
+}
+function if_(writer, callback) {
+  let oldText = writer.text;
+  callback();
+  let newText = writer.text.slice(oldText.length);
+  writer.text = oldText;
+  let lines = newText
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((s) => s);
+  if (lines.length === 1) {
+    writer.line(`if ${lines[0]} end`);
+  } else {
+    writer.line("if");
+    writer.tab();
+    writer.lines(...lines);
+    writer.untab();
+    writer.line("end");
+  }
 }
 
 let wabt;
