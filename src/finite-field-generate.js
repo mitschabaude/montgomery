@@ -18,6 +18,7 @@ export {
   jsHelpers,
   multiply,
   add,
+  add2,
   subtract,
   multiply32,
   benchMultiply,
@@ -33,6 +34,7 @@ export {
  *
  * -) evaluate when reducing in addition / subtraction can be left out,
  *   => can accept upper bounds > 2p on multiplication inputs
+ * -) test whether add2 is faster than add in the real world case
  */
 
 let p =
@@ -332,7 +334,7 @@ function subtract(writer, p, w) {
   let { i64, local, local64, param32 } = ops;
 
   let [x, y, out] = ["$x", "$y", "$out"];
-  let [tmp, carry] = ["$tmp", "$borrow"];
+  let [tmp, carry] = ["$tmp", "$carry"];
 
   function subtraction({ doReduce }) {
     line(local64(tmp), local64(carry));
@@ -358,6 +360,7 @@ function subtract(writer, p, w) {
     if (!doReduce) return;
     // check if we underflowed by checking carry === 1 (in that case, we didn't and can return)
     lines(i64.eq(carry, 1), `if return end`);
+    // second loop
     // if we're here, y > x and out = x - y + R, while we want x - y + 2p
     // so do (out - (R - 2p))
     line(local.set(carry, i64.const(1)));
@@ -385,6 +388,79 @@ function subtract(writer, p, w) {
   addFuncExport(writer, "subtractNoReduce");
   func(writer, "subtractNoReduce", [param32(out), param32(x), param32(y)], () =>
     subtraction({ doReduce: false })
+  );
+}
+
+/**
+ * alternative addition with a much more efficient overflow check
+ * at the cost of n `i64.add`s in first loop
+ * -) compute z = (R - 2p) + x + y
+ * -) z overflows R <==> x + y >= 2p (this check is just a single i64.eq)
+ * -) if z overflows R, implicitly ignore R (highest bit) and return z = x + y - 2p
+ * -) if z doesn't overflow, compute z - (R - 2p) = x + y and return it
+ * performance is very similar to `add`
+ */
+function add2(writer, p, w) {
+  let { n, wordMax, R } = montgomeryParams(p, w);
+  // constants
+  let Rminus2P = bigintToLegs(R - 2n * p, w, n);
+  let { line, lines, comment, join } = writer;
+  let { i64, local, local64, param32 } = ops;
+
+  let [x, y, out] = ["$x", "$y", "$out"];
+  let [tmp, carry] = ["$tmp", "$carry"];
+
+  function addition({ doReduce }) {
+    line(local64(tmp), local64(carry));
+
+    // first loop: x + y
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, out[i]) = x[i] + y[i] + (R - 2p)[i] + carry;
+        i64.const(Rminus2P[i]),
+        i64.load(x, { offset: 8 * i }),
+        i64.add(),
+        i64.load(y, { offset: 8 * i }),
+        i64.add(),
+        local.get(carry),
+        i64.add(),
+        // split result
+        join(local.tee(tmp), i64.const(w), i64.shr_u(), local.set(carry)),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i })
+      );
+    }
+    if (!doReduce) return;
+    // check if we overflowed by checking carry === 1 (in that case, we did and can return)
+    lines(i64.eq(carry, 1), `if return end`);
+    // second loop
+    // if we're here, x + y < 2p and out = x + y + R - 2p, while we want x + y
+    // so do (out - (R - 2p))
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, out[i]) = (2**w - 1 - (R - 2*p)[i]) + out[i] + carry;
+        i64.const(wordMax - Rminus2P[i]),
+        i64.load(out, { offset: 8 * i }),
+        i64.add(),
+        local.get(carry),
+        i64.add(),
+        local.set(tmp),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(carry, i64.shr_u(tmp, w))
+      );
+    }
+  }
+
+  addFuncExport(writer, "add");
+  func(writer, "add", [param32(out), param32(x), param32(y)], () =>
+    addition({ doReduce: true })
+  );
+
+  addFuncExport(writer, "addNoReduce");
+  func(writer, "addNoReduce", [param32(out), param32(x), param32(y)], () =>
+    addition({ doReduce: false })
   );
 }
 

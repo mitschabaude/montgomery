@@ -20,8 +20,8 @@ globalThis.crypto = webcrypto;
 
 let p = field.p;
 let N = 1e7;
-for (let w of [24, 26, 28, 30]) {
-  // for (let w of [28]) {
+// for (let w of [24, 26, 28, 30]) {
+for (let w of [28]) {
   let { n } = montgomeryParams(p, w);
   let writer = Writer();
   moduleWithMemory(
