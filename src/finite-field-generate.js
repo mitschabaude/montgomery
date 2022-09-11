@@ -33,7 +33,6 @@ export {
  *
  * -) evaluate when reducing in addition / subtraction can be left out,
  *   => can accept upper bounds > 2p on multiplication inputs
- 
  */
 
 let p =
@@ -250,7 +249,7 @@ function multiply(writer, p, w) {
  * @param {number} w
  */
 function add(writer, p, w) {
-  let { n, wn, wordMax } = montgomeryParams(p, w);
+  let { n, wordMax } = montgomeryParams(p, w);
   // constants
   let P2 = bigintToLegs(2n * p, w, n);
   let { line, lines, comment, join } = writer;
@@ -291,22 +290,19 @@ function add(writer, p, w) {
     });
     // third loop
     // if we're here, t >= 2p, so do t - 2p to get back in 0,..,2p-1
-    line(local.set(carry, i64.const(0)));
+    line(local.set(carry, i64.const(1)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = 2^w + out[i] - 2p[i] - carry;
-        // carry = 1 - carry (NB: carry is 0 or 1)
-        i64.const(1n << wn),
+        // (carry, out[i]) = (2^w - 1 - 2p[i]) + out[i] + carry;
+        i64.const(wordMax - P2[i]),
         i64.load(out, { offset: 8 * i }),
         i64.add(),
-        i64.const(P2[i]),
-        i64.sub(),
         local.get(carry),
-        i64.sub(),
+        i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.sub(1, i64.shr_u(tmp, w)))
+        local.set(carry, i64.shr_u(tmp, w))
       );
     }
   }
@@ -329,55 +325,54 @@ function add(writer, p, w) {
  * @param {number} w
  */
 function subtract(writer, p, w) {
-  let { n, wn, wordMax, R } = montgomeryParams(p, w);
+  let { n, wordMax, R } = montgomeryParams(p, w);
   // constants
   let Rminus2P = bigintToLegs(R - 2n * p, w, n);
   let { line, lines, comment } = writer;
   let { i64, local, local64, param32 } = ops;
 
   let [x, y, out] = ["$x", "$y", "$out"];
-  let [tmp, borrow] = ["$tmp", "$borrow"];
+  let [tmp, carry] = ["$tmp", "$borrow"];
 
   function subtraction({ doReduce }) {
-    line(local64(tmp), local64(borrow));
+    line(local64(tmp), local64(carry));
 
     // first loop: x - y
+    line(local.set(carry, i64.const(1)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (borrow, out[i]) = 2^w + x[i] - y[i] - borrow;
-        // borrow = 1 - borrow
-        i64.const(1n << wn),
+        // (carry, out[i]) = (2^w - 1) + x[i] - y[i] + carry;
+        i64.const(wordMax),
         i64.load(x, { offset: 8 * i }),
         i64.add(),
         i64.load(y, { offset: 8 * i }),
         i64.sub(),
-        local.get(borrow),
-        i64.sub(),
+        local.get(carry),
+        i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(borrow, i64.sub(1, i64.shr_u(tmp, w)))
+        local.set(carry, i64.shr_u(tmp, w))
       );
     }
     if (!doReduce) return;
-    // check if we underflowed by checking borrow === 0 (in that case, we didn't and can return)
-    lines(i64.eqz(borrow), `if return end`);
+    // check if we underflowed by checking carry === 1 (in that case, we didn't and can return)
+    lines(i64.eq(carry, 1), `if return end`);
     // if we're here, y > x and out = x - y + R, while we want x - y + 2p
     // so do (out - (R - 2p))
-    line(local.set(borrow, i64.const(0)));
+    line(local.set(carry, i64.const(1)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (borrow, out[i]) = 2**w - (R - 2*p)[i] + out[i] - borrow;
-        // borrow = 1 - borrow (NB: borrow is 0 or 1)
-        i64.const((1n << wn) - Rminus2P[i]),
+        // (carry, out[i]) = (2**w - 1 - (R - 2*p)[i]) + out[i] + carry;
+        i64.const(wordMax - Rminus2P[i]),
         i64.load(out, { offset: 8 * i }),
         i64.add(),
-        local.get(borrow),
-        i64.sub(),
+        local.get(carry),
+        i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(borrow, i64.sub(1, i64.shr_u(tmp, w)))
+        local.set(carry, i64.shr_u(tmp, w))
       );
     }
   }
