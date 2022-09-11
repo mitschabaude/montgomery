@@ -38,13 +38,17 @@ for (let w of [24, 26, 28, 30]) {
   let x = testCorrectness(p, w, wasm);
   tic(`multiply (w=${w}) x ${N}`);
   wasm.benchMultiply(x, N);
-  let time = toc();
-  console.log(`${(N / time / 1e6).toFixed(3)} mio. mul / s`);
+  let timeMul = toc();
+  console.log(`${(N / timeMul / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
 
-  tic(`add (w=${w}) x ${N}`);
+  tic();
   wasm.benchAdd(x, N);
-  time = toc();
-  console.log(`${(N / time / 1e6).toFixed(3)} mio. add / s`);
+  let timeAdd = toc();
+  console.log(
+    `${(N / timeAdd / 1e6).toFixed(2)} mio. add / s (add = ${(
+      timeAdd / timeMul
+    ).toFixed(2)} mul)`
+  );
 }
 {
   let w = 32;
@@ -65,7 +69,7 @@ for (let w of [24, 26, 28, 30]) {
   tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
   wasm.benchMultiply(x, N);
   let time = toc();
-  console.log(`${(N / time / 1e6).toFixed(3)} mio. mul / s`);
+  console.log(`${(N / time / 1e6).toFixed(2)} mio. mul / s`);
 }
 {
   let w = 32;
@@ -86,7 +90,7 @@ for (let w of [24, 26, 28, 30]) {
   tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
   wasm.benchMultiply(x, N);
   let time = toc();
-  console.log(`${(N / time / 1e6).toFixed(3)} mio. mul / s`);
+  console.log(`${(N / time / 1e6).toFixed(2)} mio. mul / s`);
 }
 
 function testCorrectness(p, w, wasm) {
