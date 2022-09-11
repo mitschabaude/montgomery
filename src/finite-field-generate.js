@@ -274,7 +274,7 @@ function add(writer, p, w) {
           i64.lt_u(tmp, P2[i]),
           `if return end`,
           // if (out[i] !== 2p[i]) break;
-          br_if(0, i64.eq(tmp, P2[i]))
+          br_if(0, i64.ne(tmp, P2[i]))
         );
       }
     });
