@@ -18,13 +18,23 @@ export {
   jsHelpers,
   multiply,
   add,
+  subtract,
   multiply32,
   benchMultiply,
   benchAdd,
+  benchSubtract,
   moduleWithMemory,
   interpretWat,
   montgomeryParams,
 };
+
+/**
+ * TODOs
+ *
+ * -) evaluate when reducing in addition / subtraction can be left out,
+ *   => can accept upper bounds > 2p on multiplication inputs
+ 
+ */
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -286,7 +296,7 @@ function add(writer, p, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = 2^w + out[i] - 2p[i] - carry;
-        // carry = 1 - carry
+        // carry = 1 - carry (NB: carry is 0 or 1)
         i64.const(1n << wn),
         i64.load(out, { offset: 8 * i }),
         i64.add(),
@@ -309,6 +319,77 @@ function add(writer, p, w) {
   addFuncExport(writer, "addNoReduce");
   func(writer, "addNoReduce", [param32(out), param32(x), param32(y)], () =>
     addition({ doReduce: false })
+  );
+}
+
+/**
+ * addition modulo 2p
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ */
+function subtract(writer, p, w) {
+  let { n, wn, wordMax, R } = montgomeryParams(p, w);
+  // constants
+  let Rminus2P = bigintToLegs(R - 2n * p, w, n);
+  let { line, lines, comment } = writer;
+  let { i64, local, local64, param32 } = ops;
+
+  let [x, y, out] = ["$x", "$y", "$out"];
+  let [tmp, borrow] = ["$tmp", "$borrow"];
+
+  function subtraction({ doReduce }) {
+    line(local64(tmp), local64(borrow));
+
+    // first loop: x - y
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (borrow, out[i]) = 2^w + x[i] - y[i] - borrow;
+        // borrow = 1 - borrow
+        i64.const(1n << wn),
+        i64.load(x, { offset: 8 * i }),
+        i64.add(),
+        i64.load(y, { offset: 8 * i }),
+        i64.sub(),
+        local.get(borrow),
+        i64.sub(),
+        local.set(tmp),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(borrow, i64.sub(1, i64.shr_u(tmp, w)))
+      );
+    }
+    if (!doReduce) return;
+    // check if we underflowed by checking borrow === 0 (in that case, we didn't and can return)
+    lines(i64.eqz(borrow), `if return end`);
+    // if we're here, y > x and out = x - y + R, while we want x - y + 2p
+    // so do (out - (R - 2p))
+    line(local.set(borrow, i64.const(0)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (borrow, out[i]) = 2**w - (R - 2*p)[i] + out[i] - borrow;
+        // borrow = 1 - borrow (NB: borrow is 0 or 1)
+        i64.const((1n << wn) - Rminus2P[i]),
+        i64.load(out, { offset: 8 * i }),
+        i64.add(),
+        local.get(borrow),
+        i64.sub(),
+        local.set(tmp),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(borrow, i64.sub(1, i64.shr_u(tmp, w)))
+      );
+    }
+  }
+
+  addFuncExport(writer, "subtract");
+  func(writer, "subtract", [param32(out), param32(x), param32(y)], () =>
+    subtraction({ doReduce: true })
+  );
+
+  addFuncExport(writer, "subtractNoReduce");
+  func(writer, "subtractNoReduce", [param32(out), param32(x), param32(y)], () =>
+    subtraction({ doReduce: false })
   );
 }
 
@@ -450,6 +531,18 @@ function benchAdd(W) {
     line(local32(i));
     forLoop1(W, i, 0, local.get(N), () => {
       line(call("add", local.get(x), local.get(x), local.get(x)));
+    });
+  });
+}
+function benchSubtract(W) {
+  let { line } = W;
+  let { local, local32, param32, call } = ops;
+  let [x, N, i, z] = ["$x", "$N", "$i", "$z"];
+  addFuncExport(W, "benchSubtract");
+  func(W, "benchSubtract", [param32(z), param32(x), param32(N)], () => {
+    line(local32(i));
+    forLoop1(W, i, 0, local.get(N), () => {
+      line(call("subtract", local.get(z), local.get(z), local.get(x)));
     });
   });
 }
