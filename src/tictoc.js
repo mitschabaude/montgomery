@@ -3,7 +3,6 @@
 export { tic, toc };
 
 let timingStack = [];
-let i = 0;
 
 function tic(label) {
   if (label !== undefined) process.stdout.write(`${label}... `);

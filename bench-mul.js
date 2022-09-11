@@ -52,52 +52,32 @@ for (let w of [24, 26, 28, 30]) {
 }
 {
   let w = 32;
-  let unrollOuter = 0;
-  let { n } = montgomeryParams(p, w);
-  let writer = Writer();
-  moduleWithMemory(
-    writer,
-    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
-    () => {
-      multiply32(writer, p, w, { unrollOuter });
-      benchMultiply(writer);
-    }
-  );
-  await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
-  let wasm = await interpretWat(writer);
-  let x = testCorrectness(p, w, wasm);
-  tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
-  wasm.benchMultiply(x, N);
-  let time = toc();
-  console.log(`${(N / time / 1e6).toFixed(2)} mio. mul / s`);
-}
-{
-  let w = 32;
-  let unrollOuter = 1;
-  let { n } = montgomeryParams(p, w);
-  let writer = Writer();
-  moduleWithMemory(
-    writer,
-    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
-    () => {
-      multiply32(writer, p, w, { unrollOuter });
-      benchMultiply(writer);
-    }
-  );
-  await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
-  let wasm = await interpretWat(writer);
-  let x = testCorrectness(p, w, wasm);
-  tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
-  wasm.benchMultiply(x, N);
-  let time = toc();
-  console.log(`${(N / time / 1e6).toFixed(2)} mio. mul / s`);
+  for (let unrollOuter of [0, 1]) {
+    let { n } = montgomeryParams(p, w);
+    let writer = Writer();
+    moduleWithMemory(
+      writer,
+      `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+      () => {
+        multiply32(writer, p, w, { unrollOuter });
+        benchMultiply(writer);
+      }
+    );
+    await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
+    let wasm = await interpretWat(writer);
+    let x = testCorrectness(p, w, wasm);
+    tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
+    wasm.benchMultiply(x, N);
+    let time = toc();
+    console.log(`${(N / time / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
+  }
 }
 
 function testCorrectness(p, w, wasm) {
   let { memory, multiply, add } = wasm;
   let { R, writeBigint, readBigInt, getPointers } = jsHelpers(p, w, memory);
   let [x, y, z, R2] = getPointers(4);
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 100; i++) {
     let x0 = randomBaseFieldx2();
     let y0 = randomBaseFieldx2();
     writeBigint(x, x0);

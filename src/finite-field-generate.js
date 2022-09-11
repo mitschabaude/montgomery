@@ -9,6 +9,7 @@ import {
   forLoop8,
   func,
   interpretWat,
+  module,
   ops,
   Writer,
 } from "./wasm-generate.js";
@@ -266,7 +267,7 @@ function add(writer, p, w) {
     }
     if (!doReduce) return;
     // second loop: check if we overflowed by checking x + y < 2p
-    block("block")(writer, [], () => {
+    block(writer, () => {
       for (let i = n - 1; i >= 0; i--) {
         lines(
           // if (out[i] < 2p[i]) return
@@ -456,7 +457,7 @@ function benchAdd(W) {
 function moduleWithMemory(writer, comment_, callback) {
   let { line, comment } = writer;
   comment(comment_);
-  block("module")(writer, [], () => {
+  module(writer, () => {
     addExport(writer, "memory", ops.memory("memory"));
     line(ops.memory("memory", 100));
     callback(writer);

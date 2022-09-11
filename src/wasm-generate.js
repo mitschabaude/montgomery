@@ -7,6 +7,7 @@ export {
   block,
   func,
   loop,
+  module,
   forLoop8,
   forLoop1,
   addExport,
@@ -76,7 +77,7 @@ function op(name) {
     else return `(${name} ${args.join(" ")})`;
   };
 }
-function block(name) {
+function blockOp(name) {
   return function (writer, args, callback) {
     writer.line(`(${name} ${args.join(" ")}`);
     writer.tab();
@@ -152,7 +153,7 @@ function getOperations() {
 }
 
 function func(writer, name, args, callback) {
-  block("func")(writer, ["$" + name, ...args], callback);
+  blockOp("func")(writer, ["$" + name, ...args], callback);
 }
 function addExport(W, name, thing) {
   W.exports.add(name);
@@ -182,7 +183,13 @@ function forLoop1(writer, i, i0, length, callback) {
 }
 
 function loop(writer, callback) {
-  block("loop")(writer, [], callback);
+  blockOp("loop")(writer, [], callback);
+}
+function block(writer, callback) {
+  blockOp("block")(writer, [], callback);
+}
+function module(writer, callback) {
+  blockOp("module")(writer, [], callback);
 }
 
 let wabt;
