@@ -20,6 +20,7 @@ export {
   add,
   add2,
   subtract,
+  reduce,
   multiply32,
   benchMultiply,
   benchAdd,
@@ -321,7 +322,7 @@ function add(writer, p, w) {
 }
 
 /**
- * addition modulo 2p
+ * subtraction modulo 2p
  * @param {any} writer
  * @param {bigint} p
  * @param {number} w
@@ -389,6 +390,60 @@ function subtract(writer, p, w) {
   func(writer, "subtractNoReduce", [param32(out), param32(x), param32(y)], () =>
     subtraction({ doReduce: false })
   );
+}
+
+/**
+ * reduce in place from modulo 2*d*p to modulo d*p, i.e.
+ * if (x > d*p) x -= d*p
+ * (condition: d*p < R = 2^(n*w); we always have d=1 for now but different ones could be used
+ * once we try supporting less reductions in add/sub)
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ */
+function reduce(writer, p, w, d = 1) {
+  let { n, wordMax } = montgomeryParams(p, w);
+  // constants
+  let dp = bigintToLegs(BigInt(d) * p, w, n);
+  let { line, lines, comment } = writer;
+  let { i64, local, local64, param32, br_if } = ops;
+
+  let [x] = ["$x"];
+  let [tmp, carry] = ["$tmp", "$carry"];
+
+  addFuncExport(writer, "reduce");
+  func(writer, "reduce", [param32(x)], () => {
+    line(local64(tmp), local64(carry));
+    // check if x < p
+    block(writer, () => {
+      for (let i = n - 1; i >= 0; i--) {
+        lines(
+          // if (x[i] < d*p[i]) return
+          local.set(tmp, i64.load(x, { offset: 8 * i })),
+          i64.lt_u(tmp, dp[i]),
+          `if return end`,
+          // if (x[i] !== d*p[i]) break;
+          br_if(0, i64.ne(tmp, dp[i]))
+        );
+      }
+    });
+    // if we're here, t >= dp but we assume t < 2dp, so do t - dp
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, x[i]) = (2^w - 1 - d*p[i]) + x[i] + carry;
+        i64.const(wordMax - dp[i]),
+        i64.load(x, { offset: 8 * i }),
+        i64.add(),
+        local.get(carry),
+        i64.add(),
+        local.set(tmp),
+        i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(carry, i64.shr_u(tmp, w))
+      );
+    }
+  });
 }
 
 /**

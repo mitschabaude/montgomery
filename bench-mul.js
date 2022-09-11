@@ -14,6 +14,7 @@ import {
   benchAdd,
   subtract,
   benchSubtract,
+  reduce,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
 globalThis.crypto = webcrypto;
@@ -32,6 +33,8 @@ for (let w of [28]) {
 
       add(writer, p, w);
       subtract(writer, p, w);
+
+      reduce(writer, p, w);
 
       benchMultiply(writer);
       benchAdd(writer);
@@ -88,7 +91,7 @@ for (let w of [28]) {
 }
 
 function testCorrectness(p, w, wasm) {
-  let { memory, multiply, add, subtract } = wasm;
+  let { memory, multiply, add, subtract, reduce } = wasm;
   let { R, writeBigint, readBigInt, getPointers } = jsHelpers(p, w, memory);
   let [x, y, z, R2] = getPointers(4);
   for (let i = 0; i < 100; i++) {
@@ -126,6 +129,18 @@ function testCorrectness(p, w, wasm) {
         console.log(z1);
         throw Error("bad subtraction");
       }
+    }
+    if (reduce) {
+      reduce(x);
+      z0 = mod(x0, p);
+      z1 = readBigInt(x);
+      if (z0 !== z1) {
+        console.log(z0);
+        console.log(z0 + p);
+        console.log(z1);
+        throw Error("bad reduce");
+      }
+      writeBigint(x, x0);
     }
   }
   return [x, z];
