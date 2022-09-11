@@ -1,5 +1,5 @@
 import { tic, toc } from "./src/tictoc.js";
-import { randomBaseFieldx2, field, mod } from "./src/finite-field.js";
+import { randomBaseFieldx2, field, mod } from "./src/finite-field-js.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {

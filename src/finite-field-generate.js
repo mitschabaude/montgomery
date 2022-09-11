@@ -1,6 +1,6 @@
 import { bigintToLegs, log2 } from "./util.js";
 import fs from "node:fs/promises";
-import { modInverse } from "./finite-field.js";
+import { modInverse } from "./finite-field-js.js";
 import {
   addExport,
   addFuncExport,
