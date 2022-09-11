@@ -9,45 +9,24 @@ import {
   interpretWat,
   jsHelpers,
   moduleWithMemory,
-  multiply,
-  add,
-  benchAdd,
-  subtract,
-  benchSubtract,
-  reduce,
-  finiteFieldHelpers,
-  makeOdd,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
+import {
+  createFiniteFieldWasm,
+  createFiniteField,
+} from "./src/finite-field-full.js";
 globalThis.crypto = webcrypto;
 
 let p = field.p;
 let N = 1e7;
 // for (let w of [24, 26, 28, 30]) {
 for (let w of [28]) {
-  let { n } = montgomeryParams(p, w);
-  let writer = Writer();
-  moduleWithMemory(
-    writer,
-    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
-    () => {
-      multiply(writer, p, w);
-
-      add(writer, p, w);
-      subtract(writer, p, w);
-
-      reduce(writer, p, w);
-      makeOdd(writer, p, w);
-      finiteFieldHelpers(writer, p, w);
-
-      benchMultiply(writer);
-      benchAdd(writer);
-      benchSubtract(writer);
-    }
-  );
+  let { writer, wasm } = await createFiniteFieldWasm(p, w, {
+    withBenchmarks: true,
+  });
+  let ff = await createFiniteField(p, w, { fromWasm: wasm });
   await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
-  let wasm = await interpretWat(writer);
-  let [x, z] = testCorrectness(p, w, wasm);
+  let [x, z] = testCorrectness(p, w, ff);
   tic(`multiply (w=${w}) x ${N}`);
   wasm.benchMultiply(x, N);
   let timeMul = toc();
@@ -94,9 +73,8 @@ for (let w of [28]) {
   }
 }
 
-function testCorrectness(p, w, wasm) {
+function testCorrectness(p, w, ff) {
   let {
-    memory,
     multiply,
     add,
     subtract,
@@ -106,9 +84,14 @@ function testCorrectness(p, w, wasm) {
     isGreater,
     makeOdd,
     shiftByWord,
-  } = wasm;
-  let { R, writeBigint, readBigInt, getPointers } = jsHelpers(p, w, memory);
+    inverse,
+    R,
+    writeBigint,
+    readBigInt,
+    getPointers,
+  } = ff;
   let [x, y, z, R2] = getPointers(4);
+  let scratch = getPointers(10);
   for (let i = 0; i < 100; i++) {
     let x0 = randomBaseFieldx2();
     let y0 = randomBaseFieldx2();
@@ -180,6 +163,15 @@ function testCorrectness(p, w, wasm) {
       if (readBigInt(z) !== 3n << BigInt(m)) throw Error("bad makeOdd");
 
       writeBigint(x, x0);
+    }
+    if (inverse) {
+      // inverse
+      inverse(scratch, z, x);
+      console.log(readBigInt(z));
+      multiply(z, z, x);
+      z1 = readBigInt(z);
+      console.log(z1);
+      if (z1 !== R) throw Error("inverse");
     }
   }
   return [x, z];
