@@ -15,6 +15,7 @@ import {
   compileFiniteFieldWasm,
   interpretWat,
 } from "./src/finite-field-compile.js";
+import { bigintFromBytes } from "./src/util.js";
 globalThis.crypto = webcrypto;
 
 let N = 1e7;
@@ -55,6 +56,7 @@ for (let w of [28]) {
     moduleWithMemory(
       writer,
       `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+      100,
       () => {
         multiply32(writer, p, w, { unrollOuter });
         benchMultiply(writer);
@@ -62,7 +64,7 @@ for (let w of [28]) {
     );
     await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
     let wasm = await interpretWat(writer);
-    let helpers = jsHelpers(p, w, wasm.memory);
+    let helpers = jsHelpers(p, w, wasm);
     let x = testCorrectness(p, w, { ...helpers, ...wasm });
     tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
     wasm.benchMultiply(x, N);
@@ -71,8 +73,17 @@ for (let w of [28]) {
   }
 }
 
-function testCorrectness(p, w, ff) {
-  let {
+/**
+ *
+ * @param {bigint} p
+ * @param {number} w
+ * @param {import("./src/finite-field-generate.js").FiniteField} ff
+ * @returns
+ */
+function testCorrectness(
+  p,
+  w,
+  {
     multiply,
     add,
     subtract,
@@ -87,7 +98,10 @@ function testCorrectness(p, w, ff) {
     writeBigint,
     readBigInt,
     getPointers,
-  } = ff;
+    readBytes,
+    writeBytes,
+  }
+) {
   let [x, y, z, R2] = getPointers(4);
   let scratch = getPointers(10);
   for (let i = 0; i < 100; i++) {
@@ -167,6 +181,15 @@ function testCorrectness(p, w, ff) {
       multiply(z, z, x); // x/x R = 1R
       z1 = readBigInt(z);
       if (mod(z1, p) !== mod(R, p)) throw Error("inverse");
+    }
+    if (readBytes) {
+      writeBigint(x, x0);
+      let bytes = readBytes(scratch, x);
+      let x1 = bigintFromBytes(bytes);
+      if (x0 !== x1) throw Error("bad readBytes");
+      writeBytes(scratch, x, bytes);
+      x1 = readBigInt(x);
+      if (x0 !== x1) throw Error("bad writeBytes");
     }
   }
   return [x, z];

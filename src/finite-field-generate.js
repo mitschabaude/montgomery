@@ -28,15 +28,18 @@ export { benchMultiply, multiply32, moduleWithMemory };
  */
 
 /**
+ * @typedef {ReturnType<typeof createFiniteField> extends Promise<infer T> ? T : never} FiniteField
+ */
+
+/**
  * Creates arithmetic functions built on top of Wasm, for any p & w
  *
  * @param {bigint} p
  * @param {number} w
- * @param {import('./finite-field.wat')} wasm
+ * @param {import('./finite-field.28.gen.wat')} wasm
  */
 async function createFiniteField(p, w, wasm) {
   let {
-    memory,
     multiply,
     addNoReduce,
     subtractNoReduce,
@@ -47,7 +50,7 @@ async function createFiniteField(p, w, wasm) {
     copy,
     isEqual,
   } = wasm;
-  let helpers = jsHelpers(p, w, memory);
+  let helpers = jsHelpers(p, w, wasm);
   let { readBigInt, writeBigint, getPointers } = helpers;
 
   // put some constants in wasm memory
@@ -224,6 +227,7 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    1000,
     () => {
       multiply(writer, p, w);
 
@@ -712,12 +716,12 @@ function makeOdd(writer, p, w) {
  * @param {number} w
  */
 function finiteFieldHelpers(writer, p, w) {
-  let { n } = montgomeryParams(p, w);
+  let { n, wordMax, lengthP } = montgomeryParams(p, w);
   let { line, lines } = writer;
   let { i64, i32, local, local64, param32, result32, return_, br_if, memory } =
     ops;
 
-  let [x, y, xi, yi] = ["$x", "$y", "$xi", "$yi"];
+  let [x, y, xi, yi, bytes, tmp] = ["$x", "$y", "$xi", "$yi", "$bytes", "$tmp"];
 
   // x === y
   addFuncExport(writer, "isEqual");
@@ -770,6 +774,82 @@ function finiteFieldHelpers(writer, p, w) {
   addFuncExport(writer, "copy");
   func(writer, "copy", [param32(x), param32(y)], () => {
     line(memory.copy(local.get(x), local.get(y), i32.const(8 * n)));
+  });
+
+  // convert between internal format and I/O-friendly, packed byte format
+  // method: just pack all the n*w bits into memory contiguously
+  let nPackedBytes = Math.ceil(lengthP / 8);
+  addFuncExport(writer, "toPackedBytes");
+  func(writer, "toPackedBytes", [param32(bytes), param32(x)], () => {
+    let offset = 0; // memory offset
+    let nRes = 0; // residual bits to write from last iteration
+
+    line(local64(tmp)); // holds bits that aren't written yet
+    // write bytes word by word
+    for (let i = 0; i < n; i++) {
+      // how many bytes to write in this iteration
+      let nBytes = Math.floor((nRes + w) / 8); // max number of bytes we can get from residual + this word
+      let bytesMask = (1n << (8n * BigInt(nBytes))) - 1n;
+      lines(
+        // tmp = tmp | (x[i] >> nr)  where nr is the bit length of tmp (nr < 8)
+        i64.shl(i64.load(x, { offset: 8 * i }), nRes),
+        local.get(tmp),
+        i64.or(),
+        local.set(tmp),
+        // store bytes at current offset
+        i64.store(bytes, i64.and(tmp, bytesMask), { offset }),
+        // keep residual bits for next iteration
+        local.set(tmp, i64.shr_u(tmp, 8 * nBytes))
+      );
+      offset += nBytes;
+      nRes = nRes + w - 8 * nBytes;
+    }
+    // final round: write residual bits, if there are any
+    if (offset < nPackedBytes) line(i64.store(bytes, tmp, { offset }));
+  });
+
+  let chunk = "$chunk";
+
+  addFuncExport(writer, "fromPackedBytes");
+  func(writer, "fromPackedBytes", [param32(x), param32(bytes)], () => {
+    let offset = 0; // bytes offset
+    let nRes = 0; // residual bits read in the last iteration
+
+    line(local64(tmp), local64(chunk));
+    lines(local.set(tmp, i64.const(0)));
+    // read bytes word by word
+    for (let i = 0; i < n; i++) {
+      // if we can't fill up w bits with the current residual, load a full i64 from bytes
+      // (some of that i64 could be garbage, but we'll only use the parts that aren't)
+      if (nRes < w) {
+        lines(
+          // tmp = (bytes << nRes) | tmp
+          i64.shl(
+            // load 8 bytes at current offset
+            // due to the left shift, we lose nRes of them
+            local.tee(chunk, i64.load(bytes, { offset })),
+            nRes
+          ),
+          local.get(tmp),
+          i64.or(),
+          local.set(tmp),
+          // store what fits in next word
+          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          // keep residual bits for next iteration
+          local.set(tmp, i64.shr_u(chunk, w - nRes))
+        );
+        offset += 8;
+        nRes = nRes - w + 64;
+      } else {
+        // otherwise, the current tmp is just what we want!
+        lines(
+          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          local.set(tmp, i64.shr_u(tmp, w))
+        );
+        nRes = nRes - w;
+      }
+      lines();
+    }
   });
 }
 
@@ -1000,12 +1080,12 @@ function benchSubtract(W) {
   });
 }
 
-function moduleWithMemory(writer, comment_, callback) {
+function moduleWithMemory(writer, comment_, memSize, callback) {
   let { line, comment } = writer;
   comment(comment_);
   module(writer, () => {
     addExport(writer, "memory", ops.memory("memory"));
-    line(ops.memory("memory", 100));
+    line(ops.memory("memory", memSize));
     callback(writer);
   });
 }
@@ -1043,17 +1123,18 @@ function montgomeryParams(p, w) {
   let K = n * w;
   let R = 1n << BigInt(K);
   let wn = BigInt(w);
-  return { n, K, R, wn, wordMax: (1n << wn) - 1n };
+  return { n, K, R, wn, wordMax: (1n << wn) - 1n, lengthP };
 }
 
 /**
  *
  * @param {bigint} p modulus
  * @param {number} w word size
- * @param {WebAssembly.Memory} memory
+ * @param {import('./finite-field.28.gen.wat')} wasm
  */
-function jsHelpers(p, w, memory) {
-  let { n, wn, wordMax, R } = montgomeryParams(p, w);
+function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
+  let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
+  let nPackedBytes = Math.ceil(lengthP / 8);
   let obj = {
     n,
     R,
@@ -1104,6 +1185,30 @@ function jsHelpers(p, w, memory) {
     },
     resetPointers() {
       obj.offset = 0;
+    },
+
+    /**
+     * @param {number[]} scratch
+     * @param {number} pointer
+     * @param {Uint8Array} bytes
+     */
+    writeBytes([tmp], pointer, bytes) {
+      let arr = new Uint8Array(memory.buffer, tmp, 8 * n);
+      arr.fill(0);
+      arr.set(bytes);
+      fromPackedBytes(pointer, tmp);
+    },
+    /**
+     * read field element into packed bytes representation
+     *
+     * @param {number[]} scratch
+     * @param {number} pointer
+     */
+    readBytes([bytesPtr], pointer) {
+      toPackedBytes(bytesPtr, pointer);
+      return new Uint8Array(
+        memory.buffer.slice(bytesPtr, bytesPtr + nPackedBytes)
+      );
     },
   };
   return obj;

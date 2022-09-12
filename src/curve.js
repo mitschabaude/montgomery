@@ -3,34 +3,24 @@
 // they point to n legs of 64 bit each which represent numbers modulo 2p, and only w bits of each leg is filled
 // multiply preserves those properties
 import {
-  field,
-  fieldToUint64Array,
-  fromMontgomery,
-  modInverseMontgomery,
-  modSqrt,
+  constants,
+  writeBigint,
+  inverse,
+  sqrt,
+  square,
   randomBaseField,
   scalar,
+  fromMontgomery,
   toMontgomery,
-} from "./finite-field-old.js";
-import {
-  multiply,
-  add,
-  subtract,
-  storeFieldIn,
-  reset,
-  emptyFields,
-  square,
-} from "./finite-field.wat.js";
+  getPointers,
+  resetPointers,
+  readBytes,
+  writeBytes,
+} from "./finite-field.js";
+import { multiply, add, subtract, copy } from "./finite-field.28.gen.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
-import { readFieldBytes, writeFieldBytes, writeFieldInto } from "./wasm.js";
 
-export {
-  msm,
-  randomCurvePoints,
-  doubleInPlaceProjective,
-  addAssignProjective,
-  getScratchSpace,
-};
+export { msm, randomCurvePoints, doubleInPlaceProjective, addAssignProjective };
 
 /**
  * @typedef {{x: number; y: number; z: number, isZero?: boolean}} Point
@@ -41,9 +31,9 @@ export {
 
 const curve = {
   zero: {
-    x: field.legs.Rmod,
-    y: field.legs.Rmod,
-    z: field.legs.zero,
+    x: constants.mg1,
+    y: constants.mg1,
+    z: constants.zero,
     isZero: true,
   },
 };
@@ -60,21 +50,21 @@ function msm(scalars, inputPoints) {
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
-  let points = getScratchSpace(n * 3); // initialize points
-  let buckets = getScratchSpace(L * K * 3); // initialize buckets
+  let points = getPointers(n * 3); // initialize points
+  let buckets = getPointers(L * K * 3); // initialize buckets
   let bucketsZero = Array(L * K).fill(true);
-  let bucketSums = getScratchSpace(K * 3);
+  let bucketSums = getPointers(K * 3);
   let bucketSumsZero = Array(K).fill(true);
-  let partialSums = getScratchSpace(K * 3);
+  let partialSums = getPointers(K * 3);
   let partialSumsZero = Array(K).fill(true);
-  let finalSumXyz = getScratchSpace(3);
+  let finalSumXyz = getPointers(3);
   let finalSum = {
     x: finalSumXyz[0],
     y: finalSumXyz[1],
     z: finalSumXyz[2],
     isZero: true,
   };
-  let scratchSpace = getScratchSpace(20);
+  let scratchSpace = getPointers(20);
   let affinePoint = takeAffinePoint(scratchSpace);
 
   // first loop -- compute buckets
@@ -82,8 +72,8 @@ function msm(scalars, inputPoints) {
     let scalar = scalars[i];
     let inputPoint = inputPoints[i];
     // convert point to projective
-    writeFieldBytes(affinePoint.x, inputPoint[0]);
-    writeFieldBytes(affinePoint.y, inputPoint[1]);
+    writeBytes(scratchSpace, affinePoint.x, inputPoint[0]);
+    writeBytes(scratchSpace, affinePoint.y, inputPoint[1]);
     toMontgomery(affinePoint.x);
     toMontgomery(affinePoint.y);
     // TODO: make points have contiguous memory representation
@@ -161,16 +151,7 @@ function msm(scalars, inputPoints) {
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
   // TODO read out and return result
-  reset();
-}
-
-function getScratchSpace(n) {
-  let space = Array(n);
-  let n0 = emptyFields(n);
-  for (let i = 0, ni = n0; i < n; i++, ni += 96) {
-    space[i] = ni;
-  }
-  return space;
+  resetPointers();
 }
 
 /**
@@ -178,7 +159,7 @@ function getScratchSpace(n) {
  * @param {number} n
  */
 function randomCurvePoints(n) {
-  let scratchSpace = getScratchSpace(32);
+  let scratchSpace = getPointers(32);
   /**
    * @type {CompatiblePoint[]}
    */
@@ -186,7 +167,7 @@ function randomCurvePoints(n) {
   for (let i = 0; i < n; i++) {
     points[i] = randomCurvePoint(scratchSpace);
   }
-  reset();
+  resetPointers();
   return points;
 }
 
@@ -195,8 +176,8 @@ function randomCurvePoints(n) {
  * @returns {CompatiblePoint}
  */
 function randomCurvePoint([x, y, z, ...scratchSpace]) {
-  let { Rmod: one, four } = field.legs;
-  writeFieldInto(x, fieldToUint64Array(randomBaseField()));
+  let { mg1, mg4 } = constants;
+  writeBigint(x, randomBaseField());
   let [ysquare] = scratchSpace;
 
   // let i = 0;
@@ -204,15 +185,15 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
     // compute y^2 = x^3 + 4
     multiply(ysquare, x, x);
     multiply(ysquare, ysquare, x);
-    add(ysquare, ysquare, four);
+    add(ysquare, ysquare, mg4);
 
     // try computing square root to get y (works half the time, because half the field elements are squares)
-    let isRoot = modSqrt(scratchSpace, y, ysquare);
+    let isRoot = sqrt(scratchSpace, y, ysquare);
     if (isRoot) break;
     // if it didn't work, increase x by 1 and try again
-    add(x, x, one);
+    add(x, x, mg1);
   }
-  storeFieldIn(z, one);
+  copy(z, mg1);
   let p = { x, y, z, isZero: false };
   let minusZP = takePoint(scratchSpace);
   // clear cofactor
@@ -223,7 +204,11 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
   toAffine(scratchSpace, affineP, p);
   fromMontgomery(affineP.x);
   fromMontgomery(affineP.y);
-  return [readFieldBytes(affineP.x), readFieldBytes(affineP.y), false];
+  return [
+    readBytes(scratchSpace, affineP.x),
+    readBytes(scratchSpace, affineP.y),
+    false,
+  ];
 }
 
 /**
@@ -233,7 +218,7 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
  */
 function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
   // return x/z, y/z
-  modInverseMontgomery(scratchSpace, zinv, z);
+  inverse(scratchSpace, zinv, z);
   multiply(x0, x, zinv);
   multiply(y0, y, zinv);
 }
@@ -244,9 +229,9 @@ function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
  * @param {AffinePoint} affinePoint
  */
 function fromAffine({ x, y, z }, affinePoint) {
-  storeFieldIn(x, affinePoint.x);
-  storeFieldIn(y, affinePoint.y);
-  storeFieldIn(z, field.legs.Rmod); // 1
+  copy(x, affinePoint.x);
+  copy(y, affinePoint.y);
+  copy(z, constants.mg1);
 }
 
 /**
@@ -273,7 +258,7 @@ function scaleProjective([x, y, z, ...scratchSpace], result, scalar, point) {
  */
 function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z, isZero }) {
   if (isZero) return;
-  let eight = field.legs.eight;
+  let eight = constants.mg8;
   // const W = x.multiply(x).multiply(3n);
   square(W, x);
   add(S, W, W);
@@ -377,9 +362,9 @@ function addAssignProjective(
  * @param {Point} point
  */
 function writePointInto(targetPoint, point) {
-  storeFieldIn(targetPoint.x, point.x);
-  storeFieldIn(targetPoint.y, point.y);
-  storeFieldIn(targetPoint.z, point.z);
+  copy(targetPoint.x, point.x);
+  copy(targetPoint.y, point.y);
+  copy(targetPoint.z, point.z);
   targetPoint.isZero = point.isZero;
   return targetPoint;
 }

@@ -13,3 +13,5 @@ export function isGreater(x: number, y: number): boolean;
 export function makeOdd(u: number, s: number): number;
 export function shiftByWord(x: number): number;
 export function copy(x: number, y: number): void;
+export function toPackedBytes(bytes: number, x: number): void;
+export function fromPackedBytes(x: number, bytes: number): void;

@@ -24,8 +24,11 @@ export {
   square,
   writeBigint,
   readBigInt,
-  getPointers,
   copy,
+  getPointers,
+  resetPointers,
+  readBytes,
+  writeBytes,
 };
 let {
   constants,
@@ -36,8 +39,11 @@ let {
   square,
   writeBigint,
   readBigInt,
-  getPointers,
   copy,
+  getPointers,
+  resetPointers,
+  readBytes,
+  writeBytes,
 } = await createFiniteField(p, w, wasm);
 
 /**
