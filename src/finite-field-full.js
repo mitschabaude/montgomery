@@ -1,10 +1,11 @@
 import { jsHelpers, montgomeryParams } from "./finite-field-generate.js";
 import { mod } from "./finite-field-js.js";
-import { log2 } from "./util.js";
+import { bigintToBits, log2 } from "./util.js";
 
 export { createFiniteField };
 
 /**
+ * Creates arithmetic functions built on top of Wasm, for any p & w
  *
  * @param {bigint} p
  * @param {number} w
@@ -20,46 +21,52 @@ async function createFiniteField(p, w, wasm) {
     isGreater,
     makeOdd,
     copy,
+    isEqual,
   } = wasm;
   let helpers = jsHelpers(p, w, memory);
   let { readBigInt, writeBigint, getPointers } = helpers;
 
   // put some constants in wasm memory
-  let { n, K } = montgomeryParams(p, w);
+  let { K, R } = montgomeryParams(p, w);
   let N = log2(p);
+
+  let constantsBigint = {
+    zero: 0n,
+    one: 1n,
+    p,
+    R: mod(R, p),
+    R2corr: mod(1n << BigInt(4 * K - 2 * N + 1), p),
+    mgOne: mod(R, p), // == 1 in montgomery repr
+  };
+  let constantsKeys = Object.keys(constantsBigint);
+  let constantsPointers = getPointers(constantsKeys.length);
+
   /**
-   * @type {Record<string, number>}
+   * @type {Record<keyof typeof constantsBigint, number>}
    */
-  let constants;
-  {
-    let [zero, one, p_, R2corr] = getPointers(4);
-    writeBigint(zero, 0n);
-    writeBigint(one, 1n);
-    writeBigint(p_, p);
-    let R2corr_ = mod(1n << BigInt(4 * K - 2 * N + 1), p);
-    writeBigint(R2corr, R2corr_);
-    constants = {
-      zero,
-      one,
-      p: p_,
-      R2corr,
-    };
-  }
+  let constants = Object.fromEntries(
+    constantsKeys.map((key, i) => {
+      let pointer = constantsPointers[i];
+      writeBigint(pointer, constantsBigint[key]);
+      return [key, pointer];
+    })
+  );
+
+  let pPlus1Div4 = bigintToBits((p + 1n) / 4n, 381);
 
   /**
    * montgomery inverse a 2^K -> a^(-1) 2^K (mod p)
    *
-   * @param {number[]} scratchSpace
+   * @param {number[]} scratch
    * @param {number} ainv
    * @param {number} a0
    */
-  function inverse(scratchSpace, r, a) {
+  function inverse(scratch, r, a) {
     if (isZero(a)) throw Error("cannot invert 0");
     reduce(a);
-    let k = almostInverseMontgomery(scratchSpace, r, a);
+    let k = almostInverseMontgomery(scratch, r, a);
     // TODO: negation -- special case which is simpler
     // don't have to reduce r here, because it's already < p
-    // reduceInPlace(r);
     if (false) {
       let kn = BigInt(k);
       let r0 = readBigInt(r);
@@ -75,7 +82,7 @@ async function createFiniteField(p, w, wasm) {
     // 1 <= 2^(2N-(k+1)) <= 2^N < 2p
     // (in practice, k seems to be normally distributed around ~1.4N and never reach either N or 2N)
     let l = BigInt(2 * N - (k + 1));
-    let [twoL] = scratchSpace;
+    let [twoL] = scratch;
     writeBigint(twoL, 1n << l);
     multiply(r, r, twoL); // * 2^(2N - (k+1)) * 2^(-K)
 
@@ -118,5 +125,37 @@ async function createFiniteField(p, w, wasm) {
     multiply(z, x, x);
   }
 
-  return { ...wasm, ...helpers, constants, inverse, square };
+  /**
+   * sqrt(x)
+   *
+   * @param {number[]} scratch
+   * @param {number} root
+   * @param {number} x
+   * @returns boolean indicating whether taking the root was successful
+   */
+  function sqrt([tmp], root, x) {
+    pow([tmp], root, x, pPlus1Div4);
+    multiply(tmp, root, root);
+    reduce(tmp);
+    reduce(x);
+    if (!isEqual(tmp, x)) return false;
+    return true;
+  }
+
+  /**
+   * @param {number[]} scratch
+   * @param {number} x a^n
+   * @param {number} a
+   * @param {boolean[]} nBits
+   */
+  function pow([a], x, a0, nBits) {
+    copy(x, constants.mgOne);
+    copy(a, a0);
+    for (let bit of nBits) {
+      if (bit) multiply(x, x, a);
+      multiply(a, a, a);
+    }
+  }
+
+  return { ...wasm, ...helpers, constants, inverse, square, pow, sqrt };
 }
