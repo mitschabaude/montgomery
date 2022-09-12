@@ -6,34 +6,32 @@ import {
   benchMultiply,
   montgomeryParams,
   multiply32,
-  interpretWat,
-  jsHelpers,
   moduleWithMemory,
+  jsHelpers,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
+import { createFiniteField } from "./src/finite-field-full.js";
 import {
-  createFiniteFieldWasm,
-  createFiniteField,
-} from "./src/finite-field-full.js";
+  compileFiniteFieldWasm,
+  interpretWat,
+} from "./src/finite-field-compile.js";
 globalThis.crypto = webcrypto;
 
 let p = field.p;
 let N = 1e7;
 // for (let w of [24, 26, 28, 30]) {
 for (let w of [28]) {
-  let { writer, wasm } = await createFiniteFieldWasm(p, w, {
-    withBenchmarks: true,
-  });
-  let ff = await createFiniteField(p, w, { fromWasm: wasm });
-  await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+  await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
+  let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
+  let ff = await createFiniteField(p, w, wasm);
   let [x, z] = testCorrectness(p, w, ff);
   tic(`multiply (w=${w}) x ${N}`);
-  wasm.benchMultiply(x, N);
+  ff.benchMultiply(x, N);
   let timeMul = toc();
   console.log(`${(N / timeMul / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
 
   tic();
-  wasm.benchAdd(x, N);
+  ff.benchAdd(x, N);
   let timeAdd = toc();
   console.log(
     `${(N / timeAdd / 1e6).toFixed(2)} mio. add / s (add = ${(
@@ -41,7 +39,7 @@ for (let w of [28]) {
     ).toFixed(2)} mul)`
   );
   tic();
-  wasm.benchSubtract(z, x, N);
+  ff.benchSubtract(z, x, N);
   let timeSubtract = toc();
   console.log(
     `${(N / timeSubtract / 1e6).toFixed(2)} mio. sub / s (sub = ${(
@@ -65,7 +63,8 @@ for (let w of [28]) {
     );
     await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
     let wasm = await interpretWat(writer);
-    let x = testCorrectness(p, w, wasm);
+    let helpers = jsHelpers(p, w, wasm.memory);
+    let x = testCorrectness(p, w, { ...helpers, ...wasm });
     tic(`multiply (w=${w}, unrolled=${unrollOuter}) x ${N}`);
     wasm.benchMultiply(x, N);
     let time = toc();
@@ -161,17 +160,14 @@ function testCorrectness(p, w, ff) {
       if (k !== m) throw Error("bad makeOdd");
       if (readBigInt(x) !== 5n) throw Error("bad makeOdd");
       if (readBigInt(z) !== 3n << BigInt(m)) throw Error("bad makeOdd");
-
-      writeBigint(x, x0);
     }
     if (inverse) {
-      // inverse
-      inverse(scratch, z, x);
-      console.log(readBigInt(z));
-      multiply(z, z, x);
+      writeBigint(x, x0);
+      multiply(x, x, R2); // x -> xR
+      inverse(scratch, z, x); // z = 1/x R
+      multiply(z, z, x); // x/x R = 1R
       z1 = readBigInt(z);
-      console.log(z1);
-      if (z1 !== R) throw Error("inverse");
+      if (mod(z1, p) !== mod(R, p)) throw Error("inverse");
     }
   }
   return [x, z];

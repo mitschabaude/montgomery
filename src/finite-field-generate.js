@@ -1,5 +1,4 @@
 import { bigintToLegs, log2 } from "./util.js";
-import fs from "node:fs/promises";
 import { modInverse } from "./finite-field-js.js";
 import {
   addExport,
@@ -9,13 +8,13 @@ import {
   forLoop8,
   func,
   if_,
-  interpretWat,
   module,
   ops,
   Writer,
 } from "./wasm-generate.js";
 
 export {
+  createFiniteFieldWat,
   jsHelpers,
   multiply,
   add,
@@ -29,7 +28,6 @@ export {
   benchAdd,
   benchSubtract,
   moduleWithMemory,
-  interpretWat,
   montgomeryParams,
 };
 
@@ -41,50 +39,35 @@ export {
  * -) test whether add2 is faster than add in the real world case
  */
 
-let p =
-  0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
+/**
+ *
+ * @param {bigint} p
+ * @param {number} w
+ */
+async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
+  let { n } = montgomeryParams(p, w);
+  let writer = Writer();
+  moduleWithMemory(
+    writer,
+    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    () => {
+      multiply(writer, p, w);
 
-let isMain = process.argv[1] === import.meta.url.slice(7);
+      add(writer, p, w);
+      subtract(writer, p, w);
 
-if (isMain) {
-  {
-    let w = 28;
-    let { n } = montgomeryParams(p, w);
-    let writer = Writer();
-    moduleWithMemory(
-      writer,
-      `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
-      () => {
-        multiply(writer, p, w);
+      reduce(writer, p, w);
+      makeOdd(writer, p, w);
+      finiteFieldHelpers(writer, p, w);
 
-        add(writer, p, w);
-
+      if (withBenchmarks) {
         benchMultiply(writer);
         benchAdd(writer);
+        benchSubtract(writer);
       }
-    );
-    // let js = await compileWat(writer);
-    // console.log(writer.text);
-    await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
-    // await fs.writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
-  }
-
-  {
-    let w = 32;
-    let { n } = montgomeryParams(p, w);
-    let writer = Writer();
-    moduleWithMemory(
-      writer,
-      `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
-      () => {
-        multiply32(writer, p, w, { unrollOuter: false });
-        benchMultiply(writer);
-      }
-    );
-    // let js = await compileWat(writer);
-    await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
-    // await fs.writeFile("./src/finite-field.32.gen.wat.js", js);
-  }
+    }
+  );
+  return writer;
 }
 
 /**

@@ -1,9 +1,5 @@
-import { toBase64 } from "fast-base64";
-
 export {
   Writer,
-  compileWat,
-  interpretWat,
   block,
   func,
   loop,
@@ -237,50 +233,3 @@ function if_(writer, callback) {
     writer.line("end");
   }
 }
-
-let wabt;
-
-async function compileWat({ text, exports }) {
-  // TODO: imports
-  let wat = text;
-  wabt ??= await (await import("wabt")).default();
-  let wabtModule = wabt.parseWat("", wat, wasmFeatures);
-  let wasmBytes = new Uint8Array(
-    wabtModule.toBinary({ write_debug_names: true }).buffer
-  );
-  let base64 = await toBase64(wasmBytes);
-  return `// compiled from wat
-import { toBytes } from 'fast-base64';
-let wasmBytes = await toBytes("${base64}");
-let { instance } = await WebAssembly.instantiate(wasmBytes, {});
-let { ${[...exports].join(", ")} } = instance.exports;
-export { ${[...exports].join(", ")} };
-`;
-}
-
-async function interpretWat({ text }) {
-  // TODO: imports
-  let wat = text;
-  wabt ??= await (await import("wabt")).default();
-  let wabtModule = wabt.parseWat("", wat, wasmFeatures);
-  let wasmBytes = new Uint8Array(
-    wabtModule.toBinary({ write_debug_names: true }).buffer
-  );
-  let { instance } = await WebAssembly.instantiate(wasmBytes, {});
-  return instance.exports;
-}
-
-const wasmFeatures = {
-  exceptions: true,
-  mutable_globals: true,
-  sat_float_to_int: true,
-  sign_extension: true,
-  simd: true,
-  threads: true,
-  multi_value: true,
-  tail_call: true,
-  bulk_memory: true,
-  reference_types: true,
-  annotations: true,
-  gc: true,
-};
