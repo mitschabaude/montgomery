@@ -1,5 +1,5 @@
-import { randomBytes } from "./builtin-crypto.js";
-import { bigintFromBytes, bigintToBits } from "./util.js";
+import { randomBytes } from "../builtin-crypto.js";
+import { bigintFromBytes, bigintToBits } from "../util.js";
 import {
   multiply,
   isZero,

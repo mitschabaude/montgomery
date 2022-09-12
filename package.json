@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "build": "node src/finite-field-generate.js && npx watever src/finite-field.wat --sync --no-auto-free && node test.js",
+    "build": "node ./src/finite-field-compile.js && node test.js",
+    "start": "node index.js",
     "test": "node test.js"
   },
   "keywords": [],
@@ -13,11 +14,9 @@
   "license": "MIT",
   "dependencies": {
     "fast-base64": "^0.1.8",
-    "wabt": "^1.0.29",
-    "watever-js-wrapper": "file:../../watever/watever-js-wrapper"
+    "wabt": "^1.0.29"
   },
   "devDependencies": {
-    "eslint": "^8.20.0",
-    "watever": "file:../../watever"
+    "eslint": "^8.20.0"
   }
 }

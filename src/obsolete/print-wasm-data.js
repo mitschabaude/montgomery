@@ -1,4 +1,4 @@
-import { bigintToBytes } from "./util.js";
+import { bigintToBytes } from "../util.js";
 
 /**
  *
