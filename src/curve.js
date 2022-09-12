@@ -1,6 +1,6 @@
 // all this is specialized to G1 of BLS12-381
 // x, y and z are pointers to wasm memory, i.e. integers
-// they point to 12 legs of 64 bit each which represent numbers moduly 2p, and only 32 bit of each leg is filled
+// they point to n legs of 64 bit each which represent numbers modulo 2p, and only w bits of each leg is filled
 // multiply preserves those properties
 import {
   field,
@@ -11,7 +11,7 @@ import {
   randomBaseField,
   scalar,
   toMontgomery,
-} from "./finite-field.js";
+} from "./finite-field-old.js";
 import {
   multiply,
   add,

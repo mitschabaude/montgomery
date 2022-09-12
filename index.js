@@ -10,7 +10,7 @@ import { cpus } from "node:os";
 import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { webcrypto } from "node:crypto";
-import { randomScalars } from "./src/finite-field.js";
+import { randomScalars } from "./src/finite-field-old.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 

@@ -5,11 +5,10 @@ import Wabt from "wabt";
 
 export { compileFiniteFieldWasm, compileWat, interpretWat };
 
-let p =
-  0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
-
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
+  let p =
+    0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
   let w = 28;
   compileFiniteFieldWasm(p, w);
 }

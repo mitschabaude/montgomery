@@ -1,8 +1,9 @@
 import { tic, toc } from "./src/tictoc.js";
-import { randomBaseFieldx2, field, mod } from "./src/finite-field-js.js";
+import { p, randomBaseFieldx2, mod } from "./src/finite-field-js.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
+  createFiniteField,
   benchMultiply,
   montgomeryParams,
   multiply32,
@@ -10,14 +11,12 @@ import {
   jsHelpers,
 } from "./src/finite-field-generate.js";
 import { Writer } from "./src/wasm-generate.js";
-import { createFiniteField } from "./src/finite-field-full.js";
 import {
   compileFiniteFieldWasm,
   interpretWat,
 } from "./src/finite-field-compile.js";
 globalThis.crypto = webcrypto;
 
-let p = field.p;
 let N = 1e7;
 // for (let w of [24, 26, 28, 30]) {
 for (let w of [28]) {

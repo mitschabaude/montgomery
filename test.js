@@ -1,34 +1,39 @@
 import {
   add,
   multiply,
-  reduceInPlace,
-  storeFieldIn,
+  reduce,
   subtract,
-  countTrailingZeroes,
-  shiftByWord,
   makeOdd,
-  square,
-} from "./src/finite-field.wat.js";
+  copy,
+} from "./src/finite-field.28.gen.wat.js";
 import {
-  field,
-  fieldFromUint64Array,
-  fieldToUint64Array,
-  leftShiftInPlace,
+  p,
+  constants,
   mod,
-  modInverseMontgomery,
+  inverse,
+  square,
   randomBaseFieldx2,
-  rightShiftInPlace,
+  writeBigint,
+  readBigInt,
+  toMontgomery,
+  getPointers,
 } from "./src/finite-field.js";
-import { getScratchSpace } from "./src/curve.js";
-import { readField, writeFieldInto } from "./src/wasm.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
-let { p, toWasm, ofWasm } = field;
+function toWasm(x0, x) {
+  writeBigint(x, x0);
+  toMontgomery(x);
+}
+function ofWasm([tmp], x) {
+  multiply(tmp, x, constants.one);
+  reduce(tmp);
+  return readBigInt(tmp);
+}
 
-let [x, y, z, ...scratch] = getScratchSpace(10);
+let [x, y, z, ...scratch] = getPointers(10);
 
 function test() {
   let x0 = randomBaseFieldx2();
@@ -68,52 +73,23 @@ function test() {
 
   // reduceInPlace
   z0 = x0 >= p ? x0 - p : x0;
-  storeFieldIn(z, x);
-  reduceInPlace(z);
+  copy(z, x);
+  reduce(z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("reduceInPlace");
 
   // inverse
-  modInverseMontgomery(scratch, z, x);
+  inverse(scratch, z, x);
   multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");
 
-  // right shift
-  storeFieldIn(z, x);
-  z0 = fieldFromUint64Array(readField(z));
-  rightShiftInPlace(z, 27);
-  z0 >>= 27n;
-  z1 = fieldFromUint64Array(readField(z));
-  if (z0 !== z1) throw Error("rightShiftInPlace");
-
-  // left shift
-  writeFieldInto(z, fieldToUint64Array(2934n));
-  z0 = fieldFromUint64Array(readField(z));
-  leftShiftInPlace(z, 28);
-  z0 <<= 28n;
-  z1 = fieldFromUint64Array(readField(z));
-  if (z0 !== z1) throw Error("leftShiftInPlace");
-
-  // countTrailingZeroes
-  let kTarget = 120;
-  writeFieldInto(z, fieldToUint64Array(1n << BigInt(kTarget)));
-  let k = countTrailingZeroes(z);
-  if (k !== kTarget) throw Error("countTrailingZeroes");
-
-  // shiftByWord
-  writeFieldInto(x, fieldToUint64Array(1n << 120n));
-  writeFieldInto(z, fieldToUint64Array(1n));
-  shiftByWord(x, z);
-  if (countTrailingZeroes(x) !== 120 - 32) throw Error("shiftByWord");
-  if (countTrailingZeroes(z) !== 32) throw Error("shiftByWord");
-
   // makeOdd
-  writeFieldInto(x, fieldToUint64Array(5n << 120n));
-  writeFieldInto(z, fieldToUint64Array(3n));
+  writeBigint(x, 5n << 120n);
+  writeBigint(z, 3n);
   makeOdd(x, z);
-  x0 = fieldFromUint64Array(readField(x));
-  z0 = fieldFromUint64Array(readField(z));
+  x0 = readBigInt(x);
+  z0 = readBigInt(z);
   if (!(x0 === 5n && z0 === 3n << 120n)) throw Error("makeOdd");
 
   // extractBitSlice

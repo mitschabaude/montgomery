@@ -3,7 +3,7 @@ import { bigintFromBytes, bigintToBits } from "./util.js";
 
 export {
   mod,
-  field,
+  p,
   scalar,
   modExp,
   modInverse,
@@ -12,45 +12,16 @@ export {
   randomBaseFieldx2,
 };
 
+let p =
+  0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
+
 let scalar = {
   p: 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n,
   minusZ: 0xd201000000010000n,
   bits: 255,
-  bytes: 32,
-  // montgomery stuff
-  R: 1n << 256n, // montgomery radix 2^k
-  Rm1: (1n << 256n) - 1n, // for &ing
-  k: 256n,
   asBits: {
     minusZ: bigintToBits(0xd201000000010000n),
   },
-};
-scalar.mu = modInverse(-scalar.p, scalar.R);
-scalar.mu0 = modInverse(-scalar.p, 1n << 32n);
-scalar.Rmod = mod(scalar.R, scalar.p);
-scalar.R2mod = mod(scalar.R * scalar.R, scalar.p);
-
-let p =
-  0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
-
-let field = {
-  p,
-  t: 0xd0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd555n,
-  bits: 381,
-  bytes: 48,
-  R: 1n << 384n, // montgomery radix 2^k
-  Rm1: (1n << 384n) - 1n, // for &ing
-  k: 384n,
-  asBits: {
-    pPlus1Div4: bigintToBits((p + 1n) / 4n, 381),
-  },
-};
-field = {
-  ...field,
-  mu: modInverse(-field.p, field.R),
-  mu0: modInverse(-field.p, 1n << 32n),
-  Rmod: mod(field.R, field.p),
-  R2mod: mod(field.R * field.R, field.p),
 };
 
 /**
@@ -146,7 +117,7 @@ function randomBaseField() {
     let bytes = randomBytes(48);
     bytes[47] &= 0x1f;
     let x = bigintFromBytes(bytes);
-    if (x < field.p) return x;
+    if (x < p) return x;
   }
 }
 
@@ -159,6 +130,6 @@ function randomBaseFieldx2() {
     let bytes = randomBytes(48);
     bytes[47] &= 0x3f;
     let x = bigintFromBytes(bytes);
-    if (x < 2n * field.p) return x;
+    if (x < 2n * p) return x;
   }
 }
