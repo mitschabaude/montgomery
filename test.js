@@ -5,6 +5,7 @@ import {
   subtract,
   makeOdd,
   copy,
+  isEqual,
 } from "./src/finite-field.28.gen.wat.js";
 import {
   p,
@@ -20,6 +21,7 @@ import {
 } from "./src/finite-field.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
+import { batchInverseInPlace } from "./src/curve-affine.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
@@ -104,6 +106,30 @@ function test() {
   if (extractBitSlice(arr, 16, 10) !== 0b1111_1111) throw e;
 }
 
+function testBatchMontgomery() {
+  let n = 100;
+  let X = getPointers(n);
+  let invX = getPointers(n);
+  let scratch = getPointers(10);
+  for (let i = 0; i < n; i++) {
+    let x0 = randomBaseFieldx2();
+    writeBigint(X[i], x0);
+    // compute inverses normally
+    inverse(scratch, invX[i], X[i]);
+  }
+  // compute inverses as batch
+  let tmpX = getPointers(n);
+  batchInverseInPlace(scratch, tmpX, X);
+
+  // check that all inverses are equal
+  for (let i = 0; i < n; i++) {
+    if (!isEqual(X[i], invX[i])) throw Error("batch inverse");
+    if (readBigInt(X[i]) !== readBigInt(invX[i])) throw Error("batch inverse");
+  }
+}
+
 for (let i = 0; i < 20; i++) {
   test();
 }
+
+testBatchMontgomery();
