@@ -10,18 +10,23 @@ if (isMain) {
   let p =
     0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
   let w = 28;
-  compileFiniteFieldWasm(p, w);
+  compileFiniteFieldWasm(p, w, { withBenchmarks: true });
 }
 
 async function compileFiniteFieldWasm(p, w, { withBenchmarks = false } = {}) {
   let writer = await createFiniteFieldWat(p, w, { withBenchmarks });
   let js = await compileWat(writer);
-  await fs.writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
-  await fs.writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
+  await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+  await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
 }
 
 // --- general wat2wasm functionality ---
 let wabt;
+
+async function writeFile(fileName, text) {
+  await fs.writeFile(fileName, text, "utf8");
+  console.log(`wrote ${(text.length / 1e3).toFixed(1)}kB to ${fileName}`);
+}
 
 async function compileWat({ text, exports }) {
   // TODO: imports

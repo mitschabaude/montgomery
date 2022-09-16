@@ -17,7 +17,14 @@ import {
   readBytes,
   writeBytes,
 } from "./finite-field.js";
-import { multiply, add, subtract, copy } from "./finite-field.28.gen.wat.js";
+import {
+  multiply,
+  add,
+  subtract,
+  copy,
+  multiplyCount,
+  resetMultiplyCount,
+} from "./finite-field.28.gen.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export { msm, randomCurvePoints, doubleInPlaceProjective, addAssignProjective };
@@ -67,6 +74,8 @@ function msm(scalars, inputPoints) {
   let scratchSpace = getPointers(20);
   let affinePoint = takeAffinePoint(scratchSpace);
 
+  resetMultiplyCount();
+
   // first loop -- compute buckets
   for (let i = 0; i < n; i++) {
     let scalar = scalars[i];
@@ -98,6 +107,10 @@ function msm(scalars, inputPoints) {
       bucketsZero[idx] = bucket.isZero;
     }
   }
+
+  let nMul1 = multiplyCount.valueOf();
+  resetMultiplyCount();
+
   // second loop -- sum up buckets to partial sums
   for (let l = L; l > 0; l--) {
     for (let k = 0; k < K; k++) {
@@ -128,6 +141,10 @@ function msm(scalars, inputPoints) {
       partialSumsZero[k] = partialSum.isZero;
     }
   }
+
+  let nMul2 = multiplyCount.valueOf();
+  resetMultiplyCount();
+
   // third loop -- compute final sum using horner's rule
   let k = K - 1;
   let partialSum = {
@@ -152,6 +169,11 @@ function msm(scalars, inputPoints) {
   }
   // TODO read out and return result
   resetPointers();
+
+  let nMul3 = multiplyCount.valueOf();
+  resetMultiplyCount();
+
+  return { nMul1, nMul2, nMul3 };
 }
 
 /**

@@ -226,10 +226,10 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
   let writer = Writer();
   moduleWithMemory(
     writer,
-    `;; generated for w=${w}, n=${n}, n*w=${n * w}`,
+    `generated for w=${w}, n=${n}, n*w=${n * w}`,
     1000,
     () => {
-      multiply(writer, p, w);
+      multiply(writer, p, w, { countMultiplications: !!withBenchmarks });
 
       add(writer, p, w);
       subtract(writer, p, w);
@@ -291,7 +291,7 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
  * on the other hand, w<32 doesn't need a carry in every j step
  * so, by making w < 32, we get more S_j + x_i*y_j + q_i*p_j terms, but (much) less carries
  */
-function multiply(writer, p, w) {
+function multiply(writer, p, w, { countMultiplications = false } = {}) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
   // constants
   let mu = modInverse(-p, 1n << wn);
@@ -306,7 +306,18 @@ function multiply(writer, p, w) {
   let nCarry = 1 + Math.floor(n / nSafeSteps);
 
   let { line, lines, comment, join } = writer;
-  let { i64, i32, local, local32, local64, param32 } = ops;
+  let { i64, i32, local, local32, local64, param32, global32Mut, global } = ops;
+
+  // count multiplications to analyze higher-level algorithms
+  let multiplyCount = "$multiplyCount";
+  if (countMultiplications) {
+    addExport(writer, "multiplyCount", global(multiplyCount));
+    addFuncExport(writer, "resetMultiplyCount");
+    line(global32Mut(multiplyCount, 0));
+    func(writer, "resetMultiplyCount", [], () => {
+      line(global.set(multiplyCount, i32.const(0)));
+    });
+  }
 
   addFuncExport(writer, "multiply");
 
@@ -320,6 +331,11 @@ function multiply(writer, p, w) {
     line(local64(qi), local64(xi), local32(i));
     let Y = defineLocals(writer, "y", n);
     let S = defineLocals(writer, "t", n);
+
+    if (countMultiplications) {
+      line(global.set(multiplyCount, i32.add(global.get(multiplyCount), 1)));
+    }
+
     // load y
     for (let i = 0; i < n; i++) {
       line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));

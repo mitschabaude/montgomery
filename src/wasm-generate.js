@@ -134,20 +134,28 @@ function getOperations() {
       clz: iOp("clz"),
     };
   }
+  let i64 = int(64);
+  let i32 = { ...int(32), wrap_i64: op("i32.wrap_i64") };
   return {
-    i64: int(64),
-    i32: { ...int(32), wrap_i64: op("i32.wrap_i64") },
+    i64,
+    i32,
     local: Object.assign(op("local"), {
       get: op("local.get"),
       set: op("local.set"),
       tee: op("local.tee"),
     }),
-    global: {
-      get: op("global.get"),
-      set: op("global.set"),
-    },
     local32: (name) => op("local")(name, "i32"),
     local64: (name) => op("local")(name, "i64"),
+    global: Object.assign(op("global"), {
+      get: op("global.get"),
+      set: op("global.set"),
+    }),
+    global32: (name, value) => op("global")(name, "i32", i32.const(value)),
+    global32Mut: (name, value) =>
+      op("global")(name, "(mut i32)", i32.const(value)),
+    global64: (name, value) => op("global")(name, "i64", i64.const(value)),
+    global64Mut: (name, value) =>
+      op("global")(name, "(mut i64)", i64.const(value)),
     br_if: op("br_if"),
     param: op("param"),
     param32: (name) => op("param")(name, "i32"),

@@ -15,3 +15,6 @@ export function shiftByWord(x: number): number;
 export function copy(x: number, y: number): void;
 export function toPackedBytes(bytes: number, x: number): void;
 export function fromPackedBytes(x: number, bytes: number): void;
+
+export const multiplyCount: number;
+export function resetMultiplyCount(): void;

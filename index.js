@@ -10,7 +10,13 @@ import { cpus } from "node:os";
 import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { webcrypto } from "node:crypto";
-import { randomScalars } from "./src/finite-field.js";
+import {
+  getPointers,
+  randomBaseFieldx2,
+  randomScalars,
+  writeBigint,
+} from "./src/finite-field.js";
+import { benchMultiply } from "./src/finite-field.28.gen.wat.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
@@ -37,15 +43,39 @@ compute_msm(pointVec, scalarVec);
 let ref = toc();
 
 tic("msm (ours)");
-msm(scalars, points);
+let { nMul1, nMul2, nMul3 } = msm(scalars, points);
 let ours = toc();
+
+let nMul = nMul1 + nMul2 + nMul3;
+
+let x0 = randomBaseFieldx2();
+let x = getPointers(1);
+writeBigint(x, x0);
+let nMulRaw = 1e7;
+tic("raw mul x 10M");
+benchMultiply(x, nMulRaw);
+let timeMul = toc();
+let mPerSec = Math.round(nMulRaw / timeMul);
+let nonMulOverhead = 1 - nMul / mPerSec / ours;
+
+console.log(`
+# muls:
+  loop 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
+  loop 2: ${(1e-6 * nMul2).toFixed(3).padStart(6)} M
+  loop 3: ${(1e-6 * nMul3).toFixed(3).padStart(6)} M
+  total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
+
+raw muls / s: ${(1e-6 * mPerSec).toFixed(2)} M
+
+non-mul overhead: ${(100 * nonMulOverhead).toFixed(1)}%
+`);
 
 if (n < 14) process.exit(0);
 
 let commit = execSync("git rev-parse --short HEAD").toString().trim();
 let cpu = cpus()[0].model;
 
-let benchmark = { n, ref, ours, commit, cpu };
+let benchmark = { n, ref, ours, nMul, mPerSec, commit, cpu };
 
 let file = "./bench.json";
 /**
