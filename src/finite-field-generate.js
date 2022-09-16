@@ -52,7 +52,7 @@ async function createFiniteField(p, w, wasm) {
     isEqual,
   } = wasm;
   let helpers = jsHelpers(p, w, wasm);
-  let { readBigInt, writeBigint, getPointers } = helpers;
+  let { readBigInt, writeBigint, getPointers, getStablePointers } = helpers;
 
   // put some constants in wasm memory
   let { K, R } = montgomeryParams(p, w);
@@ -72,7 +72,7 @@ async function createFiniteField(p, w, wasm) {
     mg8: mod(8n * R, p),
   };
   let constantsKeys = Object.keys(constantsBigint);
-  let constantsPointers = getPointers(constantsKeys.length);
+  let constantsPointers = getStablePointers(constantsKeys.length);
 
   /**
    * @type {Record<keyof typeof constantsBigint, number>}
@@ -886,7 +886,6 @@ function finiteFieldHelpers(writer, p, w) {
         );
         nRes = nRes - w;
       }
-      lines();
     }
   });
 }
@@ -1202,6 +1201,7 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
       return x0;
     },
 
+    initial: 0,
     offset: 0,
 
     /**
@@ -1221,8 +1221,16 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
       obj.offset = offset;
       return pointers;
     },
+    /**
+     * @param {number} N
+     */
+    getStablePointers(N) {
+      let pointers = obj.getPointers(N);
+      obj.initial = obj.offset;
+      return pointers;
+    },
     resetPointers() {
-      obj.offset = 0;
+      obj.offset = obj.initial;
     },
 
     /**

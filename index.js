@@ -21,24 +21,6 @@ import {
 // web crypto compat
 globalThis.crypto = webcrypto;
 
-// benchmark raw mod mul
-let x0 = randomBaseFieldx2();
-let x = getPointers(1);
-writeBigint(x, x0);
-let nMulRaw = 1e7;
-tic("raw mul x 10M");
-benchMultiply(x, nMulRaw);
-let timeMul = toc();
-let mPerSec = Math.round(nMulRaw / timeMul);
-
-// benchmark inverse
-let nInvRaw = 5e4;
-tic("raw inv x 50K");
-benchInverse(nInvRaw);
-let timeInv = toc();
-let invPerSec = Math.round(nInvRaw / timeInv);
-let mulPerInv = mPerSec / invPerSec;
-
 let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
@@ -67,7 +49,25 @@ let { nMul1, nMul2, nMul3 } = msm(scalars, points);
 let ours = toc();
 
 let nMul = nMul1 + nMul2 + nMul3;
+
+// benchmark raw mod mul
+let x0 = randomBaseFieldx2();
+let x = getPointers(1);
+writeBigint(x, x0);
+let nMulRaw = 1e7;
+tic("raw mul x 10M");
+benchMultiply(x, nMulRaw);
+let timeMul = toc();
+let mPerSec = Math.round(nMulRaw / timeMul);
 let nonMulOverhead = 1 - nMul / mPerSec / ours;
+
+// benchmark inverse
+let nInvRaw = 5e4;
+tic("raw inv x 50K");
+benchInverse(nInvRaw);
+let timeInv = toc();
+let invPerSec = Math.round(nInvRaw / timeInv);
+let mulPerInv = mPerSec / invPerSec;
 
 console.log(`
 # muls:
@@ -77,9 +77,7 @@ console.log(`
   total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 
 raw muls / s: ${(1e-6 * mPerSec).toFixed(2)} M
-
 non-mul overhead: ${(100 * nonMulOverhead).toFixed(1)}%
-
 1 inv = ${mulPerInv.toFixed(1)} mul
 `);
 
