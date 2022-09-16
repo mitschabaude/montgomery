@@ -1,5 +1,5 @@
 import { bigintToBits, bigintToLegs, log2 } from "./util.js";
-import { mod, modInverse } from "./finite-field-js.js";
+import { mod, modInverse, randomBaseFieldx2 } from "./finite-field-js.js";
 import {
   addExport,
   addFuncExport,
@@ -41,6 +41,7 @@ export { benchMultiply, multiply32, moduleWithMemory };
 async function createFiniteField(p, w, wasm) {
   let {
     multiply,
+    add,
     addNoReduce,
     subtractNoReduce,
     reduce,
@@ -196,6 +197,26 @@ async function createFiniteField(p, w, wasm) {
     }
   }
 
+  /**
+   * benchmark inverse, by doing N*(inv + add)
+   * (add is negligible; done re-randomize to avoid unrealistic compiler optimizations)
+   * @param {number} N
+   */
+  function benchInverse(N) {
+    let scratch = getPointers(10);
+    let [x, y] = getPointers(2);
+    let x0 = randomBaseFieldx2();
+    let y0 = randomBaseFieldx2();
+    writeBigint(x, x0);
+    writeBigint(y, y0);
+    for (let i = 0; i < N; i++) {
+      // x <- x + y
+      // y <- 1/x
+      inverse(scratch, y, x);
+      add(x, x, y);
+    }
+  }
+
   return {
     ...wasm,
     ...helpers,
@@ -213,6 +234,7 @@ async function createFiniteField(p, w, wasm) {
      * sqrt(x)
      */
     sqrt,
+    benchInverse,
   };
 }
 

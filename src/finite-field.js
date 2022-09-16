@@ -29,6 +29,8 @@ export {
   resetPointers,
   readBytes,
   writeBytes,
+  benchMultiply,
+  benchInverse,
 };
 let {
   constants,
@@ -44,6 +46,9 @@ let {
   resetPointers,
   readBytes,
   writeBytes,
+  // benchmarks
+  benchMultiply,
+  benchInverse,
 } = await createFiniteField(p, w, wasm);
 
 /**
