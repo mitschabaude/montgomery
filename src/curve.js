@@ -53,7 +53,7 @@ const curve = {
 function msm(scalars, inputPoints) {
   // initialize buckets
   let n = scalars.length;
-  let c = log2(n) - 2; // TODO: determine c from n and hand-optimized lookup table
+  let c = log2(n) - 3; // TODO: determine c from n and hand-optimized lookup table
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)

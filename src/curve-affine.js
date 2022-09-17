@@ -53,7 +53,7 @@ function msmAffine(scalars, inputPoints) {
   // initialize buckets
   let N = scalars.length;
 
-  let c = log2(N) - 2; // TODO: determine c from n and hand-optimized lookup table
+  let c = log2(N) - 3; // TODO: determine c from n and hand-optimized lookup table
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c; // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
