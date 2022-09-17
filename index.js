@@ -70,9 +70,8 @@ let ref = toc();
 
   console.log(`
 # muls:
-  loop 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
-  loop 2: ${(1e-6 * nMul2).toFixed(3).padStart(6)} M
-  loop 3: ${(1e-6 * nMul3).toFixed(3).padStart(6)} M
+  stage 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
+  stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
   total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 `);
 }
@@ -86,9 +85,8 @@ let nonMulOverhead = 1 - nMul / mPerSec / ours;
 
 console.log(`
 # muls:
-  loop 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
-  loop 2: ${(1e-6 * nMul2).toFixed(3).padStart(6)} M
-  loop 3: ${(1e-6 * nMul3).toFixed(3).padStart(6)} M
+  stage 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
+  stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
   total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 
 raw muls / s: ${(1e-6 * mPerSec).toFixed(2)} M

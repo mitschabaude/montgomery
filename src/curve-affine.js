@@ -10,6 +10,7 @@ import {
   resetPointers,
   constants,
   readBigInt,
+  fromMontgomery,
 } from "./finite-field.js";
 import {
   multiply,
@@ -53,7 +54,7 @@ function msmAffine(scalars, inputPoints) {
   // initialize buckets
   let N = scalars.length;
 
-  let c = log2(N) - 4; // TODO: determine c from n and hand-optimized lookup table
+  let c = log2(N) - 3; // TODO: determine c from n and hand-optimized lookup table
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c; // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
@@ -226,13 +227,16 @@ function msmAffine(scalars, inputPoints) {
     let partialSum = partialSums[k];
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
-  // TODO read out and return result
-  resetPointers();
 
   let nMul3 = multiplyCount.valueOf();
   resetMultiplyCount();
 
-  return { nMul1, nMul2, nMul3 };
+  let [x, y] = toAffineOutput(scratchSpace, finalSum);
+
+  // TODO read out and return result
+  resetPointers();
+
+  return { nMul1, nMul2, nMul3, x, y };
 }
 
 /**
@@ -363,6 +367,22 @@ function copyAffineToProjectiveNonZero(P, A) {
   // isInfinity = isInfinity
   // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
 }
+
+/**
+ * @param {number[]} scratchSpace
+ * @param {ProjectivePoint} point projective representation
+ */
+function toAffineOutput([zinv, ...scratchSpace], P) {
+  let [x, y, z] = projectiveCoords(P);
+  // return x/z, y/z
+  inverse(scratchSpace, zinv, z);
+  multiply(x, x, zinv);
+  multiply(y, y, zinv);
+  fromMontgomery(x);
+  fromMontgomery(y);
+  return [readBigInt(x), readBigInt(y)];
+}
+
 /**
  * @param {number} pointer
  */
