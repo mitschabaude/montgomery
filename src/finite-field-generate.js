@@ -100,12 +100,6 @@ async function createFiniteField(p, w, wasm) {
     let k = almostInverseMontgomery(scratch, r, a);
     // TODO: negation -- special case which is simpler
     // don't have to reduce r here, because it's already < p
-    if (false) {
-      let kn = BigInt(k);
-      let r0 = readBigInt(r);
-      let a0 = readBigInt(a);
-      console.log("r almost result", mod(r0 * a0 + 2n ** kn, p) === 0n);
-    }
     subtractNoReduce(r, constants.p, r);
 
     // mutliply by 2^(2N - k), where N = 381 = bit length of p
@@ -249,7 +243,7 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    1000,
+    10000,
     () => {
       multiply(writer, p, w, { countMultiplications: !!withBenchmarks });
 

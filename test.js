@@ -119,7 +119,7 @@ function testBatchMontgomery() {
   }
   // compute inverses as batch
   let tmpX = getPointers(n);
-  batchInverseInPlace(scratch, tmpX, X);
+  batchInverseInPlace(scratch, tmpX, X, n);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {

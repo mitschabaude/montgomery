@@ -9,6 +9,7 @@ import {
   toMontgomery,
   resetPointers,
   constants,
+  readBigInt,
 } from "./finite-field.js";
 import {
   multiply,
@@ -80,7 +81,7 @@ function msmAffine(scalars, inputPoints) {
   }
   let runningSums = getZeroPointers(K, sizeProjective);
   let partialSums = getZeroPointers(K, sizeProjective);
-  let finalSum = getPointers(1, sizeProjective);
+  let [finalSum] = getPointers(1, sizeProjective);
   let scratchSpace = getPointers(20);
 
   let maxBucketSize = 0;
@@ -150,7 +151,7 @@ function msmAffine(scalars, inputPoints) {
     }
     // now (P,G,H) represents a big array of independent additions, which we batch
     for (let p = 0; p < nPairs; p++) {
-      subtract(denominators[p], G[p][0], H[p][0]);
+      subtract(denominators[p], G[p], H[p]);
     }
     batchInverseInPlace(scratchSpace, tmp, denominators, nPairs);
     for (let p = 0; p < nPairs; p++) {
@@ -177,7 +178,7 @@ function msmAffine(scalars, inputPoints) {
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
     for (let p = 0; p < nPairs; p++) {
-      subtract(denominators[p], G[p][0], H[p][0]);
+      subtract(denominators[p], G[p], H[p]);
     }
     batchInverseInPlace(scratchSpace, tmp, denominators, nPairs);
     for (let p = 0; p < nPairs; p++) {
@@ -203,7 +204,7 @@ function msmAffine(scalars, inputPoints) {
       } else {
         // bucket sum is affine, we convert to projective here
         let bucketSum = bucketSums[k][l];
-        copyAffineToProjective(bucketSum, bucket);
+        copyAffineToProjectiveNonZero(bucketSum, bucket);
         addAssignProjective(scratchSpace, runningSum, bucketSum);
         addAssignProjective(scratchSpace, partialSum, runningSum);
       }
@@ -348,7 +349,7 @@ function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
  * @param {number} P
  * @param {number} A
  */
-function copyAffineToProjective(P, A) {
+function copyAffineToProjectiveNonZero(P, A) {
   // x,y = x,y
   memoryBytes.copyWithin(P, A, A + 2 * sizeField);
   // z = 1
@@ -357,12 +358,22 @@ function copyAffineToProjective(P, A) {
     constants.mg1,
     constants.mg1 + sizeField
   );
+  // isNonZero = 1
+  memoryBytes[P + 3 * sizeField] = 1;
   // isInfinity = isInfinity
-  memoryBytes.copyWithin(
-    P + 2 * sizeField + 8,
-    A + 2 * sizeField,
-    A + sizeAffine
-  );
+  // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
+}
+/**
+ * @param {number} pointer
+ */
+function isZeroProjective(pointer) {
+  return !memoryBytes[pointer + 3 * sizeField];
+}
+/**
+ * @param {number} pointer
+ */
+function setNonZeroProjective(pointer) {
+  memoryBytes[pointer + 3 * sizeField] = 1;
 }
 
 /**
@@ -379,25 +390,12 @@ function projectiveCoords(pointer) {
 }
 
 /**
- * @param {number} pointer
- */
-function isZeroProjective(pointer) {
-  return !!memoryBytes[pointer + 3 * sizeField];
-}
-/**
- * @param {number} pointer
- */
-function setNonZeroProjective(pointer) {
-  memoryBytes[pointer + 3 * sizeField] = 1;
-}
-
-/**
  *
  * @param {number} target
  * @param {number} source
  */
 function copyAffine(target, source) {
-  memoryBytes.copyWithin(target, source, sizeAffine);
+  memoryBytes.copyWithin(target, source, source + sizeAffine);
 }
 /**
  *
@@ -405,7 +403,7 @@ function copyAffine(target, source) {
  * @param {number} source
  */
 function copyProjective(target, source) {
-  memoryBytes.copyWithin(target, source, sizeProjective);
+  memoryBytes.copyWithin(target, source, source + sizeProjective);
 }
 
 /**
@@ -491,4 +489,18 @@ function doubleInPlaceProjective([W, S, SS, SSS, B, H], P) {
   multiply(y, y, SS);
   subtract(y, WtimesFourBminusH, y);
   multiply(z, SSS, eight);
+}
+
+function printProjective(label, P) {
+  console.log(label, readProjective(P));
+}
+function readProjective(P) {
+  let isZero = isZeroProjective(P);
+  let [x, y, z] = projectiveCoords(P);
+  return {
+    x: readBigInt(x),
+    y: readBigInt(y),
+    z: readBigInt(z),
+    isZero,
+  };
 }

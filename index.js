@@ -18,8 +18,27 @@ import {
   benchMultiply,
   benchInverse,
 } from "./src/finite-field.js";
+import { msmAffine } from "./src/curve-affine.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
+
+// benchmark raw mod mul
+let x0 = randomBaseFieldx2();
+let x = getPointers(1);
+writeBigint(x, x0);
+let nMulRaw = 1e7;
+tic("raw mul x 10M");
+benchMultiply(x, nMulRaw);
+let timeMul = toc();
+let mPerSec = Math.round(nMulRaw / timeMul);
+
+// benchmark inverse
+let nInvRaw = 5e4;
+tic("raw inv x 50K");
+benchInverse(nInvRaw);
+let timeInv = toc();
+let invPerSec = Math.round(nInvRaw / timeInv);
+let mulPerInv = mPerSec / invPerSec;
 
 let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
@@ -43,31 +62,27 @@ toc();
 tic("msm (rust)");
 compute_msm(pointVec, scalarVec);
 let ref = toc();
+{
+  tic("msm (projective)");
+  let { nMul1, nMul2, nMul3 } = msm(scalars, points);
+  toc();
+  let nMul = nMul1 + nMul2 + nMul3;
+
+  console.log(`
+# muls:
+  loop 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
+  loop 2: ${(1e-6 * nMul2).toFixed(3).padStart(6)} M
+  loop 3: ${(1e-6 * nMul3).toFixed(3).padStart(6)} M
+  total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
+`);
+}
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3 } = msm(scalars, points);
+let { nMul1, nMul2, nMul3 } = msmAffine(scalars, points);
 let ours = toc();
 
 let nMul = nMul1 + nMul2 + nMul3;
-
-// benchmark raw mod mul
-let x0 = randomBaseFieldx2();
-let x = getPointers(1);
-writeBigint(x, x0);
-let nMulRaw = 1e7;
-tic("raw mul x 10M");
-benchMultiply(x, nMulRaw);
-let timeMul = toc();
-let mPerSec = Math.round(nMulRaw / timeMul);
 let nonMulOverhead = 1 - nMul / mPerSec / ours;
-
-// benchmark inverse
-let nInvRaw = 5e4;
-tic("raw inv x 50K");
-benchInverse(nInvRaw);
-let timeInv = toc();
-let invPerSec = Math.round(nInvRaw / timeInv);
-let mulPerInv = mPerSec / invPerSec;
 
 console.log(`
 # muls:
