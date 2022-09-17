@@ -36,7 +36,7 @@ export { benchMultiply, multiply32, moduleWithMemory };
  *
  * @param {bigint} p
  * @param {number} w
- * @param {import('./finite-field.28.gen.wat')} wasm
+ * @param {import('./finite-field.wat')} wasm
  */
 async function createFiniteField(p, w, wasm) {
   let {
@@ -1167,7 +1167,7 @@ function montgomeryParams(p, w) {
  *
  * @param {bigint} p modulus
  * @param {number} w word size
- * @param {import('./finite-field.28.gen.wat')} wasm
+ * @param {import('./finite-field.wat')} wasm
  */
 function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
   let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
@@ -1206,21 +1206,22 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
 
     /**
      * @param {number} N
+     * @param {number} size size per pointer (default: one field element)
      */
-    getPointers(N) {
+    getPointers(N, size = n * 8) {
       /**
        * @type {number[]}
        */
       let pointers = Array(N);
       let offset = obj.offset;
-      let n8 = n * 8;
       for (let i = 0; i < N; i++) {
         pointers[i] = offset;
-        offset += n8;
+        offset += size;
       }
       obj.offset = offset;
       return pointers;
     },
+
     /**
      * @param {number} N
      */
@@ -1229,6 +1230,26 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
       obj.initial = obj.offset;
       return pointers;
     },
+
+    /**
+     * @param {number} N
+     * @param {number} size size per pointer (default: one field element)
+     */
+    getZeroPointers(N, size = n * 8) {
+      /**
+       * @type {number[]}
+       */
+      let pointers = Array(N);
+      let offset = obj.offset;
+      new Uint8Array(memory.buffer, offset, N * size).fill(0);
+      for (let i = 0; i < N; i++) {
+        pointers[i] = offset;
+        offset += size;
+      }
+      obj.offset = offset;
+      return pointers;
+    },
+
     resetPointers() {
       obj.offset = obj.initial;
     },

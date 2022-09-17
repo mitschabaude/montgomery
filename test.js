@@ -6,7 +6,7 @@ import {
   makeOdd,
   copy,
   isEqual,
-} from "./src/finite-field.28.gen.wat.js";
+} from "./src/finite-field.wat.js";
 import {
   p,
   constants,

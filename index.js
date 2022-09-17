@@ -26,7 +26,7 @@ console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("load inputs & convert to rust");
 let points, scalars;
-if (n >= 12) {
+if (n >= 15) {
   let result = await load(n);
   points = result.points;
   scalars = result.scalars;

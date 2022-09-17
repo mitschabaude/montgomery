@@ -24,7 +24,7 @@ import {
   copy,
   multiplyCount,
   resetMultiplyCount,
-} from "./finite-field.28.gen.wat.js";
+} from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export { msm, randomCurvePoints, doubleInPlaceProjective, addAssignProjective };

@@ -1,5 +1,5 @@
 import { createFiniteField } from "./finite-field-generate.js";
-import * as wasm from "./finite-field.28.gen.wat.js";
+import * as wasm from "./finite-field.wat.js";
 
 export {
   mod,
@@ -31,6 +31,10 @@ export {
   writeBytes,
   benchMultiply,
   benchInverse,
+  n,
+  memory,
+  memoryBytes,
+  getZeroPointers,
 };
 let {
   constants,
@@ -49,7 +53,11 @@ let {
   // benchmarks
   benchMultiply,
   benchInverse,
+  n,
+  memory,
+  getZeroPointers,
 } = await createFiniteField(p, w, wasm);
+let memoryBytes = new Uint8Array(memory.buffer);
 
 /**
  *

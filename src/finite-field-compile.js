@@ -17,7 +17,7 @@ async function compileFiniteFieldWasm(p, w, { withBenchmarks = false } = {}) {
   let writer = await createFiniteFieldWat(p, w, { withBenchmarks });
   let js = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
-  await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
+  await writeFile(`./src/finite-field.wat.js`, js);
 }
 
 // --- general wat2wasm functionality ---
