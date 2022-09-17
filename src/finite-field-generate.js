@@ -243,7 +243,7 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    10000,
+    65536,
     () => {
       multiply(writer, p, w, { countMultiplications: !!withBenchmarks });
 
