@@ -57,6 +57,7 @@ function _assertClass(instance, klass) {
 /**
 * @param {PointVectorInput} point_vec
 * @param {ScalarVectorInput} scalar_vec
+* @returns {Array<any>}
 */
 module.exports.compute_msm = function(point_vec, scalar_vec) {
     _assertClass(point_vec, PointVectorInput);
@@ -65,7 +66,8 @@ module.exports.compute_msm = function(point_vec, scalar_vec) {
     _assertClass(scalar_vec, ScalarVectorInput);
     var ptr1 = scalar_vec.ptr;
     scalar_vec.ptr = 0;
-    wasm.compute_msm(ptr0, ptr1);
+    const ret = wasm.compute_msm(ptr0, ptr1);
+    return takeObject(ret);
 };
 
 /**

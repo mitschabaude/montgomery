@@ -3,8 +3,9 @@
 /**
 * @param {PointVectorInput} point_vec
 * @param {ScalarVectorInput} scalar_vec
+* @returns {Array<any>}
 */
-export function compute_msm(point_vec: PointVectorInput, scalar_vec: ScalarVectorInput): void;
+export function compute_msm(point_vec: PointVectorInput, scalar_vec: ScalarVectorInput): Array<any>;
 /**
 */
 export class PointVectorInput {
@@ -54,7 +55,7 @@ export interface InitOutput {
   readonly scalarvectorinput_new: (a: number) => number;
   readonly scalarvectorinput_toJsArray: (a: number) => number;
   readonly scalarvectorinput_fromJsArray: (a: number) => number;
-  readonly compute_msm: (a: number, b: number) => void;
+  readonly compute_msm: (a: number, b: number) => number;
 }
 
 /**

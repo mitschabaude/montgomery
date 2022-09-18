@@ -64,7 +64,7 @@ let memoryBytes = new Uint8Array(memory.buffer);
  * @param {number} x
  */
 function fromMontgomery(x) {
-  multiply(x, x, constants.mg1);
+  multiply(x, x, constants.one);
   reduce(x);
 }
 /**

@@ -11,6 +11,11 @@ export {
   mapRange,
 };
 
+/**
+ *
+ * @param {Uint8Array} bytes
+ * @returns
+ */
 function bigintFromBytes(bytes) {
   let x = 0n;
   let bitPosition = 0n;
@@ -28,15 +33,15 @@ function bigintFromBytes(bytes) {
  * @returns {Uint8Array}
  */
 function bigintToBytes(x, length) {
-  var bytes = [];
+  let bytes = [];
   for (; x > 0; x >>= 8n) {
     bytes.push(Number(x & 0xffn));
   }
-  var array = new Uint8Array(bytes);
+  let array = new Uint8Array(bytes);
   if (length === undefined) return array;
   if (array.length > length)
     throw Error("bigint doesn't fit into" + length + " bytes.");
-  var sizedArray = new Uint8Array(length);
+  let sizedArray = new Uint8Array(length);
   sizedArray.set(array);
   return sizedArray;
 }

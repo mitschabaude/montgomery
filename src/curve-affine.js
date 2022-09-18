@@ -34,16 +34,19 @@ export { msmAffine, batchAddAssign, batchInverseInPlace };
  * affine point is represented as pointer p, where
  * x = p
  * y = p + fieldSize
- * isInfinity = p + fieldSize + 8
+ * isInfinity = p + 2*fieldSize
  *
  * if the point is projective, we have x, y as before and
  * z = p + 2*fieldSize
- * isInfinity = p + 2*fieldSize + 8
+ * isInfinity = p + 3*fieldSize
  */
 
 let sizeField = 8 * n;
 let sizeAffine = 16 * n + 8; // size of one affine point in Wasm memory: x, y + 1 int64 for extra info (0 = isZero, >0 = isFilled)
 let sizeProjective = 24 * n + 8;
+
+let numberOfAdds = 0;
+let numberOfDoubles = 0;
 
 /**
  *
@@ -55,6 +58,7 @@ function msmAffine(scalars, inputPoints) {
   let N = scalars.length;
 
   let c = log2(N) - 3; // TODO: determine c from n and hand-optimized lookup table
+  if (c < 1) c = 1;
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c; // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
@@ -89,6 +93,8 @@ function msmAffine(scalars, inputPoints) {
   let nPairs = 0; // we need to allocate space for one pointer per addition pair
 
   resetMultiplyCount();
+  numberOfAdds = 0;
+  numberOfDoubles = 0;
 
   // zeroth loop -- convert points into our format and organize them into buckets, without additions
   for (let i = 0; i < N; i++) {
@@ -98,7 +104,7 @@ function msmAffine(scalars, inputPoints) {
     // convert point to montgomery
     let x = point;
     let y = point + sizeField;
-    memoryBytes[point + sizeField + 8] = Number(!inputPoint[2]);
+    memoryBytes[point + 2 * sizeField] = Number(!inputPoint[2]);
     writeBytes(scratchSpace, x, inputPoint[0]);
     writeBytes(scratchSpace, y, inputPoint[1]);
     toMontgomery(x);
@@ -152,7 +158,7 @@ function msmAffine(scalars, inputPoints) {
     }
     // now (P,G,H) represents a big array of independent additions, which we batch
     for (let p = 0; p < nPairs; p++) {
-      subtract(denominators[p], G[p], H[p]);
+      subtract(denominators[p], H[p], G[p]);
     }
     batchInverseInPlace(scratchSpace, tmp, denominators, nPairs);
     for (let p = 0; p < nPairs; p++) {
@@ -179,7 +185,7 @@ function msmAffine(scalars, inputPoints) {
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
     for (let p = 0; p < nPairs; p++) {
-      subtract(denominators[p], G[p], H[p]);
+      subtract(denominators[p], H[p], G[p]);
     }
     batchInverseInPlace(scratchSpace, tmp, denominators, nPairs);
     for (let p = 0; p < nPairs; p++) {
@@ -231,12 +237,12 @@ function msmAffine(scalars, inputPoints) {
   let nMul3 = multiplyCount.valueOf();
   resetMultiplyCount();
 
-  let [x, y] = toAffineOutput(scratchSpace, finalSum);
+  let [x, y, z] = toProjectiveOutput(finalSum);
 
   // TODO read out and return result
   resetPointers();
 
-  return { nMul1, nMul2, nMul3, x, y };
+  return { nMul1, nMul2, nMul3, x, y, z, numberOfAdds, numberOfDoubles };
 }
 
 /**
@@ -257,7 +263,7 @@ function batchAddAssign(scratch, tmp, d, G, H) {
   let n = G.length;
   // d[i] = H[i].x - G[i].x
   for (let i = 0; i < n; i++) {
-    subtract(d[i], G[i][0], H[i][0]);
+    subtract(d[i], H[i][0], G[i][0]);
   }
   batchInverseInPlace(scratch, tmp, d);
   for (let i = 0; i < n; i++) {
@@ -275,6 +281,7 @@ function batchAddAssign(scratch, tmp, d, G, H) {
  * @param {number} d 1/(x2 - x1)
  */
 function addAffine([m], G3, G1, G2, d) {
+  numberOfAdds++;
   let [x3, y3] = affineCoords(G3);
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
@@ -300,6 +307,7 @@ function addAffine([m], G3, G1, G2, d) {
  * @param {number} d 1/(x2 - x1)
  */
 function addAssignAffine([m, tmp], G1, G2, d) {
+  numberOfAdds++;
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
   // m = (y2 - y1)*d
@@ -308,7 +316,7 @@ function addAssignAffine([m, tmp], G1, G2, d) {
   // x1 = m^2 - x1 - x2
   square(tmp, m);
   subtract(x1, tmp, x1);
-  subtract(x1, tmp, x2);
+  subtract(x1, x1, x2);
   // y1 = (x2 - x1)*m - y2
   subtract(y1, x2, x1);
   multiply(y1, y1, m);
@@ -384,6 +392,17 @@ function toAffineOutput([zinv, ...scratchSpace], P) {
 }
 
 /**
+ * @param {ProjectivePoint} point projective representation
+ */
+function toProjectiveOutput(P) {
+  let [x, y, z] = projectiveCoords(P);
+  fromMontgomery(x);
+  fromMontgomery(y);
+  fromMontgomery(z);
+  return [readBigInt(x), readBigInt(y), readBigInt(z)];
+}
+
+/**
  * @param {number} pointer
  */
 function isZeroProjective(pointer) {
@@ -442,6 +461,7 @@ function addAssignProjective(
     return;
   }
   if (isZeroProjective(P2)) return;
+  numberOfAdds++;
   setNonZeroProjective(P1);
   let [x1, y1, z1] = projectiveCoords(P1);
   let [x2, y2, z2] = projectiveCoords(P2);
@@ -478,6 +498,7 @@ function addAssignProjective(
  */
 function doubleInPlaceProjective([W, S, SS, SSS, B, H], P) {
   if (isZeroProjective(P)) return;
+  numberOfDoubles++;
   let [x, y, z] = projectiveCoords(P);
   let eight = constants.mg8;
 

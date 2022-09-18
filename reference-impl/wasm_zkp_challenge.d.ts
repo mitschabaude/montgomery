@@ -3,8 +3,9 @@
 /**
 * @param {PointVectorInput} point_vec
 * @param {ScalarVectorInput} scalar_vec
+* @returns {Array<any>}
 */
-export function compute_msm(point_vec: PointVectorInput, scalar_vec: ScalarVectorInput): void;
+export function compute_msm(point_vec: PointVectorInput, scalar_vec: ScalarVectorInput): Array<any>;
 /**
 */
 export class PointVectorInput {

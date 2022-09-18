@@ -16,6 +16,7 @@ import {
   resetPointers,
   readBytes,
   writeBytes,
+  readBigInt,
 } from "./finite-field.js";
 import {
   multiply,
@@ -45,6 +46,9 @@ const curve = {
   },
 };
 
+let numberOfAdds = 0;
+let numberOfDoubles = 0;
+
 /**
  *
  * @param {CompatibleScalar[]} scalars
@@ -54,6 +58,7 @@ function msm(scalars, inputPoints) {
   // initialize buckets
   let n = scalars.length;
   let c = log2(n) - 3; // TODO: determine c from n and hand-optimized lookup table
+  if (c < 1) c = 1;
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
@@ -75,6 +80,8 @@ function msm(scalars, inputPoints) {
   let affinePoint = takeAffinePoint(scratchSpace);
 
   resetMultiplyCount();
+  numberOfAdds = 0;
+  numberOfDoubles = 0;
 
   // first loop -- compute buckets
   for (let i = 0; i < n; i++) {
@@ -167,13 +174,16 @@ function msm(scalars, inputPoints) {
     };
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
-  // TODO read out and return result
-  resetPointers();
 
   let nMul3 = multiplyCount.valueOf();
   resetMultiplyCount();
 
-  return { nMul1, nMul2, nMul3 };
+  let [x, y, z] = toProjectiveOutput(finalSum);
+
+  // TODO read out and return result
+  resetPointers();
+
+  return { nMul1, nMul2, nMul3, x, y, z, numberOfAdds, numberOfDoubles };
 }
 
 /**
@@ -246,6 +256,30 @@ function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
 }
 
 /**
+ * @param {number[]} scratchSpace
+ * @param {ProjectivePoint} point projective representation
+ */
+function toAffineOutput([zinv, ...scratchSpace], { x, y, z }) {
+  // return x/z, y/z
+  inverse(scratchSpace, zinv, z);
+  multiply(x, x, zinv);
+  multiply(y, y, zinv);
+  fromMontgomery(x);
+  fromMontgomery(y);
+  return [readBigInt(x), readBigInt(y)];
+}
+
+/**
+ * @param {ProjectivePoint} point projective representation
+ */
+function toProjectiveOutput({ x, y, z }) {
+  fromMontgomery(x);
+  fromMontgomery(y);
+  fromMontgomery(z);
+  return [readBigInt(x), readBigInt(y), readBigInt(z)];
+}
+
+/**
  *
  * @param {Point} point
  * @param {AffinePoint} affinePoint
@@ -278,45 +312,45 @@ function scaleProjective([x, y, z, ...scratchSpace], result, scalar, point) {
  * @param {number[]} scratchSpace
  * @param {Point} point
  */
-function doubleInPlaceProjective([W, S, SS, SSS, B, H], { x, y, z, isZero }) {
+function doubleInPlaceProjective(
+  [tmp, w, s, ss, sss, Rx2, Bx4, h],
+  { x: X1, y: Y1, z: Z1, isZero }
+) {
+  // http://hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#doubling-dbl-1998-cmo-2
+  // (with a = 0)
   if (isZero) return;
-  let eight = constants.mg8;
-  // const W = x.multiply(x).multiply(3n);
-  square(W, x);
-  add(S, W, W);
-  add(W, S, W);
-  // const S = y.multiply(z);
-  multiply(S, y, z);
-  // const SS = S.multiply(S);
-  square(SS, S);
-  // const SSS = SS.multiply(S);
-  multiply(SSS, SS, S);
-  // const B = x.multiply(y).multiply(S);
-  multiply(B, x, y);
-  multiply(B, B, S);
-  let fourB = B;
-  add(B, B, B);
-  add(fourB, B, B);
-  // const H = W.multiply(W).subtract(B.multiply(8n));
-  square(H, W);
-  subtract(H, H, fourB);
-  subtract(H, H, fourB);
-  // const X3 = H.multiply(S).multiply(2n);
-  multiply(x, H, S);
-  add(x, x, x);
-  // const Y3 = W.multiply(B.multiply(4n).subtract(H)).subtract(
-  //   y.multiply(y).multiply(8n).multiply(SS)
-  // );
-  let fourBminusH = H;
-  subtract(fourBminusH, fourB, H);
-  let WtimesFourBminusH = H;
-  multiply(WtimesFourBminusH, W, fourBminusH);
-  square(y, y);
-  multiply(y, y, eight);
-  multiply(y, y, SS);
-  subtract(y, WtimesFourBminusH, y);
-  // const Z3 = SSS.multiply(8n);
-  multiply(z, SSS, eight);
+  numberOfDoubles++;
+  // w = 3*X1^2
+  square(w, X1);
+  add(tmp, w, w); // TODO efficient doubling
+  add(w, tmp, w);
+  // s = Y1*Z1
+  multiply(s, Y1, Z1);
+  // ss = s^2
+  square(ss, s);
+  // sss = s*ss
+  multiply(sss, ss, s);
+  // R = Y1*s, Rx2 = R + R
+  multiply(Rx2, Y1, s);
+  add(Rx2, Rx2, Rx2);
+  // 2*(B = X1*R), Bx4 = 2*B+2*B
+  multiply(Bx4, X1, Rx2);
+  add(Bx4, Bx4, Bx4);
+  // h = w^2-8*B = w^2 - Bx4 - Bx4
+  square(h, w);
+  subtract(h, h, Bx4); // TODO efficient doubling
+  subtract(h, h, Bx4);
+  // X3 = 2*h*s
+  multiply(X1, h, s);
+  add(X1, X1, X1);
+  // Y3 = w*(4*B-h)-8*R^2 = (Bx4 - h)*w - (Rx2^2 + Rx2^2)
+  subtract(Y1, Bx4, h);
+  multiply(Y1, Y1, w);
+  square(tmp, Rx2);
+  add(tmp, tmp, tmp); // TODO efficient doubling
+  subtract(Y1, Y1, tmp);
+  // Z3 = 8*sss
+  multiply(Z1, sss, constants.mg8);
 }
 
 /**
@@ -338,6 +372,7 @@ function addAssignProjective(
     return;
   }
   if (isZero2) return;
+  numberOfAdds++;
   p1.isZero = false;
   // const U1 = Y2.multiply(Z1);
   // const U2 = Y1.multiply(Z2);

@@ -9,4 +9,4 @@ export function __wbg_scalarvectorinput_free(a: number): void;
 export function scalarvectorinput_new(a: number): number;
 export function scalarvectorinput_toJsArray(a: number): number;
 export function scalarvectorinput_fromJsArray(a: number): number;
-export function compute_msm(a: number, b: number): void;
+export function compute_msm(a: number, b: number): number;
