@@ -17,6 +17,7 @@ import {
   readBytes,
   writeBytes,
   readBigInt,
+  getZeroPointers,
 } from "./finite-field.js";
 import {
   multiply,
@@ -25,6 +26,7 @@ import {
   copy,
   multiplyCount,
   resetMultiplyCount,
+  isEqual,
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
@@ -58,7 +60,9 @@ function msm(scalars, inputPoints) {
   // initialize buckets
   let n = scalars.length;
   let c = log2(n) - 3; // TODO: determine c from n and hand-optimized lookup table
-  if (c < 1) c = 1;
+  let minC = 4;
+  if (c < minC) c = minC;
+
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
@@ -96,7 +100,7 @@ function msm(scalars, inputPoints) {
     let x = points[i * 2];
     let y = points[i * 2 + 1];
     let z = points[i * 2 + 2];
-    let point = { x, y, z, isZero: false };
+    let point = { x, y, z, isZero: inputPoint[2] };
     fromAffine(point, affinePoint);
     // partition 32-byte scalar into c-bit chunks
     for (let k = 0; k < K; k++) {
@@ -312,14 +316,13 @@ function scaleProjective([x, y, z, ...scratchSpace], result, scalar, point) {
  * @param {number[]} scratchSpace
  * @param {Point} point
  */
-function doubleInPlaceProjective(
-  [tmp, w, s, ss, sss, Rx2, Bx4, h],
-  { x: X1, y: Y1, z: Z1, isZero }
-) {
+function doubleInPlaceProjective(scratch, P) {
   // http://hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#doubling-dbl-1998-cmo-2
   // (with a = 0)
+  let { x: X1, y: Y1, z: Z1, isZero } = P;
   if (isZero) return;
   numberOfDoubles++;
+  let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
   // w = 3*X1^2
   square(w, X1);
   add(tmp, w, w); // TODO efficient doubling
@@ -355,25 +358,30 @@ function doubleInPlaceProjective(
 
 /**
  * p1 += p2
- * @param {number[]} scratchSpace
- * @param {Point} p1
+ * @param {number[]} scratch
+ * @param {Point} P1
  * @param {Point} p2
  */
-function addAssignProjective(
-  [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a],
-  p1,
-  { x: x2, y: y2, z: z2, isZero: isZero2 }
-) {
+function addAssignProjective(scratch, P1, P2) {
   // if (p1.isZero()) return p2;
   // if (p2.isZero()) return p1;
-  let { x: x1, y: y1, z: z1, isZero: isZero1 } = p1;
+  let { x: x1, y: y1, z: z1, isZero: isZero1 } = P1;
+  let { x: x2, y: y2, z: z2, isZero: isZero2 } = P2;
   if (isZero1) {
-    writePointInto(p1, { x: x2, y: y2, z: z2, isZero: isZero2 });
+    writePointInto(P1, P2);
     return;
   }
+
   if (isZero2) return;
   numberOfAdds++;
-  p1.isZero = false;
+  // console.log(
+  //   "adding",
+  //   readProjective(scratch, P1, true),
+  //   readProjective(scratch, P2, true)
+  // );
+  P1.isZero = false;
+
+  let [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a] = scratch;
   // const U1 = Y2.multiply(Z1);
   // const U2 = Y1.multiply(Z2);
   // const V1 = X2.multiply(Z1);
@@ -382,6 +390,13 @@ function addAssignProjective(
   multiply(u2, y1, z2);
   multiply(v1, x2, z1);
   multiply(v2, x1, z2);
+
+  // x1/z1 = x2/z2  <==>  x1*z2 = x2*z1  <==>  v2 = v1
+  if (isEqual(v1, v2) && isEqual(u1, u2)) {
+    doubleInPlaceProjective([u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a], P1);
+    return;
+  }
+
   // if (V1.equals(V2) && U1.equals(U2)) return this.double();
   // if (V1.equals(V2)) return this.getZero();
   // const U = U1.subtract(U2);
@@ -443,4 +458,28 @@ function takePoint(scratchSpace) {
 function takeAffinePoint(scratchSpace) {
   let [x, y] = scratchSpace.splice(0, 2);
   return { x, y };
+}
+
+function readProjective(
+  [tmpX, tmpY, tmpZ],
+  { x, y, z, isZero },
+  changeRepresentation = false
+) {
+  if (changeRepresentation) {
+    multiply(tmpX, x, constants.one);
+    multiply(tmpY, y, constants.one);
+    multiply(tmpZ, z, constants.one);
+    return {
+      x: readBigInt(tmpX),
+      y: readBigInt(tmpY),
+      z: readBigInt(tmpZ),
+      isZero,
+    };
+  }
+  return {
+    x: readBigInt(x),
+    y: readBigInt(y),
+    z: readBigInt(z),
+    isZero,
+  };
 }

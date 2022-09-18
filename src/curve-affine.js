@@ -19,6 +19,7 @@ import {
   resetMultiplyCount,
   multiplyCount,
   add,
+  isEqual,
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
@@ -469,6 +470,12 @@ function addAssignProjective(
   multiply(u2, y1, z2);
   multiply(v1, x2, z1);
   multiply(v2, x1, z2);
+
+  // x1/z1 = x2/z2  <==>  x1*z2 = x2*z1  <==>  v2 = v1
+  if (isEqual(v1, v2) && isEqual(u1, u2)) {
+    doubleInPlaceProjective([u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a], P1);
+    return;
+  }
 
   subtract(u, u1, u2);
   subtract(v, v1, v2);
