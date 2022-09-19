@@ -158,6 +158,8 @@ function msmAffine(scalars, inputPoints) {
       }
     }
     // now (P,G,H) represents a big array of independent additions, which we batch
+    // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+    // => batch affine doubling into P[p] for the y1 === x2 cases, keeping P[p] zero for y1 === -y2
     for (let p = 0; p < nPairs; p++) {
       subtract(denominators[p], H[p], G[p]);
     }
@@ -274,7 +276,7 @@ function batchAddAssign(scratch, tmp, d, G, H) {
 
 /**
  * affine EC addition, G3 = G1 + G2
- * assuming d = 1/(x2 - x1) is given, and inputs aren't zero
+ * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2 (=> no edge cases)
  * @param {number[]} scratch
  * @param {AffinePoint} G3 (x3, y3)
  * @param {AffinePoint} G1 (x1, y1)
@@ -301,7 +303,7 @@ function addAffine([m], G3, G1, G2, d) {
 
 /**
  * affine EC addition with assignment, G1 = G1 + G2
- * assuming d = 1/(x2 - x1) is given, and inputs aren't zero
+ * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
  * @param {number[]} scratch
  * @param {AffinePoint} G1 (x1, y1)
  * @param {AffinePoint} G2 (x2, y2)
@@ -452,11 +454,7 @@ function copyProjective(target, source) {
  * @param {ProjectivePoint} P1
  * @param {ProjectivePoint} P2
  */
-function addAssignProjective(
-  [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a],
-  P1,
-  P2
-) {
+function addAssignProjective(scratch, P1, P2) {
   if (isZeroProjective(P1)) {
     copyProjective(P1, P2);
     return;
@@ -466,6 +464,8 @@ function addAssignProjective(
   setNonZeroProjective(P1);
   let [x1, y1, z1] = projectiveCoords(P1);
   let [x2, y2, z2] = projectiveCoords(P2);
+  let [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a] = scratch;
+
   multiply(u1, y2, z1);
   multiply(u2, y1, z2);
   multiply(v1, x2, z1);
@@ -473,7 +473,7 @@ function addAssignProjective(
 
   // x1/z1 = x2/z2  <==>  x1*z2 = x2*z1  <==>  v2 = v1
   if (isEqual(v1, v2) && isEqual(u1, u2)) {
-    doubleInPlaceProjective([u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a], P1);
+    doubleInPlaceProjective(scratch, P1);
     return;
   }
 

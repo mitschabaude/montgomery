@@ -312,7 +312,7 @@ function scaleProjective([x, y, z, ...scratchSpace], result, scalar, point) {
 }
 
 /**
- * point *= 2
+ * P *= 2
  * @param {number[]} scratchSpace
  * @param {Point} point
  */
@@ -393,7 +393,7 @@ function addAssignProjective(scratch, P1, P2) {
 
   // x1/z1 = x2/z2  <==>  x1*z2 = x2*z1  <==>  v2 = v1
   if (isEqual(v1, v2) && isEqual(u1, u2)) {
-    doubleInPlaceProjective([u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a], P1);
+    doubleInPlaceProjective(scratch, P1);
     return;
   }
 

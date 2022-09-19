@@ -1,9 +1,8 @@
-import { randomScalars } from "./finite-field.js";
-import { randomCurvePoints } from "./curve.js";
 import fs from "node:fs/promises";
 import { tic, toc } from "./tictoc.js";
 import { log2 } from "./util.js";
 import { webcrypto } from "node:crypto";
+import { PointVectorInput, ScalarVectorInput } from "./reference.node.js";
 globalThis.crypto = webcrypto;
 
 export { load };
@@ -29,11 +28,10 @@ if (isMain) {
 }
 
 async function store(n) {
-  tic("create inputs (js)");
-  let points = randomCurvePoints(2 ** n);
+  tic("create inputs (rust)");
+  let points = new PointVectorInput(2 ** n).toJsArray();
+  let scalars = new ScalarVectorInput(2 ** n).toJsArray();
   toc();
-
-  let scalars = randomScalars(2 ** n);
 
   let json = JSON.stringify({ scalars, points });
   await fs.writeFile(file, json, "utf-8");
