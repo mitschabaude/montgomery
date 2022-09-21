@@ -148,16 +148,10 @@ function msmAffine(scalars, inputPoints) {
         }
       }
     }
-    // now (P,G,H) represents a big array of independent additions, which we batch
+    // now (P,G,H) represents a big array of independent additions, which we batch-add
     // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
     // => batch affine doubling into P[p] for the y1 === x2 cases, keeping P[p] zero for y1 === -y2
-    for (let p = 0; p < nPairs; p++) {
-      subtract(denominators[p], H[p], G[p]);
-    }
-    batchInverseInPlace(scratchSpace, tmp, denominators, nPairs);
-    for (let p = 0; p < nPairs; p++) {
-      addAffine(scratchSpace, P[p], G[p], H[p], denominators[p]);
-    }
+    batchAdd(scratchSpace, tmp, denominators, P, G, H, nPairs);
   }
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
@@ -178,13 +172,7 @@ function msmAffine(scalars, inputPoints) {
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
-    for (let p = 0; p < nPairs; p++) {
-      subtract(denominators[p], H[p], G[p]);
-    }
-    batchInverseInPlace(scratchSpace, tmp, denominators, nPairs);
-    for (let p = 0; p < nPairs; p++) {
-      addAssignAffine(scratchSpace, G[p], H[p], denominators[p]);
-    }
+    batchAddAssign(scratchSpace, tmp, denominators, G, H, nPairs);
   }
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
@@ -193,7 +181,7 @@ function msmAffine(scalars, inputPoints) {
   resetMultiplyCount();
 
   // second stage
-  let partialSums = reduceBucketsSimple(scratchSpace, buckets, K, L);
+  let partialSums = reduceBucketsSimple(scratchSpace, buckets, { c, K, L });
 
   let nMul2 = multiplyCount.valueOf();
   resetMultiplyCount();
@@ -224,10 +212,11 @@ function msmAffine(scalars, inputPoints) {
 }
 
 /**
- *
+ * @param {number[]} scratchSpace
  * @param {number[][][]} buckets
+ * @param {{c: number, K: number, L: number}}
  */
-function reduceBucketsSimple(scratchSpace, buckets, K, L) {
+function reduceBucketsSimple(scratchSpace, buckets, { c, K, L }) {
   /**
    * @type {number[][]}
    */
@@ -258,6 +247,84 @@ function reduceBucketsSimple(scratchSpace, buckets, K, L) {
   }
   return partialSums;
 }
+/**
+ * @param {number[]} scratch
+ * @param {number[][][]} oldBuckets
+ * @param {{c: number, K: number, L: number}}
+ */
+function reduceBucketsAllAffine(scratch, oldBuckets, { c, K, L }) {
+  let depth = 2;
+  let D = 2 ** depth;
+  let n = D * K;
+  let L0 = 2 ** (c - depth); // == L/D
+  console.log(`doing ${D} * ${K} = ${n} adds at a time`);
+
+  let d = getPointers(n, sizeAffine);
+  let tmp = getPointers(n, sizeAffine);
+
+  // normalize the way buckets are stored -- we'll also store intermediate running sums there
+  /** @type {number[][]} */
+  let buckets = Array(K);
+  for (let k = 0, i = 0; k < K; k++) {
+    buckets[k] = Array(L);
+    for (let l = 1; l < L; l++, i++) {
+      buckets[k][l] = oldBuckets[k][l][0] ?? getPointers(1, sizeAffine);
+    }
+  }
+
+  /** @type {number[]} */
+  let runningSums = Array(n);
+
+  /** @type {number[]} */
+  let nextSummands = Array(n);
+
+  for (let k = 0, i = 0; k < K; k++) {
+    for (let d = 0; d < D; d++, i++) {
+      runningSums[i] = buckets[k][d * L0 + L0 - 1];
+    }
+  }
+
+  for (let l = L0 - 2; l > 0; l--) {
+    // collect buckets to add into running sums
+    for (let k = 0, i = 0; k < K; k++) {
+      for (let d = 0; d < D; d++, i++) {
+        nextSummands[i] = buckets[k][d * L0 + l];
+      }
+    }
+    // add them
+    batchAddAssign(scratch, tmp, d, nextSummands, runningSums, n);
+    runningSums = nextSummands;
+  }
+}
+
+/**
+ * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
+ *
+ * Si = Gi + Hi, i=0,...,n-1
+ *
+ * assuming all the Gi, Hi are non-zero
+ *
+ * @param {number[]} scratch
+ * @param {number[]} tmp pointers of length n
+ * @param {number[]} d pointers of length n
+ * @param {AffinePoint[]} S
+ * @param {AffinePoint[]} G
+ * @param {AffinePoint[]} H
+ * @param {number} n
+ */
+function batchAdd(scratch, tmp, d, S, G, H, n) {
+  // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+  // => batch affine doubling into P[p] for the y1 === x2 cases, keeping P[p] zero for y1 === -y2
+
+  // d[i] = H[i].x - G[i].x
+  for (let i = 0; i < n; i++) {
+    subtract(d[i], H[i], G[i]);
+  }
+  batchInverseInPlace(scratch, tmp, d, n);
+  for (let i = 0; i < n; i++) {
+    addAffine(scratch, S[i], G[i], H[i], d[i]);
+  }
+}
 
 /**
  * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
@@ -271,17 +338,33 @@ function reduceBucketsSimple(scratchSpace, buckets, K, L) {
  * @param {number[]} d pointers of length n
  * @param {AffinePoint[]} G
  * @param {AffinePoint[]} H
+ * @param {number} n
  */
-function batchAddAssign(scratch, tmp, d, G, H) {
+function batchAddAssign(scratch, tmp, d, G, H, n) {
   // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
-  let n = G.length;
-  // d[i] = H[i].x - G[i].x
+
+  // check G, H for zero
+  let G1 = Array(n);
+  let H1 = Array(n);
+  let n1 = 0;
   for (let i = 0; i < n; i++) {
-    subtract(d[i], H[i][0], G[i][0]);
+    if (isZeroAffine(G[i])) {
+      copyAffine(G[i], H[i]);
+      continue;
+    }
+    if (isZeroAffine(H[i])) {
+      continue;
+    }
+    G1[n1] = G[i];
+    H1[n1] = H[i];
+    // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+    // => batch affine doubling into G[p] for the y1 === x2 cases, setting G[p] zero for y1 === -y2
+    subtract(d[n1], H1[n1], G1[n1]);
+    n1++;
   }
-  batchInverseInPlace(scratch, tmp, d);
-  for (let i = 0; i < n; i++) {
-    addAssignAffine(scratch, G[i], H[i], d[i]);
+  batchInverseInPlace(scratch, tmp, d, n1);
+  for (let i = 0; i < n1; i++) {
+    addAssignAffine(scratch, G1[i], H1[i], d[i]);
   }
 }
 
