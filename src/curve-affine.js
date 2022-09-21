@@ -423,40 +423,42 @@ function addAssignProjective(scratch, P1, P2) {
  * @param {number[]} scratchSpace
  * @param {Point} P
  */
-function doubleInPlaceProjective([W, S, SS, SSS, B, H], P) {
+function doubleInPlaceProjective(scratch, P) {
   if (isZeroProjective(P)) return;
   numberOfDoubles++;
-  let [x, y, z] = projectiveCoords(P);
-  let eight = constants.mg8;
-
-  square(W, x);
-  add(S, W, W);
-  add(W, S, W);
-
-  multiply(S, y, z);
-  square(SS, S);
-  multiply(SSS, SS, S);
-
-  multiply(B, x, y);
-  multiply(B, B, S);
-  let fourB = B;
-  add(B, B, B);
-  add(fourB, B, B);
-  square(H, W);
-  subtract(H, H, fourB);
-  subtract(H, H, fourB);
-
-  multiply(x, H, S);
-  add(x, x, x);
-  let fourBminusH = H;
-  subtract(fourBminusH, fourB, H);
-  let WtimesFourBminusH = H;
-  multiply(WtimesFourBminusH, W, fourBminusH);
-  square(y, y);
-  multiply(y, y, eight);
-  multiply(y, y, SS);
-  subtract(y, WtimesFourBminusH, y);
-  multiply(z, SSS, eight);
+  let [X1, Y1, Z1] = projectiveCoords(P);
+  let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
+  // w = 3*X1^2
+  square(w, X1);
+  add(tmp, w, w); // TODO efficient doubling
+  add(w, tmp, w);
+  // s = Y1*Z1
+  multiply(s, Y1, Z1);
+  // ss = s^2
+  square(ss, s);
+  // sss = s*ss
+  multiply(sss, ss, s);
+  // R = Y1*s, Rx2 = R + R
+  multiply(Rx2, Y1, s);
+  add(Rx2, Rx2, Rx2);
+  // 2*(B = X1*R), Bx4 = 2*B+2*B
+  multiply(Bx4, X1, Rx2);
+  add(Bx4, Bx4, Bx4);
+  // h = w^2-8*B = w^2 - Bx4 - Bx4
+  square(h, w);
+  subtract(h, h, Bx4); // TODO efficient doubling
+  subtract(h, h, Bx4);
+  // X3 = 2*h*s
+  multiply(X1, h, s);
+  add(X1, X1, X1);
+  // Y3 = w*(4*B-h)-8*R^2 = (Bx4 - h)*w - (Rx2^2 + Rx2^2)
+  subtract(Y1, Bx4, h);
+  multiply(Y1, Y1, w);
+  square(tmp, Rx2);
+  add(tmp, tmp, tmp); // TODO efficient doubling
+  subtract(Y1, Y1, tmp);
+  // Z3 = 8*sss
+  multiply(Z1, sss, constants.mg8);
 }
 
 /**
