@@ -17,7 +17,6 @@ import {
   readBytes,
   writeBytes,
   readBigInt,
-  getZeroPointers,
 } from "./finite-field.js";
 import {
   multiply,
@@ -60,7 +59,7 @@ function msm(scalars, inputPoints) {
   // initialize buckets
   let n = scalars.length;
   let c = log2(n) - 3; // TODO: determine c from n and hand-optimized lookup table
-  let minC = 4;
+  let minC = 1;
   if (c < minC) c = minC;
 
   // TODO: do less computations for last, smaller chunk of scalar
@@ -374,11 +373,6 @@ function addAssignProjective(scratch, P1, P2) {
 
   if (isZero2) return;
   numberOfAdds++;
-  // console.log(
-  //   "adding",
-  //   readProjective(scratch, P1, true),
-  //   readProjective(scratch, P2, true)
-  // );
   P1.isZero = false;
 
   let [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a] = scratch;
@@ -458,6 +452,19 @@ function takePoint(scratchSpace) {
 function takeAffinePoint(scratchSpace) {
   let [x, y] = scratchSpace.splice(0, 2);
   return { x, y };
+}
+
+function readProjectiveAsAffine(
+  [x0, y0, ...scratchSpace],
+  { x, y, z, isZero }
+) {
+  if (isZero) return { x: readBigInt(x), y: readBigInt(y), isZero: true };
+  toAffine(scratchSpace, { x: x0, y: y0 }, { x, y, z, isZero });
+  return {
+    x: readBigInt(x0),
+    y: readBigInt(y0),
+    isZero,
+  };
 }
 
 function readProjective(

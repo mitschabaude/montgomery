@@ -288,9 +288,10 @@ function addAffine([m], G3, G1, G2, d) {
   let [x3, y3] = affineCoords(G3);
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
+  setNonZeroAffine(G3);
   // m = (y2 - y1)*d
   subtract(m, y2, y1);
-  multiply(m, d, y3);
+  multiply(m, m, d);
   // x3 = m^2 - x1 - x2
   square(x3, m);
   subtract(x3, x3, x1);
@@ -333,6 +334,13 @@ function addAssignAffine([m, tmp], G1, G2, d) {
  * @param {number} n length
  */
 function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
+  // TODO: this can be made faster and cleaner by merging the 2nd and 3rd loop
+  if (n === 0) return;
+  if (n === 1) {
+    inverse(scratch, invProd, X[0]);
+    copy(X[0], invProd);
+    return;
+  }
   // tmpX = [x0, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
   // tmpX[i] = x0*...*xi
   copy(tmpX[0], X[0]);
@@ -358,94 +366,6 @@ function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
     multiply(X[i], tmpX[i - 1], X[i + 1]);
   }
   multiply(X[n - 1], tmpX[n - 2], invProd);
-}
-
-/**
- * @param {number} P
- * @param {number} A
- */
-function copyAffineToProjectiveNonZero(P, A) {
-  // x,y = x,y
-  memoryBytes.copyWithin(P, A, A + 2 * sizeField);
-  // z = 1
-  memoryBytes.copyWithin(
-    P + 2 * sizeField,
-    constants.mg1,
-    constants.mg1 + sizeField
-  );
-  // isNonZero = 1
-  memoryBytes[P + 3 * sizeField] = 1;
-  // isInfinity = isInfinity
-  // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
-}
-
-/**
- * @param {number[]} scratchSpace
- * @param {ProjectivePoint} point projective representation
- */
-function toAffineOutput([zinv, ...scratchSpace], P) {
-  let [x, y, z] = projectiveCoords(P);
-  // return x/z, y/z
-  inverse(scratchSpace, zinv, z);
-  multiply(x, x, zinv);
-  multiply(y, y, zinv);
-  fromMontgomery(x);
-  fromMontgomery(y);
-  return [readBigInt(x), readBigInt(y)];
-}
-
-/**
- * @param {ProjectivePoint} point projective representation
- */
-function toProjectiveOutput(P) {
-  let [x, y, z] = projectiveCoords(P);
-  fromMontgomery(x);
-  fromMontgomery(y);
-  fromMontgomery(z);
-  return [readBigInt(x), readBigInt(y), readBigInt(z)];
-}
-
-/**
- * @param {number} pointer
- */
-function isZeroProjective(pointer) {
-  return !memoryBytes[pointer + 3 * sizeField];
-}
-/**
- * @param {number} pointer
- */
-function setNonZeroProjective(pointer) {
-  memoryBytes[pointer + 3 * sizeField] = 1;
-}
-
-/**
- * @param {number} pointer
- */
-function affineCoords(pointer) {
-  return [pointer, pointer + sizeField];
-}
-/**
- * @param {number} pointer
- */
-function projectiveCoords(pointer) {
-  return [pointer, pointer + sizeField, pointer + 2 * sizeField];
-}
-
-/**
- *
- * @param {number} target
- * @param {number} source
- */
-function copyAffine(target, source) {
-  memoryBytes.copyWithin(target, source, source + sizeAffine);
-}
-/**
- *
- * @param {number} target
- * @param {number} source
- */
-function copyProjective(target, source) {
-  memoryBytes.copyWithin(target, source, source + sizeProjective);
 }
 
 /**
@@ -539,8 +459,115 @@ function doubleInPlaceProjective([W, S, SS, SSS, B, H], P) {
   multiply(z, SSS, eight);
 }
 
-function printProjective(label, P) {
-  console.log(label, readProjective(P));
+/**
+ * @param {number} P
+ * @param {number} A
+ */
+function copyAffineToProjectiveNonZero(P, A) {
+  // x,y = x,y
+  memoryBytes.copyWithin(P, A, A + 2 * sizeField);
+  // z = 1
+  memoryBytes.copyWithin(
+    P + 2 * sizeField,
+    constants.mg1,
+    constants.mg1 + sizeField
+  );
+  // isNonZero = 1
+  memoryBytes[P + 3 * sizeField] = 1;
+  // isInfinity = isInfinity
+  // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
+}
+
+/**
+ * @param {number[]} scratchSpace
+ * @param {ProjectivePoint} point projective representation
+ */
+function toAffineOutput([zinv, ...scratchSpace], P) {
+  let [x, y, z] = projectiveCoords(P);
+  // return x/z, y/z
+  inverse(scratchSpace, zinv, z);
+  multiply(x, x, zinv);
+  multiply(y, y, zinv);
+  fromMontgomery(x);
+  fromMontgomery(y);
+  return [readBigInt(x), readBigInt(y)];
+}
+
+/**
+ * @param {ProjectivePoint} point projective representation
+ */
+function toProjectiveOutput(P) {
+  let [x, y, z] = projectiveCoords(P);
+  fromMontgomery(x);
+  fromMontgomery(y);
+  fromMontgomery(z);
+  return [readBigInt(x), readBigInt(y), readBigInt(z)];
+}
+
+/**
+ * @param {number} pointer
+ */
+function isZeroAffine(pointer) {
+  return !memoryBytes[pointer + 2 * sizeField];
+}
+/**
+ * @param {number} pointer
+ */
+function setNonZeroAffine(pointer) {
+  memoryBytes[pointer + 2 * sizeField] = 1;
+}
+
+/**
+ * @param {number} pointer
+ */
+function isZeroProjective(pointer) {
+  return !memoryBytes[pointer + 3 * sizeField];
+}
+/**
+ * @param {number} pointer
+ */
+function setNonZeroProjective(pointer) {
+  memoryBytes[pointer + 3 * sizeField] = 1;
+}
+
+/**
+ * @param {number} pointer
+ */
+function affineCoords(pointer) {
+  return [pointer, pointer + sizeField];
+}
+/**
+ * @param {number} pointer
+ */
+function projectiveCoords(pointer) {
+  return [pointer, pointer + sizeField, pointer + 2 * sizeField];
+}
+
+/**
+ *
+ * @param {number} target
+ * @param {number} source
+ */
+function copyAffine(target, source) {
+  memoryBytes.copyWithin(target, source, source + sizeAffine);
+}
+/**
+ *
+ * @param {number} target
+ * @param {number} source
+ */
+function copyProjective(target, source) {
+  memoryBytes.copyWithin(target, source, source + sizeProjective);
+}
+
+function readAffine(P) {
+  let isZero = isZeroAffine(P);
+  let [x, y] = affineCoords(P);
+  return {
+    x: readBigInt(x),
+    y: readBigInt(y),
+    isZero,
+  };
 }
 function readProjective(P) {
   let isZero = isZeroProjective(P);

@@ -11,6 +11,7 @@ import { msmAffine } from "./src/curve-affine.js";
 import { bigintFromBytes } from "./src/util.js";
 import { modInverse } from "./src/finite-field-js.js";
 import { msmDumbAffine } from "./src/dumb-curve-affine.js";
+import { load } from "./src/store-inputs.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
@@ -21,18 +22,18 @@ console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("load inputs & convert to rust");
 let points, scalars, pointVec, scalarVec;
-// let loaded = await load(n);
-// points = loaded.points;
-// scalars = loaded.scalars;
-pointVec = new PointVectorInput(2 ** n);
-scalarVec = new ScalarVectorInput(2 ** n);
-points = pointVec.toJsArray();
-scalars = scalarVec.toJsArray();
+let loaded = await load(n);
+points = loaded.points;
+scalars = loaded.scalars;
+// pointVec = new PointVectorInput(2 ** n);
+// scalarVec = new ScalarVectorInput(2 ** n);
+// points = pointVec.toJsArray();
+// scalars = scalarVec.toJsArray();
 // points = randomCurvePoints(2 ** n);
 // scalars = randomScalars(2 ** n);
 // custom test data
 // points = [points[0], points[1]];
-// scalars = [bigintToBytes(3n, 32), bigintToBytes(3n, 32)];
+// scalars = [bigintToBytes(5n, 32), bigintToBytes(2n, 32)];
 // scalars = Array(2 ** n)
 //   .fill(0)
 //   .map(() => bigintToBytes(1n, 32));
