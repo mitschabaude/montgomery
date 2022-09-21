@@ -78,16 +78,6 @@ function msmAffine(scalars, inputPoints) {
       buckets[k][l] = [];
     }
   }
-  /**
-   * @type {number[][]}
-   */
-  let bucketSums = Array(K);
-  for (let k = 0; k < K; k++) {
-    bucketSums[k] = getZeroPointers(L, sizeProjective);
-  }
-  let runningSums = getZeroPointers(K, sizeProjective);
-  let partialSums = getZeroPointers(K, sizeProjective);
-  let [finalSum] = getPointers(1, sizeProjective);
   let scratchSpace = getPointers(20);
 
   let maxBucketSize = 0;
@@ -97,7 +87,8 @@ function msmAffine(scalars, inputPoints) {
   numberOfAdds = 0;
   numberOfDoubles = 0;
 
-  // zeroth loop -- convert points into our format and organize them into buckets, without additions
+  // zeroth stage
+  // convert points into our format and organize them into buckets, without additions
   for (let i = 0; i < N; i++) {
     let scalar = scalars[i];
     let inputPoint = inputPoints[i];
@@ -202,29 +193,13 @@ function msmAffine(scalars, inputPoints) {
   resetMultiplyCount();
 
   // second stage
-  // sum up buckets to partial sums
-  for (let l = L - 1; l > 0; l--) {
-    for (let k = 0; k < K; k++) {
-      let bucket = buckets[k][l][0];
-      let runningSum = runningSums[k];
-      let partialSum = partialSums[k];
-      if (bucket === undefined) {
-        // bucket sum is zero => running sum stays the same
-        addAssignProjective(scratchSpace, partialSum, runningSum);
-      } else {
-        // bucket sum is affine, we convert to projective here
-        let bucketSum = bucketSums[k][l];
-        copyAffineToProjectiveNonZero(bucketSum, bucket);
-        addAssignProjective(scratchSpace, runningSum, bucketSum);
-        addAssignProjective(scratchSpace, partialSum, runningSum);
-      }
-    }
-  }
+  let partialSums = reduceBucketsSimple(scratchSpace, buckets, K, L);
 
   let nMul2 = multiplyCount.valueOf();
   resetMultiplyCount();
 
   // third stage -- compute final sum using horner's rule
+  let [finalSum] = getPointers(1, sizeProjective);
   let k = K - 1;
   let partialSum = partialSums[k];
   copyProjective(finalSum, partialSum);
@@ -246,6 +221,42 @@ function msmAffine(scalars, inputPoints) {
   resetPointers();
 
   return { nMul1, nMul2, nMul3, x, y, z, numberOfAdds, numberOfDoubles };
+}
+
+/**
+ *
+ * @param {number[][][]} buckets
+ */
+function reduceBucketsSimple(scratchSpace, buckets, K, L) {
+  /**
+   * @type {number[][]}
+   */
+  let bucketSums = Array(K);
+  for (let k = 0; k < K; k++) {
+    bucketSums[k] = getPointers(L, sizeProjective);
+  }
+  let runningSums = getZeroPointers(K, sizeProjective);
+  let partialSums = getZeroPointers(K, sizeProjective);
+
+  // sum up buckets to partial sums
+  for (let l = L - 1; l > 0; l--) {
+    for (let k = 0; k < K; k++) {
+      let bucket = buckets[k][l][0];
+      let runningSum = runningSums[k];
+      let partialSum = partialSums[k];
+      if (bucket === undefined) {
+        // bucket sum is zero => running sum stays the same
+        addAssignProjective(scratchSpace, partialSum, runningSum);
+      } else {
+        // bucket sum is affine, we convert to projective here
+        let bucketSum = bucketSums[k][l];
+        copyAffineToProjectiveNonZero(bucketSum, bucket);
+        addAssignProjective(scratchSpace, runningSum, bucketSum);
+        addAssignProjective(scratchSpace, partialSum, runningSum);
+      }
+    }
+  }
+  return partialSums;
 }
 
 /**
