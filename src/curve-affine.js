@@ -11,16 +11,13 @@ import {
   constants,
   readBigInt,
   fromMontgomery,
+  getPointer,
+  getZeroPointer,
+  p,
+  mod,
+  getAndResetOpCounts,
 } from "./finite-field.js";
-import {
-  multiply,
-  copy,
-  subtract,
-  resetMultiplyCount,
-  multiplyCount,
-  add,
-  isEqual,
-} from "./finite-field.wat.js";
+import { multiply, copy, subtract, add, isEqual } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export { msmAffine, batchAddAssign, batchInverseInPlace };
@@ -49,6 +46,10 @@ let sizeProjective = 24 * n + 8;
 let numberOfAdds = 0;
 let numberOfDoubles = 0;
 
+let cTable = {
+  [14]: [11, 5],
+};
+
 /**
  *
  * @param {CompatibleScalar[]} scalars
@@ -60,6 +61,9 @@ function msmAffine(scalars, inputPoints) {
 
   let c = log2(N) - 3; // TODO: determine c from n and hand-optimized lookup table
   if (c < 1) c = 1;
+  let depth = c >> 1;
+  [c, depth] = cTable[log2(N)] ?? [c, depth];
+
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c; // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
@@ -78,12 +82,12 @@ function msmAffine(scalars, inputPoints) {
       buckets[k][l] = [];
     }
   }
-  let scratchSpace = getPointers(20);
+  let scratchSpace = getPointers(30);
 
   let maxBucketSize = 0;
   let nPairs = 0; // we need to allocate space for one pointer per addition pair
 
-  resetMultiplyCount();
+  getAndResetOpCounts();
   numberOfAdds = 0;
   numberOfDoubles = 0;
 
@@ -123,7 +127,7 @@ function msmAffine(scalars, inputPoints) {
    * @type {number[]}
    */
   let H = Array(nPairs); // holds second summands
-  let P = getPointers(nPairs, sizeAffine); // holds sums
+  let P = getPointers(nPairs + K * L, sizeAffine); // holds sums
   let denominators = getPointers(nPairs);
   let tmp = getPointers(nPairs);
 
@@ -135,11 +139,19 @@ function msmAffine(scalars, inputPoints) {
   // only do this if there are any pairs...
   if (m < maxBucketSize) {
     let p = 0;
+    let s = nPairs;
     // walk over all buckets to identify point-pairs to add
     for (let k = 0; k < K; k++) {
       for (let l = 1; l < L; l++) {
         let x = buckets[k][l];
         let bucketSize = x.length;
+        // if the bucket has just 1 element, then copy it over to avoid conflicts with the same pointer
+        // in other partitions
+        if (bucketSize === 1) {
+          copyAffine(P[s], x[0]);
+          x[0] = P[s];
+          s++;
+        }
         for (let i = 0; i + 1 < bucketSize; i += 2) {
           G[p] = x[i];
           H[p] = x[i + 1];
@@ -177,17 +189,21 @@ function msmAffine(scalars, inputPoints) {
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
 
-  let nMul1 = multiplyCount.valueOf();
-  resetMultiplyCount();
+  let [nMul1, nInv1] = getAndResetOpCounts();
 
   // second stage
-  let partialSums = reduceBucketsSimple(scratchSpace, buckets, { c, K, L });
+  // let partialSums = reduceBucketsSimple(scratchSpace, buckets, { K, L });
+  let partialSums = reduceBucketsAffine(
+    scratchSpace,
+    buckets,
+    { c, K, L },
+    depth
+  );
 
-  let nMul2 = multiplyCount.valueOf();
-  resetMultiplyCount();
+  let [nMul2, nInv2] = getAndResetOpCounts();
 
   // third stage -- compute final sum using horner's rule
-  let [finalSum] = getPointers(1, sizeProjective);
+  let finalSum = getPointer(sizeProjective);
   let k = K - 1;
   let partialSum = partialSums[k];
   copyProjective(finalSum, partialSum);
@@ -200,15 +216,24 @@ function msmAffine(scalars, inputPoints) {
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
 
-  let nMul3 = multiplyCount.valueOf();
-  resetMultiplyCount();
+  let [nMul3, nInv3] = getAndResetOpCounts();
 
   let [x, y, z] = toProjectiveOutput(finalSum);
 
   // TODO read out and return result
   resetPointers();
 
-  return { nMul1, nMul2, nMul3, x, y, z, numberOfAdds, numberOfDoubles };
+  return {
+    nMul1,
+    nMul2,
+    nMul3,
+    nInv: nInv1 + nInv2 + nInv3,
+    x,
+    y,
+    z,
+    numberOfAdds,
+    numberOfDoubles,
+  };
 }
 
 /**
@@ -216,7 +241,7 @@ function msmAffine(scalars, inputPoints) {
  * @param {number[][][]} buckets
  * @param {{c: number, K: number, L: number}}
  */
-function reduceBucketsSimple(scratchSpace, buckets, { c, K, L }) {
+function reduceBucketsSimple(scratchSpace, buckets, { K, L }) {
   /**
    * @type {number[][]}
    */
@@ -247,54 +272,160 @@ function reduceBucketsSimple(scratchSpace, buckets, { c, K, L }) {
   }
   return partialSums;
 }
+
 /**
  * @param {number[]} scratch
  * @param {number[][][]} oldBuckets
  * @param {{c: number, K: number, L: number}}
  */
-function reduceBucketsAllAffine(scratch, oldBuckets, { c, K, L }) {
-  let depth = 2;
+function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
+  // depth = 0 is the standard algorithm, just batch-added over the K partitions
+  // the loops over d=0,..,D-1 reduce to one operation with d=0 in that case
+  let c0 = c - depth;
   let D = 2 ** depth;
   let n = D * K;
-  let L0 = 2 ** (c - depth); // == L/D
+  let L0 = 2 ** c0; // == L/D
   console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
-  let d = getPointers(n, sizeAffine);
-  let tmp = getPointers(n, sizeAffine);
+  let d = getPointers(K * L, sizeAffine);
+  let tmp = getPointers(K * L, sizeAffine);
 
-  // normalize the way buckets are stored -- we'll also store intermediate running sums there
+  // normalize the way buckets are stored -- we'll store intermediate running sums there
+  // just add new zero pointers here for empty buckets
   /** @type {number[][]} */
   let buckets = Array(K);
-  for (let k = 0, i = 0; k < K; k++) {
+  for (let k = 0; k < K; k++) {
     buckets[k] = Array(L);
-    for (let l = 1; l < L; l++, i++) {
-      buckets[k][l] = oldBuckets[k][l][0] ?? getPointers(1, sizeAffine);
+    for (let l = 1; l < L; l++) {
+      buckets[k][l] = oldBuckets[k][l][0] ?? getZeroPointer(sizeAffine);
     }
   }
 
   /** @type {number[]} */
   let runningSums = Array(n);
-
   /** @type {number[]} */
-  let nextSummands = Array(n);
+  let nextBuckets = Array(n);
 
-  for (let k = 0, i = 0; k < K; k++) {
-    for (let d = 0; d < D; d++, i++) {
-      runningSums[i] = buckets[k][d * L0 + L0 - 1];
-    }
-  }
-
+  // linear part of running sum computation / sums of the form x_(d*L0 + (L0-1)) + x(d*L0 + (L0-2)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 2; l > 0; l--) {
     // collect buckets to add into running sums
-    for (let k = 0, i = 0; k < K; k++) {
-      for (let d = 0; d < D; d++, i++) {
-        nextSummands[i] = buckets[k][d * L0 + l];
+    let p = 0;
+    for (let k = 0; k < K; k++) {
+      for (let d = 0; d < D; d++, p++) {
+        // if (k === 0) console.log("adding", d * L0 + l + 1, "into", d * L0 + l);
+        runningSums[p] = buckets[k][d * L0 + l + 1];
+        nextBuckets[p] = buckets[k][d * L0 + l];
       }
     }
-    // add them
-    batchAddAssign(scratch, tmp, d, nextSummands, runningSums, n);
-    runningSums = nextSummands;
+    console.assert(p === n);
+    // add them; we add-assign the running sum to the next bucket and not the other way;
+    // building up a list of intermediary partial sums at the pointers that were the buckets before
+    // console.log("input running sum", readAffine(buckets[0][172]));
+    batchAddAssign(scratch, tmp, d, nextBuckets, runningSums, n);
   }
+
+  // finish linear part at x_(d*L0), d = 1,...,D-1 (but not d=0 / the zero bucket)
+  // (for depth=0 this is all empty loops / no-ops)
+  let p = 0;
+  for (let k = 0; k < K; k++) {
+    for (let d = 1; d < D; d++, p++) {
+      runningSums[p] = buckets[k][d * L0 + 1];
+      nextBuckets[p] = buckets[k][d * L0];
+    }
+  }
+  console.assert(p === n - K);
+  if (D > 1) {
+    batchAddAssign(scratch, tmp, d, nextBuckets, runningSums, n - K);
+  }
+  // logarithmic part (i.e., logarithmic # of batchAdds / inversions; the # of EC adds is linear in K*D = K * 2^(c - c0))
+  // adding x_(d*2*L0) += x_(d*2*L0 + L0), d = 1,...,D/2-1,  x_(d*4*L0) += x_(d*4*L0 + 2*L0), d = 1,...,D/4-1, ...
+  // until x_(2**(depth-1) * L0) += x_(2**(depth-1)*L0 + 2**(depth-2)*L0)
+  // <===> x_(L/2) += x_(3L/4)
+  // iterate over L1 = 2^0*L0, 2^1*L0, ..., 2^(depth-2)*L0 (= L/4) and D1 = 2^(depth-1), 2^(depth-2), ..., 2^1
+  // (no-op if 2^(depth-1) <= 1 <===> depth = 0, 1)
+  let minorSums = runningSums;
+  let majorSums = nextBuckets;
+  for (let L1 = L0, D1 = D >> 1; D1 > 1; L1 <<= 1, D1 >>= 1) {
+    let p = 0;
+    for (let k = 0; k < K; k++) {
+      for (let d = 1; d < D1; d++, p++) {
+        minorSums[p] = buckets[k][(d * 2 + 1) * L1];
+        majorSums[p] = buckets[k][d * 2 * L1];
+      }
+    }
+    console.assert(p === K * (D1 - 1));
+    batchAddAssign(scratch, tmp, d, majorSums, minorSums, p);
+  }
+  // second logarithmic step: repeated doubling of some buckets until they hold square areas to fill up the triangle
+  // first, double x_(d*L0), d=1,...,D-1, c0 times, so they all hold 2^c0 * x_(d*L0)
+  // (no-op if depth=0 / D=1 / c0=c)
+  p = 0;
+  for (let k = 0; k < K; k++) {
+    for (let d = 1; d < D; d++, p++) {
+      minorSums[p] = buckets[k][d * L0];
+    }
+  }
+  console.assert(p === K * (D - 1));
+  if (D > 1) {
+    for (let j = 0; j < c0; j++) {
+      batchDoubleInPlace(scratch, tmp, d, minorSums, p);
+    }
+  }
+  // now, double successively smaller sets of buckets until the biggest is 2^(c-1) * x_(2^(c-1))
+  // x_(d*L0), d=2,4,...,D-2 / d=4,8,...,D-4 / ... / d=D/2 = 2^(c - c0 - 1)
+  // (no-op if depth = 0, 1)
+  for (let L1 = 2 * L0, D1 = D >> 1; D1 > 1; L1 <<= 1, D1 >>= 1) {
+    let p = 0;
+    for (let k = 0; k < K; k++) {
+      for (let d = 1; d < D1; d++, p++) {
+        majorSums[p] = buckets[k][d * L1];
+      }
+    }
+    batchDoubleInPlace(scratch, tmp, d, majorSums, p);
+  }
+
+  // alright! now our buckets precisely fill up the big triangle
+  // => sum them all in a big addition tree
+  // we always batchAddAssign a list of pairs into the first element of each pair
+  // round 0: (0,1), (2,3), (4,5), ..., (L-2, L-1); ((0,1) implicitly by setting x_0 := x_1)
+  //      === (l,l+1) for l=0; l<L; i+=2
+  // round 1: (l,l+2) for l=0; l<L; i+=4
+  // round j: let m=2^j; (l,l+m) for l=0; l<L; l+=2*m
+  // in the last round we want 1 pair (0, m=2^(c-1)), so we want m < 2**c = L
+
+  // zero round is separate bc we treat the (0,1) pair differently
+  let G = Array(K * L);
+  let H = Array(K * L);
+  p = 0;
+  for (let k = 0; k < K; k++) {
+    buckets[k][0] = buckets[k][1];
+    for (let l = 2; l < L; l += 2, p++) {
+      G[p] = buckets[k][l];
+      H[p] = buckets[k][l + 1];
+    }
+  }
+  console.assert(p === (K * L) / 2 - K);
+  batchAddAssign(scratch, tmp, d, G, H, p);
+
+  for (let m = 2; m < L; m *= 2) {
+    p = 0;
+    for (let k = 0; k < K; k++) {
+      for (let l = 0; l < L; l += 2 * m, p++) {
+        // if (k === 0) console.log("adding", l + m, "into", l);
+        G[p] = buckets[k][l];
+        H[p] = buckets[k][l + m];
+      }
+    }
+    console.assert(p === (K * L) / (2 * m));
+    batchAddAssign(scratch, tmp, d, G, H, p);
+  }
+
+  let partialSums = getZeroPointers(K, sizeProjective);
+  for (let k = 0; k < K; k++) {
+    if (isZeroAffine(buckets[k][0])) continue;
+    copyAffineToProjectiveNonZero(partialSums[k], buckets[k][0]);
+  }
+  return partialSums;
 }
 
 /**
@@ -331,8 +462,6 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
  *
  * Gi = Gi + Hi, i=0,...,n-1
  *
- * assuming all the Gi, Hi are non-zero
- *
  * @param {number[]} scratch
  * @param {number[]} tmp pointers of length n
  * @param {number[]} d pointers of length n
@@ -344,9 +473,13 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
   // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
 
   // check G, H for zero
-  let G1 = Array(n);
-  let H1 = Array(n);
-  let n1 = 0;
+  let iAdd = Array(n);
+  let iDouble = Array(n);
+  let nAdd = 0;
+  let nDouble = 0;
+  let nBoth = 0;
+  let dBoth = Array(n);
+
   for (let i = 0; i < n; i++) {
     if (isZeroAffine(G[i])) {
       copyAffine(G[i], H[i]);
@@ -355,16 +488,62 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
     if (isZeroAffine(H[i])) {
       continue;
     }
+    if (isEqual(G[i], H[i])) {
+      // TODO: handle y1 === -y2; right now we just assume y1 === y2
+      let y = G[i] + sizeField;
+      add(d[i], y, y); // TODO: efficient doubling
+      iDouble[nDouble] = i;
+      dBoth[nBoth] = d[i];
+      nDouble++, nBoth++;
+    } else {
+      // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+      // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
+      subtract(d[i], H[i], G[i]);
+      iAdd[nAdd] = i;
+      dBoth[nBoth] = d[i];
+      nAdd++, nBoth++;
+    }
+  }
+  batchInverseInPlace(scratch, tmp, dBoth, nBoth);
+  for (let j = 0; j < nAdd; j++) {
+    let i = iAdd[j];
+    // console.log("adding", i);
+    addAssignAffine(scratch, G[i], H[i], d[i]);
+  }
+  for (let j = 0; j < nDouble; j++) {
+    let i = iDouble[j];
+    doubleInPlaceAffine(scratch, G[i], d[i]);
+  }
+}
+
+/**
+ * Given points G0,...,G(n-1), compute
+ *
+ * Gi *= 2, i=0,...,n-1
+ *
+ * @param {number[]} scratch
+ * @param {number[]} tmp pointers of length n
+ * @param {number[]} d pointers of length n
+ * @param {AffinePoint[]} G
+ * @param {number} n
+ */
+function batchDoubleInPlace(scratch, tmp, d, G, n) {
+  // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
+
+  // check G for zero
+  let G1 = Array(n);
+  let n1 = 0;
+  for (let i = 0; i < n; i++) {
+    if (isZeroAffine(G[i])) continue;
     G1[n1] = G[i];
-    H1[n1] = H[i];
-    // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
-    // => batch affine doubling into G[p] for the y1 === x2 cases, setting G[p] zero for y1 === -y2
-    subtract(d[n1], H1[n1], G1[n1]);
+    // TODO: confirm that y === 0 can't happen, either bc 0 === x^3 + 4 has no solutions in the field or bc the (x,0) aren't in G1
+    let y = G1[n1] + sizeField;
+    add(d[n1], y, y); // TODO: efficient doubling
     n1++;
   }
   batchInverseInPlace(scratch, tmp, d, n1);
   for (let i = 0; i < n1; i++) {
-    addAssignAffine(scratch, G1[i], H1[i], d[i]);
+    doubleInPlaceAffine(scratch, G1[i], d[i]);
   }
 }
 
@@ -419,6 +598,35 @@ function addAssignAffine([m, tmp], G1, G2, d) {
   subtract(y1, x2, x1);
   multiply(y1, y1, m);
   subtract(y1, y1, y2);
+}
+
+/**
+ * affine EC doubling in place, G *= 2
+ * assuming d = 1/(2*y) is given, and inputs aren't zero
+ * @param {number[]} scratch
+ * @param {AffinePoint} G (x, y)
+ * @param {number} d 1/(2y)
+ */
+function doubleInPlaceAffine([m, tmp, x2, y2], G, d) {
+  numberOfDoubles++;
+  let [x, y] = affineCoords(G);
+
+  // m = 3*x^2*d
+  square(m, x);
+  add(tmp, m, m); // TODO efficient doubling
+  add(m, tmp, m);
+  multiply(m, d, m);
+  // x2 = m^2 - 2x
+  square(x2, m);
+  add(tmp, x, x); // TODO efficient doubling
+  subtract(x2, x2, tmp);
+  // y2 = (x - x2)*m - y
+  subtract(y2, x, x2);
+  multiply(y2, y2, m);
+  subtract(y2, y2, y);
+  // x,y = x2,y2
+  copy(x, x2);
+  copy(y, y2);
 }
 
 /**
@@ -588,6 +796,18 @@ function toAffineOutput([zinv, ...scratchSpace], P) {
   fromMontgomery(y);
   return [readBigInt(x), readBigInt(y)];
 }
+/**
+ * @param {number[]} scratchSpace
+ * @param {ProjectivePoint} point projective representation
+ */
+function toAffine([zinv, x1, y1, ...scratchSpace], P) {
+  let [x, y, z] = projectiveCoords(P);
+  // return x/z, y/z
+  inverse(scratchSpace, zinv, z);
+  multiply(x1, x, zinv);
+  multiply(y1, y, zinv);
+  return [mod(readBigInt(x1), p), mod(readBigInt(y1), p)];
+}
 
 /**
  * @param {ProjectivePoint} point projective representation
@@ -660,8 +880,8 @@ function readAffine(P) {
   let isZero = isZeroAffine(P);
   let [x, y] = affineCoords(P);
   return {
-    x: readBigInt(x),
-    y: readBigInt(y),
+    x: mod(readBigInt(x), p),
+    y: mod(readBigInt(y), p),
     isZero,
   };
 }
@@ -674,4 +894,119 @@ function readProjective(P) {
     z: readBigInt(z),
     isZero,
   };
+}
+function readProjectiveAsAffine(scratchSpace, P) {
+  let isZero = isZeroProjective(P);
+  if (isZero) {
+    let [x, y] = projectiveCoords(P);
+    return { x: readBigInt(x), y: readBigInt(y), isZero: true };
+  }
+  let [x1, y1] = toAffine(scratchSpace, P);
+  return { x: x1, y: y1, isZero };
+}
+
+// FOR DEBUGGING: non-batched affine addition
+
+/**
+ * @param {number[]} scratchSpace
+ * @param {number[][][]} buckets
+ * @param {{c: number, K: number, L: number}}
+ */
+function reduceBucketsSimpleAffine(scratchSpace, buckets, { c, K, L }) {
+  let runningSums = getZeroPointers(K, sizeAffine);
+  let partialSums = getZeroPointers(K, sizeAffine);
+
+  let xs = Array(L);
+
+  // sum up buckets to partial sums
+  for (let l = L - 1; l > 0; l--) {
+    for (let k = 0; k < K; k++) {
+      let bucket = buckets[k][l][0];
+      let runningSum = runningSums[k];
+      let partialSum = partialSums[k];
+      if (bucket === undefined) {
+        addAssignAffineFull(scratchSpace, partialSum, runningSum);
+      } else {
+        addAssignAffineFull(scratchSpace, runningSum, bucket);
+        addAssignAffineFull(scratchSpace, partialSum, runningSum);
+      }
+    }
+  }
+  let partialSumsProj = getZeroPointers(K, sizeProjective);
+  for (let k = 0; k < K; k++) {
+    let G = partialSums[k];
+    if (!isZeroAffine(G)) {
+      copyAffineToProjectiveNonZero(partialSumsProj[k], G);
+    }
+  }
+  return [partialSums, xs];
+}
+
+/**
+ * affine EC addition with assignment, G1 = G1 + G2
+ * @param {number[]} scratch
+ * @param {AffinePoint} G1 (x1, y1)
+ * @param {AffinePoint} G2 (x2, y2)
+ */
+function addAssignAffineFull([m, tmp, d, ...scratch], G1, G2) {
+  let [x1, y1] = affineCoords(G1);
+  let [x2, y2] = affineCoords(G2);
+  if (isZeroAffine(G1)) {
+    copyAffine(G1, G2);
+    return;
+  }
+  if (isZeroAffine(G2)) {
+    return;
+  }
+  if (isEqual(x1, x2)) {
+    if (isEqual(y1, y2)) {
+      doubleInPlaceAffineFull([m, tmp, d, ...scratch], G1);
+      return;
+    } else {
+      throw Error("y1 === -y2");
+    }
+  }
+  numberOfAdds++;
+  // m = (y2 - y1)/(x2 - x1)
+  subtract(tmp, x2, x1);
+  inverse(scratch, d, tmp);
+  subtract(m, y2, y1);
+  multiply(m, d, m);
+  // x1 = m^2 - x1 - x2
+  square(tmp, m);
+  subtract(x1, tmp, x1);
+  subtract(x1, x1, x2);
+  // y1 = (x2 - x1)*m - y2
+  subtract(y1, x2, x1);
+  multiply(y1, y1, m);
+  subtract(y1, y1, y2);
+}
+
+/**
+ * affine EC doubling in place, G *= 2
+ * @param {number[]} scratch
+ * @param {AffinePoint} G (x, y)
+ */
+function doubleInPlaceAffineFull([m, tmp, d, x2, y2, ...scratch], G) {
+  numberOfDoubles++;
+  let [x, y] = affineCoords(G);
+
+  // m = 3*x^2/2y
+  add(tmp, y, y);
+  inverse(scratch, d, tmp);
+  square(m, x);
+  add(tmp, m, m); // TODO efficient doubling
+  add(m, tmp, m);
+  multiply(m, d, m);
+  // x2 = m^2 - 2x
+  square(x2, m);
+  add(tmp, x, x); // TODO efficient doubling
+  subtract(x2, x2, tmp);
+  // y2 = (x - x2)*m - y
+  subtract(y2, x, x2);
+  multiply(y2, y2, m);
+  subtract(y2, y2, y);
+  // x,y = x2,y2
+  copy(x, x2);
+  copy(y, y2);
 }

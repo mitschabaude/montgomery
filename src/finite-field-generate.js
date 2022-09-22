@@ -86,6 +86,7 @@ async function createFiniteField(p, w, wasm) {
   );
 
   let pPlus1Div4 = bigintToBits((p + 1n) / 4n, 381);
+  let numberOfInversions = 0;
 
   /**
    * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
@@ -96,6 +97,7 @@ async function createFiniteField(p, w, wasm) {
    */
   function inverse(scratch, r, a) {
     if (isZero(a)) throw Error("cannot invert 0");
+    numberOfInversions++;
     reduce(a);
     let k = almostInverseMontgomery(scratch, r, a);
     // TODO: negation -- special case which is simpler
@@ -229,6 +231,16 @@ async function createFiniteField(p, w, wasm) {
      */
     sqrt,
     benchInverse,
+    getInversions() {
+      return numberOfInversions;
+    },
+    getAndResetOpCounts() {
+      let nMul = wasm.multiplyCount.valueOf();
+      let nInv = numberOfInversions;
+      wasm.resetMultiplyCount();
+      numberOfInversions = 0;
+      return [nMul, nInv];
+    },
   };
 }
 
@@ -1166,6 +1178,7 @@ function montgomeryParams(p, w) {
 function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
   let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
   let nPackedBytes = Math.ceil(lengthP / 8);
+  let memoryBytes = new Uint8Array(memory.buffer);
   let obj = {
     n,
     R,
@@ -1199,6 +1212,15 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
     offset: 0,
 
     /**
+     * @param {number} size size of pointer (default: one field element)
+     */
+    getPointer(size = n * 8) {
+      let pointer = obj.offset;
+      obj.offset += size;
+      return pointer;
+    },
+
+    /**
      * @param {number} N
      * @param {number} size size per pointer (default: one field element)
      */
@@ -1226,6 +1248,17 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
     },
 
     /**
+     * @param {number} size size of pointer (default: one field element)
+     */
+    getZeroPointer(size = n * 8) {
+      let offset = obj.offset;
+      let pointer = obj.offset;
+      memoryBytes.fill(0, offset, offset + size);
+      obj.offset = offset + size;
+      return pointer;
+    },
+
+    /**
      * @param {number} N
      * @param {number} size size per pointer (default: one field element)
      */
@@ -1246,6 +1279,10 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
 
     resetPointers() {
       obj.offset = obj.initial;
+    },
+
+    getOffset() {
+      return obj.offset;
     },
 
     /**

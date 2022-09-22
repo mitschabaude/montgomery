@@ -25,6 +25,7 @@ export {
   writeBigint,
   readBigInt,
   copy,
+  getPointer,
   getPointers,
   resetPointers,
   readBytes,
@@ -32,9 +33,13 @@ export {
   benchMultiply,
   benchInverse,
   n,
+  w,
   memory,
   memoryBytes,
+  getZeroPointer,
   getZeroPointers,
+  getOffset,
+  getAndResetOpCounts,
 };
 let {
   constants,
@@ -46,6 +51,7 @@ let {
   writeBigint,
   readBigInt,
   copy,
+  getPointer,
   getPointers,
   resetPointers,
   readBytes,
@@ -55,7 +61,10 @@ let {
   benchInverse,
   n,
   memory,
+  getZeroPointer,
   getZeroPointers,
+  getOffset,
+  getAndResetOpCounts,
 } = await createFiniteField(p, w, wasm);
 let memoryBytes = new Uint8Array(memory.buffer);
 

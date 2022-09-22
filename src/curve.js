@@ -1,4 +1,5 @@
 // all this is specialized to G1 of BLS12-381
+// EC equation: y^2 === x^3 + 4
 // x, y and z are pointers to wasm memory, i.e. integers
 // they point to n legs of 64 bit each which represent numbers modulo 2p, and only w bits of each leg is filled
 // multiply preserves those properties

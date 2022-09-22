@@ -40,16 +40,17 @@ let timeInv = toc();
 let invPerSec = Math.round(nInvRaw / timeInv);
 let mulPerInv = mPerSec / invPerSec;
 
-let n = process.argv[2] ?? 14;
+let n = Number(process.argv[2] ?? 14);
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("load inputs & convert to rust");
 let points, scalars;
-if (n >= 15) {
+if (true) {
   let result = await load(n);
   points = result.points;
   scalars = result.scalars;
 } else {
+  // TODO: doesn't work
   points = randomCurvePoints(2 ** n);
   scalars = randomScalars(2 ** n);
 }
@@ -72,12 +73,12 @@ let ref = toc();
 # muls:
   stage 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
   stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
-  total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
+  total:   ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 `);
 }
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3 } = msmAffine(scalars, points);
+let { nMul1, nMul2, nMul3, nInv } = msmAffine(scalars, points);
 let ours = toc();
 
 let nMul = nMul1 + nMul2 + nMul3;
@@ -87,7 +88,12 @@ console.log(`
 # muls:
   stage 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
   stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
-  total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
+  total:   ${(1e-6 * nMul).toFixed(3).padStart(6)} M
+
+# inv:     ${(1e-3 * nInv).toFixed(3).padStart(6)} K
+        ~= ${(1e-6 * mulPerInv * nInv).toFixed(3).padStart(6)} M
+
+~total     ${(1e-6 * (mulPerInv * nInv + nMul)).toFixed(3).padStart(6)} M
 
 raw muls / s: ${(1e-6 * mPerSec).toFixed(2)} M
 non-mul overhead: ${(100 * nonMulOverhead).toFixed(1)}%
