@@ -47,7 +47,7 @@ let numberOfAdds = 0;
 let numberOfDoubles = 0;
 
 let cTable = {
-  [14]: [11, 4],
+  [14]: [12, 5],
 };
 
 /**
@@ -59,15 +59,18 @@ function msmAffine(scalars, inputPoints) {
   // initialize buckets
   let N = scalars.length;
 
-  let c = log2(N) - 3; // TODO: determine c from n and hand-optimized lookup table
+  let c = log2(N) - 2; // TODO: determine c from n and hand-optimized lookup table
   if (c < 1) c = 1;
   let depth = c >> 1;
   [c, depth] = cTable[log2(N)] ?? [c, depth];
 
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
-  let L = 2 ** c; // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
+  let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
+  let doubleL = 2 * L;
+
   let points = getPointers(N, sizeAffine); // initialize points
+  let negPoints = getPointers(N, sizeAffine); // initialize points
 
   // a bucket is an array of pointers that will gradually get accumulated into the first element
   // initialize a L*K matrix of buckets
@@ -97,24 +100,34 @@ function msmAffine(scalars, inputPoints) {
     let scalar = scalars[i];
     let inputPoint = inputPoints[i];
     let point = points[i];
+    let negPoint = negPoints[i];
     // convert point to montgomery
     let x = point;
     let y = point + sizeField;
-    memoryBytes[point + 2 * sizeField] = Number(!inputPoint[2]);
     writeBytes(scratchSpace, x, inputPoint[0]);
     writeBytes(scratchSpace, y, inputPoint[1]);
+    memoryBytes[point + 2 * sizeField] = Number(!inputPoint[2]);
     toMontgomery(x);
     toMontgomery(y);
+    copy(negPoint, x);
+    subtract(negPoint + sizeField, constants.p, y); // TODO efficient negation
+    memoryBytes[negPoint + 2 * sizeField] = Number(!inputPoint[2]);
 
     // partition 32-byte scalar into c-bit chunks
-    let halfLength = 2 ** (c - 1);
+    let carry = 0;
     for (let k = 0; k < K; k++) {
       // compute k-th digit from scalar
-      let l = extractBitSlice(scalar, k * c, c);
+      let l = extractBitSlice(scalar, k * c, c) + carry;
+      if (l > L) {
+        l = doubleL - l;
+        carry = 1;
+      } else {
+        carry = 0;
+      }
       if (l === 0) continue;
       // add point to bucket
       let bucket = buckets[k][l];
-      bucket.push(point);
+      bucket.push(carry === 1 ? negPoint : point);
       let bucketSize = bucket.length;
       if ((bucketSize & 1) === 0) nPairs++;
       if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
