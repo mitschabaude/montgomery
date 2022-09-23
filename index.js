@@ -43,6 +43,14 @@ let mulPerInv = mPerSec / invPerSec;
 let n = Number(process.argv[2] ?? 14);
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
+tic("warm-up JIT compiler with fixed set of points");
+{
+  let { points, scalars } = await load(14);
+  msm(scalars, points);
+  msmAffine(scalars, points);
+}
+toc();
+
 tic("load inputs & convert to rust");
 let points, scalars;
 if (true) {

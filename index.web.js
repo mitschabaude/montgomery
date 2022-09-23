@@ -17,18 +17,25 @@ import {
 let n = 14;
 console.log(`running msm with 2^${n} inputs`);
 
+tic("warm-up JIT compiler with fixed set of points");
+{
+  let { points, scalars } = await load(12);
+  msmAffine(scalars, points);
+}
+toc();
+
 // benchmark raw mod mul
 let x0 = randomBaseFieldx2();
 let x = getPointer();
 writeBigint(x, x0);
-let nMulRaw = 1e7;
+let nMulRaw = 1e6;
 tic("raw mul x 10M");
 benchMultiply(x, nMulRaw);
 let timeMul = toc();
 let mPerSec = Math.round(nMulRaw / timeMul);
 
 // benchmark inverse
-let nInvRaw = 5e4;
+let nInvRaw = 5e3;
 tic("raw inv x 50K");
 benchInverse(nInvRaw);
 let timeInv = toc();
