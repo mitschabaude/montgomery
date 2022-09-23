@@ -11,12 +11,12 @@ import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
-  getPointers,
   randomBaseFieldx2,
   randomScalars,
   writeBigint,
   benchMultiply,
   benchInverse,
+  getPointer,
 } from "./src/finite-field.js";
 import { msmAffine } from "./src/curve-affine.js";
 // web crypto compat
@@ -24,7 +24,7 @@ globalThis.crypto = webcrypto;
 
 // benchmark raw mod mul
 let x0 = randomBaseFieldx2();
-let x = getPointers(1);
+let x = getPointer();
 writeBigint(x, x0);
 let nMulRaw = 1e7;
 tic("raw mul x 10M");

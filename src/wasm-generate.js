@@ -157,6 +157,7 @@ function getOperations() {
     global64Mut: (name, value) =>
       op("global")(name, "(mut i64)", i64.const(value)),
     br_if: op("br_if"),
+    br: op("br"),
     param: op("param"),
     param32: (name) => op("param")(name, "i32"),
     param64: (name) => op("param")(name, "i64"),

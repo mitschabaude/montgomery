@@ -8,6 +8,7 @@ import {
   forLoop8,
   func,
   if_,
+  loop,
   module,
   ops,
   Writer,
@@ -50,6 +51,7 @@ async function createFiniteField(p, w, wasm) {
     makeOdd,
     copy,
     isEqual,
+    shiftTogether1,
   } = wasm;
   let helpers = jsHelpers(p, w, wasm);
   let { readBigInt, writeBigint, getPointers, getStablePointers } = helpers;
@@ -140,15 +142,18 @@ async function createFiniteField(p, w, wasm) {
     copy(r, constants.zero);
     copy(s, constants.one);
     let k = 0;
-    for (; !isZero(v); ) {
-      k += makeOdd(u, s);
-      k += makeOdd(v, r);
+    k += makeOdd(u, s);
+    k += makeOdd(v, r);
+    while (true) {
       if (isGreater(u, v)) {
         subtractNoReduce(u, u, v);
         addNoReduce(r, r, s);
+        k += makeOdd(u, s);
       } else {
         subtractNoReduce(v, v, u);
         addNoReduce(s, r, s);
+        if (isZero(v)) break;
+        k += makeOdd(v, r);
       }
     }
     // TODO: this works without r << 1 at the end because k is also not incremented
@@ -669,32 +674,55 @@ function reduce(writer, p, w, d = 1) {
  */
 function makeOdd(writer, p, w) {
   let { n, wordMax } = montgomeryParams(p, w);
-  let { line, lines, join, comment } = writer;
-  let { i64, i32, local, local64, param32, result32, memory, return_, call } =
-    ops;
+  let { line, lines, comment } = writer;
+  let {
+    i64,
+    i32,
+    local,
+    local64,
+    param32,
+    result32,
+    memory,
+    return_,
+    br_if,
+    br,
+  } = ops;
 
   let [u, s, k, l, tmp] = ["$u", "$s", "$k", "$l", "$tmp"];
 
   addFuncExport(writer, "makeOdd");
+  // idea: we could do a (faster?) constant shift here if k === 1 or 2
+  // (the most common case)
   func(writer, "makeOdd", [param32(u), param32(s), result32], () => {
     line(local64(k), local64(l), local64(tmp));
 
-    lines(
-      // k = count_trailing_zeros(u[0])
-      local.tee(k, i64.ctz(i64.load(u))),
-      // if it's 64 (i.e., u[0] === 0), shift by a whole word and call this function again
-      // (note: u is not supposed to be 0, so u[0] = 0 implies that u is divisible by 2^w),
-      join(i64.const(64), i64.eq())
-    );
+    // k = count_trailing_zeros(u[0])
+    lines(local.set(k, i64.ctz(i64.load(u))), i64.eqz(k));
     if_(writer, () => {
-      lines(
-        //
-        call("shiftByWord", local.get(u), local.get(s)),
-        call("makeOdd", local.get(u), local.get(s)), // returns k'
-        join(i32.const(w), i32.add()), // k = k' + w
-        return_()
-      );
+      lines(i32.const(0), return_());
     });
+    block(writer, () => {
+      // while k === 64 (i.e., u[0] === 0), shift by whole words
+      // (note: u is not supposed to be 0, so u[0] = 0 implies that u is divisible by 2^w)
+      loop(writer, () => {
+        lines(
+          br_if(1, i64.ne(k, 64)),
+
+          // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
+          memory.copy(local.get(u), i32.add(u, 8), i32.const((n - 1) * 8)),
+          // u[n-1] = 0
+          i64.store(u, 0, { offset: 8 * (n - 1) }),
+          // copy s[0],...,u[n-2] --> s[1],...,s[n-1]
+          memory.copy(i32.add(s, 8), local.get(s), i32.const((n - 1) * 8)),
+          // s[0] = 0
+          i64.store(s, 0),
+
+          local.set(k, i64.ctz(i64.load(u))),
+          br(0)
+        );
+      });
+    });
+
     // here we know that k \in 0,...,w-1
     // l = w - k
     line(local.set(l, i64.sub(w, k)));
@@ -737,19 +765,49 @@ function makeOdd(writer, p, w) {
     line(i32.wrap_i64(local.get(k)));
   });
 
-  addFuncExport(writer, "shiftByWord");
-  func(writer, "shiftByWord", [param32(u), param32(s)], () => {
-    lines(
-      // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
-      memory.copy(local.get(u), i32.add(u, 8), i32.const((n - 1) * 8)),
-      // u[n-1] = 0
-      i64.store(u, 0, { offset: 8 * (n - 1) }),
-      // copy s[0],...,u[n-2] --> s[1],...,s[n-1]
-      memory.copy(i32.add(s, 8), local.get(s), i32.const((n - 1) * 8)),
-      // s[0] = 0
-      i64.store(s, 0)
-    );
-  });
+  // doing the constant 1 shift + a variable shift (which then is often a no-op)
+  // turns out to be slower than just doing the variable shift right away
+  // addFuncExport(writer, "shiftTogether1");
+  // func(writer, "shiftTogether1", [param32(u), param32(s)], () => {
+  //   line(local64(tmp));
+  //   let k = 1;
+  //   let l = w - 1;
+  //   comment("u >> 1");
+  //   // for (let i = 0; i < n-1; i++) {
+  //   //   u[i] = (u[i] >> 1) | ((u[i + 1] << l) & wordMax);
+  //   // }
+  //   // u[n-1] = u[n-1] >> k;
+  //   line(local.set(tmp, i64.load(u)));
+  //   for (let i = 0; i < n - 1; i++) {
+  //     lines(
+  //       local.get(u),
+  //       i64.shr_u(tmp, k),
+  //       i64.and(
+  //         i64.shl(local.tee(tmp, i64.load(u, { offset: 8 * (i + 1) })), l),
+  //         wordMax
+  //       ),
+  //       i64.or(),
+  //       i64.store("", "", { offset: 8 * i })
+  //     );
+  //   }
+  //   line(i64.store(u, i64.shr_u(tmp, k), { offset: 8 * (n - 1) }));
+  //   comment("s << 1");
+  //   // for (let i = 10; i >= 0; i--) {
+  //   //   s[i+1] = (s[i] >> l) | ((s[i+1] << k) & wordMax);
+  //   // }
+  //   // s[0] = (s[0] << k) & wordMax;
+  //   line(local.set(tmp, i64.load(s, { offset: 8 * (n - 1) })));
+  //   for (let i = n - 2; i >= 0; i--) {
+  //     lines(
+  //       local.get(s),
+  //       i64.and(i64.shl(tmp, k), wordMax),
+  //       i64.shr_u(local.tee(tmp, i64.load(s, { offset: 8 * i })), l),
+  //       i64.or(),
+  //       i64.store(null, null, { offset: 8 * (i + 1) })
+  //     );
+  //   }
+  //   line(i64.store(s, i64.and(i64.shl(tmp, k), wordMax)));
+  // });
 }
 
 /**

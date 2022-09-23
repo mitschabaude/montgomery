@@ -47,7 +47,7 @@ let numberOfAdds = 0;
 let numberOfDoubles = 0;
 
 let cTable = {
-  [14]: [11, 5],
+  [14]: [11, 4],
 };
 
 /**
@@ -285,7 +285,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   let D = 2 ** depth;
   let n = D * K;
   let L0 = 2 ** c0; // == L/D
-  console.log(`doing ${D} * ${K} = ${n} adds at a time`);
+  // console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
   let d = getPointers(K * L, sizeAffine);
   let tmp = getPointers(K * L, sizeAffine);
