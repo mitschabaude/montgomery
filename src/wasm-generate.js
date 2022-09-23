@@ -120,6 +120,8 @@ function getOperations() {
       mul: iOp("mul"),
       add: iOp("add"),
       sub: iOp("sub"),
+      div_u: iOp("div_u"),
+      rem_u: iOp("rem_u"),
       and: iOp("and"),
       or: iOp("or"),
       not: iOp("not"),
@@ -134,7 +136,7 @@ function getOperations() {
       clz: iOp("clz"),
     };
   }
-  let i64 = int(64);
+  let i64 = { ...int(64), extend_i32_u: op("i64.extend_i32_u") };
   let i32 = { ...int(32), wrap_i64: op("i32.wrap_i64") };
   return {
     i64,
@@ -158,6 +160,7 @@ function getOperations() {
       op("global")(name, "(mut i64)", i64.const(value)),
     br_if: op("br_if"),
     br: op("br"),
+    drop: op("drop"),
     param: op("param"),
     param32: (name) => op("param")(name, "i32"),
     param64: (name) => op("param")(name, "i64"),

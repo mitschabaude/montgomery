@@ -6,6 +6,7 @@ import {
   makeOdd,
   copy,
   isEqual,
+  leftShift,
 } from "./src/finite-field.wat.js";
 import {
   p,
@@ -18,10 +19,13 @@ import {
   readBigInt,
   toMontgomery,
   getPointers,
+  w,
+  n,
 } from "./src/finite-field.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
 import { batchInverseInPlace } from "./src/curve-affine.js";
+import { modInverse } from "./src/finite-field-js.js";
 // web crypto compat
 globalThis.crypto = webcrypto;
 
@@ -36,6 +40,9 @@ function ofWasm([tmp], x) {
 }
 
 let [x, y, z, ...scratch] = getPointers(10);
+
+let R = mod(1n << BigInt(w * n), p);
+let Rinv = modInverse(R, p);
 
 function test() {
   let x0 = randomBaseFieldx2();
@@ -60,6 +67,14 @@ function test() {
   square(z, x);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("square");
+
+  // leftShift
+  let k = 97;
+  z0 = 1n << BigInt(k);
+  // computes R^2 * 2^k / R = 2^k R, which is 2^k in montgomery form
+  leftShift(z, constants.R2, k);
+  z1 = ofWasm(scratch, z);
+  if (z1 !== z0) throw Error("leftShift");
 
   // add
   z0 = mod(x0 + y0, p);

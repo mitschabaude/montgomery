@@ -51,6 +51,7 @@ async function createFiniteField(p, w, wasm) {
     makeOdd,
     copy,
     isEqual,
+    leftShift,
     shiftTogether1,
   } = wasm;
   let helpers = jsHelpers(p, w, wasm);
@@ -112,10 +113,7 @@ async function createFiniteField(p, w, wasm) {
     // n <= k+1 <= 2N, so that 0 <= 2N-(k+1) <= N, so that
     // 1 <= 2^(2N-(k+1)) <= 2^N < 2p
     // (in practice, k seems to be normally distributed around ~1.4N and never reach either N or 2N)
-    let l = BigInt(2 * N - (k + 1));
-    let [twoL] = scratch;
-    writeBigint(twoL, 1n << l);
-    multiply(r, r, twoL); // * 2^(2N - (k+1)) * 2^(-K)
+    leftShift(r, r, 2 * N - (k + 1)); // * 2^(2N - (k+1)) * 2^(-K)
 
     // now we multiply by 2^(2(K + K-N) + 1))
     multiply(r, r, constants.R2corr); // * 2^(2K + 2(K-n) + 1) * 2^(-K)
@@ -456,6 +454,120 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     }
     line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
   });
+
+  let [k] = ["$k"];
+
+  // multiplication by 2^k < 2p
+  // TODO: this could be at least 50% faster, but probably not worth it
+  // (all the multiplications by 0 and corresponding adds / carries can be saved,
+  // the if loop should only go to (w*n-k) // n, and just do one final round
+  // of flexible reduction by 2^(w*n-k % n))
+  addFuncExport(writer, "leftShift");
+  func(writer, "leftShift", [param32(xy), param32(y), param32(k)], () => {
+    let [tmp] = ["$tmp"];
+    let [i, xi, xi0, qi, i0] = ["$i", "$xi", "$xi0", "$qi", "$i0"];
+
+    // locals
+    line(local64(tmp));
+    line(local64(qi), local64(xi), local32(i), local32(i0), local32(xi0));
+    let Y = defineLocals(writer, "y", n);
+    let S = defineLocals(writer, "t", n);
+
+    // load y
+    for (let i = 0; i < n; i++) {
+      line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+    }
+    // figure out the value of i0, xi0 where 2^k has its bit set
+    lines(
+      // i0 = k // w, xi0 = 2^(k % w) = 2^(k - i0*w)
+      local.set(i0, i32.div_u(k, w)),
+      local.set(xi0, i32.shl(1, i32.rem_u(k, w))),
+      // local.set(xi0, i32.shl(1, i32.sub(k, i32.mul(i0, w)))),
+      local.set(i0, i32.mul(i0, 8))
+    );
+
+    forLoop8(writer, i, 0, n, () => {
+      // compute x[i]
+      line(local.set(xi, i64.extend_i32_u(i32.mul(i32.eq(i, i0), xi0))));
+
+      // j=0, compute q_i
+      let didCarry = false;
+      let doCarry = 0 % nSafeSteps === 0;
+      comment("j = 0, do carry, ignore result below carry");
+      lines(
+        // tmp = S[0] + x[i]*y[0]
+        local.get(S[0]),
+        i64.mul(xi, Y[0]),
+        i64.add(),
+        // qi = mu * (tmp & wordMax) & wordMax
+        local.set(tmp),
+        local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
+        local.get(tmp),
+        // (stack, _) = tmp + qi*p[0]
+        i64.mul(qi, P[0]),
+        i64.add(),
+        join(i64.const(w), i64.shr_u()) // we just put carry on the stack, use it later
+      );
+
+      for (let j = 1; j < n - 1; j++) {
+        // S[j] + x[i]*y[j] + qi*p[j], or
+        // stack + S[j] + x[i]*y[j] + qi*p[j]
+        // ... = S[j-1], or  = (stack, S[j-1])
+        didCarry = doCarry;
+        doCarry = j % nSafeSteps === 0;
+        comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+        lines(
+          local.get(S[j]),
+          didCarry && i64.add(), // add carry from stack
+          i64.mul(xi, Y[j]),
+          i64.add(),
+          i64.mul(qi, P[j]),
+          i64.add(),
+          doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
+          doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
+          local.set(S[j - 1])
+        );
+      }
+      let j = n - 1;
+      didCarry = doCarry;
+      doCarry = j % nSafeSteps === 0;
+      comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+      if (doCarry) {
+        lines(
+          local.get(S[j]),
+          didCarry && i64.add(), // add carry from stack
+          i64.mul(xi, Y[j]),
+          i64.add(),
+          i64.mul(qi, P[j]),
+          i64.add(),
+          doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
+          doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
+          local.set(S[j - 1])
+        );
+        // if the last iteration does a carry, S[n-1] is set to it
+        lines(local.set(S[j]));
+      } else {
+        // if the last iteration doesn't do a carry, then S[n-1] is never set,
+        // so we also don't have to get it & can save 1 addition
+        lines(
+          i64.mul(xi, Y[j]),
+          didCarry && i64.add(), // add carry from stack
+          i64.mul(qi, P[j]),
+          i64.add(),
+          local.set(S[j - 1])
+        );
+      }
+    });
+    // outside i loop: final pass of collecting carries
+    comment("final carrying & storing");
+    for (let j = 1; j < n; j++) {
+      lines(
+        i64.store(xy, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
+        local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
+      );
+    }
+    line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
+  });
 }
 
 /**
@@ -691,7 +803,6 @@ function makeOdd(writer, p, w) {
   let [u, s, k, l, tmp] = ["$u", "$s", "$k", "$l", "$tmp"];
 
   addFuncExport(writer, "makeOdd");
-  // idea: we could do a (faster?) constant shift here if k === 1 or 2
   // (the most common case)
   func(writer, "makeOdd", [param32(u), param32(s), result32], () => {
     line(local64(k), local64(l), local64(tmp));
