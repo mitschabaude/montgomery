@@ -19,8 +19,8 @@ import { bigintFromBytes } from "./src/util.js";
 globalThis.crypto = webcrypto;
 
 let N = 1e7;
-// for (let w of [24, 26, 28, 30]) {
-for (let w of [28]) {
+for (let w of [24, 26, 28, 30]) {
+  // for (let w of [28]) {
   await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
   let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
   let ff = await createFiniteField(p, w, wasm);
@@ -92,7 +92,6 @@ function testCorrectness(
     isZero,
     isGreater,
     makeOdd,
-    shiftByWord,
     inverse,
     R,
     writeBigint,
@@ -156,15 +155,6 @@ function testCorrectness(
       if (isGreater(x, z) !== 0) throw Error("bad isGreater");
     }
     if (makeOdd) {
-      // shiftByWord
-      let wn = BigInt(w);
-      writeBigint(x, (x0 >> 120n) << 120n);
-      writeBigint(z, 1n);
-      shiftByWord(x, z);
-      if (readBigInt(x) !== (x0 >> 120n) << (120n - wn))
-        throw Error("bad shiftByWord");
-      if (readBigInt(z) !== 1n << wn) throw Error("bad shiftByWord");
-
       // makeOdd
       let m = 117;
       writeBigint(x, 5n << BigInt(m));

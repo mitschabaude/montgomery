@@ -99,7 +99,7 @@ console.log(`
   total:   ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 
 # inv:     ${(1e-3 * nInv).toFixed(3).padStart(6)} K
-        ~= ${(1e-6 * mulPerInv * nInv).toFixed(3).padStart(6)} M
+  ~= muls  ${(1e-6 * mulPerInv * nInv).toFixed(3).padStart(6)} M
 
 ~total     ${(1e-6 * (mulPerInv * nInv + nMul)).toFixed(3).padStart(6)} M
 

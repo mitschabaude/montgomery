@@ -93,26 +93,29 @@ function blockOp(name) {
 }
 
 function getOperations() {
+  function constOp(bits, a) {
+    let op_ = op(`i${bits}.const`);
+    if (typeof a === "string" || a <= 255) return op_(String(a));
+    return op_(`0x` + a.toString(16));
+  }
+  function mapArgs(bits, args) {
+    return args.map((a) =>
+      typeof a === "number" || typeof a === "bigint"
+        ? constOp(bits, a)
+        : typeof a === "string" && a[0] === "$"
+        ? op("local.get")(a)
+        : a
+    );
+  }
+  function mappedArgs(bits, op) {
+    return (...args) => op(...mapArgs(bits, args));
+  }
   function int(bits) {
-    let constOp = (a) => {
-      let op_ = op(`i${bits}.const`);
-      if (typeof a === "string" || a <= 255) return op_(String(a));
-      return op_(`0x` + a.toString(16));
-    };
-    let mapArgs = (args) =>
-      args.map((a) =>
-        typeof a === "number" || typeof a === "bigint"
-          ? constOp(a)
-          : typeof a === "string" && a[0] === "$"
-          ? op("local.get")(a)
-          : a
-      );
     function iOp(name) {
-      let op_ = op(`i${bits}.${name}`);
-      return (...args) => op_(...mapArgs(args));
+      return mappedArgs(bits, op(`i${bits}.${name}`));
     }
     return {
-      const: constOp,
+      const: (a) => constOp(bits, a),
       load: (from, { offset = 0 } = {}) =>
         iOp("load")(`offset=${offset}`, from),
       store: (to, value, { offset = 0 } = {}) =>
@@ -136,7 +139,12 @@ function getOperations() {
       clz: iOp("clz"),
     };
   }
-  let i64 = { ...int(64), extend_i32_u: op("i64.extend_i32_u") };
+  let i64 = {
+    ...int(64),
+    extend_i32_u: op("i64.extend_i32_u"),
+    load32_u: (from, { offset = 0 } = {}) =>
+      mappedArgs(64, op("i64.load32_u"))(`offset=${offset}`, from),
+  };
   let i32 = { ...int(32), wrap_i64: op("i32.wrap_i64") };
   return {
     i64,
