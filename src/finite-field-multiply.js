@@ -198,8 +198,8 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
    *
    * this works only if 3 terms can be added without carry!
    */
-  let [out, z, carry] = ["$out", "$z", "$carry"];
-  function square(withSubtractions = false) {
+  let [out] = ["$out"];
+  function square() {
     // locals
     line(local64(tmp));
     line(local64(qi));
@@ -227,19 +227,6 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
         ...(i === 0
           ? [i64.mul(X[0], X[0])]
           : [local.get(S[0]), i64.shl(i64.mul(X[i], X[0]), 1), i64.add()]),
-        withSubtractions &&
-          (i === 0 ? i64.const(P4[i] + 2n) : i64.const(P4[i])),
-        withSubtractions && i64.add(),
-        withSubtractions &&
-          (i < n - 1
-            ? i64.sub(wordMax, i64.load(y, { offset: 8 * i }))
-            : i64.sub(-1, i64.load(y, { offset: 8 * i }))),
-        withSubtractions && i64.add(),
-        withSubtractions &&
-          (i < n - 1
-            ? i64.sub(wordMax, i64.load(z, { offset: 8 * i }))
-            : i64.sub(-1, i64.load(z, { offset: 8 * i }))),
-        withSubtractions && i64.add(),
         // qi = mu * (tmp & wordMax) & wordMax
         local.set(tmp),
         local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
@@ -313,14 +300,6 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
 
   addFuncExport(writer, "square");
   func(writer, "square", [param32(out), param32(x)], () => square(false));
-
-  addFuncExport(writer, "squareSubtractSubtract");
-  func(
-    writer,
-    "squareSubtractSubtract",
-    [param32(out), param32(x), param32(y), param32(z)],
-    () => square(true)
-  );
 
   let [k] = ["$k"];
 
