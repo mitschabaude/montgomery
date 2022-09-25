@@ -7,6 +7,7 @@ import {
   copy,
   isEqual,
   leftShift,
+  square,
   squareSubtractSubtract,
 } from "./src/finite-field.wat.js";
 import {
@@ -14,7 +15,6 @@ import {
   constants,
   mod,
   inverse,
-  square,
   randomBaseFieldx2,
   writeBigint,
   readBigInt,
@@ -37,10 +37,10 @@ function toWasm(x0, x) {
 function ofWasm([tmp], x) {
   multiply(tmp, x, constants.one);
   reduce(tmp);
-  return readBigInt(tmp);
+  return mod(readBigInt(tmp), p);
 }
 
-let [x, y, z, ...scratch] = getPointers(10);
+let [x, y, z, tmp, ...scratch] = getPointers(10);
 
 let R = mod(1n << BigInt(w * n), p);
 let Rinv = modInverse(R, p);
@@ -70,8 +70,8 @@ function test() {
   if (z0 !== z1) throw Error("square");
 
   // // squareSubtractSubtract
-  // z0 = mod(x0 * x0, p);
-  // squareSubtractSubtract(z, x, constants.zero, constants.zero);
+  // z0 = mod(x0 * x0 - y0 - y0, p);
+  // squareSubtractSubtract(z, x, y, y);
   // z1 = ofWasm(scratch, z);
   // if (z0 !== z1) throw Error("squareSubtractSubtract");
 

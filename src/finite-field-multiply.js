@@ -198,40 +198,48 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
    *
    * this works only if 3 terms can be added without carry!
    */
-  let [out, z] = ["$out", "$z"];
-  addFuncExport(writer, "squareSubtractSubtract");
-  func(
-    writer,
-    "squareSubtractSubtract",
-    [param32(out), param32(x), param32(y), param32(z)],
-    () => {
-      // locals
-      line(local64(tmp));
-      line(local64(qi));
-      let X = defineLocals(writer, "x", n);
-      let S = defineLocals(writer, "t", n);
+  let [out, z, carry] = ["$out", "$z", "$carry"];
+  function square(withSubtractions = false) {
+    // locals
+    line(local64(tmp));
+    line(local64(qi));
+    let X = defineLocals(writer, "x", n);
+    let S = defineLocals(writer, "t", n);
 
-      if (countMultiplications) {
-        line(global.set(multiplyCount, i32.add(global.get(multiplyCount), 1)));
-      }
+    if (countMultiplications) {
+      line(global.set(multiplyCount, i32.add(global.get(multiplyCount), 1)));
+    }
 
-      // load x
-      for (let i = 0; i < n; i++) {
-        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
-      }
+    // load x
+    for (let i = 0; i < n; i++) {
+      line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+    }
 
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      // j=0, compute q_i
+      let j = 0;
       let didCarry = false;
-      let doCarry = 0 % nSafeSteps === 0;
-      comment("i = j = 0, do carry, ignore result below carry");
+      let doCarry = 0 % nSafeStepsSquare === 0;
+      comment("j = 0, subtract y and z, do carry, ignore result below carry");
       lines(
-        // tmp = x[0]*x[0] + 4p[0] + y'[0] + z'[0] + 2
-        i64.mul(X[0], X[0]),
-        i64.const(P4[0] + 2n),
-        i64.add(),
-        i64.sub(wordMax, i64.load(y, { offset: 0 })),
-        i64.add(),
-        i64.sub(wordMax, i64.load(z, { offset: 0 })),
-        i64.add(),
+        // tmp = S[i] + 2*x[0]*x[i] + 4p[i] + y'[i] + z'[i]
+        ...(i === 0
+          ? [i64.mul(X[0], X[0])]
+          : [local.get(S[0]), i64.shl(i64.mul(X[i], X[0]), 1), i64.add()]),
+        withSubtractions &&
+          (i === 0 ? i64.const(P4[i] + 2n) : i64.const(P4[i])),
+        withSubtractions && i64.add(),
+        withSubtractions &&
+          (i < n - 1
+            ? i64.sub(wordMax, i64.load(y, { offset: 8 * i }))
+            : i64.sub(-1, i64.load(y, { offset: 8 * i }))),
+        withSubtractions && i64.add(),
+        withSubtractions &&
+          (i < n - 1
+            ? i64.sub(wordMax, i64.load(z, { offset: 8 * i }))
+            : i64.sub(-1, i64.load(z, { offset: 8 * i }))),
+        withSubtractions && i64.add(),
         // qi = mu * (tmp & wordMax) & wordMax
         local.set(tmp),
         local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
@@ -242,87 +250,76 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
         join(i64.const(w), i64.shr_u()) // we just put carry on the stack, use it later
       );
 
-      for (let i = 1; i < n; i++) {
-        comment(`i = ${i}`);
-        // j=0, compute q_i
-        didCarry = doCarry;
-        doCarry = 0 % nSafeStepsSquare === 0;
-        comment("j = 0, subtract y and z, do carry, ignore result below carry");
-        lines(
-          // tmp = (stack) + S[i] + 2*x[0]*x[i] + 4p[i] + y'[i] + z'[i]
-          local.get(S[0]),
-          didCarry && i64.add(), // add carry from stack
-          i64.shl(i64.mul(X[i], X[0]), 1),
-          i64.add(),
-          i64.const(P4[i]),
-          i64.add(),
-          i < n - 1
-            ? i64.sub(wordMax, i64.load(y, { offset: 8 * i }))
-            : i64.sub(-1, i64.load(y, { offset: 8 * i })),
-          i64.add(),
-          i < n - 1
-            ? i64.sub(wordMax, i64.load(z, { offset: 8 * i }))
-            : i64.sub(-1, i64.load(z, { offset: 8 * i })),
-          i64.add(),
-          // qi = mu * (tmp & wordMax) & wordMax
-          local.set(tmp),
-          local.set(qi, i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)),
-          local.get(tmp),
-          // (stack, _) = tmp + qi*p[0]
-          i64.mul(qi, P[0]),
-          i64.add(),
-          join(i64.const(w), i64.shr_u()) // we just put carry on the stack, use it later
-        );
-
-        for (let j = 1; j < i; j++) {
-          // S[j] + 2*x[i]*x[j] + qi*p[j], or
-          // stack + S[j] + 2*x[i]*x[j] + qi*p[j]
-          // ... = S[j-1], or  = (stack, S[j-1])
-          didCarry = doCarry;
-          doCarry = j % nSafeStepsSquare === 0;
-          comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
-          lines(
-            local.get(S[j]),
-            didCarry && i64.add(), // add carry from stack
-            i64.shl(i64.mul(X[i], X[j]), 1),
-            i64.add(),
-            i64.mul(qi, P[j]),
-            i64.add(),
-            doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
-            doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
-            local.set(S[j - 1])
-          );
-        }
-        let j = i;
+      for (let j = 1; j < n - 1; j++) {
+        // S[j] + 2*x[i]*x[j] + qi*p[j], or
+        // stack + S[j] + 2*x[i]*x[j] + qi*p[j]
+        // ... = S[j-1], or  = (stack, S[j-1])
         didCarry = doCarry;
         doCarry = j % nSafeStepsSquare === 0;
         comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
-        // if (doCarry) {
         lines(
-          // S[i] + x[i]*x[i] + qi*p[i]
           local.get(S[j]),
           didCarry && i64.add(), // add carry from stack
-          i64.mul(X[i], X[j]),
+          j <= i && i64.mul(X[i], X[j]),
+          j < i && join(i64.const(1), i64.shl()),
+          j <= i && i64.add(),
+          i64.mul(qi, P[j]),
           i64.add(),
+          doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
+          doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
+          local.set(S[j - 1])
+        );
+      }
+      j = n - 1;
+      didCarry = doCarry;
+      doCarry = j % nSafeSteps === 0;
+      comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+      if (doCarry) {
+        lines(
+          local.get(S[j]),
+          didCarry && i64.add(), // add carry from stack
+          i === j && i64.mul(X[i], X[j]),
+          i === j && i64.add(),
           i64.mul(qi, P[j]),
           i64.add(),
           doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
           doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
           local.set(S[j - 1]),
           // if the last iteration does a carry, S[n-1] is set to it
-          doCarry && i === n - 1 && local.set(S[j])
+          local.set(S[j])
         );
-      }
-      // outside i loop: final pass of collecting carries
-      comment("final carrying & storing");
-      for (let j = 1; j < n; j++) {
+      } else {
+        // if the last iteration doesn't do a carry, then S[n-1] is never set,
+        // so we also don't have to get it & can save 1 addition
         lines(
-          i64.store(out, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
-          local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
+          i === j && i64.mul(X[i], X[j]),
+          i64.mul(qi, P[j]),
+          didCarry && i64.add(), // add carry from stack
+          i === j && i64.add(),
+          local.set(S[j - 1])
         );
       }
-      line(i64.store(out, S[n - 1], { offset: 8 * (n - 1) }));
     }
+    // outside i loop: final pass of collecting carries
+    comment("final carrying & storing");
+    for (let j = 1; j < n; j++) {
+      lines(
+        i64.store(out, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
+        local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
+      );
+    }
+    line(i64.store(out, S[n - 1], { offset: 8 * (n - 1) }));
+  }
+
+  addFuncExport(writer, "square");
+  func(writer, "square", [param32(out), param32(x)], () => square(false));
+
+  addFuncExport(writer, "squareSubtractSubtract");
+  func(
+    writer,
+    "squareSubtractSubtract",
+    [param32(out), param32(x), param32(y), param32(z)],
+    () => square(true)
   );
 
   let [k] = ["$k"];

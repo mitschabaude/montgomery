@@ -31,6 +31,15 @@ for (let w of [24, 26, 28, 30]) {
   console.log(`${(N / timeMul / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
 
   tic();
+  ff.benchSquare(x, N);
+  let timeSquare = toc();
+  console.log(
+    `${(N / timeSquare / 1e6).toFixed(2)} mio. squ / s (squ = ${(
+      timeSquare / timeMul
+    ).toFixed(2)} mul)`
+  );
+
+  tic();
   ff.benchAdd(x, N);
   let timeAdd = toc();
   console.log(

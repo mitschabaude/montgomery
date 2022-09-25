@@ -160,10 +160,6 @@ async function createFiniteField(p, w, wasm) {
     return k;
   }
 
-  // TODO
-  function square(z, x) {
-    multiply(z, x, x);
-  }
   /**
    * sqrt(x)
    *
@@ -225,7 +221,6 @@ async function createFiniteField(p, w, wasm) {
      * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
      */
     inverse,
-    square,
     /**
      * montgomery modular exponentiation, a^n
      */
@@ -977,6 +972,14 @@ function benchMultiply(W) {
     line(local32(i));
     forLoop1(W, i, 0, local.get(N), () => {
       line(call("multiply", local.get(x), local.get(x), local.get(x)));
+    });
+  });
+
+  addFuncExport(W, "benchSquare");
+  func(W, "benchSquare", [param32(x), param32(N)], () => {
+    line(local32(i));
+    forLoop1(W, i, 0, local.get(N), () => {
+      line(call("square", local.get(x), local.get(x)));
     });
   });
 }
