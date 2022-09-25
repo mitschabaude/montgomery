@@ -61,10 +61,10 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
   let P = bigintToLegs(p, w, n);
   let P4 = bigintToLegs(4n * p, w, n);
   // how much terms we can add before a carry
-  let nSafeTerms = 64 - 2 * w + 1;
+  let nSafeTerms = 2 ** (64 - 2 * w);
   // how much j steps we can do before a carry:
-  let nSafeSteps = 64 - 2 * w; // OK?
-  let nSafeStepsSquare = 64 - 2 * w - 1; // one less, because a term has 1 bit more
+  let nSafeSteps = 2 ** (64 - 2 * w - 1);
+  let nSafeStepsSquare = Math.floor(2 ** (64 - 2 * w) / 3); // three terms per step
   // strategy is to use a carry at j=0, plus whenever we reach nSafeSteps
   // (and finally at the end)
   // how many carry variables we need
@@ -224,9 +224,9 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       let doCarry = 0 % nSafeSteps === 0;
       comment("i = j = 0, do carry, ignore result below carry");
       lines(
-        // tmp = x[0]*x[0] + 4p[0] + y'[0] + z'[0]
+        // tmp = x[0]*x[0] + 4p[0] + y'[0] + z'[0] + 2
         i64.mul(X[0], X[0]),
-        i64.const(P4[0]),
+        i64.const(P4[0] + 2n),
         i64.add(),
         i64.sub(wordMax, i64.load(y, { offset: 0 })),
         i64.add(),

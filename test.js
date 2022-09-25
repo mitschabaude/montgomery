@@ -69,11 +69,11 @@ function test() {
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("square");
 
-  // squareSubtractSubtract
-  z0 = mod(x0 * x0, p);
-  squareSubtractSubtract(z, x, constants.zero, constants.zero);
-  z1 = ofWasm(scratch, z);
-  if (z0 !== z1) throw Error("squareSubtractSubtract");
+  // // squareSubtractSubtract
+  // z0 = mod(x0 * x0, p);
+  // squareSubtractSubtract(z, x, constants.zero, constants.zero);
+  // z1 = ofWasm(scratch, z);
+  // if (z0 !== z1) throw Error("squareSubtractSubtract");
 
   // leftShift
   let k = 97;
