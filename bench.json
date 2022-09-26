@@ -530,5 +530,23 @@
   "mPerSec": 11614402,
   "commit": "05206fb",
   "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 14,
+  "ref": 1.699,
+  "ours": 0.413,
+  "nMul": 2465553,
+  "mPerSec": 11641444,
+  "commit": "380a380",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 18,
+  "ref": 19.62,
+  "ours": 5.544,
+  "nMul": 28945634,
+  "mPerSec": 11627907,
+  "commit": "380a380",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
  }
 ]

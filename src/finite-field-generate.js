@@ -53,10 +53,9 @@ async function createFiniteField(p, w, wasm) {
     copy,
     isEqual,
     leftShift,
-    shiftTogether1,
   } = wasm;
   let helpers = jsHelpers(p, w, wasm);
-  let { readBigInt, writeBigint, getPointers, getStablePointers } = helpers;
+  let { writeBigint, getPointers, getStablePointers } = helpers;
 
   // put some constants in wasm memory
   let { K, R } = montgomeryParams(p, w);

@@ -505,8 +505,7 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
   batchInverseInPlace(scratch, tmp, dBoth, nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
-    // console.log("adding", i);
-    addAssignAffine(scratch, G[i], H[i], d[i]);
+    addAffine(scratch, G[i], G[i], H[i], d[i]);
   }
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
@@ -547,55 +546,33 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
 
 /**
  * affine EC addition, G3 = G1 + G2
- * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2 (=> no edge cases)
+ * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
+ * (edge cases are handled one level higher, before batching)
+ *
+ * this supports addition with assignment where G3 === G1
  * @param {number[]} scratch
  * @param {AffinePoint} G3 (x3, y3)
  * @param {AffinePoint} G1 (x1, y1)
  * @param {AffinePoint} G2 (x2, y2)
  * @param {number} d 1/(x2 - x1)
  */
-function addAffine([m], G3, G1, G2, d) {
+function addAffine([m, tmp], G3, G1, G2, d) {
   numberOfAdds++;
-  let [x3, y3] = affineCoords(G3);
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
+  let [x3, y3] = affineCoords(G3);
   setNonZeroAffine(G3);
   // m = (y2 - y1)*d
   subtractPlus2P(m, y2, y1);
   multiply(m, m, d);
   // x3 = m^2 - x1 - x2
-  square(x3, m);
-  subtract(x3, x3, x1);
+  square(tmp, m);
+  subtract(x3, tmp, x1);
   subtract(x3, x3, x2);
   // y3 = (x2 - x3)*m - y2
   subtractPlus2P(y3, x2, x3);
   multiply(y3, y3, m);
   subtract(y3, y3, y2);
-}
-
-/**
- * affine EC addition with assignment, G1 = G1 + G2
- * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
- * @param {number[]} scratch
- * @param {AffinePoint} G1 (x1, y1)
- * @param {AffinePoint} G2 (x2, y2)
- * @param {number} d 1/(x2 - x1)
- */
-function addAssignAffine([m, tmp], G1, G2, d) {
-  numberOfAdds++;
-  let [x1, y1] = affineCoords(G1);
-  let [x2, y2] = affineCoords(G2);
-  // m = (y2 - y1)*d
-  subtractPlus2P(m, y2, y1);
-  multiply(m, d, m);
-  // x1 = m^2 - x1 - x2
-  square(tmp, m);
-  subtract(x1, tmp, x1);
-  subtract(x1, x1, x2);
-  // y1 = (x2 - x1)*m - y2
-  subtractPlus2P(y1, x2, x1);
-  multiply(y1, y1, m);
-  subtract(y1, y1, y2);
 }
 
 /**
