@@ -47,6 +47,8 @@ tic("warm-up JIT compiler with fixed set of points");
 {
   let { points, scalars } = await load(14);
   msm(scalars, points);
+  msm(scalars, points);
+  msmAffine(scalars, points);
   msmAffine(scalars, points);
 }
 toc();

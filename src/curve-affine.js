@@ -23,7 +23,7 @@ import {
   subtract,
   add,
   isEqual,
-  subtractPlus2P,
+  subtractPositive,
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
@@ -445,7 +445,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  */
 function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
   for (let i = 0; i < n; i++) {
-    subtractPlus2P(d[i], H[i], G[i]);
+    subtractPositive(d[i], H[i], G[i]);
   }
   batchInverseInPlace(scratch, tmp, d, n);
   for (let i = 0; i < n; i++) {
@@ -496,7 +496,7 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
     } else {
       // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      subtractPlus2P(d[i], H[i], G[i]);
+      subtractPositive(d[i], H[i], G[i]);
       iAdd[nAdd] = i;
       dBoth[nBoth] = d[i];
       nAdd++, nBoth++;
@@ -564,14 +564,14 @@ function addAffine([m, tmp], G3, G1, G2, d) {
   let [x3, y3] = affineCoords(G3);
   setNonZeroAffine(G3);
   // m = (y2 - y1)*d
-  subtractPlus2P(m, y2, y1);
+  subtractPositive(m, y2, y1);
   multiply(m, m, d);
   // x3 = m^2 - x1 - x2
   square(tmp, m);
   subtract(x3, tmp, x1);
   subtract(x3, x3, x2);
   // y3 = (x2 - x3)*m - y2
-  subtractPlus2P(y3, x2, x3);
+  subtractPositive(y3, x2, x3);
   multiply(y3, y3, m);
   subtract(y3, y3, y2);
 }

@@ -8,7 +8,7 @@ export function subtract(out: number, x: number, y: number): void;
 export function reduce(x: number): void;
 export function addNoReduce(out: number, x: number, y: number): void;
 export function subtractNoReduce(out: number, x: number, y: number): void;
-export function subtractPlus2P(out: number, x: number, y: number): void;
+export function subtractPositive(out: number, x: number, y: number): void;
 export function isEqual(x: number, y: number): boolean;
 export function isZero(x: number): boolean;
 export function isGreater(x: number, y: number): boolean;

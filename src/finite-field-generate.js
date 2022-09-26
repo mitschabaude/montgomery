@@ -29,6 +29,8 @@ export { benchMultiply, multiply32, moduleWithMemory };
  * -) test whether add2 is faster than add in the real world case
  */
 
+const mulInputFactor = 8n;
+
 /**
  * @typedef {ReturnType<typeof createFiniteField> extends Promise<infer T> ? T : never} FiniteField
  */
@@ -101,7 +103,12 @@ async function createFiniteField(p, w, wasm) {
   function inverse(scratch, r, a) {
     if (isZero(a)) throw Error("cannot invert 0");
     numberOfInversions++;
-    reduce(a);
+    // TODO: make more efficient
+    for (let i = 0; i < Number(mulInputFactor) * 2 - 1; i++) {
+      reduce(a);
+    }
+    // reduce(a);
+
     let k = almostInverseMontgomery(scratch, r, a);
     // TODO: negation -- special case which is simpler
     // don't have to reduce r here, because it's already < p
@@ -110,7 +117,7 @@ async function createFiniteField(p, w, wasm) {
     // mutliply by 2^(2N - k), where N = 381 = bit length of p
     // TODO: efficient multiplication by power-of-2?
     // we use k+1 here because that's the value the theory is about:
-    // n <= k+1 <= 2N, so that 0 <= 2N-(k+1) <= N, so that
+    // N <= k+1 <= 2N, so that 0 <= 2N-(k+1) <= N, so that
     // 1 <= 2^(2N-(k+1)) <= 2^N < 2p
     // (in practice, k seems to be normally distributed around ~1.4N and never reach either N or 2N)
     leftShift(r, r, 2 * N - (k + 1)); // * 2^(2N - (k+1)) * 2^(-K)
@@ -124,7 +131,7 @@ async function createFiniteField(p, w, wasm) {
 
   // this is modified from the algorithms in papers in that it
   // * returns k-1 instead of k
-  // * returns r < p without unconditionally
+  // * returns r < p unconditionally
   // * allows to batch left- / right-shifts
   /**
    *
@@ -194,7 +201,7 @@ async function createFiniteField(p, w, wasm) {
 
   /**
    * benchmark inverse, by doing N*(inv + add)
-   * (add is negligible; done re-randomize to avoid unrealistic compiler optimizations)
+   * (add is negligible; done to re-randomize, to avoid unrealistic compiler optimizations)
    * @param {number} N
    */
   function benchInverse(N) {
@@ -283,7 +290,8 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
 function add(writer, p, w) {
   let { n, wordMax } = montgomeryParams(p, w);
   // constants
-  let P2 = bigintToLegs(2n * p, w, n);
+
+  let P2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment, join } = writer;
   let { i64, local, local64, param32, br_if } = ops;
 
@@ -358,8 +366,8 @@ function add(writer, p, w) {
 function subtract(writer, p, w) {
   let { n, wordMax, R } = montgomeryParams(p, w);
   // constants
-  let Rminus2P = bigintToLegs(R - 2n * p, w, n);
-  let P2 = bigintToLegs(2n * p, w, n);
+  let Rminus2P = bigintToLegs(R - mulInputFactor * 2n * p, w, n);
+  let dP2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment } = writer;
   let { i64, local, local64, param32 } = ops;
 
@@ -415,23 +423,30 @@ function subtract(writer, p, w) {
     subtraction({ doReduce: true })
   );
 
+  // x - y for x > y, where we can avoid conditional reducing
   addFuncExport(writer, "subtractNoReduce");
   func(writer, "subtractNoReduce", [param32(out), param32(x), param32(y)], () =>
     subtraction({ doReduce: false })
   );
 
-  // x - y + 2p -- subtraction that's guaranteed to stay positive, so there's no conditional branch,
-  // but output is only <4p and not necessarily <2p
-  // this is fine for inputs to multiplications, which contract <4p inputs to <2p outputs
-  addFuncExport(writer, "subtractPlus2P");
-  func(writer, "subtractPlus2P", [param32(out), param32(x), param32(y)], () => {
+  // x - y + f*2p -- subtraction that's guaranteed to stay positive if y < f*2p,
+  // so there's no conditional branch. (fy are parameters to be tweaked)
+  // => output is < x + f*2p but not necessarily <2p
+  // this is often fine for inputs to multiplications, which e.g. contract <8p inputs to <2p outputs
+  /**
+   *
+   * @param {number | bigint} f
+   */
+  function subtractPositive(f) {
+    let f2P = bigintToLegs(BigInt(f) * 2n * p, w, n);
+
     line(local64(tmp), local64(carry));
     line(local.set(carry, i64.const(1)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = (2p + 2^w - 1) + x[i] - y[i] + carry;
-        i64.const(wordMax + P2[i]),
+        i64.const(wordMax + f2P[i]),
         i64.load(x, { offset: 8 * i }),
         i64.add(),
         i64.load(y, { offset: 8 * i }),
@@ -443,7 +458,17 @@ function subtract(writer, p, w) {
         local.set(carry, i64.shr_u(tmp, w))
       );
     }
-  });
+  }
+
+  addFuncExport(writer, "subtractPositive");
+  func(
+    writer,
+    "subtractPositive",
+    [param32(out), param32(x), param32(y)],
+    () => {
+      subtractPositive(mulInputFactor);
+    }
+  );
 }
 
 /**
