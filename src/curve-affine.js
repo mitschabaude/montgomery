@@ -16,6 +16,7 @@ import {
   p,
   mod,
   getAndResetOpCounts,
+  addAffine,
 } from "./finite-field.js";
 import {
   multiply,
@@ -257,43 +258,6 @@ function msmAffine(scalars, inputPoints) {
 }
 
 /**
- * @param {number[]} scratchSpace
- * @param {number[][][]} buckets
- * @param {{c: number, K: number, L: number}}
- */
-function reduceBucketsSimple(scratchSpace, buckets, { K, L }) {
-  /**
-   * @type {number[][]}
-   */
-  let bucketSums = Array(K);
-  for (let k = 0; k < K; k++) {
-    bucketSums[k] = getPointers(L + 1, sizeProjective);
-  }
-  let runningSums = getZeroPointers(K, sizeProjective);
-  let partialSums = getZeroPointers(K, sizeProjective);
-
-  // sum up buckets to partial sums
-  for (let l = L; l > 0; l--) {
-    for (let k = 0; k < K; k++) {
-      let bucket = buckets[k][l][0];
-      let runningSum = runningSums[k];
-      let partialSum = partialSums[k];
-      if (bucket === undefined) {
-        // bucket sum is zero => running sum stays the same
-        addAssignProjective(scratchSpace, partialSum, runningSum);
-      } else {
-        // bucket sum is affine, we convert to projective here
-        let bucketSum = bucketSums[k][l];
-        copyAffineToProjectiveNonZero(bucketSum, bucket);
-        addAssignProjective(scratchSpace, runningSum, bucketSum);
-        addAssignProjective(scratchSpace, partialSum, runningSum);
-      }
-    }
-  }
-  return partialSums;
-}
-
-/**
  * @param {number[]} scratch
  * @param {number[][][]} oldBuckets
  * @param {{c: number, K: number, L: number}}
@@ -449,7 +413,7 @@ function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
   }
   batchInverseInPlace(scratch, tmp, d, n);
   for (let i = 0; i < n; i++) {
-    addAffine(scratch, S[i], G[i], H[i], d[i]);
+    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
   }
 }
 
@@ -505,7 +469,7 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
   batchInverseInPlace(scratch, tmp, dBoth, nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
-    addAffine(scratch, S[i], G[i], H[i], d[i]);
+    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
   }
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
@@ -542,38 +506,6 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
-}
-
-/**
- * affine EC addition, G3 = G1 + G2
- *
- * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
- * (edge cases are handled one level higher, before batching)
- *
- * this supports addition with assignment where G3 === G1 (but not G3 === G2)
- * @param {number[]} scratch
- * @param {AffinePoint} G3 (x3, y3)
- * @param {AffinePoint} G1 (x1, y1)
- * @param {AffinePoint} G2 (x2, y2)
- * @param {number} d 1/(x2 - x1)
- */
-function addAffine([m, tmp], G3, G1, G2, d) {
-  numberOfAdds++;
-  let [x1, y1] = affineCoords(G1);
-  let [x2, y2] = affineCoords(G2);
-  let [x3, y3] = affineCoords(G3);
-  setNonZeroAffine(G3);
-  // m = (y2 - y1)*d
-  subtractPositive(m, y2, y1);
-  multiply(m, m, d);
-  // x3 = m^2 - x1 - x2
-  square(tmp, m);
-  subtract(x3, tmp, x1);
-  subtract(x3, x3, x2);
-  // y3 = (x2 - x3)*m - y2
-  subtractPositive(y3, x2, x3);
-  multiply(y3, y3, m);
-  subtract(y3, y3, y2);
 }
 
 /**
@@ -857,6 +789,8 @@ function copyProjective(target, source) {
   memoryBytes.copyWithin(target, source, source + sizeProjective);
 }
 
+// DEBUGGING STUFF
+
 function readAffine(P) {
   let isZero = isZeroAffine(P);
   let [x, y] = affineCoords(P);
@@ -887,6 +821,7 @@ function readProjectiveAsAffine(scratchSpace, P) {
 }
 
 // FOR DEBUGGING: non-batched affine addition
+// (didn't even get this to work so far)
 
 /**
  * @param {number[]} scratchSpace
@@ -990,4 +925,77 @@ function doubleInPlaceAffineFull([m, tmp, d, x2, y2, ...scratch], G) {
   // x,y = x2,y2
   copy(x, x2);
   copy(y, y2);
+}
+
+// OBSOLETE
+
+/**
+ * alternative, purely projective version of reducing buckets into partition sums
+ *
+ * @param {number[]} scratchSpace
+ * @param {number[][][]} buckets
+ * @param {{c: number, K: number, L: number}}
+ */
+function reduceBucketsSimple(scratchSpace, buckets, { K, L }) {
+  /**
+   * @type {number[][]}
+   */
+  let bucketSums = Array(K);
+  for (let k = 0; k < K; k++) {
+    bucketSums[k] = getPointers(L + 1, sizeProjective);
+  }
+  let runningSums = getZeroPointers(K, sizeProjective);
+  let partialSums = getZeroPointers(K, sizeProjective);
+
+  // sum up buckets to partial sums
+  for (let l = L; l > 0; l--) {
+    for (let k = 0; k < K; k++) {
+      let bucket = buckets[k][l][0];
+      let runningSum = runningSums[k];
+      let partialSum = partialSums[k];
+      if (bucket === undefined) {
+        // bucket sum is zero => running sum stays the same
+        addAssignProjective(scratchSpace, partialSum, runningSum);
+      } else {
+        // bucket sum is affine, we convert to projective here
+        let bucketSum = bucketSums[k][l];
+        copyAffineToProjectiveNonZero(bucketSum, bucket);
+        addAssignProjective(scratchSpace, runningSum, bucketSum);
+        addAssignProjective(scratchSpace, partialSum, runningSum);
+      }
+    }
+  }
+  return partialSums;
+}
+
+/**
+ * affine EC addition, G3 = G1 + G2
+ *
+ * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
+ * (edge cases are handled one level higher, before batching)
+ *
+ * this supports addition with assignment where G3 === G1 (but not G3 === G2)
+ * @param {number[]} scratch
+ * @param {AffinePoint} G3 (x3, y3)
+ * @param {AffinePoint} G1 (x1, y1)
+ * @param {AffinePoint} G2 (x2, y2)
+ * @param {number} d 1/(x2 - x1)
+ */
+function addAffineJs([m, tmp], G3, G1, G2, d) {
+  numberOfAdds++;
+  let [x1, y1] = affineCoords(G1);
+  let [x2, y2] = affineCoords(G2);
+  let [x3, y3] = affineCoords(G3);
+  setNonZeroAffine(G3);
+  // m = (y2 - y1)*d
+  subtractPositive(m, y2, y1);
+  multiply(m, m, d);
+  // x3 = m^2 - x1 - x2
+  square(tmp, m);
+  subtract(x3, tmp, x1);
+  subtract(x3, x3, x2);
+  // y3 = (x2 - x3)*m - y2
+  subtractPositive(y3, x2, x3);
+  multiply(y3, y3, m);
+  subtract(y3, y3, y2);
 }

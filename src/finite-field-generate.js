@@ -262,6 +262,8 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
     65536,
     () => {
+      addAffine(writer, p, w);
+
       multiply(writer, p, w, { countMultiplications: !!withBenchmarks });
 
       add(writer, p, w);
@@ -279,6 +281,54 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
     }
   );
   return writer;
+}
+
+/**
+ * affine EC addition, G3 = G1 + G2
+ *
+ * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
+ * (edge cases are handled one level higher, before batching)
+ *
+ * this supports addition with assignment where G3 === G1 (but not G3 === G2)
+ */
+function addAffine(writer, p, w) {
+  let { n } = montgomeryParams(p, w);
+  let sizeField = 8 * n;
+  let { line, lines } = writer;
+  let { i32, local, local32, param32, call } = ops;
+
+  let [x3, x1, x2, y3, y1, y2] = ["$x3", "$x1", "$x2", "$y3", "$y1", "$y2"];
+  let [m, tmp, d] = ["$m", "$tmp", "$d"];
+
+  addFuncExport(writer, "addAffine");
+  func(
+    writer,
+    "addAffine",
+    [param32(m), param32(x3), param32(x1), param32(x2), param32(d)],
+    () => {
+      line(local32(y3), local32(y1), local32(y2), local32(tmp));
+      lines(
+        // compute other pointers from inputs
+        local.set(y1, i32.add(x1, sizeField)),
+        local.set(y2, i32.add(x2, sizeField)),
+        local.set(y3, i32.add(x3, sizeField)),
+        local.set(tmp, i32.add(m, sizeField)),
+        ";; mark output point as non-zero", // mark output point as non-zero
+        i32.store8(x3, 1, { offset: 2 * sizeField }),
+        ";; m = (y2 - y1)*d", // m = (y2 - y1)*d
+        call("subtractPositive", m, y2, y1),
+        call("multiply", m, m, d),
+        ";; x3 = m^2 - x1 - x2", // x3 = m^2 - x1 - x2
+        call("square", tmp, m),
+        call("subtract", x3, tmp, x1),
+        call("subtract", x3, x3, x2),
+        ";; y3 = (x2 - x3)*m - y2", // y3 = (x2 - x3)*m - y2
+        call("subtractPositive", y3, x2, x3),
+        call("multiply", y3, y3, m),
+        call("subtract", y3, y3, y2)
+      );
+    }
+  );
 }
 
 /**

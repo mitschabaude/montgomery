@@ -22,6 +22,7 @@ export {
   inverse,
   sqrt,
   square,
+  addAffine,
   writeBigint,
   readBigInt,
   copy,
@@ -42,12 +43,16 @@ export {
   getAndResetOpCounts,
 };
 let {
+  // finite field
   constants,
   multiply,
   reduce,
   inverse,
   sqrt,
   square,
+  // elliptic curve
+  addAffine,
+  // helper
   writeBigint,
   readBigInt,
   copy,

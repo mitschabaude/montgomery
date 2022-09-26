@@ -76,16 +76,16 @@ let xAffProj = mod(result.x, p);
 let yAffProj = mod(result.y, p);
 let zAffProj = mod(result.z, p);
 let [xAff, yAff] = toAffine(xAffProj, yAffProj, zAffProj);
-let numberOfAddsAff = result.numberOfAdds;
-let numberOfDoublesAff = result.numberOfDoubles;
+// let numberOfAddsAff = result.numberOfAdds;
+// let numberOfDoublesAff = result.numberOfDoubles;
 // console.log(result.nMul1 + result.nMul2 + result.nMul3);
 
-console.log({
-  numberOfAddsProj,
-  numberOfDoublesProj,
-  numberOfAddsAff,
-  numberOfDoublesAff,
-});
+// console.log({
+//   numberOfAddsProj,
+//   numberOfDoublesProj,
+//   numberOfAddsAff,
+//   numberOfDoublesAff,
+// });
 
 if (runSlowMsm) {
   console.log("big === ref", { x: xRef === xBigint, y: yRef === yBigint });

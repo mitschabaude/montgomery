@@ -98,18 +98,20 @@ function getOperations() {
     if (typeof a === "string" || a <= 255) return op_(String(a));
     return op_(`0x` + a.toString(16));
   }
+  function maybeLocalGet(a) {
+    return typeof a === "string" && a[0] === "$" ? op("local.get")(a) : a;
+  }
   function mapArgs(bits, args) {
     return args.map((a) =>
       typeof a === "number" || typeof a === "bigint"
         ? constOp(bits, a)
-        : typeof a === "string" && a[0] === "$"
-        ? op("local.get")(a)
-        : a
+        : maybeLocalGet(a)
     );
   }
   function mappedArgs(bits, op) {
     return (...args) => op(...mapArgs(bits, args));
   }
+
   function int(bits) {
     function iOp(name) {
       return mappedArgs(bits, op(`i${bits}.${name}`));
@@ -120,6 +122,8 @@ function getOperations() {
         iOp("load")(`offset=${offset}`, from),
       store: (to, value, { offset = 0 } = {}) =>
         iOp("store")(`offset=${offset}`, to, value),
+      store8: (to, value, { offset = 0 } = {}) =>
+        iOp("store8")(`offset=${offset}`, to, value),
       mul: iOp("mul"),
       add: iOp("add"),
       sub: iOp("sub"),
@@ -176,7 +180,7 @@ function getOperations() {
     result32: op("result")("i32"),
     result64: op("result")("i64"),
     export: (name, ...args) => op("export")(`"${name}"`, ...args),
-    call: (name, ...args) => op("call")("$" + name, ...args),
+    call: (name, ...args) => op("call")("$" + name, ...args.map(maybeLocalGet)),
     memory: Object.assign(
       (name, ...args) => op("memory")("$" + name, ...args),
       {
