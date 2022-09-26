@@ -509,7 +509,7 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
   }
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
-    doubleInPlaceAffine(scratch, G[i], d[i]);
+    doubleAffine(scratch, G[i], G[i], d[i]);
   }
 }
 
@@ -540,7 +540,7 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
   }
   batchInverseInPlace(scratch, tmp, d, n1);
   for (let i = 0; i < n1; i++) {
-    doubleInPlaceAffine(scratch, G1[i], d[i]);
+    doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
 }
 
@@ -576,15 +576,17 @@ function addAffine([m, tmp], G3, G1, G2, d) {
 }
 
 /**
- * affine EC doubling in place, G *= 2
+ * affine EC doubling, H = 2*G
  * assuming d = 1/(2*y) is given, and inputs aren't zero
  * @param {number[]} scratch
- * @param {AffinePoint} G (x, y)
+ * @param {AffinePoint} H output point
+ * @param {AffinePoint} G input point (x, y)
  * @param {number} d 1/(2y)
  */
-function doubleInPlaceAffine([m, tmp, x2, y2], G, d) {
+function doubleAffine([m, tmp, x2, y2], H, G, d) {
   numberOfDoubles++;
   let [x, y] = affineCoords(G);
+  let [xOut, yOut] = affineCoords(H);
 
   // m = 3*x^2*d
   square(m, x);
@@ -599,9 +601,9 @@ function doubleInPlaceAffine([m, tmp, x2, y2], G, d) {
   subtract(y2, x, x2);
   multiply(y2, y2, m);
   subtract(y2, y2, y);
-  // x,y = x2,y2
-  copy(x, x2);
-  copy(y, y2);
+  // H = x2,y2
+  copy(xOut, x2);
+  copy(yOut, y2);
 }
 
 /**
@@ -646,7 +648,7 @@ function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
 }
 
 /**
- * p1 += p2
+ * P1 += P2
  * @param {number[]} scratchSpace
  * @param {ProjectivePoint} P1
  * @param {ProjectivePoint} P2
