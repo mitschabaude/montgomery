@@ -254,7 +254,7 @@ function randomCurvePoint([x, y, z, ...scratchSpace]) {
  */
 function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
   // return x/z, y/z
-  inverse(scratchSpace, zinv, z);
+  inverse(scratchSpace[0], zinv, z);
   multiply(x0, x, zinv);
   multiply(y0, y, zinv);
 }
@@ -265,7 +265,7 @@ function toAffine([zinv, ...scratchSpace], { x: x0, y: y0 }, { x, y, z }) {
  */
 function toAffineOutput([zinv, ...scratchSpace], { x, y, z }) {
   // return x/z, y/z
-  inverse(scratchSpace, zinv, z);
+  inverse(scratchSpace[0], zinv, z);
   multiply(x, x, zinv);
   multiply(y, y, zinv);
   fromMontgomery(x);

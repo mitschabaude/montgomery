@@ -16,15 +16,20 @@ import {
   interpretWat,
 } from "./src/finite-field-compile.js";
 import { bigintFromBytes } from "./src/util.js";
+import { getPointers, writeBigint } from "./src/finite-field.js";
 globalThis.crypto = webcrypto;
 
 let N = 1e7;
 for (let w of [24, 26, 28, 30]) {
   // for (let w of [28]) {
   await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
+  console.log();
   let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
   let ff = await createFiniteField(p, w, wasm);
-  let [x, z] = testCorrectness(p, w, ff);
+  // let [x, z] = testCorrectness(p, w, ff);
+  let [x, z] = getPointers(2);
+  writeBigint(x, randomBaseFieldx2());
+  writeBigint(z, randomBaseFieldx2());
   tic(`multiply (w=${w}) x ${N}`);
   ff.benchMultiply(x, N);
   let timeMul = toc();
@@ -55,6 +60,7 @@ for (let w of [24, 26, 28, 30]) {
       timeSubtract / timeMul
     ).toFixed(2)} mul)`
   );
+  console.log();
 }
 {
   let w = 32;
@@ -129,7 +135,7 @@ function testCorrectness(
     if (add) {
       add(z, x, y);
       z0 = mod(x0 + y0, p);
-      z1 = readBigInt(z);
+      z1 = mod(readBigInt(z), p);
       if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
         throw Error("bad addition");
       }
@@ -137,7 +143,7 @@ function testCorrectness(
     if (subtract) {
       subtract(z, x, y);
       z0 = mod(x0 - y0, p);
-      z1 = readBigInt(z);
+      z1 = mod(readBigInt(z), p);
       if (z0 !== z1 && !(z1 > p && z0 + p === z1)) {
         throw Error("bad subtraction");
       }
@@ -176,7 +182,7 @@ function testCorrectness(
     if (inverse) {
       writeBigint(x, x0);
       multiply(x, x, R2); // x -> xR
-      inverse(scratch, z, x); // z = 1/x R
+      inverse(scratch[0], z, x); // z = 1/x R
       multiply(z, z, x); // x/x R = 1R
       z1 = readBigInt(z);
       if (mod(z1, p) !== mod(R, p)) throw Error("inverse");

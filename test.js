@@ -9,12 +9,12 @@ import {
   leftShift,
   square,
   subtractPositive,
+  inverse,
 } from "./src/finite-field.wat.js";
 import {
   p,
   constants,
   mod,
-  inverse,
   randomBaseFieldx2,
   writeBigint,
   readBigInt,
@@ -103,7 +103,7 @@ function test() {
   if (z0 !== z1) throw Error("reduceInPlace");
 
   // inverse
-  inverse(scratch, z, x);
+  inverse(scratch[0], z, x);
   multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");
@@ -137,7 +137,7 @@ function testBatchMontgomery() {
     let x0 = randomBaseFieldx2();
     writeBigint(X[i], x0);
     // compute inverses normally
-    inverse(scratch, invX[i], X[i]);
+    inverse(scratch[0], invX[i], X[i]);
   }
   // compute inverses as batch
   let tmpX = getPointers(n);

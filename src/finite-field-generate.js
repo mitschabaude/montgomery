@@ -1,4 +1,4 @@
-import { bigintToBits, bigintToLegs, log2 } from "./util.js";
+import { bigintToBits, bigintToBytes, bigintToLegs, log2 } from "./util.js";
 import { mod, modInverse, randomBaseFieldx2 } from "./finite-field-js.js";
 import {
   addExport,
@@ -7,6 +7,7 @@ import {
   forLoop1,
   forLoop8,
   func,
+  ifElse,
   if_,
   loop,
   module,
@@ -37,7 +38,6 @@ const mulInputFactor = 8n;
 async function createFiniteField(p, w, wasm) {
   let {
     multiply,
-    add,
     addNoReduce,
     subtractNoReduce,
     reduce,
@@ -47,6 +47,7 @@ async function createFiniteField(p, w, wasm) {
     copy,
     isEqual,
     leftShift,
+    almostInverseMontgomery,
   } = wasm;
   let helpers = jsHelpers(p, w, wasm);
   let { writeBigint, getPointers, getStablePointers } = helpers;
@@ -92,7 +93,7 @@ async function createFiniteField(p, w, wasm) {
    * @param {number} r
    * @param {number} a
    */
-  function inverse(scratch, r, a) {
+  function inverse_(scratch, r, a) {
     if (isZero(a)) throw Error("cannot invert 0");
     numberOfInversions++;
     // TODO: make more efficient
@@ -101,7 +102,7 @@ async function createFiniteField(p, w, wasm) {
     }
     // reduce(a);
 
-    let k = almostInverseMontgomery(scratch, r, a);
+    let k = almostInverseMontgomery(scratch[0], r, a);
     // TODO: negation -- special case which is simpler
     // don't have to reduce r here, because it's already < p
     subtractNoReduce(r, constants.p, r);
@@ -132,7 +133,7 @@ async function createFiniteField(p, w, wasm) {
    * @param {number} a
    * @returns
    */
-  function almostInverseMontgomery([u, v, s], r, a) {
+  function almostInverseMontgomery_([u, v, s], r, a) {
     // u = p, v = a, r = 0, s = 1
     copy(u, constants.p);
     copy(v, a);
@@ -203,22 +204,13 @@ async function createFiniteField(p, w, wasm) {
     let y0 = randomBaseFieldx2();
     writeBigint(x, x0);
     writeBigint(y, y0);
-    for (let i = 0; i < N; i++) {
-      // x <- x + y
-      // y <- 1/x
-      inverse(scratch, y, x);
-      add(x, x, y);
-    }
+    wasm.benchInverse(scratch[0], y, x, N);
   }
 
   return {
     ...wasm,
     ...helpers,
     constants,
-    /**
-     * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
-     */
-    inverse,
     /**
      * montgomery modular exponentiation, a^n
      */
@@ -233,9 +225,9 @@ async function createFiniteField(p, w, wasm) {
     },
     getAndResetOpCounts() {
       let nMul = wasm.multiplyCount.valueOf();
-      let nInv = numberOfInversions;
+      let nInv = wasm.inverseCount.valueOf();
       wasm.resetMultiplyCount();
-      numberOfInversions = 0;
+      wasm.resetInverseCount();
       return [nMul, nInv];
     },
   };
@@ -255,6 +247,7 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
     65536,
     () => {
       addAffine(writer, p, w);
+      wasmInverse(writer, p, w, { countOperations: !!withBenchmarks });
 
       multiply(writer, p, w, { countMultiplications: !!withBenchmarks });
 
@@ -321,6 +314,165 @@ function addAffine(writer, p, w) {
       );
     }
   );
+}
+
+function wasmInverse(writer, p, w, { countOperations = false } = {}) {
+  let { n, K, lengthP } = montgomeryParams(p, w);
+  let N = lengthP;
+  // constants
+  let sizeField = 8 * n;
+
+  let { line, lines } = writer;
+  let {
+    i64,
+    i32,
+    local,
+    local32,
+
+    param32,
+    global32Mut,
+    global,
+    result32,
+    call,
+    br_if,
+    br,
+  } = ops;
+
+  // count multiplications to analyze higher-level algorithms
+  let inverseCount = "$inverseCount";
+  if (countOperations) {
+    addExport(writer, "inverseCount", global(inverseCount));
+    addFuncExport(writer, "resetInverseCount");
+    line(global32Mut(inverseCount, 0));
+    func(writer, "resetInverseCount", [], () => {
+      line(global.set(inverseCount, i32.const(0)));
+    });
+  }
+
+  // constants we store as global pointers
+  let [r2corrGlobal, pGlobal] = ["$r2corr", "$p"];
+
+  let R2corr = mod(1n << BigInt(4 * K - 2 * N + 1), p);
+  let P = bigintToLegs(p, w, n);
+  dataInt64(writer, r2corrGlobal, bigintToLegs(R2corr, w, n));
+  dataInt64(writer, pGlobal, P);
+
+  let [r, a, scratch] = ["$r", "$a", "$scratch"];
+  let [u, v, s, k] = ["$u", "$v", "$s", "$k"];
+
+  // this is modified from the algorithms in papers in that it
+  // * returns k-1 instead of k
+  // * returns r < p unconditionally
+  // * allows to batch left- / right-shifts
+  addFuncExport(writer, "almostInverseMontgomery");
+  func(
+    writer,
+    "almostInverseMontgomery",
+    [param32(u), param32(r), param32(a), result32],
+    () => {
+      line(local32(v), local32(s), local32(k));
+      if (countOperations) {
+        line(global.set(inverseCount, i32.add(global.get(inverseCount), 1)));
+      }
+      lines(
+        // setup locals
+        local.set(v, i32.add(u, sizeField)),
+        local.set(s, i32.add(v, sizeField))
+      );
+      // u = p, v = a, r = 0, s = 1
+      for (let i = 0; i < n; i++) {
+        line(i64.store(u, P[i], { offset: 8 * i }));
+      }
+      line(call("copy", v, a));
+      for (let i = 0; i < n; i++) {
+        line(i64.store(r, 0, { offset: 8 * i }));
+      }
+      let one = bigintToLegs(1n, w, n);
+      for (let i = 0; i < n; i++) {
+        line(i64.store(s, one[i], { offset: 8 * i }));
+      }
+      lines(
+        call("makeOdd", u, s),
+        call("makeOdd", v, r),
+        i32.add(),
+        local.set(k)
+      );
+      block(writer, () => {
+        loop(writer, () => {
+          line(call("isGreater", u, v));
+          ifElse(
+            writer,
+            () => {
+              lines(
+                call("subtractNoReduce", u, u, v),
+                call("addNoReduce", r, r, s),
+                local.set(k, i32.add(k, call("makeOdd", u, s)))
+              );
+            },
+            () => {
+              lines(
+                call("subtractNoReduce", v, v, u),
+                call("addNoReduce", s, s, r),
+                br_if(2, call("isZero", v)),
+                local.set(k, i32.add(k, call("makeOdd", v, r)))
+              );
+            }
+          );
+          line(br(0));
+        });
+      });
+      line(local.get(k));
+    }
+  );
+
+  addFuncExport(writer, "inverse");
+  func(writer, "inverse", [param32(scratch), param32(r), param32(a)], () => {
+    line(local32(k));
+
+    for (let i = 0; i < Number(mulInputFactor) * 2 - 1; i++) {
+      line(call("reduce", a));
+    }
+    lines(
+      //
+      call("almostInverseMontgomery", scratch, r, a),
+      local.set(k),
+      // don't have to reduce r here, because it's already < p
+      call("subtractNoReduce", r, global.get(pGlobal), r),
+      // multiply by 2^(2N - k), where N = 381 = bit length of p
+      // TODO: efficient multiplication by power-of-2?
+      // we use k+1 here because that's the value the theory is about:
+      // N <= k+1 <= 2N, so that 0 <= 2N-(k+1) <= N, so that
+      // 1 <= 2^(2N-(k+1)) <= 2^N < 2p
+      // (in practice, k seems to be normally distributed around ~1.4N and never reach either N or 2N)
+      call("leftShift", r, r, i32.sub(i32.const(2 * N - 1), k)), // * 2^(2N - (k+1)) * 2^(-K)
+      // now we multiply by 2^(2(K + K-N) + 1))
+      call("multiply", r, r, global.get(r2corrGlobal)) // * 2^(2K + 2(K-n) + 1) * 2^(-K)
+      // = * 2 ^ (2n - k - 1 + 2(K-n) + 1)) = 2^(2*K - k)
+      // ^^^ transforms (a * 2^K)^(-1)*2^k = a^(-1) 2^(-K+k)
+      //     to a^(-1) 2^(-K+k + 2K -k) = a^(-1) 2^K = the montgomery representation of a^(-1)
+    );
+  });
+
+  if (countOperations) {
+    let [i, N] = ["$i", "$N"];
+    addFuncExport(writer, "benchInverse");
+    func(
+      writer,
+      "benchInverse",
+      [param32(scratch), param32(a), param32(u), param32(N)],
+      () => {
+        line(local32(i));
+        forLoop1(writer, i, 0, local.get(N), () => {
+          lines(
+            // x <- x + y
+            // y <- 1/x
+            call("inverse", scratch, u, a),
+            call("add", a, a, u)
+          );
+        });
+      }
+    );
+  }
 }
 
 /**
@@ -1106,8 +1258,36 @@ function moduleWithMemory(writer, comment_, memSize, callback) {
   module(writer, () => {
     addExport(writer, "memory", ops.memory("memory"));
     line(ops.memory("memory", memSize));
+    // global for the initial data offset
+    addExport(writer, "dataOffset", ops.global("$dataOffset"));
     callback(writer);
+    line(ops.global32("$dataOffset", writer.dataOffset));
   });
+}
+
+/**
+ *
+ * @param {any} writer
+ * @param {string} globalName
+ * @param {BigUint64Array} data
+ */
+function dataInt64(writer, globalName, data) {
+  let dataOffset = writer.dataOffset;
+  writer.dataOffset = dataOffset + data.length * 8;
+  let strings = [...data].map((x) => {
+    let bytes = [...bigintToBytes(x, 8)];
+    return (
+      `"` +
+      bytes.map((byte) => `\\${byte.toString(16).padStart(2, "0")}`).join("") +
+      `"`
+    );
+  });
+  writer.lines(
+    ops.global32(globalName, dataOffset),
+    `(data ${ops.i32.const(dataOffset)}`,
+    ...strings.map((s) => "  " + s),
+    ")"
+  );
 }
 
 function defineLocals(t, name, n) {
@@ -1152,10 +1332,15 @@ function montgomeryParams(p, w) {
  * @param {number} w word size
  * @param {import('./finite-field.wat')} wasm
  */
-function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
+function jsHelpers(
+  p,
+  w,
+  { memory, toPackedBytes, fromPackedBytes, dataOffset }
+) {
   let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
   let nPackedBytes = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
+  let initialOffset = dataOffset.valueOf();
   let obj = {
     n,
     R,
@@ -1185,8 +1370,8 @@ function jsHelpers(p, w, { memory, toPackedBytes, fromPackedBytes }) {
       return x0;
     },
 
-    initial: 0,
-    offset: 0,
+    initial: initialOffset,
+    offset: initialOffset,
 
     /**
      * @param {number} size size of pointer (default: one field element)

@@ -4,6 +4,7 @@ export {
   func,
   loop,
   if_,
+  ifElse,
   module,
   forLoop8,
   forLoop1,
@@ -64,6 +65,7 @@ function Writer(initial = "") {
     wrap,
     comment,
     join: (...args) => args.join(" "),
+    dataOffset: 0,
   };
   return w;
 }
@@ -256,4 +258,16 @@ function if_(writer, callback) {
     writer.untab();
     writer.line("end");
   }
+}
+
+function ifElse(writer, callbackIf, callbackElse) {
+  writer.line(`if`);
+  writer.tab();
+  callbackIf();
+  writer.untab();
+  writer.line("else");
+  writer.tab();
+  callbackElse();
+  writer.untab();
+  writer.line("end");
 }

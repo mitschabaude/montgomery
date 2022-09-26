@@ -38,5 +38,29 @@ export function addAffine(
   d: number
 ): void;
 
+/**
+ * compute r = a^(-1) * 2^k mod p, returns k
+ *
+ * @param scratch
+ * @param r
+ * @param a
+ */
+export function almostInverseMontgomery(
+  scratch: number,
+  r: number,
+  a: number
+): number;
+
+/**
+ * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
+ *
+ * @param scratch
+ * @param r
+ * @param a
+ */
+export function inverse(scratch: number, r: number, a: number): void;
+
 export const multiplyCount: number;
 export function resetMultiplyCount(): void;
+export const inverseCount: number;
+export function resetInverseCount(): void;

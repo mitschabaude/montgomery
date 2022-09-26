@@ -1,7 +1,5 @@
 import {
   getPointers,
-  inverse,
-  square,
   n,
   memoryBytes,
   getZeroPointers,
@@ -20,11 +18,13 @@ import {
 } from "./finite-field.js";
 import {
   multiply,
+  square,
   copy,
   subtract,
   add,
   isEqual,
   subtractPositive,
+  inverse,
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
@@ -552,7 +552,7 @@ function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
   // TODO: this can be made faster and cleaner by merging the 2nd and 3rd loop
   if (n === 0) return;
   if (n === 1) {
-    inverse(scratch, invProd, X[0]);
+    inverse(scratch[0], invProd, X[0]);
     copy(X[0], invProd);
     return;
   }
@@ -563,7 +563,7 @@ function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
     multiply(tmpX[i], tmpX[i - 1], X[i]);
   }
   // X[0] = 1/(x0*....*x(n-1)) = 1/tmpX[n-1]
-  inverse(scratch, invProd, tmpX[n - 1]);
+  inverse(scratch[0], invProd, tmpX[n - 1]);
 
   // X = [garbage, 1/x0, 1/(x0*x1), ..., 1/(x0*....*x(n-2))] (X[i] = 1/(x0*...*x(i-1)))
   // by X[n-1] = invProd * X[n-1], X[i] = X[i+1] * X[i], i >= 1
@@ -702,7 +702,7 @@ function copyAffineToProjectiveNonZero(P, A) {
 function toAffineOutput([zinv, ...scratchSpace], P) {
   let [x, y, z] = projectiveCoords(P);
   // return x/z, y/z
-  inverse(scratchSpace, zinv, z);
+  inverse(scratchSpace[0], zinv, z);
   multiply(x, x, zinv);
   multiply(y, y, zinv);
   fromMontgomery(x);
@@ -716,7 +716,7 @@ function toAffineOutput([zinv, ...scratchSpace], P) {
 function toAffine([zinv, x1, y1, ...scratchSpace], P) {
   let [x, y, z] = projectiveCoords(P);
   // return x/z, y/z
-  inverse(scratchSpace, zinv, z);
+  inverse(scratchSpace[0], zinv, z);
   multiply(x1, x, zinv);
   multiply(y1, y, zinv);
   return [mod(readBigInt(x1), p), mod(readBigInt(y1), p)];
@@ -885,7 +885,7 @@ function addAssignAffineFull([m, tmp, d, ...scratch], G1, G2) {
   numberOfAdds++;
   // m = (y2 - y1)/(x2 - x1)
   subtract(tmp, x2, x1);
-  inverse(scratch, d, tmp);
+  inverse(scratch[0], d, tmp);
   subtract(m, y2, y1);
   multiply(m, d, m);
   // x1 = m^2 - x1 - x2
@@ -909,7 +909,7 @@ function doubleInPlaceAffineFull([m, tmp, d, x2, y2, ...scratch], G) {
 
   // m = 3*x^2/2y
   add(tmp, y, y);
-  inverse(scratch, d, tmp);
+  inverse(scratch[0], d, tmp);
   square(m, x);
   add(tmp, m, m); // TODO efficient doubling
   add(m, tmp, m);
