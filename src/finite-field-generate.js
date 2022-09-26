@@ -21,14 +21,6 @@ export { createFiniteField, createFiniteFieldWat, jsHelpers, montgomeryParams };
 // for w=32 benchmark
 export { benchMultiply, multiply32, moduleWithMemory };
 
-/**
- * TODOs
- *
- * -) evaluate when reducing in addition / subtraction can be left out,
- *   => can accept upper bounds > 2p on multiplication inputs
- * -) test whether add2 is faster than add in the real world case
- */
-
 const mulInputFactor = 8n;
 
 /**

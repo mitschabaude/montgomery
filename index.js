@@ -104,7 +104,9 @@ console.log(`
 # inv:     ${(1e-3 * nInv).toFixed(3).padStart(6)} K
   ~= muls  ${(1e-6 * mulPerInv * nInv).toFixed(3).padStart(6)} M
 
-~total     ${(1e-6 * (mulPerInv * nInv + nMul)).toFixed(3).padStart(6)} M
+~total     ${(1e-6 * (mulPerInv * nInv + nMul * ((5 + 0.8) / 6)))
+  .toFixed(3)
+  .padStart(6)} M
 
 raw muls / s: ${(1e-6 * mPerSec).toFixed(2)} M
 non-mul overhead: ${(100 * nonMulOverhead).toFixed(1)}%
