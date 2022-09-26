@@ -360,6 +360,7 @@ function subtract(writer, p, w) {
   let { n, wordMax, R } = montgomeryParams(p, w);
   // constants
   let Rminus2P = bigintToLegs(R - 2n * p, w, n);
+  let P2 = bigintToLegs(2n * p, w, n);
   let { line, lines, comment } = writer;
   let { i64, local, local64, param32 } = ops;
 
@@ -419,6 +420,31 @@ function subtract(writer, p, w) {
   func(writer, "subtractNoReduce", [param32(out), param32(x), param32(y)], () =>
     subtraction({ doReduce: false })
   );
+
+  // x - y + 2p -- subtraction that's guaranteed to stay positive, so there's no conditional branch,
+  // but output is only <4p and not necessarily <2p
+  // this is fine for inputs to multiplications, which contract <4p inputs to <2p outputs
+  addFuncExport(writer, "subtractPlus2P");
+  func(writer, "subtractPlus2P", [param32(out), param32(x), param32(y)], () => {
+    line(local64(tmp), local64(carry));
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, out[i]) = (2p + 2^w - 1) + x[i] - y[i] + carry;
+        i64.const(wordMax + P2[i]),
+        i64.load(x, { offset: 8 * i }),
+        i64.add(),
+        i64.load(y, { offset: 8 * i }),
+        i64.sub(),
+        local.get(carry),
+        i64.add(),
+        local.set(tmp),
+        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(carry, i64.shr_u(tmp, w))
+      );
+    }
+  });
 }
 
 /**

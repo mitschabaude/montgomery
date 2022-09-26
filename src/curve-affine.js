@@ -17,7 +17,14 @@ import {
   mod,
   getAndResetOpCounts,
 } from "./finite-field.js";
-import { multiply, copy, subtract, add, isEqual } from "./finite-field.wat.js";
+import {
+  multiply,
+  copy,
+  subtract,
+  add,
+  isEqual,
+  subtractPlus2P,
+} from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export { msmAffine, batchAddAssign, batchInverseInPlace };
@@ -440,7 +447,7 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
 
   // d[i] = H[i].x - G[i].x
   for (let i = 0; i < n; i++) {
-    subtract(d[i], H[i], G[i]);
+    subtractPlus2P(d[i], H[i], G[i]);
   }
   batchInverseInPlace(scratch, tmp, d, n);
   for (let i = 0; i < n; i++) {
@@ -489,7 +496,7 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
     } else {
       // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      subtract(d[i], H[i], G[i]);
+      subtractPlus2P(d[i], H[i], G[i]);
       iAdd[nAdd] = i;
       dBoth[nBoth] = d[i];
       nAdd++, nBoth++;
@@ -554,14 +561,14 @@ function addAffine([m], G3, G1, G2, d) {
   let [x2, y2] = affineCoords(G2);
   setNonZeroAffine(G3);
   // m = (y2 - y1)*d
-  subtract(m, y2, y1);
+  subtractPlus2P(m, y2, y1);
   multiply(m, m, d);
   // x3 = m^2 - x1 - x2
   square(x3, m);
   subtract(x3, x3, x1);
   subtract(x3, x3, x2);
   // y3 = (x2 - x3)*m - y2
-  subtract(y3, x2, x3);
+  subtractPlus2P(y3, x2, x3);
   multiply(y3, y3, m);
   subtract(y3, y3, y2);
 }
@@ -579,14 +586,14 @@ function addAssignAffine([m, tmp], G1, G2, d) {
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
   // m = (y2 - y1)*d
-  subtract(m, y2, y1);
+  subtractPlus2P(m, y2, y1);
   multiply(m, d, m);
   // x1 = m^2 - x1 - x2
   square(tmp, m);
   subtract(x1, tmp, x1);
   subtract(x1, x1, x2);
   // y1 = (x2 - x1)*m - y2
-  subtract(y1, x2, x1);
+  subtractPlus2P(y1, x2, x1);
   multiply(y1, y1, m);
   subtract(y1, y1, y2);
 }

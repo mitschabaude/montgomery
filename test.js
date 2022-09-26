@@ -8,6 +8,7 @@ import {
   isEqual,
   leftShift,
   square,
+  subtractPlus2P,
 } from "./src/finite-field.wat.js";
 import {
   p,
@@ -85,6 +86,12 @@ function test() {
   // subtract
   z0 = mod(x0 - y0, p);
   subtract(z, x, y);
+  z1 = ofWasm(scratch, z);
+  if (z0 !== z1) throw Error("subtract");
+
+  // subtract plus 2p
+  z0 = mod(x0 - y0, p);
+  subtractPlus2P(z, x, y);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("subtract");
 
