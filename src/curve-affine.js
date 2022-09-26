@@ -27,7 +27,7 @@ import {
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
-export { msmAffine, batchAddAssign, batchInverseInPlace };
+export { msmAffine, batchAdd, batchInverseInPlace };
 
 /**
  * @typedef {number} AffinePoint
@@ -61,6 +61,7 @@ let cTable = {
  *
  * @param {CompatibleScalar[]} scalars
  * @param {CompatiblePoint[]} inputPoints
+ * @param {handleEdgeCases} boolean
  */
 function msmAffine(scalars, inputPoints) {
   // initialize buckets
@@ -182,7 +183,7 @@ function msmAffine(scalars, inputPoints) {
       }
     }
     // now (P,G,H) represents a big array of independent additions, which we batch-add
-    batchAdd(scratchSpace, tmp, denominators, P, G, H, nPairs);
+    batchAddUnsafe(scratchSpace, tmp, denominators, P, G, H, nPairs);
   }
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
@@ -203,7 +204,7 @@ function msmAffine(scalars, inputPoints) {
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
-    batchAddAssign(scratchSpace, tmp, denominators, G, H, nPairs);
+    batchAddUnsafe(scratchSpace, tmp, denominators, G, G, H, nPairs);
   }
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
@@ -325,15 +326,12 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   /** @type {number[]} */
   let nextBuckets = Array(n);
 
-  // console.log({ L, c, K, L0, c0, depth, D });
-
   // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 1; l > 0; l--) {
     // collect buckets to add into running sums
     let p = 0;
     for (let k = 0; k < K; k++) {
       for (let d = 0; d < D; d++, p++) {
-        // if (k === 0) console.log("adding", d * L0 + l + 1, "into", d * L0 + l);
         runningSums[p] = buckets[k][d * L0 + l + 1];
         nextBuckets[p] = buckets[k][d * L0 + l];
       }
@@ -341,7 +339,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
     // console.assert(p === n);
     // add them; we add-assign the running sum to the next bucket and not the other way;
     // building up a list of intermediary partial sums at the pointers that were the buckets before
-    batchAddAssign(scratch, tmp, d, nextBuckets, runningSums, n);
+    batchAdd(scratch, tmp, d, nextBuckets, nextBuckets, runningSums, n);
   }
 
   // logarithmic part (i.e., logarithmic # of batchAdds / inversions; the # of EC adds is linear in K*D = K * 2^(c - c0))
@@ -361,7 +359,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
       }
     }
     // console.assert(p === K * D1);
-    batchAddAssign(scratch, tmp, d, majorSums, minorSums, p);
+    batchAdd(scratch, tmp, d, majorSums, majorSums, minorSums, p);
   }
   // second logarithmic step: repeated doubling of some buckets until they hold square areas to fill up the triangle
   // first, double x_(d*L0 + 1), d=1,...,D-1, c0 times, so they all hold 2^c0 * x_(d*L0 + 1)
@@ -393,7 +391,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
 
   // alright! now our buckets precisely fill up the big triangle
   // => sum them all in a big addition tree
-  // we always batchAddAssign a list of pairs into the first element of each pair
+  // we always batchAdd a list of pairs into the first element of each pair
   // round 0: (1,2), (3,4), (5,6), ..., (L-1, L);
   //      === (l,l+1) for l=1; l<L; i+=2
   // round 1: (l,l+2) for l=1; l<L; i+=4
@@ -404,17 +402,14 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   let H = Array(K * L);
 
   for (let m = 1; m < L; m *= 2) {
-    // console.log("----> m", m);
     p = 0;
     for (let k = 0; k < K; k++) {
       for (let l = 1; l < L; l += 2 * m, p++) {
-        // if (k === 0) console.log("adding", l + m, "into", l);
         G[p] = buckets[k][l];
         H[p] = buckets[k][l + m];
       }
     }
-    // console.assert(p === (K * L) / (2 * m));
-    batchAddAssign(scratch, tmp, d, G, H, p);
+    batchAdd(scratch, tmp, d, G, G, H, p);
   }
 
   // finally, return the output sum of each partition as a projective point
@@ -431,7 +426,14 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  *
  * Si = Gi + Hi, i=0,...,n-1
  *
- * assuming all the Gi, Hi are non-zero
+ * unsafe: this is a faster version which doesn't handle edge cases!
+ * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
+ *
+ * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
+ * where inputs are independent and pseudo-random in significant parts of the msm algorithm
+ * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
+ *
+ * the performance improvement is in the ballpark of 1-3%
  *
  * @param {number[]} scratch
  * @param {number[]} tmp pointers of length n
@@ -441,11 +443,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  * @param {AffinePoint[]} H
  * @param {number} n
  */
-function batchAdd(scratch, tmp, d, S, G, H, n) {
-  // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
-  // => batch affine doubling into P[p] for the y1 === x2 cases, keeping P[p] zero for y1 === -y2
-
-  // d[i] = H[i].x - G[i].x
+function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
   for (let i = 0; i < n; i++) {
     subtractPlus2P(d[i], H[i], G[i]);
   }
@@ -458,16 +456,17 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
 /**
  * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
  *
- * Gi = Gi + Hi, i=0,...,n-1
+ * Si = Gi + Hi, i=0,...,n-1
  *
  * @param {number[]} scratch
  * @param {number[]} tmp pointers of length n
  * @param {number[]} d pointers of length n
+ * @param {AffinePoint[]} S
  * @param {AffinePoint[]} G
  * @param {AffinePoint[]} H
  * @param {number} n
  */
-function batchAddAssign(scratch, tmp, d, G, H, n) {
+function batchAdd(scratch, tmp, d, S, G, H, n) {
   // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
 
   // check G, H for zero
@@ -480,10 +479,11 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
 
   for (let i = 0; i < n; i++) {
     if (isZeroAffine(G[i])) {
-      copyAffine(G[i], H[i]);
+      copyAffine(S[i], H[i]);
       continue;
     }
     if (isZeroAffine(H[i])) {
+      if (S[i] !== G[i]) copyAffine(S[i], G[i]);
       continue;
     }
     if (isEqual(G[i], H[i])) {
@@ -505,11 +505,11 @@ function batchAddAssign(scratch, tmp, d, G, H, n) {
   batchInverseInPlace(scratch, tmp, dBoth, nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
-    addAffine(scratch, G[i], G[i], H[i], d[i]);
+    addAffine(scratch, S[i], G[i], H[i], d[i]);
   }
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
-    doubleAffine(scratch, G[i], G[i], d[i]);
+    doubleAffine(scratch, S[i], G[i], d[i]);
   }
 }
 
@@ -546,10 +546,11 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
 
 /**
  * affine EC addition, G3 = G1 + G2
+ *
  * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
  * (edge cases are handled one level higher, before batching)
  *
- * this supports addition with assignment where G3 === G1
+ * this supports addition with assignment where G3 === G1 (but not G3 === G2)
  * @param {number[]} scratch
  * @param {AffinePoint} G3 (x3, y3)
  * @param {AffinePoint} G1 (x1, y1)
@@ -577,7 +578,10 @@ function addAffine([m, tmp], G3, G1, G2, d) {
 
 /**
  * affine EC doubling, H = 2*G
- * assuming d = 1/(2*y) is given, and inputs aren't zero
+ *
+ * assuming d = 1/(2*y) is given, and inputs aren't zero.
+ *
+ * this supports doubling a point in-place with H === G
  * @param {number[]} scratch
  * @param {AffinePoint} H output point
  * @param {AffinePoint} G input point (x, y)
