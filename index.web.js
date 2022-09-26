@@ -17,9 +17,12 @@ import {
 let n = 14;
 console.log(`running msm with 2^${n} inputs`);
 
-tic("warm-up JIT compiler with fixed set of points");
+tic("warm-up JIT compiler with fixed points");
 {
-  let { points, scalars } = await load(12);
+  let { points, scalars } = await load(14);
+  msmAffine(scalars, points);
+  msmAffine(scalars, points);
+  await new Promise((r) => setTimeout(r, 100));
   msmAffine(scalars, points);
 }
 toc();
@@ -44,9 +47,6 @@ let mulPerInv = mPerSec / invPerSec;
 
 tic("load inputs & convert to rust");
 let { points, scalars } = await load(n);
-// TODO: loading into Rust memory fails for n >= 15
-// let scalarVec = ScalarVectorInput.fromJsArray(scalars);
-// let pointVec = PointVectorInput.fromJsArray(points);
 toc();
 
 // tic("msm (rust)");
