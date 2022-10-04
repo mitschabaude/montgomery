@@ -15,10 +15,11 @@ if (isMain) {
 
 async function compileFiniteFieldWasm(p, w, { withBenchmarks = false } = {}) {
   let writer = await createFiniteFieldWat(p, w, { withBenchmarks });
-  let js = await compileWat(writer);
+  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
   await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
   await writeFile(`./src/finite-field.wat.js`, js);
+  await fs.writeFile("./src/finite-field.wasm", wasm);
 }
 
 // --- general wat2wasm functionality ---
@@ -38,13 +39,16 @@ async function compileWat({ text, exports }) {
     wabtModule.toBinary({ write_debug_names: true }).buffer
   );
   let base64 = await toBase64(wasmBytes);
-  return `// compiled from wat
+  return {
+    wasm: wasmBytes,
+    js: `// compiled from wat
 import { toBytes } from 'fast-base64';
 let wasmBytes = await toBytes("${base64}");
 let { instance } = await WebAssembly.instantiate(wasmBytes, {});
 let { ${[...exports].join(", ")} } = instance.exports;
 export { ${[...exports].join(", ")} };
-`;
+`,
+  };
 }
 
 async function interpretWat({ text }) {

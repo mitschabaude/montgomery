@@ -91,7 +91,7 @@ function uint8ArrayToBigUint64(x8) {
  * @return {boolean[]}
  */
 function bigintToBits(x, bitLength) {
-  let bits = Array(bitLength ?? 0);
+  let bits = Array(bitLength || 0);
   for (let i = 0; bitLength ? i < bitLength : x > 0n; i++) {
     bits[i] = !!Number(x & 1n);
     x >>= 1n;
@@ -148,15 +148,15 @@ function extractBitSlice(bytes, startBit, bitLength) {
   let endByte = endBit >> 3;
   endBit -= endByte << 3;
   if (startByte === endByte) {
-    return ((bytes[startByte] ?? 0) & ((1 << endBit) - 1)) >> startBit;
+    return ((bytes[startByte] || 0) & ((1 << endBit) - 1)) >> startBit;
   }
-  let slice = (bytes[startByte] ?? 0) >> startBit;
+  let slice = (bytes[startByte] || 0) >> startBit;
   let position = 8 - startBit;
   for (let i = startByte + 1; i < endByte; i++) {
-    slice += (bytes[i] ?? 0) << position;
+    slice += (bytes[i] || 0) << position;
     position += 8;
   }
-  slice += ((bytes[endByte] ?? 0) & ((1 << endBit) - 1)) << position;
+  slice += ((bytes[endByte] || 0) & ((1 << endBit) - 1)) << position;
   return slice;
 }
 
