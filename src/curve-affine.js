@@ -243,24 +243,26 @@ function msmAffine(scalars, inputPoints) {
 
   let [nMul3, nInv3] = getAndResetOpCounts();
 
-  // TODO read out and return result
   resetPointers();
 
   return {
+    result,
     nMul1,
     nMul2,
     nMul3,
     nInv: nInv1 + nInv2 + nInv3,
-    result,
     numberOfAdds,
     numberOfDoubles,
   };
 }
 
 /**
+ * reducing buckets into one sum per partition, using only batch-affine additions & doublings
+ *
  * @param {number[]} scratch
  * @param {number[][][]} oldBuckets
  * @param {{c: number, K: number, L: number}}
+ * @param {number} depth
  */
 function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // depth = 0 is the standard algorithm, just batch-added over the K partitions
