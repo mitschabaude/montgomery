@@ -2,5 +2,6 @@ node_modules
 *.wat.js
 src/obsolete.js
 *.gen.wat
+*.wasm
 resources
 inputs.json
