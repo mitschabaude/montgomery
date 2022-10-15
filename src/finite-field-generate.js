@@ -1370,7 +1370,13 @@ function jsHelpers(
       return x0;
     },
 
+    /**
+     * @type {number}
+     */
     initial: initialOffset,
+    /**
+     * @type {number}
+     */
     offset: initialOffset,
 
     /**
