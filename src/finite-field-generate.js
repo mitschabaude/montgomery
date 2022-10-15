@@ -35,7 +35,7 @@ const mulInputFactor = 8n;
  * @param {number} w
  * @param {import('./finite-field.wat')} wasm
  */
-async function createFiniteField(p, w, wasm) {
+function createFiniteField(p, w, wasm) {
   let {
     multiply,
     addNoReduce,

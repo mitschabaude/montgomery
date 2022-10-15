@@ -64,7 +64,6 @@ let cTable = {
  *
  * @param {CompatibleScalar[]} scalars
  * @param {CompatiblePoint[]} inputPoints
- * @param {handleEdgeCases} boolean
  */
 function msmAffine(scalars, inputPoints) {
   // initialize buckets
@@ -73,7 +72,7 @@ function msmAffine(scalars, inputPoints) {
   let c = log2(N) - 2; // TODO: determine c from n and hand-optimized lookup table
   if (c < 1) c = 1;
   let depth = c >> 1;
-  [c, depth] = cTable[log2(N)] ?? [c, depth];
+  [c, depth] = cTable[log2(N)] || [c, depth];
 
   // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
@@ -282,7 +281,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   for (let k = 0; k < K; k++) {
     buckets[k] = Array(L + 1);
     for (let l = 1; l <= L; l++) {
-      buckets[k][l] = oldBuckets[k][l][0] ?? getZeroPointer(sizeAffine);
+      buckets[k][l] = oldBuckets[k][l][0] || getZeroPointer(sizeAffine);
     }
   }
 

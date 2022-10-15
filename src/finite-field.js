@@ -70,7 +70,7 @@ let {
   getZeroPointers,
   getOffset,
   getAndResetOpCounts,
-} = await createFiniteField(p, w, wasm);
+} = createFiniteField(p, w, wasm);
 let memoryBytes = new Uint8Array(memory.buffer);
 
 /**
