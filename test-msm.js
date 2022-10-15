@@ -65,26 +65,13 @@ let xProjProj = mod(resultProj.x, p);
 let yProjProj = mod(resultProj.y, p);
 let zProjProj = mod(resultProj.z, p);
 let [xProj, yProj] = toAffine(xProjProj, yProjProj, zProjProj);
-let numberOfAddsProj = resultProj.numberOfAdds;
-let numberOfDoublesProj = resultProj.numberOfDoubles;
-// console.log(resultProj.nMul1 + resultProj.nMul2 + resultProj.nMul3);
 
 tic("msm (ours)");
 let result = msmAffine(scalars, points);
 toc();
 let [xAffPacked, yAffPacked] = result.result;
-let xAff = bigintToBytes(xAffPacked, 48);
-let yAff = bigintToBytes(yAffPacked, 48);
-// let numberOfAddsAff = result.numberOfAdds;
-// let numberOfDoublesAff = result.numberOfDoubles;
-// console.log(result.nMul1 + result.nMul2 + result.nMul3);
-
-// console.log({
-//   numberOfAddsProj,
-//   numberOfDoublesProj,
-//   numberOfAddsAff,
-//   numberOfDoublesAff,
-// });
+let xAff = bigintFromBytes(xAffPacked);
+let yAff = bigintFromBytes(yAffPacked);
 
 if (runSlowMsm) {
   console.log("big === ref", { x: xRef === xBigint, y: yRef === yBigint });
