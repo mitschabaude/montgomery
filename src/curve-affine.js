@@ -56,6 +56,7 @@ let numberOfDoubles = 0;
 
 let cTable = {
   [14]: [12, 5],
+  [16]: [13, 6],
 };
 
 /**
