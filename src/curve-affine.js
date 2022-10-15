@@ -15,6 +15,7 @@ import {
   mod,
   getAndResetOpCounts,
   addAffine,
+  readBytes,
 } from "./finite-field.js";
 import {
   multiply,
@@ -238,9 +239,10 @@ function msmAffine(scalars, inputPoints) {
     addAssignProjective(scratchSpace, finalSum, partialSum);
   }
 
-  let [nMul3, nInv3] = getAndResetOpCounts();
+  // convert final sum back to affine point
+  let result = toAffineOutput(scratchSpace, finalSum);
 
-  let [x, y, z] = toProjectiveOutput(finalSum);
+  let [nMul3, nInv3] = getAndResetOpCounts();
 
   // TODO read out and return result
   resetPointers();
@@ -250,9 +252,7 @@ function msmAffine(scalars, inputPoints) {
     nMul2,
     nMul3,
     nInv: nInv1 + nInv2 + nInv3,
-    x,
-    y,
-    z,
+    result,
     numberOfAdds,
     numberOfDoubles,
   };
@@ -699,6 +699,7 @@ function copyAffineToProjectiveNonZero(P, A) {
 /**
  * @param {number[]} scratchSpace
  * @param {ProjectivePoint} point projective representation
+ * @returns {CompatiblePoint}
  */
 function toAffineOutput([zinv, ...scratchSpace], P) {
   let [x, y, z] = projectiveCoords(P);
@@ -708,7 +709,7 @@ function toAffineOutput([zinv, ...scratchSpace], P) {
   multiply(y, y, zinv);
   fromMontgomery(x);
   fromMontgomery(y);
-  return [readBigInt(x), readBigInt(y)];
+  return [readBytes(scratchSpace, x), readBytes(scratchSpace, y), false];
 }
 /**
  * @param {number[]} scratchSpace
