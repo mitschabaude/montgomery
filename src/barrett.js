@@ -75,60 +75,71 @@ import { montgomeryParams } from "./finite-field-generate.js";
 import { randomBaseFieldx4 } from "./finite-field-js.js";
 import { bigintFromLegs, bigintToLegs } from "./util.js";
 
-// reducing base fields
-let p =
-  0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
-let w = 30;
+let isMain = process.argv[1] === import.meta.url.slice(7);
+if (isMain) {
+  let errors = new Set();
+  for (let i = 0; i < 1000; i++) {
+    let e = testBaseField();
+    errors.add(e);
+  }
+  console.log({ errors });
+}
 
-let { n, lengthP: b } = montgomeryParams(p, w);
-let k = b - 1;
-let N = n * w;
-let K = k + N;
+function testBaseField() {
+  let p =
+    0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
+  let w = 30;
 
-let { n0, e0 } = findMsbCutoff(p, w);
-console.log({ n0, e0 });
+  let { n, lengthP: b } = montgomeryParams(p, w);
+  let k = b - 1;
+  let N = n * w;
 
-// number of muls needed for multiplyMsb
-let msb = n * n - (n0 * (n0 + 1)) / 2;
-console.log({ msb, total: n * n, relative: msb / (n * n) });
+  let { n0, e0 } = findMsbCutoff(p, w);
+  // console.log({ n0, e0 });
 
-const m = 2n ** BigInt(k + N) / p;
-const m_vec = bigintToLegs(m, w, n);
-const p_vec = bigintToLegs(p, w, n);
-const R = 1n << BigInt(N);
+  // number of muls needed for multiplyMsb
+  let msb = n * n - (n0 * (n0 + 1)) / 2;
+  // console.log({ msb, total: n * n, relative: msb / (n * n) });
 
-// compute x mod p
+  const m = 2n ** BigInt(k + N) / p;
+  const m_vec = bigintToLegs(m, w, n);
+  const p_vec = bigintToLegs(p, w, n);
+  const R = 1n << BigInt(N);
 
-let x = randomBaseFieldx4() * randomBaseFieldx4();
-let x_all = bigintToLegs(x, w, 2 * n);
-let x_hi = extractHighBits(x_all, { k, n, w });
+  // compute x mod p
 
-let x_hi1 = bigintFromLegs(x_hi, w, n);
-console.assert(x_hi1 === x >> BigInt(k), "x_hi");
+  let x = randomBaseFieldx4() * randomBaseFieldx4();
+  let x_all = bigintToLegs(x, w, 2 * n);
+  let x_hi = extractHighBits(x_all, { k, n, w });
 
-let l_vec = multiplyMsb(x_hi, m_vec, { n0, n, w });
+  let x_hi1 = bigintFromLegs(x_hi, w, n);
+  console.assert(x_hi1 === x >> BigInt(k), "x_hi");
 
-let l1 = (x_hi1 * m) >> BigInt(N);
-let l0 = bigintFromLegs(l_vec, w, n);
-console.assert(l1 === l0, "l0 === l1");
-console.assert(l0 < R, "l0 < R");
+  let l_vec = multiplyMsb(x_hi, m_vec, { n0, n, w });
 
-let lp_vec = multiplyLsb(l_vec, p_vec, { w, n });
+  let l1 = (x_hi1 * m) >> BigInt(N);
+  let l0 = bigintFromLegs(l_vec, w, n);
+  console.assert(l1 === l0, "l0 === l1");
+  console.assert(l0 < R, "l0 < R");
 
-let lp0 = bigintFromLegs(lp_vec, w, n);
-let lp1 = l1 * p - (((l1 * p) >> BigInt(N)) << BigInt(N));
-console.assert(lp0 === lp1, "lp0 === lp1");
+  let lp_vec = multiplyLsb(l_vec, p_vec, { w, n });
 
-let r_vec = barrett(x_all, { w, n, n0, m_vec, p_vec });
+  let lp0 = bigintFromLegs(lp_vec, w, n);
+  let lp1 = l1 * p - (((l1 * p) >> BigInt(N)) << BigInt(N));
+  console.assert(lp0 === lp1, "lp0 === lp1");
 
-let r = bigintFromLegs(r_vec, w, n);
-console.assert(r < 3n * p, "r < 3p");
-console.assert((x - r) % p === 0n, "r === x mod p");
-let e = (r - (r % p)) / p;
-console.assert(e <= 2n, "e <= 2");
-console.log({ e });
+  let r_vec = barrett(x_all, { w, n, n0, k, m_vec, p_vec });
 
-function barrett(x, { w, n, n0, m_vec, p_vec }) {
+  let r = bigintFromLegs(r_vec, w, n);
+  console.assert(r < 3n * p, "r < 3p");
+  console.assert((x - r) % p === 0n, "r === x mod p");
+  let e = (r - (r % p)) / p;
+  console.assert(e <= 2n, "e <= 2");
+  // console.log({ e });
+  return e;
+}
+
+function barrett(x, { w, n, n0, k, m_vec, p_vec }) {
   let x_hi = extractHighBits(x, { k, n, w });
   let l = multiplyMsb(x_hi, m_vec, { n0, n, w });
   let lp = multiplyLsb(l, p_vec, { w, n });
