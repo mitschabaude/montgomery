@@ -10,6 +10,7 @@ export {
   randomScalars,
   randomBaseField,
   randomBaseFieldx2,
+  randomBaseFieldx4,
 };
 
 let p =
@@ -109,7 +110,6 @@ function randomScalars(n) {
 }
 
 /**
- *
  * @returns {bigint}
  */
 function randomBaseField() {
@@ -122,7 +122,6 @@ function randomBaseField() {
 }
 
 /**
- *
  * @returns {bigint}
  */
 function randomBaseFieldx2() {
@@ -131,5 +130,17 @@ function randomBaseFieldx2() {
     bytes[47] &= 0x3f;
     let x = bigintFromBytes(bytes);
     if (x < 2n * p) return x;
+  }
+}
+
+/**
+ * @returns {bigint}
+ */
+function randomBaseFieldx4() {
+  while (true) {
+    let bytes = randomBytes(48);
+    bytes[47] &= 0x7f;
+    let x = bigintFromBytes(bytes);
+    if (x < 4n * p) return x;
   }
 }

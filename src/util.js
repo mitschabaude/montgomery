@@ -5,6 +5,7 @@ export {
   uint8ArrayToBigUint64,
   bigintToBits,
   bigintToLegs,
+  bigintFromLegs,
   logBytesAsBigint,
   log2,
   extractBitSlice,
@@ -117,6 +118,21 @@ function bigintToLegs(x0, w, n) {
     x0 >>= wn;
   }
   return legs;
+}
+
+/**
+ *
+ * @param {BigUint64Array} x
+ * @param {number} w
+ * @param {number} n
+ */
+function bigintFromLegs(x, w, n) {
+  let wn = BigInt(w);
+  let x0 = x[n - 1];
+  for (let i = n - 2; i >= 0; i--) {
+    x0 = x[i] + (x0 << wn);
+  }
+  return x0;
 }
 
 function logBytesAsBigint(bytes) {
