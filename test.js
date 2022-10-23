@@ -10,6 +10,8 @@ import {
   square,
   subtractPositive,
   inverse,
+  multiplySchoolbook,
+  barrett,
 } from "./src/finite-field.wat.js";
 import {
   p,
@@ -40,7 +42,7 @@ function ofWasm([tmp], x) {
   return mod(readBigInt(tmp), p);
 }
 
-let [x, y, z, tmp, ...scratch] = getPointers(10);
+let [x, y, z, , ...scratch] = getPointers(10);
 
 let R = mod(1n << BigInt(w * n), p);
 let Rinv = modInverse(R, p);
@@ -76,6 +78,21 @@ function test() {
   leftShift(z, constants.R2, k);
   z1 = ofWasm(scratch, z);
   if (z1 !== z0) throw Error("leftShift");
+
+  // barrett multiplication
+  writeBigint(x, x0);
+  writeBigint(y, y0);
+  z0 = mod(x0 * x0, p);
+  multiplySchoolbook(z, x, y);
+  let xy = readBigInt(z, 2);
+  console.assert(x0 * y0 === xy, "x*y");
+  barrett(z);
+  z1 = readBigInt(z);
+  console.log(z0);
+  console.log(mod(z1, p));
+  if (mod(z0 - z1, p) !== 0) throw Error("barrett multiply");
+  toWasm(x0, x);
+  toWasm(y0, y);
 
   // add
   z0 = mod(x0 + y0, p);
