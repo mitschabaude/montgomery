@@ -80,8 +80,8 @@ import {
   bigintToLegs,
   log2,
 } from "./util.js";
-import { addAffine, scale } from "./dumb-curve-affine.js";
-import { load } from "./store-inputs.js";
+
+export { findMsbCutoff };
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -105,6 +105,9 @@ let beta2 =
 
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
+  let { addAffine, scale } = await import("./dumb-curve-affine.js");
+  let { load } = await import("./store-inputs.js");
+
   // check cube root properties
   let isCubeRoot = (x, p) => (x ** 2n + x + 1n) % p === 0n;
   console.assert(isCubeRoot(lambda1, q), "lambda cube root");
@@ -187,6 +190,9 @@ function testModulus(x, p) {
   // console.log({ msb, total: n * n, relative: msb / (n * n) });
 
   const m = 2n ** BigInt(k + N) / p;
+
+  // make estimates for m concrete
+
   const m_vec = bigintToLegs(m, w, n);
   const p_vec = bigintToLegs(p, w, n);
   const R = 1n << BigInt(N);
@@ -282,12 +288,12 @@ function findMsbCutoff(p, w) {
   return { n0, e0: Number(l - l0) };
 }
 
-// compute approx. to (x*y) >> 2^n, where x,y < 2^n,
-// by neglecting the first i0 output limbs
+// compute approx. to (x*y) >> 2^N, where x,y < 2^N,
+// by neglecting the first n0 output limbs
 function multiplyMsb(x, y, { n0, n, w }) {
   let t = new BigUint64Array(2 * n - n0);
   for (let i = 0; i < n; i++) {
-    // i + j >= i0 ==> j >= i0 - i
+    // i + j >= n0 ==> j >= n0 - i
     for (let j = Math.max(0, n0 - i); j < n; j++) {
       t[i + j - n0] += x[i] * y[j];
     }

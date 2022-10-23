@@ -1,3 +1,4 @@
+import { findMsbCutoff } from "./barrett.js";
 import { montgomeryParams } from "./finite-field-generate.js";
 import { modInverse } from "./finite-field-js.js";
 import { bigintToLegs } from "./util.js";
@@ -9,7 +10,7 @@ import {
   ops,
 } from "./wasm-generate.js";
 
-export { multiply };
+export { multiply, barrett };
 
 /**
  * montgomery product
@@ -413,6 +414,173 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     }
     line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
   });
+}
+
+function barrett(writer, p, w) {
+  let { n, lengthP: b } = montgomeryParams(p, w);
+  let k = b - 1;
+  let N = n * w;
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  let { n0, e0 } = findMsbCutoff(p, w);
+  let m = 2n ** BigInt(k + N) / p;
+  let M = bigintToLegs(m, w, n);
+  let P = bigintToLegs(p, w, n);
+
+  let { line, lines, comment, join } = writer;
+  let { i64, local, local64, param32 } = ops;
+
+  let [x, y, xy] = ["$x", "$y", "$xy"];
+  let [tmp, carry] = ["$tmp", "$carry"];
+  let [xi] = ["$xi"];
+
+  addFuncExport(writer, "barrett");
+  func(writer, "barrett", [param32(x)], () => {
+    line(local64(tmp), local64(carry));
+    let X_hi = defineLocals(writer, "xhi", n + 1);
+    let L = defineLocals(writer, "l", n + n - n0);
+
+    // extract x_hi := highest k bits of x
+    comment(`extract x_hi := highest ${k} bits of x`);
+    // x_hi = x.slice(n-1, 2*n) <==> x >> 2^((n-1)*w)
+    comment(`first set x_hi := x[${n - 1}..${2 * n}] = (x >> ${n - 1}*${w})`);
+    for (let i = 0; i < n + 1; i++) {
+      line(local.set(X_hi[i], i64.load(x, { offset: 8 * (i + n - 1) })));
+    }
+    // now we only have to do x_hi >>= k - (n - 1)*w
+    let k0 = BigInt(k - (n - 1) * w);
+    let l0 = wn - k0;
+    comment(`now do x_hi >>= ${k0} (because ${k0} = ${k} - ${n - 1}*${w})`);
+    for (let i = 0; i < n; i++) {
+      // x_hi[i] = (x_hi[i] >> k0) | ((x_hi[i + 1] << l) & wordMax);
+      lines(
+        i64.shr_u(X_hi[i], k0),
+        i64.and(i64.shl(X_hi[i + 1], l0), wordMax),
+        i64.or(),
+        local.set(X_hi[i])
+      );
+    }
+
+    // l = multiplyMsb(x_hi, m) = [x_hi * m / 2^N]
+    comment(`l = [x_hi * m / 2^N]; the first ${n0} output limbs are neglected`);
+    // compute (x_hi*m) >> 2^N, where x_hi,m < 2^N,
+    // by neglecting the first n0 output limbs (which we checked don't contribute in the worst case)
+    for (let i = 0; i < n; i++) {
+      line(local.set(tmp, local.get(X_hi[i])));
+      for (let j = Math.max(0, n0 - i); j < n; j++) {
+        lines(
+          i64.mul(tmp, M[j]),
+          local.get(L[i + j - n0]),
+          i64.add(),
+          local.set(L[i + j - n0])
+        );
+      }
+    }
+    comment("carry(l)");
+    // round of carrying on l
+    let length = 2 * n - n0;
+    for (let i = 0; i < length - 1; i++) {
+      lines(
+        local.set(tmp, i64.shr_u(L[i], w)),
+        local.set(L[i], i64.and(L[i], wordMax)),
+        local.set(L[i + 1], i64.add(L[i + 1], tmp))
+      );
+    }
+    // TODO: check if this is needed (probably not)
+    line(local.set(L[length - 1], i64.and(L[length - 1], wordMax)));
+    // now neglect the lowest n - n0 entries of L
+    L = L.slice(n - n0);
+
+    // lp = multiplyLsb(l, p) = (l*p)[0..n], i.e. just compute the lower half
+    comment("(l*p)[0..n]; reuse x_hi to store l*p");
+    let LP = X_hi.slice(0, n); // just reuse X_hi which isn't needed anymore
+    for (let i = 0; i < n; i++) {
+      line(local.set(LP[i], i64.const(0)));
+    }
+    for (let i = 0; i < n; i++) {
+      line(local.set(tmp, local.get(L[i])));
+      for (let j = 0; j < n - i; j++) {
+        lines(
+          i64.mul(tmp, P[j]),
+          local.get(LP[i + j]),
+          i64.add(),
+          local.set(LP[i + j])
+        );
+      }
+    }
+    // round of carrying on lp
+    comment("carry(l*p)");
+    for (let i = 0; i < n - 1; i++) {
+      lines(
+        local.set(tmp, i64.shr_u(LP[i], w)),
+        local.set(LP[i], i64.and(LP[i], wordMax)),
+        local.set(LP[i + 1], i64.add(LP[i + 1], tmp))
+      );
+    }
+    local.set(LP[n - 1], i64.and(LP[n - 1], wordMax));
+    // now overwrite the low n limbs with x = x - lp
+    comment("x|lo = x - l*p to the low n limbs of x");
+    // and ignore the possible overflow bit because we know the result fits in N bits
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      lines(
+        // (carry, x[i]) = x[i] + ((2^w - 1) - LP[i]) + carry;
+        i64.load(x, { offset: 8 * i }),
+        i64.const(wordMax),
+        i64.add(),
+        local.get(LP[i]),
+        i64.sub(),
+        local.get(carry),
+        i64.add(),
+        local.set(tmp),
+        i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i !== n - 1 && local.set(carry, i64.shr_u(tmp, w))
+      );
+    }
+    // overwrite the high n limbs with 0
+    comment("x|hi = 0");
+    for (let i = n; i < 2 * n; i++) {
+      lines(i64.store(x, 0, { offset: 8 * i }));
+    }
+  });
+
+  addFuncExport(writer, "multiplySchoolbook");
+  func(
+    writer,
+    "multiplySchoolbook",
+    [param32(xy), param32(x), param32(y)],
+    () => {
+      line(local64(xi));
+      let XY = defineLocals(writer, "xy", 2 * n);
+      let Y = defineLocals(writer, "y", n);
+      // load y
+      for (let i = 0; i < n; i++) {
+        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      }
+      // multiply
+      comment(`multiply in ${n}x${n} steps`);
+      for (let i = 0; i < n; i++) {
+        line(local.set(xi, i64.load(x, { offset: 8 * i })));
+        for (let j = 0; j < n; j++) {
+          lines(
+            local.set(
+              XY[i + j],
+              i64.add(local.get(XY[i + j]), i64.mul(xi, Y[j]))
+            )
+          );
+        }
+      }
+      // carry & store result
+      comment("carry & store result");
+      for (let j = 1; j < 2 * n; j++) {
+        lines(
+          i64.store(xy, i64.and(XY[j - 1], wordMax), { offset: 8 * (j - 1) }),
+          local.set(XY[j], i64.add(XY[j], i64.shr_u(XY[j - 1], w)))
+        );
+      }
+      line(i64.store(xy, XY[2 * n - 1], { offset: 8 * (2 * n - 1) }));
+    }
+  );
 }
 
 function defineLocals(t, name, n) {

@@ -14,7 +14,7 @@ import {
   ops,
   Writer,
 } from "./wasm-generate.js";
-import { multiply } from "./finite-field-multiply.js";
+import { barrett, multiply } from "./finite-field-multiply.js";
 
 // main API
 export { createFiniteField, createFiniteFieldWat, jsHelpers, montgomeryParams };
@@ -257,6 +257,8 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
       reduce(writer, p, w);
       makeOdd(writer, p, w);
       finiteFieldHelpers(writer, p, w);
+
+      barrett(writer, p, w);
 
       if (withBenchmarks) {
         benchMultiply(writer);
@@ -593,6 +595,8 @@ function subtract(writer, p, w) {
     // check if we underflowed by checking carry === 1 (in that case, we didn't and can return)
     lines(i64.eq(carry, 1), `if return end`);
     // second loop
+    // TODO I think this is wrong.. we can overflow intermediate values
+    // should just add 2p and ignore the overflow bit that we know we'll have
     // if we're here, y > x and out = x - y + R, while we want x - y + 2p
     // so do (out - (R - 2p))
     line(local.set(carry, i64.const(1)));
@@ -721,7 +725,7 @@ function reduce(writer, p, w, d = 1) {
 /**
  * a core building block for montgomery inversion
  *
- * takes u, s < p. sets k=0. while u is even, update u /= 2 and s *= 2 and increment j++
+ * takes u, s < p. sets k=0. while u is even, update u /= 2 and s *= 2 and increment k++
  * at the end, u <- u/2^k, s <- s*2^k and the new u is odd
  * returns k
  * (the implementation shifts u >> k and s << k at once if k < w, and shifts by whole words until k < w)
@@ -1359,8 +1363,8 @@ function jsHelpers(
     /**
      * @param {number} x
      */
-    readBigInt(x) {
-      let arr = new BigUint64Array(memory.buffer.slice(x, x + n * 8));
+    readBigInt(x, length = 1) {
+      let arr = new BigUint64Array(memory.buffer.slice(x, x + n * 8 * length));
       let x0 = 0n;
       let bitPosition = 0n;
       for (let i = 0; i < arr.length; i++) {

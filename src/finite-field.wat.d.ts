@@ -3,6 +3,8 @@ export let memory: WebAssembly.Memory;
 export function multiply(out: number, x: number, y: number): void;
 export function square(out: number, x: number): void;
 export function leftShift(out: number, x: number, k: number): void;
+export function barrett(x: number): void;
+export function multiplySchoolbook(xy: number, x: number, y: number): void;
 export function add(out: number, x: number, y: number): void;
 export function subtract(out: number, x: number, y: number): void;
 export function reduce(x: number): void;
