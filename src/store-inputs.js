@@ -3,8 +3,7 @@ import { tic, toc } from "./tictoc.js";
 import { log2 } from "./util.js";
 import { webcrypto } from "node:crypto";
 import { PointVectorInput, ScalarVectorInput } from "./reference.node.js";
-let version = Number(process.version.slice(1, 3));
-if (version < 19) globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 export { load };
 

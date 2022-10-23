@@ -17,7 +17,7 @@ import {
 } from "./src/finite-field-compile.js";
 import { bigintFromBytes } from "./src/util.js";
 import { getPointers, writeBigint } from "./src/finite-field.js";
-globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
 for (let w of [24, 26, 28, 30]) {

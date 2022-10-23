@@ -5,7 +5,7 @@ import { webcrypto } from "node:crypto";
 import { randomScalars } from "./src/finite-field.js";
 import { msmAffine } from "./src/curve-affine.js";
 // web crypto compat
-globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);

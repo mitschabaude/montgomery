@@ -20,7 +20,7 @@ import {
 } from "./src/finite-field.js";
 import { msmAffine } from "./src/curve-affine.js";
 // web crypto compat
-globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 // benchmark raw mod mul
 let x0 = randomBaseFieldx2();

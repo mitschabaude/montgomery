@@ -28,7 +28,7 @@ import { extractBitSlice } from "./src/util.js";
 import { batchInverseInPlace } from "./src/curve-affine.js";
 import { modInverse } from "./src/finite-field-js.js";
 // web crypto compat
-globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 function toWasm(x0, x) {
   writeBigint(x, x0);
@@ -129,7 +129,7 @@ function test() {
 }
 
 function testBatchMontgomery() {
-  let n = 100;
+  let n = 1000;
   let X = getPointers(n);
   let invX = getPointers(n);
   let scratch = getPointers(10);
@@ -145,8 +145,10 @@ function testBatchMontgomery() {
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {
-    if (!isEqual(X[i], invX[i])) throw Error("batch inverse");
-    if (readBigInt(X[i]) !== readBigInt(invX[i])) throw Error("batch inverse");
+    if (mod(readBigInt(X[i]) - readBigInt(invX[i]), p) !== 0n)
+      throw Error("batch inverse");
+    if (!isEqual(reduce(X[i]), reduce(invX[i])))
+      console.warn("WARNING: batch inverse not exactly equal after reducing");
   }
 }
 

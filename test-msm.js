@@ -13,7 +13,7 @@ import { modInverse } from "./src/finite-field-js.js";
 import { msmDumbAffine } from "./src/dumb-curve-affine.js";
 import { load } from "./src/store-inputs.js";
 // web crypto compat
-globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let runSlowMsm = false;
 
