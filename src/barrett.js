@@ -129,6 +129,31 @@ if (isMain) {
   console.assert(lambdaP[0] === lambdaP_[0], "endo 2 (x)");
   console.assert(lambdaP[1] === lambdaP_[1], "endo 2 (y)");
 
+  // make estimates for m concrete
+  let w = 30;
+  let n = 13;
+  let k = 380;
+  let err = (d) => {
+    let N = n * w;
+    let m = 2n ** BigInt(k + N) / p;
+    let errNumerator =
+      m * 2n ** BigInt(k) * p +
+      BigInt(d) ** 2n * p ** 2n * (2n ** BigInt(k + N) - m * p);
+    let errDenominator = p * 2n ** BigInt(k + N);
+    let lengthErr = BigInt(errDenominator.toString().length);
+    let err =
+      Number(errNumerator / 10n ** (lengthErr - 5n)) /
+      Number(errDenominator / 10n ** (lengthErr - 5n));
+    return err;
+  };
+  console.log({
+    err1: err(1),
+    err2: err(2),
+    err4: err(4),
+    err8: err(8),
+    err16: err(16),
+  });
+
   let errors = new Set();
   for (let i = 0; i < 100; i++) {
     let x = randomBaseFieldx4() * randomBaseFieldx4();
@@ -139,8 +164,7 @@ if (isMain) {
   errors = new Set();
   let lengths = { r: new Set(), l: new Set() };
 
-  let w = 30;
-  let { n } = montgomeryParams(lambda2, w);
+  ({ n } = montgomeryParams(lambda2, w));
   const p_vec = bigintToLegs(lambda2, w, n);
   for (let i = 0; i < 10; i++) {
     let x = randomScalar();
@@ -190,8 +214,6 @@ function testModulus(x, p) {
   // console.log({ msb, total: n * n, relative: msb / (n * n) });
 
   const m = 2n ** BigInt(k + N) / p;
-
-  // make estimates for m concrete
 
   const m_vec = bigintToLegs(m, w, n);
   const p_vec = bigintToLegs(p, w, n);
@@ -284,7 +306,10 @@ function findMsbCutoff(p, w) {
   let l = (m * x_hi) >> BigInt(N);
   let l0 = bigintFromLegs(multiplyMsb(m_vec, x_vec, { n0, n, w }), w, n);
 
-  if (l - l0 > 1n) throw Error("didn't work");
+  if (l - l0 > 1n)
+    console.warn(
+      `WARNING: for n=${n}, w=${w} the max cutoff error is ${l - l0}`
+    );
   return { n0, e0: Number(l - l0) };
 }
 
