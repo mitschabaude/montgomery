@@ -20,7 +20,7 @@ import { getPointers, writeBigint } from "./src/finite-field.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
-for (let w of [24, 26, 28, 30]) {
+for (let w of [28, 30]) {
   // for (let w of [28]) {
   await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
   console.log();
@@ -39,10 +39,26 @@ for (let w of [24, 26, 28, 30]) {
   ff.benchSquare(x, N);
   let timeSquare = toc();
   console.log(
-    `${(N / timeSquare / 1e6).toFixed(2)} mio. squ / s (squ = ${(
+    `${(N / timeSquare / 1e6).toFixed(2).padStart(5)} mio. squ / s (squ = ${(
       timeSquare / timeMul
     ).toFixed(2)} mul)`
   );
+
+  tic();
+  ff.benchMultiplyBarrett(x, N);
+  let timeMulB = toc();
+  tic();
+  ff.benchMultiplySchoolbook(x, N);
+  let timeMulSchool = toc();
+  let timeBarrett = timeMulB - timeMulSchool;
+  console.log(
+    `${(N / timeMulB / 1e6).toFixed(2).padStart(5)} mio. mba / s (mba = ${(
+      timeMulB / timeMul
+    ).toFixed(2)} mul)`
+  );
+  console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
+  console.log(`schoolbook mul\t ${((timeMulSchool / N) * 1e9).toFixed(0)} ns`);
+  console.log(`barrett red\t ${((timeBarrett / N) * 1e9).toFixed(0)} ns`);
 
   tic();
   ff.benchAdd(x, N);

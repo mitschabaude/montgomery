@@ -5,6 +5,7 @@ import { bigintToLegs } from "./util.js";
 import {
   addExport,
   addFuncExport,
+  forLoop1,
   forLoop8,
   func,
   ops,
@@ -428,11 +429,12 @@ function barrett(writer, p, w) {
   let P = bigintToLegs(p, w, n);
 
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32 } = ops;
+  let { i64, local, local64, param32, local32, call } = ops;
 
   let [x, y, xy] = ["$x", "$y", "$xy"];
   let [tmp, carry] = ["$tmp", "$carry"];
   let [xi] = ["$xi"];
+  let [$i, $N] = ["$i", "$N"];
 
   addFuncExport(writer, "barrett");
   func(writer, "barrett", [param32(x)], () => {
@@ -550,37 +552,62 @@ function barrett(writer, p, w) {
     "multiplySchoolbook",
     [param32(xy), param32(x), param32(y)],
     () => {
-      line(local64(xi));
-      let XY = defineLocals(writer, "xy", 2 * n);
+      line(local64(tmp));
+      // let XY = defineLocals(writer, "xy", 2 * n);
+      let X = defineLocals(writer, "x", n);
       let Y = defineLocals(writer, "y", n);
-      // load y
+      // load x, y
+      for (let i = 0; i < n; i++) {
+        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+      }
       for (let i = 0; i < n; i++) {
         line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
       }
       // multiply
       comment(`multiply in ${n}x${n} steps`);
-      for (let i = 0; i < n; i++) {
-        line(local.set(xi, i64.load(x, { offset: 8 * i })));
-        for (let j = 0; j < n; j++) {
+      // TODO: find out if time could be saved with loop
+      // forLoop8(writer, $i, 0, n, () => {});
+      for (let i = 0; i < 2 * n; i++) {
+        comment(`k = ${i}`);
+        // line(local.set(xi, i64.load(x, { offset: 8 * i })));
+        let j0 = Math.max(0, i - n + 1);
+        for (let j = j0; j < Math.min(i + 1, n); j++) {
           lines(
-            local.set(
-              XY[i + j],
-              i64.add(local.get(XY[i + j]), i64.mul(xi, Y[j]))
-            )
+            // mul
+            i64.mul(X[j], Y[i - j]),
+            i > 0 && i64.add()
           );
         }
-      }
-      // carry & store result
-      comment("carry & store result");
-      for (let j = 1; j < 2 * n; j++) {
         lines(
-          i64.store(xy, i64.and(XY[j - 1], wordMax), { offset: 8 * (j - 1) }),
-          local.set(XY[j], i64.add(XY[j], i64.shr_u(XY[j - 1], w)))
+          local.set(tmp),
+          i < 2 * n - 1
+            ? i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * i })
+            : i64.store(xy, tmp, { offset: 8 * i }),
+          i < 2 * n - 1 && i64.shr_u(tmp, w)
         );
       }
-      line(i64.store(xy, XY[2 * n - 1], { offset: 8 * (2 * n - 1) }));
     }
   );
+
+  addFuncExport(writer, "benchMultiplyBarrett");
+  func(writer, "benchMultiplyBarrett", [param32(x), param32($N)], () => {
+    line(local32($i));
+    forLoop1(writer, $i, 0, local.get($N), () => {
+      lines(
+        call("multiplySchoolbook", local.get(x), local.get(x), local.get(x)),
+        call("barrett", local.get(x))
+      );
+    });
+  });
+  addFuncExport(writer, "benchMultiplySchoolbook");
+  func(writer, "benchMultiplySchoolbook", [param32(x), param32($N)], () => {
+    line(local32($i));
+    forLoop1(writer, $i, 0, local.get($N), () => {
+      lines(
+        call("multiplySchoolbook", local.get(x), local.get(x), local.get(x))
+      );
+    });
+  });
 }
 
 function defineLocals(t, name, n) {
