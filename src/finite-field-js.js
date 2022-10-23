@@ -7,6 +7,7 @@ export {
   scalar,
   modExp,
   modInverse,
+  randomScalar,
   randomScalars,
   randomBaseField,
   randomBaseFieldx2,
@@ -107,6 +108,18 @@ function randomScalars(n) {
     }
   }
   return scalars;
+}
+
+/**
+ * @returns {bigint}
+ */
+function randomScalar() {
+  while (true) {
+    let bytes = randomBytes(32);
+    bytes[31] &= 0x7f;
+    let x = bigintFromBytes(bytes);
+    if (x < scalar.p) return x;
+  }
 }
 
 /**
