@@ -42,7 +42,7 @@ function ofWasm([tmp], x) {
   return mod(readBigInt(tmp), p);
 }
 
-let [x, y, z, , ...scratch] = getPointers(10);
+let [x, y, z, z_hi, ...scratch] = getPointers(10);
 
 let R = mod(1n << BigInt(w * n), p);
 let Rinv = modInverse(R, p);
@@ -82,15 +82,22 @@ function test() {
   // barrett multiplication
   writeBigint(x, x0);
   writeBigint(y, y0);
-  z0 = mod(x0 * x0, p);
+  let xy0 = x0 * y0;
+  z0 = mod(x0 * y0, p);
   multiplySchoolbook(z, x, y);
   let xy = readBigInt(z, 2);
-  console.assert(x0 * y0 === xy, "x*y");
+  console.assert(xy0 === xy, "barrett: x*y");
   barrett(z);
   z1 = readBigInt(z);
-  console.log(z0);
-  console.log(mod(z1, p));
-  if (mod(z0 - z1, p) !== 0) throw Error("barrett multiply");
+  let l = readBigInt(z_hi);
+  let lTrue = (xy0 - z0) / p;
+  let xHi = xy0 >> 380n;
+  let m = 2n ** (380n + 390n) / p;
+  let lApprox = (xHi * m) >> 390n;
+  console.assert(lTrue * p + z0 === xy0, "barrett: test correctness");
+  console.assert(l === lApprox, "barrett: l");
+  console.assert([0n, 1n].includes(lTrue - l), "barrett: error is 0 or 1");
+  if (mod(z0 - z1, p) !== 0n) throw Error("barrett multiply");
   toWasm(x0, x);
   toWasm(y0, y);
 

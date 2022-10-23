@@ -438,7 +438,7 @@ function barrett(writer, p, w) {
   func(writer, "barrett", [param32(x)], () => {
     line(local64(tmp), local64(carry));
     let X_hi = defineLocals(writer, "xhi", n + 1);
-    let L = defineLocals(writer, "l", n + n - n0);
+    let L = defineLocals(writer, "l", 2 * n - n0);
 
     // extract x_hi := highest k bits of x
     comment(`extract x_hi := highest ${k} bits of x`);
@@ -537,10 +537,10 @@ function barrett(writer, p, w) {
         i !== n - 1 && local.set(carry, i64.shr_u(tmp, w))
       );
     }
-    // overwrite the high n limbs with 0
-    comment("x|hi = 0");
+    // overwrite the high n limbs with l
+    comment("x|hi = l");
     for (let i = n; i < 2 * n; i++) {
-      lines(i64.store(x, 0, { offset: 8 * i }));
+      lines(i64.store(x, L[i - n], { offset: 8 * i }));
     }
   });
 
