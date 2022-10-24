@@ -26,7 +26,9 @@ import {
   isEqual,
   subtractPositive,
   inverse,
+  endomorphism,
 } from "./finite-field.wat.js";
+import { decomposeScalar } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export { msmAffine, batchAdd, batchInverseInPlace };
@@ -56,9 +58,10 @@ let numberOfAdds = 0;
 let numberOfDoubles = 0;
 
 let cTable = {
-  [14]: [12, 5],
+  // all of the numbers in comments are wrong
+  [14]: [13, 6],
   // [16]: [13, 5], // 8.244
-  [16]: [13, 6], // 8.240
+  [16]: [15, 7], // 8.240
   // [16]: [13, 7], // 8.254
   // [16]: [14, 6], // 8.259
   // [16]: [14, 7], // 8.266
@@ -79,18 +82,20 @@ function msmAffine(scalars, inputPoints) {
   // initialize buckets
   let N = scalars.length;
 
-  let c = log2(N) - 2; // TODO: determine c from n and hand-optimized lookup table
+  let c = log2(N) - 1; // TODO: determine c from n and hand-optimized lookup table
   if (c < 1) c = 1;
   let depth = c >> 1;
   [c, depth] = cTable[log2(N)] || [c, depth];
 
   // TODO: do less computations for last, smaller chunk of scalar
-  let K = Math.ceil(256 / c); // number of partitions
+  let K = Math.ceil(128 / c); // number of partitions
   let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
   let points = getPointers(N, sizeAffine); // initialize points
-  let negPoints = getPointers(N, sizeAffine); // initialize points
+  let negPoints = getPointers(N, sizeAffine);
+  let endoPoints = getPointers(N, sizeAffine);
+  let negEndoPoints = getPointers(N, sizeAffine);
 
   // a bucket is an array of pointers that will gradually get accumulated into the first element
   // initialize a L*K matrix of buckets
@@ -121,23 +126,36 @@ function msmAffine(scalars, inputPoints) {
     let inputPoint = inputPoints[i];
     let point = points[i];
     let negPoint = negPoints[i];
+    let endoPoint = endoPoints[i];
+    let negEndoPoint = negEndoPoints[i];
     // convert point to montgomery
     let x = point;
     let y = point + sizeField;
     writeBytes(scratchSpace, x, inputPoint[0]);
     writeBytes(scratchSpace, y, inputPoint[1]);
-    memoryBytes[point + 2 * sizeField] = Number(!inputPoint[2]);
+    let isNonZero = Number(!inputPoint[2]);
+    memoryBytes[point + 2 * sizeField] = isNonZero;
     toMontgomery(x);
     toMontgomery(y);
+
+    // -point, endo(point), -endo(point)
     copy(negPoint, x);
     subtract(negPoint + sizeField, constants.p, y); // TODO efficient negation
-    memoryBytes[negPoint + 2 * sizeField] = Number(!inputPoint[2]);
+    memoryBytes[negPoint + 2 * sizeField] = isNonZero;
+    endomorphism(endoPoint, point);
+    memoryBytes[endoPoint + 2 * sizeField] = isNonZero;
+    copy(negEndoPoint, endoPoint);
+    copy(negEndoPoint + sizeField, negPoint + sizeField);
+    memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
-    // partition 32-byte scalar into c-bit chunks
+    // decompose scalar from one 32-byte into two 16-byte chunks
+    let [scalar0, scalar1] = decomposeScalar(scalar);
+
+    // partition each 16-byte scalar into c-bit chunks
     let carry = 0;
     for (let k = 0; k < K; k++) {
       // compute k-th digit from scalar
-      let l = extractBitSlice(scalar, k * c, c) + carry;
+      let l = extractBitSlice(scalar0, k * c, c) + carry;
       if (l > L) {
         l = doubleL - l;
         carry = 1;
@@ -148,6 +166,24 @@ function msmAffine(scalars, inputPoints) {
       // add point to bucket
       let bucket = buckets[k][l];
       bucket.push(carry === 1 ? negPoint : point);
+      let bucketSize = bucket.length;
+      if ((bucketSize & 1) === 0) nPairs++;
+      if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
+    }
+    carry = 0;
+    for (let k = 0; k < K; k++) {
+      // compute k-th digit from scalar
+      let l = extractBitSlice(scalar1, k * c, c) + carry;
+      if (l > L) {
+        l = doubleL - l;
+        carry = 1;
+      } else {
+        carry = 0;
+      }
+      if (l === 0) continue;
+      // add point to bucket
+      let bucket = buckets[k][l];
+      bucket.push(carry === 1 ? negEndoPoint : endoPoint);
       let bucketSize = bucket.length;
       if ((bucketSize & 1) === 0) nPairs++;
       if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;

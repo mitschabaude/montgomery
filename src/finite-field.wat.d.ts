@@ -41,6 +41,8 @@ export function addAffine(
   d: number
 ): void;
 
+export function endomorphism(Gout: number, G: number): void;
+
 /**
  * compute r = a^(-1) * 2^k mod p, returns k
  *
