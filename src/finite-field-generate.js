@@ -244,8 +244,13 @@ function createFiniteField(p, w, wasm) {
  *
  * @param {bigint} p
  * @param {number} w
+ * @param {{withBenchmarks?: boolean, endoCubeRoot?: bigint}}
  */
-async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
+async function createFiniteFieldWat(
+  p,
+  w,
+  { withBenchmarks = false, endoCubeRoot = undefined } = {}
+) {
   let { n } = montgomeryParams(p, w);
   let writer = Writer();
   moduleWithMemory(
@@ -266,6 +271,10 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
       finiteFieldHelpers(writer, p, w);
 
       barrett(writer, p, w, { withBenchmarks });
+
+      if (endoCubeRoot !== undefined) {
+        endomorphism(writer, p, w, { beta: endoCubeRoot });
+      }
 
       if (withBenchmarks) {
         benchMultiply(writer);
@@ -357,7 +366,6 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     i32,
     local,
     local32,
-
     param32,
     global32Mut,
     global,
@@ -1051,6 +1059,41 @@ function finiteFieldHelpers(writer, p, w) {
         nRes = nRes - w;
       }
     }
+  });
+}
+
+/**
+ *
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ * @param {{beta: bigint}} options
+ */
+function endomorphism(writer, p, w, { beta }) {
+  let { n } = montgomeryParams(p, w);
+  let sizeField = 8 * n;
+
+  let { line, lines } = writer;
+  let { i32, local, local32, param32, global, call } = ops;
+
+  // store beta as global pointer
+  let [betaGlobal] = ["$beta"];
+  dataInt64(writer, betaGlobal, bigintToLegs(beta, w, n));
+
+  let [x, xOut, y, yOut] = ["$x", "$x_out", "$y", "$y_out"];
+
+  addFuncExport(writer, "endomorphism");
+  func(writer, "endomorphism", [param32(xOut), param32(x)], () => {
+    line(local32(y), local32(yOut));
+    lines(
+      // compute other pointers from inputs
+      local.set(y, i32.add(x, sizeField)),
+      local.set(yOut, i32.add(xOut, sizeField)),
+      // x_out = x * beta
+      call("multiply", xOut, x, global.get(betaGlobal)),
+      // y_out = y
+      call("copy", yOut, y)
+    );
   });
 }
 

@@ -10,14 +10,23 @@ if (isMain) {
   let p =
     0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
   let w = 30;
-  compileFiniteFieldWasm(p, w, { withBenchmarks: true });
   let q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n;
   let lambda = 0xd201000000010000n ** 2n - 1n;
+  let beta =
+    0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaacn;
+  compileFiniteFieldWasm(p, w, { withBenchmarks: true, endoCubeRoot: beta });
   compileGLVWasm(q, lambda, w, { withBenchmarks: true });
 }
 
-async function compileFiniteFieldWasm(p, w, { withBenchmarks = false } = {}) {
-  let writer = await createFiniteFieldWat(p, w, { withBenchmarks });
+async function compileFiniteFieldWasm(
+  p,
+  w,
+  { withBenchmarks = false, endoCubeRoot } = {}
+) {
+  let writer = await createFiniteFieldWat(p, w, {
+    withBenchmarks,
+    endoCubeRoot,
+  });
   let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
   await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
