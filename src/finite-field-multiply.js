@@ -417,7 +417,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
   });
 }
 
-function barrett(writer, p, w) {
+function barrett(writer, p, w, { withBenchmarks = false } = {}) {
   let { n, lengthP: b } = montgomeryParams(p, w);
   let k = b - 1;
   let N = n * w;
@@ -570,8 +570,7 @@ function barrett(writer, p, w) {
       for (let i = 0; i < 2 * n; i++) {
         comment(`k = ${i}`);
         // line(local.set(xi, i64.load(x, { offset: 8 * i })));
-        let j0 = Math.max(0, i - n + 1);
-        for (let j = j0; j < Math.min(i + 1, n); j++) {
+        for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
           lines(
             // mul
             i64.mul(X[j], Y[i - j]),
@@ -589,25 +588,27 @@ function barrett(writer, p, w) {
     }
   );
 
-  addFuncExport(writer, "benchMultiplyBarrett");
-  func(writer, "benchMultiplyBarrett", [param32(x), param32($N)], () => {
-    line(local32($i));
-    forLoop1(writer, $i, 0, local.get($N), () => {
-      lines(
-        call("multiplySchoolbook", local.get(x), local.get(x), local.get(x)),
-        call("barrett", local.get(x))
-      );
+  if (withBenchmarks) {
+    addFuncExport(writer, "benchMultiplyBarrett");
+    func(writer, "benchMultiplyBarrett", [param32(x), param32($N)], () => {
+      line(local32($i));
+      forLoop1(writer, $i, 0, local.get($N), () => {
+        lines(
+          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x)),
+          call("barrett", local.get(x))
+        );
+      });
     });
-  });
-  addFuncExport(writer, "benchMultiplySchoolbook");
-  func(writer, "benchMultiplySchoolbook", [param32(x), param32($N)], () => {
-    line(local32($i));
-    forLoop1(writer, $i, 0, local.get($N), () => {
-      lines(
-        call("multiplySchoolbook", local.get(x), local.get(x), local.get(x))
-      );
+    addFuncExport(writer, "benchMultiplySchoolbook");
+    func(writer, "benchMultiplySchoolbook", [param32(x), param32($N)], () => {
+      line(local32($i));
+      forLoop1(writer, $i, 0, local.get($N), () => {
+        lines(
+          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x))
+        );
+      });
     });
-  });
+  }
 }
 
 function defineLocals(t, name, n) {

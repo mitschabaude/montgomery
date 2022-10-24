@@ -29,6 +29,7 @@ import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
 import { batchInverseInPlace } from "./src/curve-affine.js";
 import { modInverse } from "./src/finite-field-js.js";
+import { testDecomposeRandomScalar } from "./src/scalar-glv.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
@@ -178,6 +179,10 @@ function testBatchMontgomery() {
 
 for (let i = 0; i < 20; i++) {
   test();
+}
+for (let i = 0; i < 100; i++) {
+  let ok = testDecomposeRandomScalar();
+  if (!ok) throw Error("scalar decomposition");
 }
 
 testBatchMontgomery();
