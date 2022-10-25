@@ -1,7 +1,6 @@
-import { findMsbCutoff } from "./barrett.js";
 import { montgomeryParams } from "./finite-field-generate.js";
 import { modInverse } from "./finite-field-js.js";
-import { bigintToLegs } from "./util.js";
+import { bigintFromLegs, bigintToLegs } from "./util.js";
 import {
   addExport,
   addFuncExport,
@@ -622,4 +621,76 @@ function defineLocals(t, name, n) {
     t.line();
   }
   return locals;
+}
+
+function findMsbCutoff(p, w) {
+  let { n, lengthP: b } = montgomeryParams(p, w);
+  let k = b - 1;
+  let N = n * w;
+  let K = k + N;
+  let s = 2;
+  console.assert(b + 2 * s + 1 <= N);
+
+  let m = 2n ** BigInt(K) / p; // this is bigint division => rounding down
+
+  // let's construct a conservatively bad x_hi (with large lower limbs)
+  let x_hi = 2n ** BigInt(2 * b + 2 * s - k) - 1n;
+
+  let m_vec = bigintToLegs(m, w, n);
+  let x_vec = bigintToLegs(x_hi, w, n);
+
+  // construct the length 2N schoolbook multiplication output, without carries
+  let t = schoolbook(m_vec, x_vec, { n });
+
+  // find the maximal n0 <= n so that t[0..n0] (when interpreted as an integer) is smaller than 2^N
+  let n0 = 0;
+  for (let sum = 0n; n0 < 2 * n; n0++) {
+    sum += t[n0] << BigInt(n0 * w);
+    if (sum >= 1n << BigInt(N)) break;
+  }
+
+  // confirm the approximation is fine
+  let l = (m * x_hi) >> BigInt(N);
+  let l0 = bigintFromLegs(multiplyMsb(m_vec, x_vec, { n0, n, w }), w, n);
+
+  if (l - l0 > 1n)
+    console.warn(
+      `WARNING: for n=${n}, w=${w} the max cutoff error is ${l - l0}`
+    );
+  return { n0, e0: Number(l - l0) };
+}
+
+// compute approx. to (x*y) >> 2^N, where x,y < 2^N,
+// by neglecting the first n0 output limbs
+function multiplyMsb(x, y, { n0, n, w }) {
+  let t = new BigUint64Array(2 * n - n0);
+  for (let i = 0; i < n; i++) {
+    // i + j >= n0 ==> j >= n0 - i
+    for (let j = Math.max(0, n0 - i); j < n; j++) {
+      t[i + j - n0] += x[i] * y[j];
+    }
+  }
+  carry(t, { w, n: 2 * n - n0 });
+  return t.slice(n - n0, 2 * n - n0);
+}
+
+function schoolbook(x, y, { n }) {
+  let t = new BigUint64Array(2 * n);
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      t[i + j] += x[i] * y[j];
+    }
+  }
+  return t;
+}
+
+function carry(t, { w, n }) {
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  for (let i = 0; i < n - 1; i++) {
+    let carry = t[i] >> wn;
+    t[i] &= wordMax;
+    t[i + 1] += carry;
+  }
+  t[n - 1] &= wordMax;
 }

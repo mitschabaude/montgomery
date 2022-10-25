@@ -256,7 +256,7 @@ async function createFiniteFieldWat(
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    65536,
+    32768,
     () => {
       addAffine(writer, p, w);
       wasmInverse(writer, p, w, { countOperations: !!withBenchmarks });
@@ -297,7 +297,7 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    65536,
+    32768,
     () => {
       barrett(writer, lambda, w, { withBenchmarks });
       glv(writer, q, lambda, w);
