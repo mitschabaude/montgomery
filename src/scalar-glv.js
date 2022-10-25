@@ -7,7 +7,8 @@ import {
   toPackedBytes,
   memory,
   dataOffset,
-} from "./scalar-glv.wat.js";
+} from "./scalar-glv.wasm";
+// } from "./scalar-glv.wat.js";
 import { bigintFromBytes } from "./util.js";
 
 export { decomposeScalar, testDecomposeRandomScalar };

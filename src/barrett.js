@@ -103,6 +103,7 @@ let lambda2 = minusZ ** 2n - 1n;
 let beta2 =
   0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaacn;
 
+/*   
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
   let { addAffine, scale } = await import("./dumb-curve-affine.js");
@@ -198,6 +199,7 @@ if (isMain) {
     maxLengths: { r: Math.max(...lengths.r), l: Math.max(...lengths.l) },
   });
 }
+ */
 
 function testModulus(x, p) {
   let w = 30;
