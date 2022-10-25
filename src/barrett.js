@@ -81,8 +81,6 @@ import {
   log2,
 } from "./util.js";
 
-export { findMsbCutoff };
-
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
 let q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n;

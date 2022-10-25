@@ -1,8 +1,8 @@
-import {
-  PointVectorInput,
-  ScalarVectorInput,
-  compute_msm,
-} from "./src/reference.js";
+// import {
+//   PointVectorInput,
+//   ScalarVectorInput,
+//   compute_msm,
+// } from "./src/reference.js";
 import { tic, toc } from "./src/tictoc.web.js";
 import { load } from "./src/store-inputs.web.js";
 import { msmAffine } from "./src/curve-affine.js";
@@ -47,6 +47,8 @@ let mulPerInv = mPerSec / invPerSec;
 
 tic("load inputs & convert to rust");
 let { points, scalars } = await load(n);
+// let pointVec = PointVectorInput.fromJsArray(points);
+// let scalarVec = ScalarVectorInput.fromJsArray(points);
 toc();
 
 // tic("msm (rust)");
