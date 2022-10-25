@@ -755,5 +755,32 @@
   "mPerSec": 11682243,
   "commit": "6666c2c",
   "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 14,
+  "ref": 1.744,
+  "ours": 0.357,
+  "nMul": 2261465,
+  "mPerSec": 11820331,
+  "commit": "e53ac4a",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 16,
+  "ref": 5.858,
+  "ours": 1.343,
+  "nMul": 8092741,
+  "mPerSec": 11834320,
+  "commit": "e53ac4a",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 18,
+  "ref": 20.046,
+  "ours": 4.799,
+  "nMul": 28368635,
+  "mPerSec": 11876485,
+  "commit": "e53ac4a",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
  }
 ]

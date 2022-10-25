@@ -71,9 +71,7 @@ function decomposeScalar(scalar) {
  */
 function readBytes(pointer) {
   toPackedBytes(bytesPtr, pointer);
-  return new Uint8Array(
-    memory.buffer.slice(bytesPtr, bytesPtr + packedSizeBytes)
-  );
+  return new Uint8Array(memory.buffer, bytesPtr, packedSizeBytes);
 }
 
 /**
