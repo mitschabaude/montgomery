@@ -1,7 +1,7 @@
 import { mod, modInverse, p } from "./finite-field-js.js";
 import { bigintFromBytes, bigintToBits } from "./util.js";
 
-export { msmDumbAffine, doubleAffine, addAffine };
+export { msmDumbAffine, doubleAffine, addAffine, scale };
 
 /**
  *
@@ -69,7 +69,16 @@ function doubleAffine([x, y, isZero]) {
   let y2 = mod(m * (x - x2) - y, p);
   return [x2, y2, false];
 }
+/**
+ *
+ * @param {boolean[]} scalar
+ * @param {[bigint, bigint, boolean]} point
+ * @returns
+ */
 function scale(scalar, point) {
+  /**
+   * @type {[bigint, bigint, boolean]}
+   */
   let result = [0n, 0n, true];
   for (let i = 0; i < scalar.length - 1; i++) {
     if (scalar[i]) result = addAffine(result, point);

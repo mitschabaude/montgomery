@@ -14,14 +14,21 @@ import {
   ops,
   Writer,
 } from "./wasm-generate.js";
-import { multiply } from "./finite-field-multiply.js";
+import { barrett, multiply } from "./finite-field-multiply.js";
 
 // main API
-export { createFiniteField, createFiniteFieldWat, jsHelpers, montgomeryParams };
+export {
+  createFiniteField,
+  createFiniteFieldWat,
+  createGLVWat,
+  jsHelpers,
+  montgomeryParams,
+};
 
 // for w=32 benchmark
 export { benchMultiply, multiply32, moduleWithMemory };
 
+// TODO this should NOT be a global constant
 const mulInputFactor = 8n;
 
 /**
@@ -237,8 +244,13 @@ function createFiniteField(p, w, wasm) {
  *
  * @param {bigint} p
  * @param {number} w
+ * @param {{withBenchmarks?: boolean, endoCubeRoot?: bigint}}
  */
-async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
+async function createFiniteFieldWat(
+  p,
+  w,
+  { withBenchmarks = false, endoCubeRoot = undefined } = {}
+) {
   let { n } = montgomeryParams(p, w);
   let writer = Writer();
   moduleWithMemory(
@@ -258,11 +270,37 @@ async function createFiniteFieldWat(p, w, { withBenchmarks = false } = {}) {
       makeOdd(writer, p, w);
       finiteFieldHelpers(writer, p, w);
 
+      barrett(writer, p, w, { withBenchmarks });
+
+      if (endoCubeRoot !== undefined) {
+        endomorphism(writer, p, w, { beta: endoCubeRoot });
+      }
+
       if (withBenchmarks) {
         benchMultiply(writer);
         benchAdd(writer);
         benchSubtract(writer);
       }
+    }
+  );
+  return writer;
+}
+
+/**
+ *
+ * @param {bigint} lambda
+ * @param {number} w
+ */
+async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
+  let { n } = montgomeryParams(lambda, w);
+  let writer = Writer();
+  moduleWithMemory(
+    writer,
+    `generated for w=${w}, n=${n}, n*w=${n * w}`,
+    65536,
+    () => {
+      barrett(writer, lambda, w, { withBenchmarks });
+      glv(writer, q, lambda, w);
     }
   );
   return writer;
@@ -328,7 +366,6 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     i32,
     local,
     local32,
-
     param32,
     global32Mut,
     global,
@@ -593,6 +630,8 @@ function subtract(writer, p, w) {
     // check if we underflowed by checking carry === 1 (in that case, we didn't and can return)
     lines(i64.eq(carry, 1), `if return end`);
     // second loop
+    // TODO I think this is wrong.. we can overflow intermediate values
+    // should just add 2p and ignore the overflow bit that we know we'll have
     // if we're here, y > x and out = x - y + R, while we want x - y + 2p
     // so do (out - (R - 2p))
     line(local.set(carry, i64.const(1)));
@@ -721,7 +760,7 @@ function reduce(writer, p, w, d = 1) {
 /**
  * a core building block for montgomery inversion
  *
- * takes u, s < p. sets k=0. while u is even, update u /= 2 and s *= 2 and increment j++
+ * takes u, s < p. sets k=0. while u is even, update u /= 2 and s *= 2 and increment k++
  * at the end, u <- u/2^k, s <- s*2^k and the new u is odd
  * returns k
  * (the implementation shifts u >> k and s << k at once if k < w, and shifts by whole words until k < w)
@@ -882,7 +921,7 @@ function makeOdd(writer, p, w) {
  */
 function finiteFieldHelpers(writer, p, w) {
   let { n, wordMax, lengthP } = montgomeryParams(p, w);
-  let { line, lines } = writer;
+  let { line, lines, comment } = writer;
   let { i64, i32, local, local64, param32, result32, return_, br_if, memory } =
     ops;
 
@@ -945,6 +984,9 @@ function finiteFieldHelpers(writer, p, w) {
   // method: just pack all the n*w bits into memory contiguously
   let nPackedBytes = Math.ceil(lengthP / 8);
   addFuncExport(writer, "toPackedBytes");
+  comment(
+    `converts ${n}x${w}-bit representation (1 int64 per ${w}-bit limb) to packed ${nPackedBytes}-byte representation`
+  );
   func(writer, "toPackedBytes", [param32(bytes), param32(x)], () => {
     let offset = 0; // memory offset
     let nRes = 0; // residual bits to write from last iteration
@@ -976,6 +1018,9 @@ function finiteFieldHelpers(writer, p, w) {
   let chunk = "$chunk";
 
   addFuncExport(writer, "fromPackedBytes");
+  comment(
+    `recovers ${n}x${w}-bit representation (1 int64 per ${w}-bit limb) from packed ${nPackedBytes}-byte representation`
+  );
   func(writer, "fromPackedBytes", [param32(x), param32(bytes)], () => {
     let offset = 0; // bytes offset
     let nRes = 0; // residual bits read in the last iteration
@@ -984,6 +1029,259 @@ function finiteFieldHelpers(writer, p, w) {
     lines(local.set(tmp, i64.const(0)));
     // read bytes word by word
     for (let i = 0; i < n; i++) {
+      // if we can't fill up w bits with the current residual, load a full i64 from bytes
+      // (some of that i64 could be garbage, but we'll only use the parts that aren't)
+      if (nRes < w) {
+        lines(
+          // tmp = (bytes << nRes) | tmp
+          i64.shl(
+            // load 8 bytes at current offset
+            // due to the left shift, we lose nRes of them
+            local.tee(chunk, i64.load(bytes, { offset })),
+            nRes
+          ),
+          local.get(tmp),
+          i64.or(),
+          local.set(tmp),
+          // store what fits in next word
+          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          // keep residual bits for next iteration
+          local.set(tmp, i64.shr_u(chunk, w - nRes))
+        );
+        offset += 8;
+        nRes = nRes - w + 64;
+      } else {
+        // otherwise, the current tmp is just what we want!
+        lines(
+          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          local.set(tmp, i64.shr_u(tmp, w))
+        );
+        nRes = nRes - w;
+      }
+    }
+  });
+}
+
+/**
+ *
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ * @param {{beta: bigint}} options
+ */
+function endomorphism(writer, p, w, { beta }) {
+  let { n, R } = montgomeryParams(p, w);
+  let sizeField = 8 * n;
+
+  let { line, lines } = writer;
+  let { i32, local, local32, param32, global, call } = ops;
+
+  // store beta as global pointer
+  let [betaGlobal] = ["$beta"];
+  let betaMontgomery = mod(beta * R, p);
+  dataInt64(writer, betaGlobal, bigintToLegs(betaMontgomery, w, n));
+
+  let [x, xOut, y, yOut] = ["$x", "$x_out", "$y", "$y_out"];
+
+  addFuncExport(writer, "endomorphism");
+  func(writer, "endomorphism", [param32(xOut), param32(x)], () => {
+    line(local32(y), local32(yOut));
+    lines(
+      // compute other pointers from inputs
+      local.set(y, i32.add(x, sizeField)),
+      local.set(yOut, i32.add(xOut, sizeField)),
+      // x_out = x * beta
+      call("multiply", xOut, x, global.get(betaGlobal)),
+      // y_out = y
+      call("copy", yOut, y)
+    );
+  });
+}
+
+/**
+ * functions for glv decompositions of scalars
+ *
+ * @param {any} writer
+ * @param {bigint} lambda
+ * @param {number} w
+ */
+function glv(writer, q, lambda, w) {
+  let { n, wordMax, lengthP } = montgomeryParams(lambda, w);
+  let { line, lines, comment } = writer;
+  let { i64, i32, local, local64, local32, param32, br_if, call } = ops;
+
+  let k = lengthP - 1;
+  let N = n * w;
+  let m = 2n ** BigInt(k + N) / lambda;
+  let LAMBDA = bigintToLegs(lambda, w, n);
+
+  // let's compute the maximum error in barrett reduction
+  // scalars are < q, which is slightly larger than lambda^2
+  function barrettError(dSquare) {
+    let errNumerator =
+      m * 2n ** BigInt(k) * lambda +
+      BigInt(dSquare) * lambda ** 2n * (2n ** BigInt(k + N) - m * lambda);
+    let errDenominator = lambda * 2n ** BigInt(k + N);
+    let lengthErr = BigInt(errDenominator.toString().length);
+    let err =
+      Number(errNumerator / 10n ** (lengthErr - 5n)) /
+      Number(errDenominator / 10n ** (lengthErr - 5n));
+    return err;
+  }
+  let dSquare = q / lambda ** 2n + 1n;
+  let e = Math.ceil(barrettError(dSquare));
+  if (e > 1) {
+    console.warn("WARNING: barrett error of approximating l can be > 1");
+  }
+  // e is how often we have to reduce by lambda if we want a decomposition x = x0 + lambda * x1 with x0 < lambda
+
+  let [x, bytes, tmp, carry] = ["$x", "$bytes", "$tmp", "$carry"];
+  let [r, l] = ["$r", "$l"];
+
+  addFuncExport(writer, "decompose");
+  func(writer, "decompose", [param32(x)], () => {
+    line(call("barrett", x));
+    for (let i = 0; i < e; i++) {
+      line(call("reduceByOne", x));
+    }
+  });
+
+  addFuncExport(writer, "reduceByOne");
+  func(writer, "reduceByOne", [param32(r)], () => {
+    line(local64(tmp), local64(carry), local32(l));
+    line(local.set(l, i32.add(r, n * 8)));
+    // check if r < lambda
+    block(writer, () => {
+      for (let i = n - 1; i >= 0; i--) {
+        lines(
+          // if (r[i] < lambda[i]) return
+          local.set(tmp, i64.load(r, { offset: 8 * i })),
+          br_if(1, i64.lt_u(tmp, LAMBDA[i])),
+          // if (r[i] !== lambda[i]) break;
+          br_if(0, i64.ne(tmp, LAMBDA[i]))
+        );
+      }
+    });
+    // if we're here, r >= lambda so do r -= lambda and also l += 1
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, r[i]) = (2^w - 1 - lambda[i]) + carry + r[i];
+        i64.add(wordMax - LAMBDA[i], carry),
+        i64.load(r, { offset: 8 * i }),
+        i64.add(),
+        local.set(tmp),
+        i64.store(r, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(carry, i64.shr_u(tmp, w))
+      );
+    }
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, l[i]) = l[i] + carry;
+        i64.add(i64.load(l, { offset: 8 * i }), carry),
+        local.set(tmp),
+        i64.store(l, i64.and(tmp, wordMax), { offset: 8 * i }),
+        local.set(carry, i64.shr_u(tmp, w))
+      );
+    }
+  });
+
+  // convert between internal format and I/O-friendly, packed byte format
+  // method: just pack all the n*w bits into memory contiguously
+  let nPackedBytes = Math.ceil(lengthP / 8);
+  addFuncExport(writer, "toPackedBytes");
+  comment(
+    `converts ${n}x${w}-bit representation (1 int64 per ${w}-bit limb) to packed ${nPackedBytes}-byte representation`
+  );
+  func(writer, "toPackedBytes", [param32(bytes), param32(x)], () => {
+    let offset = 0; // memory offset
+    let nRes = 0; // residual bits to write from last iteration
+
+    line(local64(tmp)); // holds bits that aren't written yet
+    // write bytes word by word
+    for (let i = 0; i < n; i++) {
+      // how many bytes to write in this iteration
+      let nBytes = Math.floor((nRes + w) / 8); // max number of bytes we can get from residual + this word
+      let bytesMask = (1n << (8n * BigInt(nBytes))) - 1n;
+      lines(
+        // tmp = tmp | (x[i] >> nr)  where nr is the bit length of tmp (nr < 8)
+        i64.shl(i64.load(x, { offset: 8 * i }), nRes),
+        local.get(tmp),
+        i64.or(),
+        local.set(tmp),
+        // store bytes at current offset
+        i64.store(bytes, i64.and(tmp, bytesMask), { offset }),
+        // keep residual bits for next iteration
+        local.set(tmp, i64.shr_u(tmp, 8 * nBytes))
+      );
+      offset += nBytes;
+      nRes = nRes + w - 8 * nBytes;
+    }
+    // final round: write residual bits, if there are any
+    if (offset < nPackedBytes) line(i64.store(bytes, tmp, { offset }));
+  });
+
+  let chunk = "$chunk";
+
+  addFuncExport(writer, "fromPackedBytes");
+  comment(
+    `recovers ${n}x${w}-bit representation (1 int64 per ${w}-bit limb) from packed ${nPackedBytes}-byte representation`
+  );
+  func(writer, "fromPackedBytes", [param32(x), param32(bytes)], () => {
+    let offset = 0; // bytes offset
+    let nRes = 0; // residual bits read in the last iteration
+
+    line(local64(tmp), local64(chunk));
+    lines(local.set(tmp, i64.const(0)));
+    // read bytes word by word
+    for (let i = 0; i < n; i++) {
+      // if we can't fill up w bits with the current residual, load a full i64 from bytes
+      // (some of that i64 could be garbage, but we'll only use the parts that aren't)
+      if (nRes < w) {
+        lines(
+          // tmp = (bytes << nRes) | tmp
+          i64.shl(
+            // load 8 bytes at current offset
+            // due to the left shift, we lose nRes of them
+            local.tee(chunk, i64.load(bytes, { offset })),
+            nRes
+          ),
+          local.get(tmp),
+          i64.or(),
+          local.set(tmp),
+          // store what fits in next word
+          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          // keep residual bits for next iteration
+          local.set(tmp, i64.shr_u(chunk, w - nRes))
+        );
+        offset += 8;
+        nRes = nRes - w + 64;
+      } else {
+        // otherwise, the current tmp is just what we want!
+        lines(
+          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          local.set(tmp, i64.shr_u(tmp, w))
+        );
+        nRes = nRes - w;
+      }
+    }
+  });
+
+  addFuncExport(writer, "fromPackedBytesDouble");
+  comment(
+    `recovers 2x${n}x${w}-bit representation (1 int64 per ${w}-bit limb) from packed 2x${nPackedBytes}-byte representation of a full scalar`
+  );
+  func(writer, "fromPackedBytesDouble", [param32(x), param32(bytes)], () => {
+    let offset = 0; // bytes offset
+    let nRes = 0; // residual bits read in the last iteration
+
+    line(local64(tmp), local64(chunk));
+    lines(local.set(tmp, i64.const(0)));
+    // read bytes word by word
+    for (let i = 0; i < 2 * n; i++) {
       // if we can't fill up w bits with the current residual, load a full i64 from bytes
       // (some of that i64 could be garbage, but we'll only use the parts that aren't)
       if (nRes < w) {
@@ -1344,6 +1642,9 @@ function jsHelpers(
   let obj = {
     n,
     R,
+    fieldSizeBytes: 8 * n,
+    packedSizeBytes: nPackedBytes,
+
     /**
      * @param {number} x
      * @param {bigint} x0
@@ -1359,8 +1660,8 @@ function jsHelpers(
     /**
      * @param {number} x
      */
-    readBigInt(x) {
-      let arr = new BigUint64Array(memory.buffer.slice(x, x + n * 8));
+    readBigInt(x, length = 1) {
+      let arr = new BigUint64Array(memory.buffer.slice(x, x + n * 8 * length));
       let x0 = 0n;
       let bitPosition = 0n;
       for (let i = 0; i < arr.length; i++) {
@@ -1458,11 +1759,11 @@ function jsHelpers(
      * @param {number} pointer
      * @param {Uint8Array} bytes
      */
-    writeBytes([tmp], pointer, bytes) {
-      let arr = new Uint8Array(memory.buffer, tmp, 8 * n);
+    writeBytes([bytesPtr], pointer, bytes) {
+      let arr = new Uint8Array(memory.buffer, bytesPtr, 8 * n);
       arr.fill(0);
       arr.set(bytes);
-      fromPackedBytes(pointer, tmp);
+      fromPackedBytes(pointer, bytesPtr);
     },
     /**
      * read field element into packed bytes representation

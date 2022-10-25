@@ -17,6 +17,7 @@
     "wabt": "^1.0.29"
   },
   "devDependencies": {
+    "chrode": "^0.3.4",
     "eslint": "^8.20.0"
   }
 }

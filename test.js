@@ -10,6 +10,8 @@ import {
   square,
   subtractPositive,
   inverse,
+  multiplySchoolbook,
+  barrett,
 } from "./src/finite-field.wat.js";
 import {
   p,
@@ -27,8 +29,9 @@ import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
 import { batchInverseInPlace } from "./src/curve-affine.js";
 import { modInverse } from "./src/finite-field-js.js";
+import { testDecomposeRandomScalar } from "./src/scalar-glv.js";
 // web crypto compat
-globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 function toWasm(x0, x) {
   writeBigint(x, x0);
@@ -40,7 +43,7 @@ function ofWasm([tmp], x) {
   return mod(readBigInt(tmp), p);
 }
 
-let [x, y, z, tmp, ...scratch] = getPointers(10);
+let [x, y, z, z_hi, ...scratch] = getPointers(10);
 
 let R = mod(1n << BigInt(w * n), p);
 let Rinv = modInverse(R, p);
@@ -76,6 +79,28 @@ function test() {
   leftShift(z, constants.R2, k);
   z1 = ofWasm(scratch, z);
   if (z1 !== z0) throw Error("leftShift");
+
+  // barrett multiplication
+  writeBigint(x, x0);
+  writeBigint(y, y0);
+  let xy0 = x0 * y0;
+  z0 = mod(x0 * y0, p);
+  multiplySchoolbook(z, x, y);
+  let xy = readBigInt(z, 2);
+  console.assert(xy0 === xy, "barrett: x*y");
+  barrett(z);
+  z1 = readBigInt(z);
+  let l = readBigInt(z_hi);
+  let lTrue = (xy0 - z0) / p;
+  let xHi = xy0 >> 380n;
+  let m = 2n ** (380n + 390n) / p;
+  let lApprox = (xHi * m) >> 390n;
+  console.assert(lTrue * p + z0 === xy0, "barrett: test correctness");
+  console.assert(l === lApprox, "barrett: l");
+  console.assert([0n, 1n].includes(lTrue - l), "barrett: error is 0 or 1");
+  if (mod(z0 - z1, p) !== 0n) throw Error("barrett multiply");
+  toWasm(x0, x);
+  toWasm(y0, y);
 
   // add
   z0 = mod(x0 + y0, p);
@@ -129,7 +154,7 @@ function test() {
 }
 
 function testBatchMontgomery() {
-  let n = 100;
+  let n = 1000;
   let X = getPointers(n);
   let invX = getPointers(n);
   let scratch = getPointers(10);
@@ -145,13 +170,19 @@ function testBatchMontgomery() {
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {
-    if (!isEqual(X[i], invX[i])) throw Error("batch inverse");
-    if (readBigInt(X[i]) !== readBigInt(invX[i])) throw Error("batch inverse");
+    if (mod(readBigInt(X[i]) - readBigInt(invX[i]), p) !== 0n)
+      throw Error("batch inverse");
+    if (!isEqual(reduce(X[i]), reduce(invX[i])))
+      console.warn("WARNING: batch inverse not exactly equal after reducing");
   }
 }
 
 for (let i = 0; i < 20; i++) {
   test();
+}
+for (let i = 0; i < 100; i++) {
+  let ok = testDecomposeRandomScalar();
+  if (!ok) throw Error("scalar decomposition");
 }
 
 testBatchMontgomery();
