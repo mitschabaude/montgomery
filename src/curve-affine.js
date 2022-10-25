@@ -88,7 +88,7 @@ function msmAffine(scalars, inputPoints) {
   [c, depth] = cTable[log2(N)] || [c, depth];
 
   // TODO: do less computations for last, smaller chunk of scalar
-  let K = Math.ceil(128 / c); // number of partitions
+  let K = Math.ceil(129 / c); // number of partitions
   let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 

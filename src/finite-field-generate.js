@@ -1070,7 +1070,7 @@ function finiteFieldHelpers(writer, p, w) {
  * @param {{beta: bigint}} options
  */
 function endomorphism(writer, p, w, { beta }) {
-  let { n } = montgomeryParams(p, w);
+  let { n, R } = montgomeryParams(p, w);
   let sizeField = 8 * n;
 
   let { line, lines } = writer;
@@ -1078,7 +1078,8 @@ function endomorphism(writer, p, w, { beta }) {
 
   // store beta as global pointer
   let [betaGlobal] = ["$beta"];
-  dataInt64(writer, betaGlobal, bigintToLegs(beta, w, n));
+  let betaMontgomery = mod(beta * R, p);
+  dataInt64(writer, betaGlobal, bigintToLegs(betaMontgomery, w, n));
 
   let [x, xOut, y, yOut] = ["$x", "$x_out", "$y", "$y_out"];
 
