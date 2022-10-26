@@ -491,9 +491,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       let X = defineLocals(writer, "x", n);
       let Y = defineLocals(writer, "y", n);
       let Z = defineLocals(writer, "z", 2 * n);
-      let W = defineLocals(writer, "w", 2 * (n - m));
-      let X_hi = defineLocals(writer, "xhi", n + 1);
-      let L = defineLocals(writer, "l", 2 * n - n0);
+      let W = defineLocals(writer, "w", 2 * n);
 
       // load x, y
       for (let i = 0; i < n; i++) {
@@ -508,26 +506,28 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       let Y0 = Y.slice(0, m);
       let Y1 = Y.slice(m);
 
-      // TODO: for simplicity, we do a carry round after every sub multiplication, but that might not be necessary
+      // TODO: need to find out when we can leave out carry
       // note: in here, we use unsigned shift to allow maximal # of terms => assuming positive inputs x, y
       // this assumption might be relaxed
       function multiplySchoolbook(Z, X, Y, n) {
         for (let i = 0; i < 2 * n; i++) {
           comment(`k = ${i}`);
-          for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
+          let j0 = Math.max(0, i - n + 1);
+          for (let j = j0; j < Math.min(i + 1, n); j++) {
             lines(
               //
               i64.mul(X[j], Y[i - j]),
-              i > 0 && i64.add()
+              i > 0 && j > j0 && i64.add()
             );
           }
           let isLast = i === 2 * n - 1;
-          lines(
-            local.set(tmp),
-            isLast && local.set(Z[i], local.get(tmp)),
-            !isLast && local.set(Z[i], i64.and(tmp, wordMax)),
-            !isLast && i64.shr_u(tmp, w)
-          );
+          !isLast && line(local.set(Z[i]));
+          // lines(
+          //   local.set(tmp),
+          //   isLast && local.set(Z[i], local.get(tmp)),
+          //   !isLast && local.set(Z[i], i64.and(tmp, wordMax)),
+          //   !isLast && i64.shr_u(tmp, w)
+          // );
         }
       }
       comment(`multiply z = x0*x0 in ${m}x${m} steps`);
@@ -536,24 +536,22 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       multiplySchoolbook(W, X1, Y1, n - m);
 
       comment("compute z = l^m*x1*x1 - x0*x0 = l^m*w - z");
-      for (let i = 0; i < m; i++) {
-        // TODO would be nice to get rid of these
-        lines(local.set(Z[i], i64.sub(0, Z[i])));
-      }
       for (let i = m; i < m + 2 * (n - m); i++) {
         lines(local.set(Z[i], i64.sub(W[i - m], Z[i])));
       }
       // z has now length m + 2(n - m) = 2n - m
-      comment("compute z = l^m*z - z = (l^m - 1)(l^m*x1*x1 - x0*x0)");
-      for (let i = m; i < 2 * n - m; i++) {
-        lines(local.set(Z[i], i64.sub(Z[i - m], Z[i])));
+      comment("compute w = l^m*z - z = (l^m - 1)(l^m*x1*x1 - x0*x0)");
+      for (let i = 0; i < m; i++) {
+        lines(local.set(W[i], local.get(Z[i])));
+      }
+      for (let i = m; i < 2 * m; i++) {
+        lines(local.set(W[i], i64.add(Z[i - m], Z[i])));
+      }
+      for (let i = 2 * m; i < 2 * n - m; i++) {
+        lines(local.set(W[i], i64.sub(Z[i - m], Z[i])));
       }
       for (let i = 2 * n - m; i < 2 * n; i++) {
-        lines(local.set(Z[i], local.get(Z[i - m])));
-      }
-      for (let i = 0; i < m; i++) {
-        // TODO can we just remove these and the ones at the top.. yeah but we have to treat the -Z[i] differently in the loop above then
-        lines(local.set(Z[i], i64.sub(0, Z[i])));
+        lines(local.set(W[i], local.get(Z[i - m])));
       }
 
       comment("x1 += x0, y1 += y0");
@@ -563,129 +561,29 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
           local.set(Y1[i], i64.add(Y1[i], Y0[i]))
         );
       }
-      comment(`multiply w = (x0 + x1)*(y0 + y1) in ${n - m}x${n - m} steps`);
-      multiplySchoolbook(W, X1, Y1, n - m);
+      comment(`multiply z = (x0 + x1)*(y0 + y1) in ${n - m}x${n - m} steps`);
+      multiplySchoolbook(Z, X1, Y1, n - m);
 
-      comment("compute z = z + l^m*w = x*y");
+      comment("compute w = w + l^m*z = x*y");
       for (let i = m; i < 2 * n - m; i++) {
-        lines(local.set(Z[i], i64.add(Z[i], W[i - m])));
+        lines(local.set(W[i], i64.add(W[i], Z[i - m])));
       }
-      comment(`z = carry(z) to get back to ${w} bits per limb`);
+      comment(`xy = carry(z)`);
       // note: here we must do signed shifts, because we allowed negative limbs
       for (let i = 0; i < 2 * n - 1; i++) {
         lines(
-          local.set(tmp, i64.shr_s(Z[i], w)),
-          local.set(Z[i], i64.and(Z[i], wordMax)),
-          local.set(Z[i + 1], i64.add(Z[i + 1], tmp))
+          local.set(tmp, i64.shr_s(W[i], w)),
+          i64.store(xy, i64.and(W[i], wordMax), { offset: 8 * i }),
+          local.set(W[i + 1], i64.add(W[i + 1], tmp))
         );
       }
-      lines(local.set(Z[2 * n - 1], i64.and(Z[2 * n - 1], wordMax)));
-
-      // extract x_hi := highest k bits of x
-      comment(`extract x_hi := highest ${k} bits of x`);
-      // x_hi = x.slice(n-1, 2*n) <==> x >> 2^((n-1)*w)
-      comment(`first set x_hi := x[${n - 1}..${2 * n}] = (x >> ${n - 1}*${w})`);
-      for (let i = 0; i < n + 1; i++) {
-        line(local.set(X_hi[i], local.get(Z[i + n - 1])));
-      }
-      // now we only have to do x_hi >>= k - (n - 1)*w
-      let k0 = BigInt(k - (n - 1) * w);
-      let l0 = wn - k0;
-      comment(`now do x_hi >>= ${k0} (because ${k0} = ${k} - ${n - 1}*${w})`);
-      for (let i = 0; i < n; i++) {
-        // x_hi[i] = (x_hi[i] >> k0) | ((x_hi[i + 1] << l) & wordMax);
-        lines(
-          i64.shr_u(X_hi[i], k0),
-          i64.and(i64.shl(X_hi[i + 1], l0), wordMax),
-          i64.or(),
-          local.set(X_hi[i])
-        );
-      }
-
-      // l = multiplyMsb(x_hi, m) = [x_hi * m / 2^N]
-      comment(
-        `l = [x_hi * m / 2^N]; the first ${n0} output limbs are neglected`
+      lines(
+        i64.store(xy, i64.and(W[2 * n - 1], wordMax), {
+          offset: 8 * (2 * n - 1),
+        })
       );
-      // compute (x_hi*m) >> 2^N, where x_hi,m < 2^N,
-      // by neglecting the first n0 output limbs (which we checked don't contribute in the worst case)
-      for (let i = 0; i < n; i++) {
-        line(local.set(tmp, local.get(X_hi[i])));
-        for (let j = Math.max(0, n0 - i); j < n; j++) {
-          lines(
-            i64.mul(tmp, M[j]),
-            local.get(L[i + j - n0]),
-            i64.add(),
-            local.set(L[i + j - n0])
-          );
-        }
-      }
-      comment("carry(l)");
-      // round of carrying on l
-      let length = 2 * n - n0;
-      for (let i = 0; i < length - 1; i++) {
-        lines(
-          local.set(tmp, i64.shr_u(L[i], w)),
-          local.set(L[i], i64.and(L[i], wordMax)),
-          local.set(L[i + 1], i64.add(L[i + 1], tmp))
-        );
-      }
-      // TODO: check if this is needed (probably not)
-      line(local.set(L[length - 1], i64.and(L[length - 1], wordMax)));
-      // now neglect the lowest n - n0 entries of L
-      L = L.slice(n - n0);
 
-      // lp = multiplyLsb(l, p) = (l*p)[0..n], i.e. just compute the lower half
-      comment("(l*p)[0..n]; reuse x_hi to store l*p");
-      let LP = X_hi.slice(0, n); // just reuse X_hi which isn't needed anymore
-      for (let i = 0; i < n; i++) {
-        line(local.set(LP[i], i64.const(0)));
-      }
-      for (let i = 0; i < n; i++) {
-        line(local.set(tmp, local.get(L[i])));
-        for (let j = 0; j < n - i; j++) {
-          lines(
-            i64.mul(tmp, P[j]),
-            local.get(LP[i + j]),
-            i64.add(),
-            local.set(LP[i + j])
-          );
-        }
-      }
-      // round of carrying on lp
-      comment("carry(l*p)");
-      for (let i = 0; i < n - 1; i++) {
-        lines(
-          local.set(tmp, i64.shr_u(LP[i], w)),
-          local.set(LP[i], i64.and(LP[i], wordMax)),
-          local.set(LP[i + 1], i64.add(LP[i + 1], tmp))
-        );
-      }
-      // TODO: is this needed??? I forgot to put a line() around it and it still worked
-      line(local.set(LP[n - 1], i64.and(LP[n - 1], wordMax)));
-      // now overwrite the low n limbs with x = x - lp
-      comment("x|lo = x - l*p to the low n limbs of x");
-      // and ignore the possible overflow bit because we know the result fits in N bits
-      line(local.set(carry, i64.const(1)));
-      for (let i = 0; i < n; i++) {
-        lines(
-          // (carry, x[i]) = x[i] + ((2^w - 1) - LP[i]) + carry;
-          local.get(Z[i]),
-          i64.const(wordMax),
-          i64.add(),
-          local.get(LP[i]),
-          i64.sub(),
-          local.get(carry),
-          i64.add(),
-          local.set(tmp),
-          i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * i }),
-          i !== n - 1 && local.set(carry, i64.shr_u(tmp, w))
-        );
-      }
-      // overwrite the high n limbs with l
-      comment("x|hi = l");
-      for (let i = n; i < 2 * n; i++) {
-        lines(i64.store(xy, L[i - n], { offset: 8 * i }));
-      }
+      line(call("barrett", xy));
     }
   );
 
@@ -1001,12 +899,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       line(local32($i));
       forLoop1(writer, $i, 0, local.get($N), () => {
         lines(
-          call(
-            "multiplySchoolbookRegular",
-            local.get(x),
-            local.get(x),
-            local.get(x)
-          ),
+          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x)),
           call("barrett", local.get(x))
         );
       });
@@ -1016,12 +909,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       line(local32($i));
       forLoop1(writer, $i, 0, local.get($N), () => {
         lines(
-          call(
-            "multiplySchoolbookRegular",
-            local.get(x),
-            local.get(x),
-            local.get(x)
-          )
+          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x))
         );
       });
     });
