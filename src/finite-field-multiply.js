@@ -189,6 +189,117 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
   });
 
+  let carry = "$carry";
+
+  addFuncExport(writer, "multiplyUnrolled");
+  func(
+    writer,
+    "multiplyUnrolled",
+    [param32(xy), param32(x), param32(y)],
+    () => {
+      // locals
+      line(local64(tmp), local64(carry));
+      let X = defineLocals(writer, "x", n);
+      let Y = defineLocals(writer, "y", n);
+      let Q = defineLocals(writer, "q", n);
+
+      if (countMultiplications) {
+        line(global.set(multiplyCount, i32.add(global.get(multiplyCount), 1)));
+      }
+
+      // load x, y
+      for (let i = 0; i < n; i++) {
+        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+      }
+      for (let i = 0; i < n; i++) {
+        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      }
+      // for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
+      for (let i = 0; i < 2 * n - 1; i++) {
+        comment(`i = ${i}`);
+        let didCarry = false;
+        let doCarry = false;
+        let j0 = Math.max(0, i - n + 1);
+        let jend = Math.min(i + 1, n);
+        for (let j = j0, terms = 0; j < jend; j++) {
+          comment(`> j = ${j}`);
+          lines(
+            //
+            i64.mul(X[j], Y[i - j]),
+            i > 0 && i64.add()
+          );
+          doCarry = ++terms % nSafeTerms === 0;
+          if (doCarry) {
+            comment(`> carry after term # ${terms}`);
+            lines(
+              local.set(tmp),
+              i64.shr_u(tmp, w),
+              didCarry && local.get(carry),
+              didCarry && i64.add(),
+              local.set(carry), // save carry for next i
+              i64.and(tmp, wordMax) // mod 2^w the current result
+            );
+            didCarry = true;
+          }
+          if ((i < n && j < i) || (i >= n && j < n - 1)) {
+            lines(
+              //
+              i64.mul(Q[j], P[i - j]),
+              i64.add()
+            );
+            doCarry = ++terms % nSafeTerms === 0;
+            if (doCarry) {
+              comment(`> carry after term # ${terms}`);
+              lines(
+                local.set(tmp),
+                i64.shr_u(tmp, w),
+                didCarry && local.get(carry),
+                didCarry && i64.add(),
+                local.set(carry), // save carry for next i
+                i64.and(tmp, wordMax) // mod 2^w the current result
+              );
+              didCarry = true;
+            }
+          }
+          if (i < n && j === i) {
+            lines(
+              local.set(tmp),
+              local.set(
+                Q[i],
+                // TODO: don't need to AND here if we carried just before
+                i64.and(i64.mul(mu, i64.and(tmp, wordMax)), wordMax)
+              ),
+              local.get(tmp),
+              i64.mul(Q[j], P[i - j]),
+              i64.add(), // the low part of this is zero; the high part is put as carry on the stack
+              join(i64.const(w), i64.shr_u()),
+              didCarry && local.get(carry), // if we have another carry, add that as well
+              didCarry && i64.add()
+            );
+          }
+          if (i >= n && j === n - 1) {
+            lines(
+              //
+              i64.mul(Q[j], P[i - j]),
+              i64.add()
+            );
+            lines(
+              local.set(tmp),
+              i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * (i - n) }),
+              i64.shr_u(tmp, w),
+              didCarry && local.get(carry),
+              didCarry && i64.add()
+            );
+          }
+        }
+      }
+      lines(
+        local.set(tmp),
+        i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * (n - 1) })
+      );
+    }
+  );
+
   /**
    * compute
    *
