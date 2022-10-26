@@ -14,17 +14,19 @@ import {
   writeBigint,
 } from "./src/finite-field.js";
 
-let n = 14;
+let n = 16;
 console.log(`running msm with 2^${n} inputs`);
 
+tic("load inputs & convert to rust");
+let { points, scalars } = await load(n);
+// let pointVec = PointVectorInput.fromJsArray(points);
+// let scalarVec = ScalarVectorInput.fromJsArray(points);
+toc();
+
 tic("warm-up JIT compiler with fixed points");
-{
-  let { points, scalars } = await load(14);
-  msmAffine(scalars, points);
-  msmAffine(scalars, points);
-  await new Promise((r) => setTimeout(r, 100));
-  msmAffine(scalars, points);
-}
+msmAffine(scalars, points);
+// await new Promise((r) => setTimeout(r, 100));
+// msmAffine(scalars, points);
 toc();
 
 // benchmark raw mod mul
@@ -44,12 +46,6 @@ benchInverse(nInvRaw);
 let timeInv = toc();
 let invPerSec = Math.round(nInvRaw / timeInv);
 let mulPerInv = mPerSec / invPerSec;
-
-tic("load inputs & convert to rust");
-let { points, scalars } = await load(n);
-// let pointVec = PointVectorInput.fromJsArray(points);
-// let scalarVec = ScalarVectorInput.fromJsArray(points);
-toc();
 
 // tic("msm (rust)");
 // compute_msm(pointVec, scalarVec);

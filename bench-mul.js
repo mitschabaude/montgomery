@@ -57,6 +57,7 @@ for (let w of [28, 30]) {
     ).toFixed(2)} mul)`
   );
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
+  console.log(`barrett mul\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
   console.log(`schoolbook mul\t ${((timeMulSchool / N) * 1e9).toFixed(0)} ns`);
   console.log(`barrett red\t ${((timeBarrett / N) * 1e9).toFixed(0)} ns`);
 
