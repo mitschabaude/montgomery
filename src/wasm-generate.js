@@ -134,6 +134,7 @@ function getOperations() {
       and: iOp("and"),
       or: iOp("or"),
       not: iOp("not"),
+      shr_s: iOp("shr_s"),
       shr_u: iOp("shr_u"),
       shl: iOp("shl"),
       eq: iOp("eq"),

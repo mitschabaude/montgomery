@@ -256,7 +256,9 @@ async function createFiniteFieldWat(
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    32768,
+    // this is the number of "pages" of 2^16 bytes each
+    // max # pages is 2^16, which gives us 2^16*2^16 = 2^32 bytes = 4 GB
+    1 << 15,
     () => {
       addAffine(writer, p, w);
       wasmInverse(writer, p, w, { countOperations: !!withBenchmarks });
@@ -297,7 +299,7 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    32768,
+    1,
     () => {
       barrett(writer, lambda, w, { withBenchmarks });
       glv(writer, q, lambda, w);
@@ -595,9 +597,8 @@ function add(writer, p, w) {
  * @param {number} w
  */
 function subtract(writer, p, w) {
-  let { n, wordMax, R } = montgomeryParams(p, w);
+  let { n, wordMax } = montgomeryParams(p, w);
   // constants
-  let Rminus2P = bigintToLegs(R - mulInputFactor * 2n * p, w, n);
   let dP2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment } = writer;
   let { i64, local, local64, param32 } = ops;
@@ -609,44 +610,40 @@ function subtract(writer, p, w) {
     line(local64(tmp), local64(carry));
 
     // first loop: x - y
-    line(local.set(carry, i64.const(1)));
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2^w - 1) + x[i] - y[i] + carry;
-        i64.const(wordMax),
+        // (carry, out[i]) = x[i] - y[i] + carry;
         i64.load(x, { offset: 8 * i }),
-        i64.add(),
         i64.load(y, { offset: 8 * i }),
         i64.sub(),
         local.get(carry),
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
     if (!doReduce) return;
-    // check if we underflowed by checking carry === 1 (in that case, we didn't and can return)
-    lines(i64.eq(carry, 1), `if return end`);
+    // check if we underflowed by checking carry === 0 (in that case, we didn't and can return)
+    lines(i64.eq(carry, 0), `if return end`);
     // second loop
-    // TODO I think this is wrong.. we can overflow intermediate values
-    // should just add 2p and ignore the overflow bit that we know we'll have
     // if we're here, y > x and out = x - y + R, while we want x - y + 2p
-    // so do (out - (R - 2p))
-    line(local.set(carry, i64.const(1)));
+    // so do (out += 2p) and ignore the known overflow of R
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2**w - 1 - (R - 2*p)[i]) + out[i] + carry;
-        i64.const(wordMax - Rminus2P[i]),
+        // (carry, out[i]) = (2*p)[i] + out[i] + carry;
+        i64.const(dP2[i]),
         i64.load(out, { offset: 8 * i }),
         i64.add(),
         local.get(carry),
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        i < n - 1 && local.set(carry, i64.shr_s(tmp, w))
       );
     }
   }
@@ -674,12 +671,12 @@ function subtract(writer, p, w) {
     let f2P = bigintToLegs(BigInt(f) * 2n * p, w, n);
 
     line(local64(tmp), local64(carry));
-    line(local.set(carry, i64.const(1)));
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2p + 2^w - 1) + x[i] - y[i] + carry;
-        i64.const(wordMax + f2P[i]),
+        // (carry, out[i]) = 2p + x[i] - y[i] + carry;
+        i64.const(f2P[i]),
         i64.load(x, { offset: 8 * i }),
         i64.add(),
         i64.load(y, { offset: 8 * i }),
@@ -688,7 +685,7 @@ function subtract(writer, p, w) {
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
   }
