@@ -474,12 +474,179 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
   console.assert(m <= n - m, "m <= n-m");
 
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32, local32, call } = ops;
+  let { i64, local, local64, param32, local32, call, param64, result64 } = ops;
 
   let [x, y, xy] = ["$x", "$y", "$xy"];
   let [tmp, carry] = ["$tmp", "$carry"];
   let [xi] = ["$xi"];
   let [$i, $N] = ["$i", "$N"];
+  /* 
+  function multiplySchoolbookSmall(n) {
+    addFuncExport(writer, `multiplySchoolbook${n}`);
+    func(
+      writer,
+      `multiplySchoolbook${n}`,
+      [param32(xy), param32(x), param32(y)],
+      () => {
+        let X = defineLocals(writer, "x", n);
+        let Y = defineLocals(writer, "y", n);
+        for (let i = 0; i < n; i++) {
+          line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+        }
+        for (let i = 0; i < n; i++) {
+          line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+        }
+        for (let i = 0; i < 2 * n; i++) {
+          comment(`k = ${i}`);
+          let j0 = Math.max(0, i - n + 1);
+          for (let j = j0; j < Math.min(i + 1, n); j++) {
+            lines(
+              //
+              i64.mul(X[j], Y[i - j]),
+              i > 0 && j > j0 && i64.add()
+            );
+          }
+          let isLast = i === 2 * n - 1;
+          !isLast && line(i64.store(xy, tmp, { offset: 8 * i }));
+        }
+      }
+    );
+  }
+  function multiplySchoolbookSmallLocals(n) {
+    let X = Array(n)
+      .fill(0)
+      .map((_, i) => "$x" + i);
+    let Y = Array(n)
+      .fill(0)
+      .map((_, i) => "$y" + i);
+    addFuncExport(writer, `multiplySchoolbook${n}`);
+    func(
+      writer,
+      `multiplySchoolbook${n}`,
+      [
+        ...X.map((x) => param64(x)),
+        ...Y.map((x) => param64(x)),
+        ...Array(2 * n)
+          .fill(0)
+          .map(() => result64),
+      ],
+      () => {
+        let XY = defineLocals(writer, "xy", 2 * n);
+        for (let i = 0; i < 2 * n; i++) {
+          comment(`k = ${i}`);
+          let j0 = Math.max(0, i - n + 1);
+          for (let j = j0; j < Math.min(i + 1, n); j++) {
+            lines(
+              //
+              i64.mul(X[j], Y[i - j]),
+              i > 0 && j > j0 && i64.add()
+            );
+          }
+          let isLast = i === 2 * n - 1;
+          !isLast && line(local.set(XY[i]));
+        }
+        for (let i = 0; i < 2 * n; i++) {
+          line(local.get(XY[i]));
+        }
+      }
+    );
+  }
+  multiplySchoolbookSmallLocals(7);
+  multiplySchoolbookSmallLocals(6);
+  addFuncExport(writer, "multiplyKaratsuba1");
+  func(
+    writer,
+    "multiplyKaratsuba1",
+    [param32(xy), param32(x), param32(y)],
+    () => {
+      line(local64(tmp), local64(carry));
+      let X = defineLocals(writer, "x", n);
+      let Y = defineLocals(writer, "y", n);
+      let Z = defineLocals(writer, "z", 2 * n);
+      let W = defineLocals(writer, "w", 2 * n);
+
+      // load x, y
+      for (let i = 0; i < n; i++) {
+        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+      }
+      for (let i = 0; i < n; i++) {
+        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      }
+      // split up inputs into two halfs
+      let X0 = X.slice(0, m);
+      let X1 = X.slice(m);
+      let Y0 = Y.slice(0, m);
+      let Y1 = Y.slice(m);
+
+      function multiplySchoolbook(Z, X, Y, n) {
+        for (let i = 0; i < n; i++) {
+          line(local.get(X[i]));
+        }
+        for (let i = 0; i < n; i++) {
+          line(local.get(Y[i]));
+        }
+        line(call(`multiplySchoolbook${n}`));
+        for (let i = 0; i < 2 * n; i++) {
+          line(local.set(Z[i]));
+        }
+      }
+      comment(`multiply z = x0*x0 in ${m}x${m} steps`);
+      multiplySchoolbook(Z, X0, Y0, m);
+      comment(`multiply w = x1*x1 in ${n - m}x${n - m} steps`);
+      multiplySchoolbook(W, X1, Y1, n - m);
+
+      comment("compute z = l^m*x1*x1 - x0*x0 = l^m*w - z");
+      for (let i = m; i < m + 2 * (n - m); i++) {
+        lines(local.set(Z[i], i64.sub(W[i - m], Z[i])));
+      }
+      // z has now length m + 2(n - m) = 2n - m
+      comment("compute w = l^m*z - z = (l^m - 1)(l^m*x1*x1 - x0*x0)");
+      for (let i = 0; i < m; i++) {
+        lines(local.set(W[i], local.get(Z[i])));
+      }
+      for (let i = m; i < 2 * m; i++) {
+        lines(local.set(W[i], i64.add(Z[i - m], Z[i])));
+      }
+      for (let i = 2 * m; i < 2 * n - m; i++) {
+        lines(local.set(W[i], i64.sub(Z[i - m], Z[i])));
+      }
+      for (let i = 2 * n - m; i < 2 * n; i++) {
+        lines(local.set(W[i], local.get(Z[i - m])));
+      }
+
+      comment("x1 += x0, y1 += y0");
+      for (let i = 0; i < m; i++) {
+        lines(
+          local.set(X1[i], i64.add(X1[i], X0[i])),
+          local.set(Y1[i], i64.add(Y1[i], Y0[i]))
+        );
+      }
+      comment(`multiply z = (x0 + x1)*(y0 + y1) in ${n - m}x${n - m} steps`);
+      multiplySchoolbook(Z, X1, Y1, n - m);
+
+      comment("compute w = w + l^m*z = x*y");
+      for (let i = m; i < 2 * n - m; i++) {
+        lines(local.set(W[i], i64.add(W[i], Z[i - m])));
+      }
+      comment(`xy = carry(z)`);
+      // note: here we must do signed shifts, because we allowed negative limbs
+      for (let i = 0; i < 2 * n - 1; i++) {
+        lines(
+          local.set(tmp, i64.shr_s(W[i], w)),
+          i64.store(xy, i64.and(W[i], wordMax), { offset: 8 * i }),
+          local.set(W[i + 1], i64.add(W[i + 1], tmp))
+        );
+      }
+      lines(
+        i64.store(xy, i64.and(W[2 * n - 1], wordMax), {
+          offset: 8 * (2 * n - 1),
+        })
+      );
+
+      line(call("barrett", xy));
+    }
+  );
+  */
 
   addFuncExport(writer, "multiplyKaratsuba");
   func(
