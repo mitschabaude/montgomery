@@ -40,7 +40,7 @@ let { fieldSizeBytes, packedSizeBytes, readBigInt, n, getPointers } = jsHelpers(
   w,
   { memory, toPackedBytes, fromPackedBytes, dataOffset }
 );
-let [scalarPtr, , bytesPtr] = getPointers(4);
+let [scalarPtr, , bytesPtr, bytesPtr2] = getPointers(4);
 
 function testDecomposeRandomScalar() {
   let [scalar] = randomScalars(1);
@@ -53,14 +53,19 @@ function testDecomposeRandomScalar() {
 }
 
 /**
+ * decompose scalar s = s0 + lambda*s1, where lambda is a cube root of 1
+ *
+ * WARNING: for efficiency, scalars are always decomposed into the same
+ * bytes positions in wasm memory, so one decomposition overwrites the previous one
+ *
  * @param {Uint8Array} scalar
  * @returns {[Uint8Array, Uint8Array]}
  */
 function decomposeScalar(scalar) {
   writeBytesDouble(scalarPtr, scalar);
   decompose(scalarPtr);
-  let s0 = readBytes(scalarPtr);
-  let s1 = readBytes(scalarPtr + fieldSizeBytes);
+  let s0 = readBytes(bytesPtr, scalarPtr);
+  let s1 = readBytes(bytesPtr2, scalarPtr + fieldSizeBytes);
   return [s0, s1];
 }
 
@@ -69,7 +74,7 @@ function decomposeScalar(scalar) {
  *
  * @param {number} pointer
  */
-function readBytes(pointer) {
+function readBytes(bytesPtr, pointer) {
   toPackedBytes(bytesPtr, pointer);
   return new Uint8Array(memory.buffer, bytesPtr, packedSizeBytes);
 }
