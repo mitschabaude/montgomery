@@ -14,7 +14,7 @@ import {
   ops,
   Writer,
 } from "./wasm-generate.js";
-import { barrett, multiply } from "./finite-field-multiply.js";
+import { barrett, karatsuba30, multiply } from "./finite-field-multiply.js";
 
 // main API
 export {
@@ -273,6 +273,10 @@ async function createFiniteFieldWat(
       finiteFieldHelpers(writer, p, w);
 
       barrett(writer, p, w, { withBenchmarks });
+
+      if (w === 30) {
+        karatsuba30(writer, p, w, { withBenchmarks });
+      }
 
       if (endoCubeRoot !== undefined) {
         endomorphism(writer, p, w, { beta: endoCubeRoot });

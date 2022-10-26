@@ -10,7 +10,7 @@ import {
   ops,
 } from "./wasm-generate.js";
 
-export { multiply, barrett };
+export { multiply, barrett, karatsuba30 };
 
 /**
  * montgomery product
@@ -416,6 +416,255 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
   });
 }
 
+/**
+ * karatsuba method
+ *
+ * l := 2^w = limb size; multiplication by l is shift by 1 limb
+ * L = number of limbs in lower half, m < n, should be about n/2
+ *
+ * x = x0 + l^m*x1, where x0 has m limbs and x1 has n - m
+ *
+ * x*y = (x0 + l^m*x1)(y0 + l^m*y1) =
+ *     = (l^m - 1)(l^m*x1*y1 - x0*y0) + l^m(x0 + x1)(y0 + y1)
+ *
+ * let's assume n-m >= m (on the upper end, we have more free bits bc p << 2^N)
+ * => x0 + x1 has length n-m as well, with +1 bits in the limbs
+ *
+ *
+ * -) compute z = x0*y0, w = x1*y1
+ *       => 1 m*m MUL, 1 (n-m)*(n-m) MUL
+ * -) compute z = l^m*w - z
+ *       => active bits: [m..(2(n-m)+m)] vs [0..2m] => overlap at [m..2m]
+ *       => 1 length-m ADD
+ *       => z has active bits [0..(2n-m)]
+ * -) compute z = l^m*z - z
+ *       => active bits: [m..2n] vs [0..(2n-m)] => overlap at [m..(2n-m)]
+ *       => 1 length-2(n-m) ADD
+ *       => result has active bits [0..2n]
+ * -) compute x0 = x0 + x1, y0 = y0 + y1 => 2 length-(n-m) ADD
+ * -) compute w = (x0 + x1)*(y0 + y1)
+ *       => 1 (n-m)*(n-m) MUL
+ * -) compute x*y = z = z + l^m*w
+ *       => active bits [0..2n] vs [m..(2n-m)]
+ *       => 1 length-2(n-m) ADD
+ * additions have combined length (n-m) + (n-m) + m + 2(n-m) + 2(n-m) = 6(n-m) + m = about 3.5n
+ *
+ * 3.5n ADD, m^2 + 2(n-m)^2 ~ 3*(n/2)^2 MUL (where a MUL contains the addition to sum products)
+ *
+ * @param {any} writer
+ * @param {bigint} p
+ * @param {number} w
+ * @param {{withBenchmarks?: boolean}} options
+ */
+function karatsuba30(writer, p, w, { withBenchmarks = false }) {
+  if (w !== 30) throw Error("karatsuba mul only designed for w=30");
+  let { n, lengthP: b } = montgomeryParams(p, w);
+  let k = b - 1;
+  let N = n * w;
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+
+  // number of limbs in lower half
+  let m = n >> 1;
+  console.assert(m <= n - m, "m <= n-m");
+
+  let { line, lines, comment, join } = writer;
+  let { i64, local, local64, param32, local32, call } = ops;
+
+  let [x, y, xy] = ["$x", "$y", "$xy"];
+  let [tmp, carry] = ["$tmp", "$carry"];
+  let [xi] = ["$xi"];
+  let [$i, $N] = ["$i", "$N"];
+
+  addFuncExport(writer, "multiplyKaratsuba");
+  func(
+    writer,
+    "multiplyKaratsuba",
+    [param32(xy), param32(x), param32(y)],
+    () => {
+      line(local64(tmp));
+      let X = defineLocals(writer, "x", n);
+      let Y = defineLocals(writer, "y", n);
+      let Z = defineLocals(writer, "z", 2 * n);
+      let W = defineLocals(writer, "w", 2 * (n - m));
+
+      // load x, y
+      for (let i = 0; i < n; i++) {
+        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+      }
+      for (let i = 0; i < n; i++) {
+        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      }
+      // split up inputs into two halfs
+      let X0 = X.slice(0, m);
+      let X1 = X.slice(m);
+      let Y0 = Y.slice(0, m);
+      let Y1 = Y.slice(m);
+
+      // TODO: for simplicity, we do a carry round after every sub multiplication, but that might not be necessary
+      // note: in here, we use unsigned shift to allow maximal # of terms => assuming positive inputs x, y
+      // this assumption might be relaxed
+      function multiplySchoolbook(Z, X, Y, n) {
+        for (let i = 0; i < 2 * n; i++) {
+          comment(`k = ${i}`);
+          for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
+            lines(
+              //
+              i64.mul(X[j], Y[i - j]),
+              i > 0 && i64.add()
+            );
+          }
+          let isLast = i === 2 * n - 1;
+          lines(
+            local.set(tmp),
+            isLast && local.set(Z[i], local.get(tmp)),
+            !isLast && local.set(Z[i], i64.and(tmp, wordMax)),
+            !isLast && i64.shr_u(tmp, w)
+          );
+        }
+      }
+      comment(`multiply z = x0*x0 in ${m}x${m} steps`);
+      multiplySchoolbook(Z, X0, Y0, m);
+      comment(`multiply w = x1*x1 in ${n - m}x${n - m} steps`);
+      multiplySchoolbook(W, X1, Y1, n - m);
+
+      comment("compute z = l^m*x1*x1 - x0*x0 = l^m*w - z");
+      for (let i = 0; i < m; i++) {
+        // TODO would be nice to get rid of these
+        lines(local.set(Z[i], i64.sub(0, Z[i])));
+      }
+      for (let i = m; i < m + 2 * (n - m); i++) {
+        lines(local.set(Z[i], i64.sub(W[i - m], Z[i])));
+      }
+      // z has now length m + 2(n - m) = 2n - m
+      comment("compute z = l^m*z - z = (l^m - 1)(l^m*x1*x1 - x0*x0)");
+      for (let i = m; i < 2 * n - m; i++) {
+        lines(local.set(Z[i], i64.sub(Z[i - m], Z[i])));
+      }
+      for (let i = 2 * n - m; i < 2 * n; i++) {
+        lines(local.set(Z[i], local.get(Z[i - m])));
+      }
+      for (let i = 0; i < m; i++) {
+        // TODO can we just remove these and the ones at the top.. yeah but we have to treat the -Z[i] differently in the loop above then
+        lines(local.set(Z[i], i64.sub(0, Z[i])));
+      }
+
+      comment("x1 += x0, y1 += y0");
+      for (let i = 0; i < m; i++) {
+        lines(
+          local.set(X1[i], i64.add(X1[i], X0[i])),
+          local.set(Y1[i], i64.add(Y1[i], Y0[i]))
+        );
+      }
+      comment(`multiply w = (x0 + x1)*(y0 + y1) in ${n - m}x${n - m} steps`);
+      multiplySchoolbook(W, X1, Y1, n - m);
+
+      comment("compute z = z + l^m*w = x*y");
+      for (let i = m; i < 2 * n - m; i++) {
+        lines(local.set(Z[i], i64.add(Z[i], W[i - m])));
+      }
+      comment(`xy = carry(z) to get back to ${w} bits per limb`);
+      // note: here we must do signed shifts, because we allowed negative limbs
+      for (let i = 0; i < 2 * n - 1; i++) {
+        lines(
+          local.set(tmp, i64.shr_s(Z[i], w)),
+          i64.store(xy, i64.and(Z[i], wordMax), { offset: 8 * i }),
+          local.set(Z[i + 1], i64.add(Z[i + 1], tmp))
+        );
+      }
+      lines(
+        i64.store(xy, i64.and(Z[2 * n - 1], wordMax), {
+          offset: 8 * (2 * n - 1),
+        })
+      );
+    }
+  );
+
+  if (withBenchmarks) {
+    addFuncExport(writer, "benchMultiplyKaratsuba");
+    func(writer, "benchMultiplyKaratsuba", [param32(x), param32($N)], () => {
+      line(local32($i));
+      forLoop1(writer, $i, 0, local.get($N), () => {
+        lines(
+          call("multiplyKaratsuba", local.get(x), local.get(x), local.get(x))
+        );
+      });
+    });
+  }
+}
+
+/**
+ * barrett reduction modulo p (may be non-prime)
+ *
+ * given x, p, find l, r s.t. x = l*p + r
+ *
+ * l = [x/p] ~= l* = [x*m / 2^K] = x*m >> K, where m = [2^K / p]
+ *
+ * we always have l* <= l
+ *
+ * for estimating the error in the other direction,
+ * let's assume we can guarantee x < 2^K
+ * we have
+ * 2^K / p <= [2^K / p] + 1 = m + 1
+ * multiplying by (x/2^K) yields
+ * x/p <= m*x/2^K + x/2^K < m*x/2^K + 1
+ * so we get
+ * l = [x/p] <= x/p <= m*x/2^K + 1
+ * since l is an integer, we can round down the rhs:
+ * l <= l* + 1
+ *
+ * let w be the limb size, and let x be represented as 2*n*w limbs, and p as n*w limbs
+ * set N = n*w
+ *
+ * write b := Math.ceil(log_2(p)) = number of bits needed to represent p
+ *
+ * write K = k + N, where we want two conditions:
+ * - 2^k < p. so, k < b < N. for example, k = b-1
+ *   => m = [2^(k + N) / p] < 2^N, so we can represent m using the same # of limbs
+ * - we can guarantee x < 2^(k + N)
+ *   => this was the condition above which led to l <= l* + 1
+ *
+ * for example, if x = a*b, where both a, b < 2^s * p, then x < 2^(2s) * p^2
+ *   => taking logs gives a condition on k: 2s + 2b <= k + N
+ *   => take k = b-1
+ *   => we get 2s + 2b <= b - 1 + N
+ *   => condition b + 2s + 1 <= N
+ *   typically we can leave a bit of room for s, since N will be a bit larger than b
+ *   means a,b don't have to be fully reduced
+ *
+ * split up x into two unequal parts
+ *   x = 2^k (x_hi) + x_lo, where x_lo has the low k bits and x_hi the rest
+ * => splitting needs ~2n bitwise ops
+ *
+ * let's ignore x_lo and just compute l** = (x_hi * m) >> N = [x_hi * m / 2^N] <= l* <= l
+ * => x_hi < 2^N, so both m and x_hi have N limbs
+ *
+ * this gives an approximation error
+ * l* <= x*m / 2^(k + N) = x_hi * m / 2^N + (x_lo/2^k)*(m/2^N) < x_hi * m / 2^N + 1
+ * and since l* is an integer,
+ * l* <= [x_hi * m / 2^N] + 1 = l** + 1
+ * so
+ * l <= l** + 2
+ *
+ * to further optimize, note that in (x_hi * m) >> N, we end up ignoring the lower half of the product's 2N limbs
+ * so, we can compute the product x_hi * m by ignoring all lower limb combinations which (in combination) are < 2^N.
+ * => takes only ~60% of effort compared to a full multiplication
+ * => the second multiplication to compute x - l*p can ignore the entire upper half => takes ~50%
+ * => so in summary, barrett reduction takes ~1.1 full multiplications
+ *
+ * if l~ = l - e where e~ <= e, then
+ * r~ = x - (l~)p = x - lp + (e~)p = r + (e~)p, with e~ in { 0, ..., e }
+ * so, the result r~ is correct modulo p, but is only in [0, (1 + e)p) instead of [0, p).
+ * in fewer words, this algorithm computes (x mod e*p).
+ * this is similar to montgomery multiplication, and in line with earlier our assumption that x = a*b, where both a, b < 2^s * p.
+ *
+ * for e = 3 we can choose s=2, so assuming a, b < 4p
+ * => c = (a*b mod 3p) < 4p, so again of the same form
+ * => can be used without reduction steps in further products (or addition / subtraction steps which accept inputs < 4p)
+ *
+ * with k = b-1, our previous condition b + 2s + 1 <= N with s=2 implies
+ * b + 5 <= N
+ */
 function barrett(writer, p, w, { withBenchmarks = false } = {}) {
   let { n, lengthP: b } = montgomeryParams(p, w);
   let k = b - 1;
@@ -518,7 +767,8 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
         local.set(LP[i + 1], i64.add(LP[i + 1], tmp))
       );
     }
-    local.set(LP[n - 1], i64.and(LP[n - 1], wordMax));
+    // TODO: is this needed??? I forgot to put a line() around it and it still worked
+    line(local.set(LP[n - 1], i64.and(LP[n - 1], wordMax)));
     // now overwrite the low n limbs with x = x - lp
     comment("x|lo = x - l*p to the low n limbs of x");
     // and ignore the possible overflow bit because we know the result fits in N bits

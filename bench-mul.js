@@ -20,7 +20,7 @@ import { getPointers, writeBigint } from "./src/finite-field.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
-for (let w of [28, 30]) {
+for (let w of [30]) {
   // for (let w of [28]) {
   await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
   console.log();
@@ -50,6 +50,12 @@ for (let w of [28, 30]) {
   tic();
   ff.benchMultiplySchoolbook(x, N);
   let timeMulSchool = toc();
+  let timeMulKara;
+  if (w === 30) {
+    tic();
+    ff.benchMultiplyKaratsuba(x, N);
+    timeMulKara = toc();
+  }
   let timeBarrett = timeMulB - timeMulSchool;
   console.log(
     `${(N / timeMulB / 1e6).toFixed(2).padStart(5)} mio. mba / s (mba = ${(
@@ -57,7 +63,9 @@ for (let w of [28, 30]) {
     ).toFixed(2)} mul)`
   );
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
-  console.log(`barrett mul\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
+  if (w === 30)
+    console.log(`barrett mulka\t ${((timeMulKara / N) * 1e9).toFixed(0)} ns`);
+  console.log(`barrett mulsb\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
   console.log(`schoolbook mul\t ${((timeMulSchool / N) * 1e9).toFixed(0)} ns`);
   console.log(`barrett red\t ${((timeBarrett / N) * 1e9).toFixed(0)} ns`);
 
