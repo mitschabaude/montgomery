@@ -570,7 +570,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       for (let i = m; i < 2 * n - m; i++) {
         lines(local.set(Z[i], i64.add(Z[i], W[i - m])));
       }
-      comment(`xy = carry(z) to get back to ${w} bits per limb`);
+      comment(`z = carry(z) to get back to ${w} bits per limb`);
       // note: here we must do signed shifts, because we allowed negative limbs
       for (let i = 0; i < 2 * n - 1; i++) {
         lines(
@@ -586,7 +586,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       // x_hi = x.slice(n-1, 2*n) <==> x >> 2^((n-1)*w)
       comment(`first set x_hi := x[${n - 1}..${2 * n}] = (x >> ${n - 1}*${w})`);
       for (let i = 0; i < n + 1; i++) {
-        line(local.set(X_hi[i], i64.load(x, { offset: 8 * (i + n - 1) })));
+        line(local.set(X_hi[i], local.get(Z[i + n - 1])));
       }
       // now we only have to do x_hi >>= k - (n - 1)*w
       let k0 = BigInt(k - (n - 1) * w);
@@ -669,7 +669,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       for (let i = 0; i < n; i++) {
         lines(
           // (carry, x[i]) = x[i] + ((2^w - 1) - LP[i]) + carry;
-          i64.load(x, { offset: 8 * i }),
+          local.get(Z[i]),
           i64.const(wordMax),
           i64.add(),
           local.get(LP[i]),
@@ -677,14 +677,14 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
           local.get(carry),
           i64.add(),
           local.set(tmp),
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * i }),
           i !== n - 1 && local.set(carry, i64.shr_u(tmp, w))
         );
       }
       // overwrite the high n limbs with l
       comment("x|hi = l");
       for (let i = n; i < 2 * n; i++) {
-        lines(i64.store(x, L[i - n], { offset: 8 * i }));
+        lines(i64.store(xy, L[i - n], { offset: 8 * i }));
       }
     }
   );

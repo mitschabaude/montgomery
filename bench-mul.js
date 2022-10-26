@@ -25,7 +25,7 @@ for (let w of [30]) {
   await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
   console.log();
   let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
-  let ff = await createFiniteField(p, w, wasm);
+  let ff = createFiniteField(p, w, wasm);
   // let [x, z] = testCorrectness(p, w, ff);
   let [x, z] = getPointers(2);
   writeBigint(x, randomBaseFieldx2());
@@ -50,18 +50,23 @@ for (let w of [30]) {
   tic();
   ff.benchMultiplySchoolbook(x, N);
   let timeMulSchool = toc();
-  let timeMulKara;
-  if (w === 30) {
-    tic();
-    ff.benchMultiplyKaratsuba(x, N);
-    timeMulKara = toc();
-  }
-  let timeBarrett = timeMulB - timeMulSchool;
   console.log(
     `${(N / timeMulB / 1e6).toFixed(2).padStart(5)} mio. mba / s (mba = ${(
       timeMulB / timeMul
     ).toFixed(2)} mul)`
   );
+  let timeMulKara;
+  if (w === 30) {
+    tic();
+    ff.benchMultiplyKaratsuba(x, N);
+    timeMulKara = toc();
+    console.log(
+      `${(N / timeMulKara / 1e6).toFixed(2).padStart(5)} mio. mbk / s (mbk = ${(
+        timeMulKara / timeMul
+      ).toFixed(2)} mul)`
+    );
+  }
+  let timeBarrett = timeMulB - timeMulSchool;
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
   if (w === 30)
     console.log(`barrett mulka\t ${((timeMulKara / N) * 1e9).toFixed(0)} ns`);
