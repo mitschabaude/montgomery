@@ -786,7 +786,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
   let P = bigintToLegs(p, w, n);
 
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32, local32, call } = ops;
+  let { i64, i32, local, local64, param32, local32, call } = ops;
 
   let [x, y, xy] = ["$x", "$y", "$xy"];
   let [tmp, carry] = ["$tmp", "$carry"];
@@ -946,13 +946,67 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
     }
   );
 
+  addFuncExport(writer, "multiplySchoolbookRegular");
+  func(
+    writer,
+    "multiplySchoolbookRegular",
+    [param32(xy), param32(x), param32(y)],
+    () => {
+      line(local64(tmp), local64(xi), local32($i));
+      let XY = defineLocals(writer, "xy", n);
+      let Y = defineLocals(writer, "y", n);
+      // load y
+      for (let i = 0; i < n; i++) {
+        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      }
+      comment(`multiply in ${n}x${n} steps`);
+      forLoop8(writer, $i, 0, n, () => {
+        lines(
+          local.set(xi, i64.load(i32.add(x, $i))),
+          local.get(XY[0]),
+          i64.mul(xi, Y[0]),
+          i64.add(),
+          local.set(tmp),
+          i64.store(i32.add(xy, $i), i64.and(tmp, wordMax)),
+          i64.shr_u(tmp, w),
+          local.get(XY[1]),
+          i64.add(),
+          i64.mul(xi, Y[1]),
+          i64.add(),
+          local.set(XY[0])
+        );
+        for (let j = 2; j < n; j++) {
+          lines(
+            local.get(XY[j]),
+            i64.mul(xi, Y[j]),
+            i64.add(),
+            local.set(XY[j - 1])
+          );
+        }
+      });
+      for (let i = n; i < 2 * n; i++) {
+        lines(
+          local.set(tmp, local.get(XY[i - n])),
+          i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i < 2 * n - 1 &&
+            local.set(XY[i - n + 1], i64.add(XY[i - n + 1], i64.shr_u(tmp, w)))
+        );
+      }
+    }
+  );
+
   if (withBenchmarks) {
     addFuncExport(writer, "benchMultiplyBarrett");
     func(writer, "benchMultiplyBarrett", [param32(x), param32($N)], () => {
       line(local32($i));
       forLoop1(writer, $i, 0, local.get($N), () => {
         lines(
-          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x)),
+          call(
+            "multiplySchoolbookRegular",
+            local.get(x),
+            local.get(x),
+            local.get(x)
+          ),
           call("barrett", local.get(x))
         );
       });
@@ -962,7 +1016,12 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       line(local32($i));
       forLoop1(writer, $i, 0, local.get($N), () => {
         lines(
-          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x))
+          call(
+            "multiplySchoolbookRegular",
+            local.get(x),
+            local.get(x),
+            local.get(x)
+          )
         );
       });
     });
