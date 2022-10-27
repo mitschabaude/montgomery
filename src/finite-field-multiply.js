@@ -300,16 +300,6 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     }
   );
 
-  /**
-   * compute
-   *
-   * out = x^2 - y - z
-   *
-   * which is a step in EC addition.
-   * allows `out` to be the same pointer as y
-   *
-   * this works only if 3 terms can be added without carry!
-   */
   let [out] = ["$out"];
   function square() {
     // locals
@@ -972,105 +962,81 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
   addFuncExport(writer, "barrett");
   func(writer, "barrett", [param32(x)], () => {
     line(local64(tmp), local64(carry));
-    let X_hi = defineLocals(writer, "xhi", n + 1);
-    let L = defineLocals(writer, "l", 2 * n - n0);
+    let L = defineLocals(writer, "l", n);
+    let LP = defineLocals(writer, "lp", n);
 
     // extract x_hi := highest k bits of x
-    comment(`extract x_hi := highest ${k} bits of x`);
+    comment(`extract l := highest ${k} bits of x = x >> ${k}`);
     // x_hi = x.slice(n-1, 2*n) <==> x >> 2^((n-1)*w)
-    comment(`first set x_hi := x[${n - 1}..${2 * n}] = (x >> ${n - 1}*${w})`);
-    for (let i = 0; i < n + 1; i++) {
-      line(local.set(X_hi[i], i64.load(x, { offset: 8 * (i + n - 1) })));
-    }
+    comment(`load l := x[${n - 1}..${2 * n}] = (x >> ${n - 1}*${w})`);
     // now we only have to do x_hi >>= k - (n - 1)*w
     let k0 = BigInt(k - (n - 1) * w);
     let l0 = wn - k0;
-    comment(`now do x_hi >>= ${k0} (because ${k0} = ${k} - ${n - 1}*${w})`);
+    comment(`then do l >>= ${k0} (because ${k0} = ${k} - ${n - 1}*${w})`);
+    lines(local.set(tmp, i64.load(x, { offset: 8 * (n - 1) })));
     for (let i = 0; i < n; i++) {
       // x_hi[i] = (x_hi[i] >> k0) | ((x_hi[i + 1] << l) & wordMax);
       lines(
-        i64.shr_u(X_hi[i], k0),
-        i64.and(i64.shl(X_hi[i + 1], l0), wordMax),
+        i64.shr_u(tmp, k0),
+        i64.and(
+          i64.shl(local.tee(tmp, i64.load(x, { offset: 8 * (i + n) })), l0),
+          wordMax
+        ),
         i64.or(),
-        local.set(X_hi[i])
+        local.set(L[i])
       );
     }
 
     // l = multiplyMsb(x_hi, m) = [x_hi * m / 2^N]
-    comment(`l = [x_hi * m / 2^N]; the first ${n0} output limbs are neglected`);
+    comment(`l = [l * m / 2^N]; the first ${n0} output limbs are neglected`);
     // compute (x_hi*m) >> 2^N, where x_hi,m < 2^N,
     // by neglecting the first n0 output limbs (which we checked don't contribute in the worst case)
-    for (let i = 0; i < n; i++) {
-      line(local.set(tmp, local.get(X_hi[i])));
-      for (let j = Math.max(0, n0 - i); j < n; j++) {
+    for (let i = n0; i < 2 * n - 1; i++) {
+      for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
         lines(
-          i64.mul(tmp, M[j]),
-          local.get(L[i + j - n0]),
-          i64.add(),
-          local.set(L[i + j - n0])
+          //
+          i64.mul(L[j], M[i - j]),
+          !(i === n0 && j === 0) && i64.add()
         );
       }
-    }
-    comment("carry(l)");
-    // round of carrying on l
-    let length = 2 * n - n0;
-    for (let i = 0; i < length - 1; i++) {
       lines(
-        local.set(tmp, i64.shr_u(L[i], w)),
-        local.set(L[i], i64.and(L[i], wordMax)),
-        local.set(L[i + 1], i64.add(L[i + 1], tmp))
+        i < n && join(i64.const(w), i64.shr_u()),
+        i >= n && join(local.tee(tmp), i64.const(wordMax), i64.and()),
+        i >= n && local.set(L[i - n]),
+        i >= n && i64.shr_u(tmp, w)
       );
     }
-    // TODO: check if this is needed (probably not)
-    line(local.set(L[length - 1], i64.and(L[length - 1], wordMax)));
-    // now neglect the lowest n - n0 entries of L
-    L = L.slice(n - n0);
+    line(local.set(L[n - 1]));
 
     // lp = multiplyLsb(l, p) = (l*p)[0..n], i.e. just compute the lower half
     comment("(l*p)[0..n]; reuse x_hi to store l*p");
-    let LP = X_hi.slice(0, n); // just reuse X_hi which isn't needed anymore
     for (let i = 0; i < n; i++) {
-      line(local.set(LP[i], i64.const(0)));
-    }
-    for (let i = 0; i < n; i++) {
-      line(local.set(tmp, local.get(L[i])));
-      for (let j = 0; j < n - i; j++) {
+      for (let j = 0; j <= i; j++) {
         lines(
-          i64.mul(tmp, P[j]),
-          local.get(LP[i + j]),
-          i64.add(),
-          local.set(LP[i + j])
+          //
+          i64.mul(L[j], P[i - j]),
+          !(i === 0 && j === 0) && i64.add()
         );
       }
-    }
-    // round of carrying on lp
-    comment("carry(l*p)");
-    for (let i = 0; i < n - 1; i++) {
       lines(
-        local.set(tmp, i64.shr_u(LP[i], w)),
-        local.set(LP[i], i64.and(LP[i], wordMax)),
-        local.set(LP[i + 1], i64.add(LP[i + 1], tmp))
+        join(local.tee(tmp), i64.const(wordMax), i64.and()),
+        local.set(LP[i]),
+        i < n - 1 && i64.shr_u(tmp, w)
       );
     }
-    // TODO: is this needed??? I forgot to put a line() around it and it still worked
-    line(local.set(LP[n - 1], i64.and(LP[n - 1], wordMax)));
     // now overwrite the low n limbs with x = x - lp
     comment("x|lo = x - l*p to the low n limbs of x");
     // and ignore the possible overflow bit because we know the result fits in N bits
-    line(local.set(carry, i64.const(1)));
     for (let i = 0; i < n; i++) {
       lines(
-        // (carry, x[i]) = x[i] + ((2^w - 1) - LP[i]) + carry;
+        // (carry, x[i]) = x[i] - LP[i] + carry;
         i64.load(x, { offset: 8 * i }),
-        i64.const(wordMax),
-        i64.add(),
+        i > 0 && i64.add(),
         local.get(LP[i]),
         i64.sub(),
-        local.get(carry),
-        i64.add(),
         local.set(tmp),
         i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
-        i !== n - 1 && local.set(carry, i64.shr_u(tmp, w))
+        i !== n - 1 && i64.shr_s(tmp, w)
       );
     }
     // overwrite the high n limbs with l
