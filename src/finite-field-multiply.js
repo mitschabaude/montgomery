@@ -190,7 +190,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
   });
 
   let carry = "$carry";
-
+  /* 
   addFuncExport(writer, "multiplyUnrolled");
   func(
     writer,
@@ -299,7 +299,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       );
     }
   );
-
+ */
   let [out] = ["$out"];
   function square() {
     // locals
@@ -1084,7 +1084,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       line(call("barrett", xy));
     }
   );
-
+  /* 
   addFuncExport(writer, "multiplySchoolbookRegular");
   func(
     writer,
@@ -1134,7 +1134,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       line(call("barrett", xy));
     }
   );
-
+ */
   if (withBenchmarks) {
     addFuncExport(writer, "benchMultiplyBarrett");
     func(writer, "benchMultiplyBarrett", [param32(x), param32($N)], () => {
