@@ -1,5 +1,5 @@
 import { tic, toc } from "./src/tictoc.js";
-import { p, randomBaseFieldx2, mod } from "./src/finite-field-js.js";
+import { p, randomBaseFieldx2, mod, beta } from "./src/finite-field-js.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
@@ -22,7 +22,10 @@ if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 let N = 1e7;
 for (let w of [30]) {
   // for (let w of [28]) {
-  await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
+  await compileFiniteFieldWasm(p, w, {
+    withBenchmarks: true,
+    endoCubeRoot: beta,
+  });
   console.log();
   let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
   let ff = createFiniteField(p, w, wasm);

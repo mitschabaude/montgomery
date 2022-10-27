@@ -103,20 +103,20 @@ function getOperations() {
   function maybeLocalGet(a) {
     return typeof a === "string" && a[0] === "$" ? op("local.get")(a) : a;
   }
-  function mapArgs(bits, args) {
+  function mapIntArgs(bits, args) {
     return args.map((a) =>
       typeof a === "number" || typeof a === "bigint"
         ? constOp(bits, a)
         : maybeLocalGet(a)
     );
   }
-  function mappedArgs(bits, op) {
-    return (...args) => op(...mapArgs(bits, args));
+  function mappedIntArgs(bits, op) {
+    return (...args) => op(...mapIntArgs(bits, args));
   }
 
   function int(bits) {
     function iOp(name) {
-      return mappedArgs(bits, op(`i${bits}.${name}`));
+      return mappedIntArgs(bits, op(`i${bits}.${name}`));
     }
     return {
       const: (a) => constOp(bits, a),
@@ -150,7 +150,7 @@ function getOperations() {
     ...int(64),
     extend_i32_u: op("i64.extend_i32_u"),
     load32_u: (from, { offset = 0 } = {}) =>
-      mappedArgs(64, op("i64.load32_u"))(`offset=${offset}`, from),
+      mappedIntArgs(64, op("i64.load32_u"))(`offset=${offset}`, from),
   };
   let i32 = { ...int(32), wrap_i64: op("i32.wrap_i64") };
   return {
@@ -158,8 +158,8 @@ function getOperations() {
     i32,
     local: Object.assign(op("local"), {
       get: op("local.get"),
-      set: op("local.set"),
-      tee: op("local.tee"),
+      set: (to, ...args) => op("local.set")(to, ...args.map(maybeLocalGet)),
+      tee: (to, ...args) => op("local.tee")(to, ...args.map(maybeLocalGet)),
     }),
     local32: (name) => op("local")(name, "i32"),
     local64: (name) => op("local")(name, "i64"),

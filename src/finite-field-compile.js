@@ -27,8 +27,8 @@ async function compileFiniteFieldWasm(
     withBenchmarks,
     endoCubeRoot,
   });
-  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
   await writeFile(`./src/finite-field.wat.js`, js);
   await fs.writeFile("./src/finite-field.wasm", wasm);
@@ -36,8 +36,8 @@ async function compileFiniteFieldWasm(
 
 async function compileGLVWasm(q, lambda, w, { withBenchmarks = false } = {}) {
   let writer = await createGLVWat(q, lambda, w, { withBenchmarks });
-  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/scalar-glv.${w}.gen.wat`, writer.text);
+  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/scalar-glv.${w}.gen.wat.js`, js);
   await writeFile(`./src/scalar-glv.wat.js`, js);
   await fs.writeFile("./src/scalar-glv.wasm", wasm);
