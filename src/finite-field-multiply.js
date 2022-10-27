@@ -1081,6 +1081,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
           i < 2 * n - 1 && i64.shr_u(tmp, w)
         );
       }
+      line(call("barrett", xy));
     }
   );
 
@@ -1130,22 +1131,13 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
             local.set(XY[i - n + 1], i64.add(XY[i - n + 1], i64.shr_u(tmp, w)))
         );
       }
+      line(call("barrett", xy));
     }
   );
 
   if (withBenchmarks) {
     addFuncExport(writer, "benchMultiplyBarrett");
     func(writer, "benchMultiplyBarrett", [param32(x), param32($N)], () => {
-      line(local32($i));
-      forLoop1(writer, $i, 0, local.get($N), () => {
-        lines(
-          call("multiplySchoolbook", local.get(x), local.get(x), local.get(x)),
-          call("barrett", local.get(x))
-        );
-      });
-    });
-    addFuncExport(writer, "benchMultiplySchoolbook");
-    func(writer, "benchMultiplySchoolbook", [param32(x), param32($N)], () => {
       line(local32($i));
       forLoop1(writer, $i, 0, local.get($N), () => {
         lines(

@@ -86,9 +86,6 @@ function test() {
   let xy0 = x0 * y0;
   z0 = mod(x0 * y0, p);
   multiplySchoolbook(z, x, y);
-  let xy = readBigInt(z, 2);
-  console.assert(xy0 === xy, "barrett: x*y");
-  barrett(z);
   z1 = readBigInt(z);
   let l = readBigInt(z_hi);
   let lTrue = (xy0 - z0) / p;

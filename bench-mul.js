@@ -47,9 +47,6 @@ for (let w of [30]) {
   tic();
   ff.benchMultiplyBarrett(x, N);
   let timeMulB = toc();
-  tic();
-  ff.benchMultiplySchoolbook(x, N);
-  let timeMulSchool = toc();
   console.log(
     `${(N / timeMulB / 1e6).toFixed(2).padStart(5)} mio. mba / s (mba = ${(
       timeMulB / timeMul
@@ -66,13 +63,10 @@ for (let w of [30]) {
       ).toFixed(2)} mul)`
     );
   }
-  let timeBarrett = timeMulB - timeMulSchool;
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
   if (w === 30)
     console.log(`barrett mulka\t ${((timeMulKara / N) * 1e9).toFixed(0)} ns`);
   console.log(`barrett mulsb\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
-  console.log(`schoolbook mul\t ${((timeMulSchool / N) * 1e9).toFixed(0)} ns`);
-  console.log(`barrett red\t ${((timeBarrett / N) * 1e9).toFixed(0)} ns`);
 
   tic();
   ff.benchAdd(x, N);
