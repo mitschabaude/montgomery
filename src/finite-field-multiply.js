@@ -1009,20 +1009,16 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
     line(local.set(L[n - 1]));
 
     // lp = multiplyLsb(l, p) = (l*p)[0..n], i.e. just compute the lower half
-    comment("(l*p)[0..n]; reuse x_hi to store l*p");
+    comment("(l*p)[0..n]");
     for (let i = 0; i < n; i++) {
       for (let j = 0; j <= i; j++) {
         lines(
           //
           i64.mul(L[j], P[i - j]),
-          !(i === 0 && j === 0) && i64.add()
+          !(j === 0) && i64.add()
         );
       }
-      lines(
-        join(local.tee(tmp), i64.const(wordMax), i64.and()),
-        local.set(LP[i]),
-        i < n - 1 && i64.shr_u(tmp, w)
-      );
+      line(local.set(LP[i]));
     }
     // now overwrite the low n limbs with x = x - lp
     comment("x|lo = x - l*p to the low n limbs of x");
