@@ -16,6 +16,8 @@ import {
   getAndResetOpCounts,
   addAffine,
   readBytes,
+  getPointersInMemory,
+  getEmptyPointersInMemory,
 } from "./finite-field.js";
 import {
   multiply,
@@ -83,10 +85,10 @@ function msmAffine(scalars, inputPoints) {
   let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
-  let points = getPointers(N, sizeAffine); // initialize points
-  let negPoints = getPointers(N, sizeAffine);
-  let endoPoints = getPointers(N, sizeAffine);
-  let negEndoPoints = getPointers(N, sizeAffine);
+  let points = getPointersInMemory(N, sizeAffine); // initialize points
+  let negPoints = getPointersInMemory(N, sizeAffine);
+  let endoPoints = getPointersInMemory(N, sizeAffine);
+  let negEndoPoints = getPointersInMemory(N, sizeAffine);
 
   // a bucket is an array of pointers that will gradually get accumulated into the first element
   // initialize a L*K matrix of buckets
@@ -180,17 +182,11 @@ function msmAffine(scalars, inputPoints) {
       if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
     }
   }
-  /**
-   * @type {number[]}
-   */
-  let G = Array(nPairs); // holds first summands
-  /**
-   * @type {number[]}
-   */
-  let H = Array(nPairs); // holds second summands
-  let P = getPointers(nPairs + K * (L + 1), sizeAffine); // holds sums
-  let denominators = getPointers(nPairs);
-  let tmp = getPointers(nPairs);
+  let G = getEmptyPointersInMemory(nPairs); // holds first summands
+  let H = getEmptyPointersInMemory(nPairs); // holds second summands
+  let P = getPointersInMemory(nPairs + K * (L + 1), sizeAffine); // holds sums
+  let denominators = getPointersInMemory(nPairs);
+  let tmp = getPointersInMemory(nPairs);
 
   // first stage
   // batch-add buckets into their first point, in `maxBucketSize` iterations
@@ -304,14 +300,14 @@ function msmAffine(scalars, inputPoints) {
 function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // depth = 0 is the standard algorithm, just batch-added over the K partitions
   // the loops over d=0,..,D-1 reduce to one operation with d=0 in that case
-  let c0 = c - depth;
+  let c0 = c - 1 - depth;
   let D = 2 ** depth;
   let n = D * K;
   let L0 = 2 ** c0; // == L/D
   // console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
-  let d = getPointers(K * L, sizeAffine);
-  let tmp = getPointers(K * L, sizeAffine);
+  let d = getPointersInMemory(K * L, sizeAffine);
+  let tmp = getPointersInMemory(K * L, sizeAffine);
 
   // normalize the way buckets are stored -- we'll store intermediate running sums there
   // just add new zero pointers here for empty buckets
@@ -324,10 +320,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
     }
   }
 
-  /** @type {number[]} */
-  let runningSums = Array(n);
-  /** @type {number[]} */
-  let nextBuckets = Array(n);
+  let runningSums = getEmptyPointersInMemory(n);
+  let nextBuckets = getEmptyPointersInMemory(n);
 
   // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 1; l > 0; l--) {
@@ -401,8 +395,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // round j: let m=2^j; (l,l+m) for l=1; l<L; l+=2*m
   // in the last round we want 1 pair (1, 1 + m=2^(c-1)), so we want m < 2**c = L
 
-  let G = Array(K * L);
-  let H = Array(K * L);
+  let G = getEmptyPointersInMemory(K * L);
+  let H = getEmptyPointersInMemory(K * L);
 
   for (let m = 1; m < L; m *= 2) {
     p = 0;
@@ -439,11 +433,11 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  * the performance improvement is in the ballpark of 1-3%
  *
  * @param {number[]} scratch
- * @param {number[]} tmp pointers of length n
- * @param {number[]} d pointers of length n
- * @param {AffinePoint[]} S
- * @param {AffinePoint[]} G
- * @param {AffinePoint[]} H
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} S
+ * @param {Uint32Array} G
+ * @param {Uint32Array} H
  * @param {number} n
  */
 function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
@@ -462,11 +456,11 @@ function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
  * Si = Gi + Hi, i=0,...,n-1
  *
  * @param {number[]} scratch
- * @param {number[]} tmp pointers of length n
- * @param {number[]} d pointers of length n
- * @param {AffinePoint[]} S
- * @param {AffinePoint[]} G
- * @param {AffinePoint[]} H
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} S
+ * @param {Uint32Array} G
+ * @param {Uint32Array} H
  * @param {number} n
  */
 function batchAdd(scratch, tmp, d, S, G, H, n) {

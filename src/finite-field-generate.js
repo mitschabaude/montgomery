@@ -1747,6 +1747,35 @@ function jsHelpers(
       return pointers;
     },
 
+    /**
+     * store pointers to memory in memory themselves
+     *
+     * @param {number} N
+     * @param {number} size size per pointer (default: one field element)
+     */
+    getPointersInMemory(N, size = n * 8) {
+      let offset = obj.offset;
+      // memory addresses must be multiples of 8 for BigInt64Arrays
+      let length = ((N + 1) >> 1) << 1;
+      let pointers = new Uint32Array(memory.buffer, offset, length);
+      offset += length * 4;
+      for (let i = 0; i < N; i++) {
+        pointers[i] = offset;
+        offset += size;
+      }
+      obj.offset = offset;
+      return pointers;
+    },
+
+    getEmptyPointersInMemory(N) {
+      let offset = obj.offset;
+      // memory addresses must be multiples of 8 for BigInt64Arrays
+      let length = ((N + 1) >> 1) << 1;
+      let pointers = new Uint32Array(memory.buffer, offset, length);
+      obj.offset += length * 4;
+      return pointers;
+    },
+
     resetPointers() {
       obj.offset = obj.initial;
     },
