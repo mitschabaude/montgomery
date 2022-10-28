@@ -394,8 +394,12 @@ function addAffine(writer, p, w) {
       });
       line(i32.eq($n, 1));
       if_(writer, () => {
-        // TODO
-        lines(call("inverse", scratch, d, x), return_());
+        lines(
+          call("subtractPositive", x, i32.load(H), i32.load(G)),
+          call("inverse", scratch, d, x),
+          call("addAffine", scratch, i32.load(S), i32.load(G), i32.load(H), d),
+          return_()
+        );
       });
 
       comment("create products di = x0*...*xi, where xi = Hi_x - Gi_x");
@@ -411,11 +415,19 @@ function addAffine(writer, p, w) {
         i32.eq($n, 2)
       );
       if_(writer, () => {
-        // TODO
         lines(
           call("inverse", scratch, I, i32.add(d, sizeField)),
           call("multiply", i32.add(d, sizeField), x, I),
+          call(
+            "addAffine",
+            scratch,
+            i32.load(S, { offset: 4 }),
+            i32.load(G, { offset: 4 }),
+            i32.load(H, { offset: 4 }),
+            i32.add(d, sizeField)
+          ),
           call("multiply", d, i32.add(x, sizeField), I),
+          call("addAffine", scratch, i32.load(S), i32.load(G), i32.load(H), d),
           return_()
         );
       });

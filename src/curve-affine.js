@@ -105,7 +105,7 @@ function msmAffine(scalars, inputPoints) {
       buckets[k][l] = [];
     }
   }
-  let scratchSpace = getPointers(30);
+  let scratch = getPointers(30);
 
   let maxBucketSize = 0;
   let nPairs = 0; // we need to allocate space for one pointer per addition pair
@@ -126,8 +126,8 @@ function msmAffine(scalars, inputPoints) {
     // convert point to montgomery
     let x = point;
     let y = point + sizeField;
-    writeBytes(scratchSpace, x, inputPoint[0]);
-    writeBytes(scratchSpace, y, inputPoint[1]);
+    writeBytes(scratch, x, inputPoint[0]);
+    writeBytes(scratch, y, inputPoint[1]);
     let isNonZero = Number(!inputPoint[2]);
     memoryBytes[point + 2 * sizeField] = isNonZero;
     toMontgomery(x);
@@ -187,7 +187,7 @@ function msmAffine(scalars, inputPoints) {
   let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
   let [H, hPtr] = getEmptyPointersInMemory(nPairs); // holds second summands
   let [P, pPtr] = getPointersInMemory(nPairs + K * (L + 1), sizeAffine); // holds sums
-  let [denominators] = getPointersInMemory(nPairs);
+  let [denom] = getPointersInMemory(nPairs);
   let [tmp] = getPointersInMemory(nPairs);
 
   // first stage
@@ -220,7 +220,7 @@ function msmAffine(scalars, inputPoints) {
       }
     }
     // now (P,G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratchSpace, tmp, denominators, pPtr, gPtr, hPtr, nPairs);
+    batchAddUnsafe(scratch[0], tmp[0], denom[0], pPtr, gPtr, hPtr, nPairs);
   }
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
@@ -241,7 +241,7 @@ function msmAffine(scalars, inputPoints) {
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
-    batchAddUnsafe(scratchSpace, tmp, denominators, gPtr, gPtr, hPtr, nPairs);
+    batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
   }
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
@@ -250,12 +250,7 @@ function msmAffine(scalars, inputPoints) {
 
   // second stage
   // let partialSums = reduceBucketsSimple(scratchSpace, buckets, { K, L });
-  let partialSums = reduceBucketsAffine(
-    scratchSpace,
-    buckets,
-    { c, K, L },
-    depth
-  );
+  let partialSums = reduceBucketsAffine(scratch, buckets, { c, K, L }, depth);
 
   let [nMul2, nInv2] = getAndResetOpCounts();
 
@@ -267,14 +262,14 @@ function msmAffine(scalars, inputPoints) {
   k--;
   for (; k >= 0; k--) {
     for (let j = 0; j < c; j++) {
-      doubleInPlaceProjective(scratchSpace, finalSum);
+      doubleInPlaceProjective(scratch, finalSum);
     }
     let partialSum = partialSums[k];
-    addAssignProjective(scratchSpace, finalSum, partialSum);
+    addAssignProjective(scratch, finalSum, partialSum);
   }
 
   // convert final sum back to affine point
-  let result = toAffineOutput(scratchSpace, finalSum);
+  let result = toAffineOutput(scratch, finalSum);
 
   let [nMul3, nInv3] = getAndResetOpCounts();
 
