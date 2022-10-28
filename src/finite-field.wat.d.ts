@@ -50,11 +50,7 @@ export function endomorphism(Gout: number, G: number): void;
  * @param r
  * @param a
  */
-export function almostInverseMontgomery(
-  scratch: number,
-  r: number,
-  a: number
-): number;
+export function almostInverse(scratch: number, r: number, a: number): number;
 
 /**
  * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
@@ -64,6 +60,21 @@ export function almostInverseMontgomery(
  * @param a
  */
 export function inverse(scratch: number, r: number, a: number): void;
+
+/**
+ * montgomery batch inverse
+ *
+ * @param scratch
+ * @param z inverses to be computed
+ * @param x field elements x0, ..., x(n-1)
+ * @param n
+ */
+export function batchInverse(
+  scratch: number,
+  z: number,
+  x: number,
+  n: number
+): void;
 
 export const multiplyCount: number;
 export function resetMultiplyCount(): void;

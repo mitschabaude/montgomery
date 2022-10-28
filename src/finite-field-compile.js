@@ -51,8 +51,9 @@ async function writeFile(fileName, text) {
   console.log(`wrote ${(text.length / 1e3).toFixed(1)}kB to ${fileName}`);
 }
 
-async function compileWat({ text, exports }) {
+async function compileWat({ text, exports, imports }) {
   // TODO: imports
+  // console.log({ imports });
   let wat = text;
   wabt ??= await Wabt();
   let wabtModule = wabt.parseWat("", wat, wasmFeatures);
@@ -65,7 +66,10 @@ async function compileWat({ text, exports }) {
     js: `// compiled from wat
 import { toBytes } from 'fast-base64';
 let wasmBytes = await toBytes("${base64}");
-let { instance } = await WebAssembly.instantiate(wasmBytes, {});
+let { instance } = await WebAssembly.instantiate(
+  wasmBytes,
+  { js: { 'console.log': console.log } }
+);
 let { ${[...exports].join(", ")} } = instance.exports;
 export { ${[...exports].join(", ")} };
 `,

@@ -1,6 +1,7 @@
 import { bigintToBits, bigintToBytes, bigintToLegs, log2 } from "./util.js";
 import { mod, modInverse, randomBaseFieldx2 } from "./finite-field-js.js";
 import {
+  addCodeImport,
   addExport,
   addFuncExport,
   block,
@@ -288,6 +289,12 @@ async function createFiniteFieldWat(
         benchSubtract(writer);
       }
     }
+    // {
+    //   "console.log": [
+    //     ops.func("log", ops.param32()),
+    //     ops.func("log64", ops.param64()),
+    //   ],
+    // }
   );
   return writer;
 }
@@ -366,7 +373,7 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
   // constants
   let sizeField = 8 * n;
 
-  let { line, lines } = writer;
+  let { line, lines, comment } = writer;
   let {
     i64,
     i32,
@@ -495,6 +502,69 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
       //     to a^(-1) 2^(-K+k + 2K -k) = a^(-1) 2^K = the montgomery representation of a^(-1)
     );
   });
+
+  let { return_ } = ops;
+  let [I, z, x, $n, $i, $N] = ["$I", "$z", "$x", "$n", "$i", "$N"];
+
+  addFuncExport(writer, "batchInverse");
+  func(
+    writer,
+    "batchInverse",
+    [param32(scratch), param32(z), param32(x), param32($n)],
+    () => {
+      line(local32($i), local32(I), local32($N));
+      line(local.set(I, scratch));
+      line(local.set(scratch, i32.add(scratch, sizeField)));
+      line(local.set($N, i32.mul($n, sizeField)));
+      comment("return early if n = 0 or 1");
+      line(i32.eqz($n));
+      if_(writer, () => {
+        line(return_());
+      });
+      line(i32.eq($n, 1));
+      if_(writer, () => {
+        lines(call("inverse", scratch, z, x), return_());
+      });
+      comment("create products x0*x1, ..., x0*...*x(n-1)");
+      line(call("multiply", i32.add(z, sizeField), i32.add(x, sizeField), x));
+      line(local.set($i, i32.const(2 * sizeField)));
+      loop(writer, () => {
+        lines(
+          // call("log", $i),
+          call(
+            "multiply",
+            i32.add(z, $i),
+            i32.add(z, i32.sub($i, sizeField)),
+            i32.add(x, $i)
+          )
+        );
+        line(br_if(0, i32.ne($N, local.tee($i, i32.add($i, sizeField)))));
+      });
+      comment("inverse I = 1/(x0*...*x(n-1))");
+      line(call("inverse", scratch, I, i32.add(z, i32.sub($N, sizeField))));
+      comment("create inverses 1/x(n-1), ..., 1/x2");
+      line(local.set($i, i32.sub($N, sizeField)));
+      loop(writer, () => {
+        lines(
+          call(
+            "multiply",
+            i32.add(z, $i),
+            i32.add(z, i32.sub($i, sizeField)),
+            I
+          ),
+          call("multiply", I, I, i32.add(x, $i))
+        );
+        line(
+          br_if(0, i32.ne(sizeField, local.tee($i, i32.sub($i, sizeField))))
+        );
+      });
+      comment("1/x1, 1/x0");
+      lines(
+        call("multiply", i32.add(z, sizeField), x, I),
+        call("multiply", z, i32.add(x, sizeField), I)
+      );
+    }
+  );
 
   if (countOperations) {
     let [i, N] = ["$i", "$N"];
@@ -1545,10 +1615,20 @@ function benchSubtract(W) {
   });
 }
 
-function moduleWithMemory(writer, comment_, memSize, callback) {
+function moduleWithMemory(writer, comment_, memSize, callback, imports = {}) {
   let { line, comment } = writer;
   comment(comment_);
   module(writer, () => {
+    for (let code in imports) {
+      let spec = imports[code];
+      if (Array.isArray(spec)) {
+        for (let s of spec) {
+          addCodeImport(writer, code, s);
+        }
+      } else {
+        addCodeImport(writer, code, spec);
+      }
+    }
     addExport(writer, "memory", ops.memory("memory"));
     line(ops.memory("memory", memSize));
     // global for the initial data offset

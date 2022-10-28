@@ -11,7 +11,7 @@ import {
   subtractPositive,
   inverse,
   multiplySchoolbook,
-  barrett,
+  batchInverse,
 } from "./src/finite-field.wat.js";
 import {
   p,
@@ -27,7 +27,7 @@ import {
 } from "./src/finite-field.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
-import { batchInverse } from "./src/curve-affine.js";
+// import { batchInverse } from "./src/curve-affine.js";
 import { modInverse } from "./src/finite-field-js.js";
 import { testDecomposeRandomScalar } from "./src/scalar-glv.js";
 // web crypto compat
@@ -163,7 +163,7 @@ function testBatchMontgomery() {
   }
   // compute inverses as batch
   let invX1 = getPointers(n);
-  batchInverse(scratch, invX1, X, n);
+  batchInverse(scratch[0], invX1[0], X[0], n);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {

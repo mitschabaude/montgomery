@@ -577,8 +577,8 @@ function doubleAffine([m, tmp, x2, y2], H, G, d) {
 
 /**
  * @param {number[]} scratch
- * @param {Uint32Array} invX inverted points of at least length n
- * @param {Uint32Array} X points to invert, at least length n
+ * @param {Uint32Array} invX inverted fields of at least length n
+ * @param {Uint32Array} X fields to invert, at least length n
  * @param {number} n length
  */
 function batchInverse([I, tmp], invX, X, n) {

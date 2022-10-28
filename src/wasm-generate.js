@@ -10,6 +10,7 @@ export {
   forLoop1,
   addExport,
   addFuncExport,
+  addCodeImport,
   ops,
 };
 
@@ -54,7 +55,7 @@ function Writer(initial = "") {
     text,
     indent,
     exports: new Set(),
-    imports: {},
+    imports: [],
     write,
     remove,
     spaces,
@@ -183,6 +184,8 @@ function getOperations() {
     result32: op("result")("i32"),
     result64: op("result")("i64"),
     export: (name, ...args) => op("export")(`"${name}"`, ...args),
+    import: (name, name1, ...args) =>
+      op("import")(`"${name}"`, `"${name1}"`, ...args),
     call: (name, ...args) => op("call")("$" + name, ...args.map(maybeLocalGet)),
     memory: Object.assign(
       (name, ...args) => op("memory")("$" + name, ...args),
@@ -212,6 +215,10 @@ function addExport(W, name, thing) {
 function addFuncExport(W, name) {
   W.exports.add(name);
   W.line(ops.export(name, ops.func(name)));
+}
+function addCodeImport(W, code, spec) {
+  W.imports.push({ code, spec });
+  W.line(ops.import("js", code, spec));
 }
 
 function forLoop8(writer, i, i0, length, callback) {
