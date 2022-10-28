@@ -30,6 +30,7 @@ import {
   inverse,
   endomorphism,
   batchInverse,
+  batchAddUnsafe,
 } from "./finite-field.wat.js";
 import { decomposeScalar } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
@@ -86,10 +87,10 @@ function msmAffine(scalars, inputPoints) {
   let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
-  let points = getPointersInMemory(N, sizeAffine); // initialize points
-  let negPoints = getPointersInMemory(N, sizeAffine);
-  let endoPoints = getPointersInMemory(N, sizeAffine);
-  let negEndoPoints = getPointersInMemory(N, sizeAffine);
+  let [points] = getPointersInMemory(N, sizeAffine); // initialize points
+  let [negPoints] = getPointersInMemory(N, sizeAffine);
+  let [endoPoints] = getPointersInMemory(N, sizeAffine);
+  let [negEndoPoints] = getPointersInMemory(N, sizeAffine);
 
   // a bucket is an array of pointers that will gradually get accumulated into the first element
   // initialize a L*K matrix of buckets
@@ -183,11 +184,11 @@ function msmAffine(scalars, inputPoints) {
       if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
     }
   }
-  let G = getEmptyPointersInMemory(nPairs); // holds first summands
-  let H = getEmptyPointersInMemory(nPairs); // holds second summands
-  let P = getPointersInMemory(nPairs + K * (L + 1), sizeAffine); // holds sums
-  let denominators = getPointersInMemory(nPairs);
-  let tmp = getPointersInMemory(nPairs);
+  let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
+  let [H, hPtr] = getEmptyPointersInMemory(nPairs); // holds second summands
+  let [P, pPtr] = getPointersInMemory(nPairs + K * (L + 1), sizeAffine); // holds sums
+  let [denominators] = getPointersInMemory(nPairs);
+  let [tmp] = getPointersInMemory(nPairs);
 
   // first stage
   // batch-add buckets into their first point, in `maxBucketSize` iterations
@@ -219,7 +220,7 @@ function msmAffine(scalars, inputPoints) {
       }
     }
     // now (P,G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratchSpace, tmp, denominators, P, G, H, nPairs);
+    batchAddUnsafe(scratchSpace, tmp, denominators, pPtr, gPtr, hPtr, nPairs);
   }
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
@@ -240,7 +241,7 @@ function msmAffine(scalars, inputPoints) {
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
-    batchAddUnsafe(scratchSpace, tmp, denominators, G, G, H, nPairs);
+    batchAddUnsafe(scratchSpace, tmp, denominators, gPtr, gPtr, hPtr, nPairs);
   }
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
@@ -307,8 +308,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   let L0 = 2 ** c0; // == L/D
   // console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
-  let d = getPointersInMemory(K * L, sizeField);
-  let tmp = getPointersInMemory(K * L, sizeField);
+  let [d] = getPointersInMemory(K * L, sizeField);
+  let [tmp] = getPointersInMemory(K * L, sizeField);
 
   // normalize the way buckets are stored -- we'll store intermediate running sums there
   // just add new zero pointers here for empty buckets
@@ -321,8 +322,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
     }
   }
 
-  let runningSums = getEmptyPointersInMemory(n);
-  let nextBuckets = getEmptyPointersInMemory(n);
+  let [runningSums, runningSumPtr] = getEmptyPointersInMemory(n);
+  let [nextBuckets, nextBucketPtr] = getEmptyPointersInMemory(n);
 
   // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 1; l > 0; l--) {
@@ -396,8 +397,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // round j: let m=2^j; (l,l+m) for l=1; l<L; l+=2*m
   // in the last round we want 1 pair (1, 1 + m=2^(c-1)), so we want m < 2**c = L
 
-  let G = getEmptyPointersInMemory(K * L);
-  let H = getEmptyPointersInMemory(K * L);
+  let [G, gPtr] = getEmptyPointersInMemory(K * L);
+  let [H, hPtr] = getEmptyPointersInMemory(K * L);
 
   for (let m = 1; m < L; m *= 2) {
     p = 0;
@@ -441,7 +442,7 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  * @param {Uint32Array} H
  * @param {number} n
  */
-function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
+function batchAddUnsafeJs(scratch, tmp, d, S, G, H, n) {
   for (let i = 0; i < n; i++) {
     subtractPositive(tmp[i], H[i], G[i]);
   }

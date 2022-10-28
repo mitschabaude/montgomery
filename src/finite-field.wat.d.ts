@@ -50,6 +50,38 @@ export function addAffine(
   d: number
 ): void;
 
+/**
+ * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
+ *
+ * Si = Gi + Hi, i=0,...,n-1
+ *
+ * unsafe: this is a faster version which doesn't handle edge cases!
+ * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
+ *
+ * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
+ * where inputs are independent and pseudo-random in significant parts of the msm algorithm
+ * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
+ *
+ * the performance improvement is in the ballpark of 1-3%
+ *
+ * @param scratch
+ * @param tmp pointers of length n
+ * @param d pointers of length n
+ * @param S
+ * @param G
+ * @param H
+ * @param n
+ */
+export function batchAddUnsafe(
+  scratch: number,
+  tmp: number,
+  d: number,
+  S: number,
+  G: number,
+  H: number,
+  n: number
+): void;
+
 export function endomorphism(Gout: number, G: number): void;
 
 /**

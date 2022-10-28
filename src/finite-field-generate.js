@@ -330,8 +330,8 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
 function addAffine(writer, p, w) {
   let { n } = montgomeryParams(p, w);
   let sizeField = 8 * n;
-  let { line, lines } = writer;
-  let { i32, local, local32, param32, call } = ops;
+  let { line, lines, comment } = writer;
+  let { i32, local, local32, param32, call, return_, br_if } = ops;
 
   let [x3, x1, x2, y3, y1, y2] = ["$x3", "$x1", "$x2", "$y3", "$y1", "$y2"];
   let [m, tmp, d] = ["$m", "$tmp", "$d"];
@@ -360,6 +360,125 @@ function addAffine(writer, p, w) {
         ";; y3 = (x2 - x3)*m - y2", // y3 = (x2 - x3)*m - y2
         call("multiplyDifference", y3, m, x2, x3),
         call("subtract", y3, y3, y2)
+      );
+    }
+  );
+
+  let [scratch, S, G, H] = ["$scratch", "$S", "$G", "$H"];
+  let [I, x, $n, $i, $j, $N] = ["$I", "$x", "$n", "$i", "$j", "$N"];
+
+  addFuncExport(writer, "batchAddUnsafe");
+  func(
+    writer,
+    "batchAddUnsafe",
+    [
+      param32(scratch),
+      param32(d),
+      param32(x),
+      param32(S),
+      param32(G),
+      param32(H),
+      param32($n),
+    ],
+    () => {
+      line(local32($i), local32($j), local32(I), local32($N));
+      lines(
+        local.set(I, scratch),
+        local.set(scratch, i32.add(scratch, sizeField)),
+        local.set($N, i32.mul($n, sizeField))
+      );
+      comment("return early if n = 0 or 1");
+      line(i32.eqz($n));
+      if_(writer, () => {
+        line(return_());
+      });
+      line(i32.eq($n, 1));
+      if_(writer, () => {
+        // TODO
+        lines(call("inverse", scratch, d, x), return_());
+      });
+
+      comment("create products di = x0*...*xi, where xi = Hi_x - Gi_x");
+      lines(
+        call("subtractPositive", x, i32.load(H), i32.load(G)),
+        call(
+          "subtractPositive",
+          i32.add(x, sizeField),
+          i32.load(H, { offset: 4 }),
+          i32.load(G, { offset: 4 })
+        ),
+        call("multiply", i32.add(d, sizeField), i32.add(x, sizeField), x),
+        i32.eq($n, 2)
+      );
+      if_(writer, () => {
+        // TODO
+        lines(
+          call("inverse", scratch, I, i32.add(d, sizeField)),
+          call("multiply", i32.add(d, sizeField), x, I),
+          call("multiply", d, i32.add(x, sizeField), I),
+          return_()
+        );
+      });
+      line(local.set($i, i32.const(2 * sizeField)));
+      line(local.set($j, i32.const(2 * 4)));
+      loop(writer, () => {
+        lines(
+          call(
+            "subtractPositive",
+            i32.add(x, $i),
+            i32.load(i32.add(H, $j)),
+            i32.load(i32.add(G, $j))
+          ),
+          call(
+            "multiply",
+            i32.add(d, $i),
+            i32.add(d, i32.sub($i, sizeField)),
+            i32.add(x, $i)
+          ),
+          local.set($j, i32.add($j, 4)),
+          br_if(0, i32.ne($N, local.tee($i, i32.add($i, sizeField))))
+        );
+        line();
+      });
+      comment("inverse I = 1/(x0*...*x(n-1))");
+      line(call("inverse", scratch, I, i32.add(d, i32.sub($N, sizeField))));
+      comment("create inverses 1/x(n-1), ..., 1/x2");
+      line(local.set($i, i32.sub($N, sizeField)));
+      line(local.set($j, i32.sub($j, 4)));
+      loop(writer, () => {
+        lines(
+          call(
+            "multiply",
+            i32.add(d, $i),
+            i32.add(d, i32.sub($i, sizeField)),
+            I
+          ),
+          call(
+            "addAffine",
+            scratch,
+            i32.load(i32.add(S, $j)),
+            i32.load(i32.add(G, $j)),
+            i32.load(i32.add(H, $j)),
+            i32.add(d, $i)
+          ),
+          call("multiply", I, I, i32.add(x, $i)),
+          local.set($j, i32.sub($j, 4)),
+          br_if(0, i32.ne(sizeField, local.tee($i, i32.sub($i, sizeField))))
+        );
+      });
+      comment("1/x1, 1/x0");
+      lines(
+        call("multiply", i32.add(d, sizeField), x, I),
+        call(
+          "addAffine",
+          scratch,
+          i32.load(S, { offset: 4 }),
+          i32.load(G, { offset: 4 }),
+          i32.load(H, { offset: 4 }),
+          i32.add(d, sizeField)
+        ),
+        call("multiply", d, i32.add(x, sizeField), I),
+        call("addAffine", scratch, i32.load(S), i32.load(G), i32.load(H), d)
       );
     }
   );
@@ -1857,28 +1976,36 @@ function jsHelpers(
      *
      * @param {number} N
      * @param {number} size size per pointer (default: one field element)
+     * @returns {[Uint32Array, number]}
      */
     getPointersInMemory(N, size = n * 8) {
       let offset = obj.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
-      let pointers = new Uint32Array(memory.buffer, offset, length);
+      let pointerPtr = offset;
+      let pointers = new Uint32Array(memory.buffer, pointerPtr, length);
       offset += length * 4;
       for (let i = 0; i < N; i++) {
         pointers[i] = offset;
         offset += size;
       }
       obj.offset = offset;
-      return pointers;
+      return [pointers, pointerPtr];
     },
 
+    /**
+     *
+     * @param {number} N
+     * @returns {[Uint32Array, number]}
+     */
     getEmptyPointersInMemory(N) {
       let offset = obj.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
-      let pointers = new Uint32Array(memory.buffer, offset, length);
+      let pointerPtr = offset;
+      let pointers = new Uint32Array(memory.buffer, pointerPtr, length);
       obj.offset += length * 4;
-      return pointers;
+      return [pointers, pointerPtr];
     },
 
     resetPointers() {
