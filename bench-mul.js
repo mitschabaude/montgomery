@@ -71,6 +71,15 @@ for (let w of [30]) {
   console.log(`barrett mulsb\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
 
   tic();
+  ff.benchMultiplyDifference(x, z, N);
+  let timeMulDiff = toc();
+  console.log(
+    `${(N / timeMulDiff / 1e6).toFixed(2).padStart(5)} mio. mud / s (mud = ${(
+      timeMulDiff / timeMul
+    ).toFixed(2)} mul)`
+  );
+
+  tic();
   ff.benchAdd(x, N);
   let timeAdd = toc();
   console.log(

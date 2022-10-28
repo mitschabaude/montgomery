@@ -352,15 +352,13 @@ function addAffine(writer, p, w) {
         ";; mark output point as non-zero", // mark output point as non-zero
         i32.store8(x3, 1, { offset: 2 * sizeField }),
         ";; m = (y2 - y1)*d", // m = (y2 - y1)*d
-        call("subtractPositive", m, y2, y1),
-        call("multiply", m, m, d),
+        call("multiplyDifference", m, d, y2, y1),
         ";; x3 = m^2 - x1 - x2", // x3 = m^2 - x1 - x2
         call("square", tmp, m),
         call("subtract", x3, tmp, x1),
         call("subtract", x3, x3, x2),
         ";; y3 = (x2 - x3)*m - y2", // y3 = (x2 - x3)*m - y2
-        call("subtractPositive", y3, x2, x3),
-        call("multiply", y3, y3, m),
+        call("multiplyDifference", y3, m, x2, x3),
         call("subtract", y3, y3, y2)
       );
     }
@@ -1585,7 +1583,7 @@ function multiply32(writer, p, w, { unrollOuter }) {
 function benchMultiply(W) {
   let { line } = W;
   let { local, local32, param32, call } = ops;
-  let [x, N, i] = ["$x", "$N", "$i"];
+  let [x, y, N, i] = ["$x", "$y", "$N", "$i"];
   addFuncExport(W, "benchMultiply");
   func(W, "benchMultiply", [param32(x), param32(N)], () => {
     line(local32(i));
@@ -1601,6 +1599,27 @@ function benchMultiply(W) {
       line(call("square", local.get(x), local.get(x)));
     });
   });
+
+  addFuncExport(W, "benchMultiplyDifference");
+  func(
+    W,
+    "benchMultiplyDifference",
+    [param32(x), param32(y), param32(N)],
+    () => {
+      line(local32(i));
+      forLoop1(W, i, 0, local.get(N), () => {
+        line(
+          call(
+            "multiplyDifference",
+            local.get(x),
+            local.get(x),
+            local.get(x),
+            local.get(y)
+          )
+        );
+      });
+    }
+  );
 }
 function benchAdd(W) {
   let { line } = W;
