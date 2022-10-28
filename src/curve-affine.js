@@ -33,7 +33,7 @@ import {
 import { decomposeScalar } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
-export { msmAffine, batchAdd, batchInverseInPlace };
+export { msmAffine, batchAdd, batchInverse };
 
 /**
  * @typedef {number} AffinePoint
@@ -442,9 +442,9 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  */
 function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
   for (let i = 0; i < n; i++) {
-    subtractPositive(d[i], H[i], G[i]);
+    subtractPositive(tmp[i], H[i], G[i]);
   }
-  batchInverseInPlace(scratch, tmp, d, n);
+  batchInverse(scratch, d, tmp, n);
   for (let i = 0; i < n; i++) {
     addAffine(scratch[0], S[i], G[i], H[i], d[i]);
   }
@@ -469,10 +469,10 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
   // check G, H for zero
   let iAdd = Array(n);
   let iDouble = Array(n);
+  let iBoth = Array(n);
   let nAdd = 0;
   let nDouble = 0;
   let nBoth = 0;
-  let dBoth = Array(n);
 
   for (let i = 0; i < n; i++) {
     if (isZeroAffine(G[i])) {
@@ -486,27 +486,27 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
     if (isEqual(G[i], H[i])) {
       // TODO: handle y1 === -y2; right now we just assume y1 === y2
       let y = G[i] + sizeField;
-      add(d[i], y, y); // TODO: efficient doubling
+      add(tmp[nBoth], y, y); // TODO: efficient doubling
       iDouble[nDouble] = i;
-      dBoth[nBoth] = d[i];
+      iBoth[i] = nBoth;
       nDouble++, nBoth++;
     } else {
       // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      subtractPositive(d[i], H[i], G[i]);
+      subtractPositive(tmp[nBoth], H[i], G[i]);
       iAdd[nAdd] = i;
-      dBoth[nBoth] = d[i];
+      iBoth[i] = nBoth;
       nAdd++, nBoth++;
     }
   }
-  batchInverseInPlace(scratch, tmp, dBoth, nBoth);
+  batchInverse(scratch, d, tmp, nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
-    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
+    addAffine(scratch[0], S[i], G[i], H[i], d[iBoth[i]]);
   }
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
-    doubleAffine(scratch, S[i], G[i], d[i]);
+    doubleAffine(scratch, S[i], G[i], d[iBoth[i]]);
   }
 }
 
@@ -516,9 +516,9 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
  * Gi *= 2, i=0,...,n-1
  *
  * @param {number[]} scratch
- * @param {number[]} tmp pointers of length n
- * @param {number[]} d pointers of length n
- * @param {AffinePoint[]} G
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} G
  * @param {number} n
  */
 function batchDoubleInPlace(scratch, tmp, d, G, n) {
@@ -532,10 +532,10 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
     G1[n1] = G[i];
     // TODO: confirm that y === 0 can't happen, either bc 0 === x^3 + 4 has no solutions in the field or bc the (x,0) aren't in G1
     let y = G1[n1] + sizeField;
-    add(d[n1], y, y); // TODO: efficient doubling
+    add(tmp[n1], y, y); // TODO: efficient doubling
     n1++;
   }
-  batchInverseInPlace(scratch, tmp, d, n1);
+  batchInverse(scratch, d, tmp, n1);
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
@@ -577,43 +577,32 @@ function doubleAffine([m, tmp, x2, y2], H, G, d) {
 
 /**
  * @param {number[]} scratch
- * @param {number[]} tmpX tmp pointers of at least length n
- * @param {number[]} X points to invert, at least length n
+ * @param {Uint32Array} invX inverted points of at least length n
+ * @param {Uint32Array} X points to invert, at least length n
  * @param {number} n length
  */
-function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
-  // TODO: this can be made faster and cleaner by merging the 2nd and 3rd loop
+function batchInverse([I, tmp], invX, X, n) {
   if (n === 0) return;
   if (n === 1) {
-    inverse(scratch[0], invProd, X[0]);
-    copy(X[0], invProd);
+    inverse(tmp, invX[0], X[0]);
     return;
   }
-  // tmpX = [x0, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
-  // tmpX[i] = x0*...*xi
-  copy(tmpX[0], X[0]);
-  for (let i = 1; i < n; i++) {
-    multiply(tmpX[i], tmpX[i - 1], X[i]);
+  // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
+  // invX[i] = x0*...*xi
+  multiply(invX[1], X[1], X[0]);
+  for (let i = 2; i < n; i++) {
+    multiply(invX[i], invX[i - 1], X[i]);
   }
-  // X[0] = 1/(x0*....*x(n-1)) = 1/tmpX[n-1]
-  inverse(scratch[0], invProd, tmpX[n - 1]);
+  // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
+  inverse(tmp, I, invX[n - 1]);
 
-  // X = [garbage, 1/x0, 1/(x0*x1), ..., 1/(x0*....*x(n-2))] (X[i] = 1/(x0*...*x(i-1)))
-  // by X[n-1] = invProd * X[n-1], X[i] = X[i+1] * X[i], i >= 1
-  // (x0 is not needed for this computation)
-  multiply(X[n - 1], invProd, X[n - 1]);
-  for (let i = n - 2; i >= 1; i--) {
-    multiply(X[i], X[i + 1], X[i]);
+  for (let i = n - 1; i > 1; i--) {
+    multiply(invX[i], invX[i - 1], I);
+    multiply(I, I, X[i]);
   }
-  // X = [1/x0, 1/x1, ..., 1/(x(n-1))]
-  // by X[0] = X[1],
-  // X[i] = 1/xi = (x0*...*x(i-1)) / (x0*...*x(i-1)*xi) = tmpX[i-1] * X[i+1], 1 <= i <= n-2
-  // X[n-1] = tmpX[n-2] * invProd
-  copy(X[0], X[1]);
-  for (let i = 1; i < n - 1; i++) {
-    multiply(X[i], tmpX[i - 1], X[i + 1]);
-  }
-  multiply(X[n - 1], tmpX[n - 2], invProd);
+  // now I = 1/(x0*x1)
+  multiply(invX[1], X[0], I);
+  multiply(invX[0], I, X[1]);
 }
 
 /**
