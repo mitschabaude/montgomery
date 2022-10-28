@@ -407,10 +407,10 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
   // * returns k-1 instead of k
   // * returns r < p unconditionally
   // * allows to batch left- / right-shifts
-  addFuncExport(writer, "almostInverseMontgomery");
+  addFuncExport(writer, "almostInverse");
   func(
     writer,
-    "almostInverseMontgomery",
+    "almostInverse",
     [param32(u), param32(r), param32(a), result32],
     () => {
       line(local32(v), local32(s), local32(k));
@@ -477,7 +477,7 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     }
     lines(
       //
-      call("almostInverseMontgomery", scratch, r, a),
+      call("almostInverse", scratch, r, a),
       local.set(k),
       // don't have to reduce r here, because it's already < p
       call("subtractNoReduce", r, global.get(pGlobal), r),

@@ -323,7 +323,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       let j = 0;
       let didCarry = false;
       let doCarry = 0 % nSafeStepsSquare === 0;
-      comment("j = 0, subtract y and z, do carry, ignore result below carry");
+      comment("j = 0, do carry, ignore result below carry");
       lines(
         // tmp = S[i] + 2*x[0]*x[i] + 4p[i] + y'[i] + z'[i]
         ...(i === 0
@@ -349,11 +349,15 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
         lines(
           local.get(S[j]),
           didCarry && i64.add(), // add carry from stack
+          // TODO these savings seem to make no difference in benchmarks
+          // i > 0 && local.get(S[j]),
+          // i > 0 && didCarry && i64.add(), // add carry from stack
           j <= i && i64.mul(X[i], X[j]),
           j < i && join(i64.const(1), i64.shl()),
           j <= i && i64.add(),
           i64.mul(qi, P[j]),
           i64.add(),
+          // (i > 0 || didCarry) && i64.add(),
           doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
           doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
           local.set(S[j - 1])
