@@ -29,11 +29,12 @@ import {
   subtractPositive,
   inverse,
   endomorphism,
+  batchInverse,
 } from "./finite-field.wat.js";
 import { decomposeScalar } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
-export { msmAffine, batchAdd, batchInverse };
+export { msmAffine, batchAdd };
 
 /**
  * @typedef {number} AffinePoint
@@ -306,8 +307,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   let L0 = 2 ** c0; // == L/D
   // console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
-  let d = getPointersInMemory(K * L, sizeAffine);
-  let tmp = getPointersInMemory(K * L, sizeAffine);
+  let d = getPointersInMemory(K * L, sizeField);
+  let tmp = getPointersInMemory(K * L, sizeField);
 
   // normalize the way buckets are stored -- we'll store intermediate running sums there
   // just add new zero pointers here for empty buckets
@@ -444,7 +445,7 @@ function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
   for (let i = 0; i < n; i++) {
     subtractPositive(tmp[i], H[i], G[i]);
   }
-  batchInverse(scratch, d, tmp, n);
+  batchInverse(scratch[0], d[0], tmp[0], n);
   for (let i = 0; i < n; i++) {
     addAffine(scratch[0], S[i], G[i], H[i], d[i]);
   }
@@ -499,7 +500,7 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
       nAdd++, nBoth++;
     }
   }
-  batchInverse(scratch, d, tmp, nBoth);
+  batchInverse(scratch[0], d[0], tmp[0], nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
     addAffine(scratch[0], S[i], G[i], H[i], d[iBoth[i]]);
@@ -535,7 +536,7 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
     add(tmp[n1], y, y); // TODO: efficient doubling
     n1++;
   }
-  batchInverse(scratch, d, tmp, n1);
+  batchInverse(scratch[0], d[0], tmp[0], n1);
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
@@ -573,36 +574,6 @@ function doubleAffine([m, tmp, x2, y2], H, G, d) {
   // H = x2,y2
   copy(xOut, x2);
   copy(yOut, y2);
-}
-
-/**
- * @param {number[]} scratch
- * @param {Uint32Array} invX inverted fields of at least length n
- * @param {Uint32Array} X fields to invert, at least length n
- * @param {number} n length
- */
-function batchInverse([I, tmp], invX, X, n) {
-  if (n === 0) return;
-  if (n === 1) {
-    inverse(tmp, invX[0], X[0]);
-    return;
-  }
-  // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
-  // invX[i] = x0*...*xi
-  multiply(invX[1], X[1], X[0]);
-  for (let i = 2; i < n; i++) {
-    multiply(invX[i], invX[i - 1], X[i]);
-  }
-  // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
-  inverse(tmp, I, invX[n - 1]);
-
-  for (let i = n - 1; i > 1; i--) {
-    multiply(invX[i], invX[i - 1], I);
-    multiply(I, I, X[i]);
-  }
-  // now I = 1/(x0*x1)
-  multiply(invX[1], X[0], I);
-  multiply(invX[0], I, X[1]);
 }
 
 /**
@@ -715,6 +686,36 @@ function copyAffineToProjectiveNonZero(P, A) {
   memoryBytes[P + 3 * sizeField] = 1;
   // isInfinity = isInfinity
   // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
+}
+
+/**
+ * @param {number[]} scratch
+ * @param {Uint32Array} invX inverted fields of at least length n
+ * @param {Uint32Array} X fields to invert, at least length n
+ * @param {number} n length
+ */
+function batchInverseJs([I, tmp], invX, X, n) {
+  if (n === 0) return;
+  if (n === 1) {
+    inverse(tmp, invX[0], X[0]);
+    return;
+  }
+  // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
+  // invX[i] = x0*...*xi
+  multiply(invX[1], X[1], X[0]);
+  for (let i = 2; i < n; i++) {
+    multiply(invX[i], invX[i - 1], X[i]);
+  }
+  // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
+  inverse(tmp, I, invX[n - 1]);
+
+  for (let i = n - 1; i > 1; i--) {
+    multiply(invX[i], invX[i - 1], I);
+    multiply(I, I, X[i]);
+  }
+  // now I = 1/(x0*x1)
+  multiply(invX[1], X[0], I);
+  multiply(invX[0], I, X[1]);
 }
 
 /**

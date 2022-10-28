@@ -386,6 +386,7 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     call,
     br_if,
     br,
+    return_,
   } = ops;
 
   // count multiplications to analyze higher-level algorithms
@@ -482,8 +483,12 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     for (let i = 0; i < Number(mulInputFactor) * 2 - 1; i++) {
       line(call("reduce", a));
     }
+    // for debugging
+    // line(call("isZero", a));
+    // if_(writer, () => {
+    //   lines(call("log", i32.const(500)), return_());
+    // });
     lines(
-      //
       call("almostInverse", scratch, r, a),
       local.set(k),
       // don't have to reduce r here, because it's already < p
@@ -503,7 +508,6 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     );
   });
 
-  let { return_ } = ops;
   let [I, z, x, $n, $i, $N] = ["$I", "$z", "$x", "$n", "$i", "$N"];
 
   addFuncExport(writer, "batchInverse");
@@ -527,10 +531,18 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
       });
       comment("create products x0*x1, ..., x0*...*x(n-1)");
       line(call("multiply", i32.add(z, sizeField), i32.add(x, sizeField), x));
+      line(i32.eq($n, 2));
+      if_(writer, () => {
+        lines(
+          call("inverse", scratch, I, i32.add(z, sizeField)),
+          call("multiply", i32.add(z, sizeField), x, I),
+          call("multiply", z, i32.add(x, sizeField), I),
+          return_()
+        );
+      });
       line(local.set($i, i32.const(2 * sizeField)));
       loop(writer, () => {
         lines(
-          // call("log", $i),
           call(
             "multiply",
             i32.add(z, $i),
