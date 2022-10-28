@@ -21,7 +21,6 @@ if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
 for (let w of [30]) {
-  // for (let w of [28]) {
   await compileFiniteFieldWasm(p, w, {
     withBenchmarks: true,
     endoCubeRoot: beta,
