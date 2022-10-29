@@ -211,34 +211,35 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       // compute y-z
       // we can avoid carries here by making the terms w+1+eps bits
       // => implies x*y terms are 2w+1+eps bits
-      // => similar case as for squaring, nSafeSteps gets slightly smaller
-      let nSteps;
-      for (nSteps = 1; nSteps < nSafeSteps; nSteps++) {
+      // => similar case as for squaring, number of safe terms gets slightly smaller
+      // (but here, we had to move carries to the term level to prove that this won't overflow)
+      // for w=30, we get nSafeTerms=9, which adds 1 carry into the loop below
+      // empirically it's slightly faster (~2%) if the carry is in the loop
+      // (theme: if you got a loop that compiles to something fast, put more stuff in it)
+      let nTerms;
+      for (nTerms = 1; nTerms < nSafeTerms; nTerms++) {
         // compute ~tight upper bound on sum of n steps
         let upperBound = 0n;
-        for (let i = 0; i <= n - nSteps; i++) {
-          // compute upper bound for nSteps starting at i
+        for (let i = 0; i <= 2 * n - nTerms; i++) {
+          // compute upper bound for nTerms starting at i
           let bound = 0n;
-          for (let j = i; j < i + nSteps; j++) {
-            let y =
-              d2P[j] +
-              (j < n - 1 ? wordMax + 1n : 0n) +
-              (j === 0 ? 0n : -1n) +
-              wordMax;
-            bound += wordMax * y + P[j] * wordMax;
+          for (let j = i; j < i + nTerms; j++) {
+            if (j % 2 === 0) {
+              let y =
+                d2P[j >> 1] +
+                (j >> 1 < n - 1 ? wordMax + 1n : 0n) +
+                (j >> 1 === 0 ? 0n : -1n) +
+                wordMax;
+              bound += wordMax * y;
+            } else {
+              bound += P[j >> 1] * wordMax;
+            }
           }
           if (bound > upperBound) upperBound = bound;
         }
-        // console.log(upperBound.toString(16));
         if (upperBound >= 2n ** 64n) break;
       }
-      let nSafeStepsSpecial = nSteps - 1;
-      // UNSAFE OPTIMIZATION
-      // empirically it also works with one step more for w=30, but I can't prove it
-      // we get nSafeSteps=5, so this adds one carry into the loop below
-      // empirically it's slightly faster (~2%) if the carry is in the loop
-      // (theme: if you got a loop that compiles to something fast, put more stuff in it)
-      nSafeStepsSpecial++;
+      let nSafeTermsSpecial = nTerms - 1;
       for (let i = 0; i < n; i++) {
         lines(
           i64.const(
@@ -260,8 +261,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
         line(local.set(xi, i64.load(i32.add(x, i))));
 
         // j=0, compute q_i
-        let didCarry = false;
-        let doCarry = 0 % nSafeStepsSpecial === 0;
+        let doCarry = true;
         comment("j = 0, do carry, ignore result below carry");
         lines(
           // tmp = S[0] + x[i]*y[0]
@@ -277,38 +277,52 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
           i64.add(),
           join(i64.const(w), i64.shr_u()) // we just put carry on the stack, use it later
         );
+        let didCarry = true;
 
         for (let j = 1; j < n - 1; j++) {
           // S[j] + x[i]*y[j] + qi*p[j], or
           // stack + S[j] + x[i]*y[j] + qi*p[j]
           // ... = S[j-1], or  = (stack, S[j-1])
-          didCarry = doCarry;
-          doCarry = j % nSafeStepsSpecial === 0;
-          comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+          doCarry = (2 * j - 1) % nSafeTermsSpecial === 0;
+          comment(`j = ${j}`);
           lines(
             local.get(S[j]),
-            didCarry && i64.add(), // add carry from stack
+            didCarry && i64.add(),
             i64.mul(xi, Y[j]),
             i64.add(),
+            doCarry && `;; carry after ${nSafeTermsSpecial} terms`,
+            doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()),
+            doCarry && i64.and(tmp, wordMax)
+          );
+          didCarry = doCarry;
+          doCarry = (2 * j) % nSafeTermsSpecial === 0;
+          lines(
             i64.mul(qi, P[j]),
             i64.add(),
+            doCarry && `;; carry after ${nSafeTermsSpecial} terms`,
             doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
             doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
             local.set(S[j - 1])
           );
+          didCarry = doCarry || didCarry;
         }
         let j = n - 1;
-        didCarry = doCarry;
-        doCarry = j % nSafeStepsSpecial === 0;
-        comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
+        doCarry = (2 * j - 1) % nSafeTermsSpecial === 0;
+        comment(`j = ${j}`);
         if (doCarry) {
           lines(
             local.get(S[j]),
             didCarry && i64.add(), // add carry from stack
             i64.mul(xi, Y[j]),
             i64.add(),
+            doCarry && `;; carry after ${nSafeTermsSpecial} terms`,
+            doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()),
+            doCarry && i64.and(tmp, wordMax)
+          );
+          lines(
             i64.mul(qi, P[j]),
             i64.add(),
+            doCarry && `;; carry after ${nSafeTermsSpecial} terms`,
             doCarry && join(local.tee(tmp), i64.const(w), i64.shr_u()), // put carry on the stack
             doCarry && i64.and(tmp, wordMax), // mod 2^w the current result
             local.set(S[j - 1])
