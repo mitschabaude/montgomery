@@ -209,17 +209,49 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       }
 
       // compute y-z
+      // we can avoid carries here by making the terms w+1+eps bits
+      // => implies x*y terms are 2w+1+eps bits
+      // => similar case as for squaring, nSafeSteps gets slightly smaller
+      let nSteps;
+      for (nSteps = 1; nSteps < nSafeSteps; nSteps++) {
+        // compute ~tight upper bound on sum of n steps
+        let upperBound = 0n;
+        for (let i = 0; i <= n - nSteps; i++) {
+          // compute upper bound for nSteps starting at i
+          let bound = 0n;
+          for (let j = i; j < i + nSteps; j++) {
+            let y =
+              d2P[j] +
+              (j < n - 1 ? wordMax + 1n : 0n) +
+              (j === 0 ? 0n : -1n) +
+              wordMax;
+            bound += wordMax * y + P[j] * wordMax;
+          }
+          if (bound > upperBound) upperBound = bound;
+        }
+        // console.log(upperBound.toString(16));
+        if (upperBound >= 2n ** 64n) break;
+      }
+      let nSafeStepsSpecial = nSteps - 1;
+      // UNSAFE OPTIMIZATION
+      // empirically it also works with one step more for w=30, but I can't prove it
+      // we get nSafeSteps=5, so this adds one carry into the loop below
+      // empirically it's slightly faster (~2%) if the carry is in the loop
+      // (theme: if you got a loop that compiles to something fast, put more stuff in it)
+      nSafeStepsSpecial++;
       for (let i = 0; i < n; i++) {
         lines(
-          i64.const(d2P[i]),
-          i > 0 && i64.add(),
+          i64.const(
+            d2P[i] + (i < n - 1 ? wordMax + 1n : 0n) + (i === 0 ? 0n : -1n)
+          ),
+          // i > 0 && i64.add(),
           i64.load(y, { offset: 8 * i }),
           i64.add(),
           i64.load(z, { offset: 8 * i }),
           i64.sub(),
-          i64.and(local.tee(tmp), wordMax),
-          local.set(Y[i]),
-          i < n - 1 && i64.shr_s(tmp, w)
+          // i64.and(local.tee(tmp), wordMax),
+          local.set(Y[i])
+          // i < n - 1 && i64.shr_s(tmp, w)
         );
       }
 
@@ -229,7 +261,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
 
         // j=0, compute q_i
         let didCarry = false;
-        let doCarry = 0 % nSafeSteps === 0;
+        let doCarry = 0 % nSafeStepsSpecial === 0;
         comment("j = 0, do carry, ignore result below carry");
         lines(
           // tmp = S[0] + x[i]*y[0]
@@ -251,7 +283,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
           // stack + S[j] + x[i]*y[j] + qi*p[j]
           // ... = S[j-1], or  = (stack, S[j-1])
           didCarry = doCarry;
-          doCarry = j % nSafeSteps === 0;
+          doCarry = j % nSafeStepsSpecial === 0;
           comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
           lines(
             local.get(S[j]),
@@ -267,7 +299,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
         }
         let j = n - 1;
         didCarry = doCarry;
-        doCarry = j % nSafeSteps === 0;
+        doCarry = j % nSafeStepsSpecial === 0;
         comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
         if (doCarry) {
           lines(
