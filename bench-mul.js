@@ -47,6 +47,15 @@ for (let w of [30]) {
   );
 
   tic();
+  ff.benchMultiplyUnrolled(x, N);
+  let timeMulU = toc();
+  console.log(
+    `${(N / timeMulU / 1e6).toFixed(2).padStart(5)} mio. mun / s (mun = ${(
+      timeMulU / timeMul
+    ).toFixed(2)} mul)`
+  );
+
+  tic();
   ff.benchMultiplyBarrett(x, N);
   let timeMulB = toc();
   console.log(

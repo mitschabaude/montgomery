@@ -354,7 +354,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
   );
 
   let carry = "$carry";
-  /* 
+
   addFuncExport(writer, "multiplyUnrolled");
   func(
     writer,
@@ -463,7 +463,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       );
     }
   );
- */
+
   let [out] = ["$out"];
   function square() {
     // locals

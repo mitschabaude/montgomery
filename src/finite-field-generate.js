@@ -1731,6 +1731,14 @@ function benchMultiply(W) {
     });
   });
 
+  addFuncExport(W, "benchMultiplyUnrolled");
+  func(W, "benchMultiplyUnrolled", [param32(x), param32(N)], () => {
+    line(local32(i));
+    forLoop1(W, i, 0, local.get(N), () => {
+      line(call("multiplyUnrolled", local.get(x), local.get(x), local.get(x)));
+    });
+  });
+
   addFuncExport(W, "benchMultiplyDifference");
   func(
     W,
