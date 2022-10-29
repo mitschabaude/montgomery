@@ -1061,5 +1061,23 @@
   "mPerSec": 8935932,
   "commit": "afc44e6",
   "cpu": "AMD EPYC 7443P 24-Core Processor"
+ },
+ {
+  "n": 18,
+  "ref": 19.219480771996082,
+  "ours": 5.096301255002618,
+  "nMul": 28395197,
+  "mPerSec": 11649693,
+  "commit": "a929354",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 16,
+  "ref": 5.7486537090018395,
+  "ours": 1.3787765770033003,
+  "nMul": 8117061,
+  "mPerSec": 11659549,
+  "commit": "a929354",
+  "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
  }
 ]

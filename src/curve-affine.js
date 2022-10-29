@@ -144,44 +144,35 @@ function msmAffine(scalars, inputPoints) {
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
     // decompose scalar from one 32-byte into two 16-byte chunks
-    let [scalar0, scalar1] = decomposeScalar(scalar);
-
+    let scalarParts = decomposeScalar(scalar);
+    let pointParts = [
+      { point, negPoint },
+      { point: endoPoint, negPoint: negEndoPoint },
+    ];
     // partition each 16-byte scalar into c-bit chunks
-    let carry = 0;
-    for (let k = 0; k < K; k++) {
-      // compute k-th digit from scalar
-      let l = extractBitSlice(scalar0, k * c, c) + carry;
-      if (l > L) {
-        l = doubleL - l;
-        carry = 1;
-      } else {
-        carry = 0;
+    for (let s = 0; s < 2; s++) {
+      let carry = 0;
+      let scalar = scalarParts[s];
+      let { point, negPoint } = pointParts[s];
+      for (let k = 0; k < K; k++) {
+        // compute k-th digit from scalar
+        let l = extractBitSlice(scalar, k * c, c) + carry;
+        let G = point;
+        if (l > L) {
+          l = doubleL - l;
+          carry = 1;
+          G = negPoint;
+        } else {
+          carry = 0;
+        }
+        if (l === 0) continue;
+        // add point to bucket
+        let bucket = buckets[k][l];
+        bucket.push(G);
+        let bucketSize = bucket.length;
+        if ((bucketSize & 1) === 0) nPairs++;
+        if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
-      if (l === 0) continue;
-      // add point to bucket
-      let bucket = buckets[k][l];
-      bucket.push(carry === 1 ? negPoint : point);
-      let bucketSize = bucket.length;
-      if ((bucketSize & 1) === 0) nPairs++;
-      if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
-    }
-    carry = 0;
-    for (let k = 0; k < K; k++) {
-      // compute k-th digit from scalar
-      let l = extractBitSlice(scalar1, k * c, c) + carry;
-      if (l > L) {
-        l = doubleL - l;
-        carry = 1;
-      } else {
-        carry = 0;
-      }
-      if (l === 0) continue;
-      // add point to bucket
-      let bucket = buckets[k][l];
-      bucket.push(carry === 1 ? negEndoPoint : endoPoint);
-      let bucketSize = bucket.length;
-      if ((bucketSize & 1) === 0) nPairs++;
-      if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
     }
   }
   let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
