@@ -1034,5 +1034,32 @@
   "mPerSec": 11766803,
   "commit": "c2f8001",
   "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 14,
+  "ref": 2.8529402370154857,
+  "ours": 0.46343623897433284,
+  "nMul": 2273942,
+  "mPerSec": 8963481,
+  "commit": "afc44e6",
+  "cpu": "AMD EPYC 7443P 24-Core Processor"
+ },
+ {
+  "n": 16,
+  "ref": 9.577329726994037,
+  "ours": 1.704644796013832,
+  "nMul": 8117061,
+  "mPerSec": 8969044,
+  "commit": "afc44e6",
+  "cpu": "AMD EPYC 7443P 24-Core Processor"
+ },
+ {
+  "n": 18,
+  "ref": 32.786731195002794,
+  "ours": 6.039665455013513,
+  "nMul": 28395197,
+  "mPerSec": 8935932,
+  "commit": "afc44e6",
+  "cpu": "AMD EPYC 7443P 24-Core Processor"
  }
 ]
