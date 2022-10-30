@@ -28,9 +28,9 @@ let N = [14, 16, 18];
 
 // window width's difference to n-1 to test
 // n-1 is thought to be the optimal default
-let C = [-2, -1, 0, 1, 2];
+let C = [-3, -2, -1, 0];
 // sub bucket log-size, diff to c >> 1 which is thought to be a good default
-let C0 = [-2, -1, 0, 1, 2, 3, 4];
+let C0 = [-1, 0, 1, 2, 3];
 
 let times = {}; // { n: { c: { c0: { time, std } } } }
 let best = {}; // { n: { time, std, c, c0 } }
