@@ -268,34 +268,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let [denom] = getPointersInMemory(nPairs);
   let [tmp] = getPointersInMemory(nPairs);
 
-  // first stage
   // batch-add buckets into their first point, in `maxBucketSize` iterations
-
-  // first iteration -- a bit different than the others, because we use a third point as the addition result
-  let m = 1;
-  // only do this if there are any pairs...
-  if (m < maxBucketSize) {
-    let p = 0;
-    // walk over all buckets to identify point-pairs to add
-    for (let k = 0; k < K; k++) {
-      let firstBucket = bucketPointers[k];
-      let counts = bucketCounts[k];
-      let bucket = firstBucket;
-      for (let l = 1; l <= L; l++) {
-        let point = bucket;
-        bucket = firstBucket + sizeAffine * counts[l];
-        for (; point + sizeAffine < bucket; point += sizeAffine2) {
-          G[p] = point;
-          H[p] = point + sizeAffine;
-          p++;
-        }
-      }
-    }
-    // now (P,G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
-  }
-  // now let's repeat until we summed all buckets into one element
-  for (m *= 2; m < maxBucketSize; m *= 2) {
+  for (let m = 1; m < maxBucketSize; m *= 2) {
     let p = 0;
     let sizeAffineM = m * sizeAffine;
     let sizeAffine2M = 2 * m * sizeAffine;
@@ -317,7 +291,6 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // update number of pairs to add
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
-    // this time, we add with assignment since the left summands G are not original points
     batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
   }
   // we're done!!
