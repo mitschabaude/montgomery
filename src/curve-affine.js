@@ -10,7 +10,6 @@ import {
   readBigInt,
   fromMontgomery,
   getPointer,
-  getZeroPointer,
   p,
   mod,
   getAndResetOpCounts,
@@ -62,10 +61,9 @@ let numberOfAdds = 0;
 let numberOfDoubles = 0;
 
 let cTable = {
-  // all of the numbers in comments are wrong
   [14]: [13, 6], // 2.28 / 2.21 real
   [16]: [15, 7], // 8.09 / 7.86 real
-  [18]: [16, 7], // 28.4 M / 27.5 real
+  [18]: [16, 8], // 28.4 M / 27.5 real
 };
 
 /**
@@ -73,18 +71,22 @@ let cTable = {
  * @param {CompatibleScalar[]} scalars
  * @param {CompatiblePoint[]} inputPoints
  */
-function msmAffine(scalars, inputPoints) {
+function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   // initialize buckets
   let N = scalars.length;
 
-  let c = log2(N) - 1; // TODO: determine c from n and hand-optimized lookup table
+  let n = log2(N);
+  let c = n - 1; // TODO: determine c from n and hand-optimized lookup table
   if (c < 1) c = 1;
-  let depth = c >> 1;
-  [c, depth] = cTable[log2(N)] || [c, depth];
+  let c0 = c >> 1;
+  [c, c0] = cTable[n] || [c, c0];
+  // if parameters for c and c0 were passed in, use those instead
+  if (c_) c = c_;
+  if (c0_) c0 = c0_;
+  let depth = c - 1 - c0;
 
-  // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(129 / c); // number of partitions
-  let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
+  let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
   let [points] = getPointersInMemory(N, sizeAffine); // initialize points

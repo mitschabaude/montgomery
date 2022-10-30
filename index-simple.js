@@ -21,7 +21,8 @@ toc();
 
 tic("load inputs & convert to rust");
 let points, scalars;
-if (n >= 12) {
+// TODO: fix random points generation
+if (true) {
   let result = await load(n);
   points = result.points;
   scalars = result.scalars;
