@@ -34,11 +34,12 @@ import {
 import {
   decompose,
   scratchPtr,
-  freePtr,
   writeBytesScalar,
   scalarSize,
   packedScalarSize,
   readBytesScalar,
+  memoryScalar,
+  getPointerScalar,
 } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
@@ -97,15 +98,10 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
-  let [points] = getPointersInMemory(N, sizeAffine); // initialize points
-  let [negPoints] = getPointersInMemory(N, sizeAffine);
-  let [endoPoints] = getPointersInMemory(N, sizeAffine);
-  let [negEndoPoints] = getPointersInMemory(N, sizeAffine);
-
-  let pointsHelper = Array(2 * N);
-  let negPointsHelper = Array(2 * N);
-  let scalarsHelper = Array(2 * N);
-  let scalarPtr = freePtr;
+  let sizeAffine2 = 2 * sizeAffine;
+  let sizeAffine4 = 4 * sizeAffine;
+  let pointPtr = getPointer(N * sizeAffine4);
+  let scalarPtr = getPointerScalar(N * packedScalarSize);
 
   /**
    * @type {(number)[][]}
@@ -128,13 +124,16 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
   // zeroth stage
   // convert points into our format and organize them into buckets, without additions
-  for (let i = 0; i < N; i++) {
-    let scalar = scalars[i];
+  for (
+    let i = 0, point = pointPtr, scalar = scalarPtr;
+    i < N;
+    i++, point += sizeAffine4
+  ) {
+    let inputScalar = scalars[i];
     let inputPoint = inputPoints[i];
-    let point = points[i];
-    let negPoint = negPoints[i];
-    let endoPoint = endoPoints[i];
-    let negEndoPoint = negEndoPoints[i];
+    let negPoint = point + sizeAffine;
+    let endoPoint = negPoint + sizeAffine;
+    let negEndoPoint = endoPoint + sizeAffine;
     // convert point to montgomery
     let x = point;
     let y = point + sizeField;
@@ -155,29 +154,21 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     copy(negEndoPoint + sizeField, negPoint + sizeField);
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
-    pointsHelper[2 * i] = point;
-    negPointsHelper[2 * i] = negPoint;
-    pointsHelper[2 * i + 1] = endoPoint;
-    negPointsHelper[2 * i + 1] = negEndoPoint;
-
     // decompose scalar from one 32-byte into two 16-byte chunks
-    writeBytesScalar(scratchPtr, scalar);
+    writeBytesScalar(scratchPtr, inputScalar);
     decompose(scratchPtr);
-    let s0 = readBytesScalar(scalarPtr, scratchPtr);
-    scalarsHelper[2 * i] = s0;
-    scalarPtr += packedScalarSize;
-    let s1 = readBytesScalar(scalarPtr, scratchPtr + scalarSize);
-    scalarsHelper[2 * i + 1] = s1;
-    scalarPtr += packedScalarSize;
+    let s0 = readBytesScalar(scalar, scratchPtr);
+    scalar += packedScalarSize;
+    let s1 = readBytesScalar(scalar, scratchPtr + scalarSize);
+    scalar += packedScalarSize;
     let scalarParts = [s0, s1];
 
     // partition each 16-byte scalar into c-bit chunks
     for (let s = 0; s < 2; s++) {
-      let carry = 0;
-      let scalar = scalarParts[s];
-      for (let k = 0; k < K; k++) {
+      let scalarBytes = scalarParts[s];
+      for (let k = 0, carry = 0; k < K; k++) {
         // compute k-th digit from scalar
-        let l = extractBitSlice(scalar, k * c, c) + carry;
+        let l = extractBitSlice(scalarBytes, k * c, c) + carry;
         if (l > L) {
           l = doubleL - l;
           carry = 1;
@@ -224,14 +215,21 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     }
   }
   // copy points to contiguous locations, to optimize memory access
-  for (let i = 0; i < 2 * N; i++) {
-    let point = pointsHelper[i];
-    let negPoint = negPointsHelper[i];
-    let scalar = scalarsHelper[i];
+  for (
+    let i = 0, point = pointPtr, scalar = scalarPtr;
+    i < 2 * N;
+    i++, point += sizeAffine2, scalar += packedScalarSize
+  ) {
+    let negPoint = point + sizeAffine;
+    let scalarBytes = new Uint8Array(
+      memoryScalar.buffer,
+      scalar,
+      packedScalarSize
+    );
     let carry = 0;
     // recomputing the scalar slices here is faster than storing them
     for (let k = 0; k < K; k++) {
-      let l = extractBitSlice(scalar, k * c, c) + carry;
+      let l = extractBitSlice(scalarBytes, k * c, c) + carry;
       if (l > L) {
         l = doubleL - l;
         carry = 1;

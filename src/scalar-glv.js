@@ -20,6 +20,8 @@ export {
   freePtr,
   fieldSizeBytes as scalarSize,
   packedSizeBytes as packedScalarSize,
+  getPointer as getPointerScalar,
+  memory as memoryScalar,
 };
 
 let p =
@@ -45,11 +47,19 @@ let beta2 =
 const lambda = lambda2;
 const w = 30;
 
-let { fieldSizeBytes, packedSizeBytes, readBigInt, n, getPointers } = jsHelpers(
-  lambda,
-  w,
-  { memory, toPackedBytes, fromPackedBytes, dataOffset }
-);
+let {
+  fieldSizeBytes,
+  packedSizeBytes,
+  readBigInt,
+  n,
+  getPointers,
+  getPointer,
+} = jsHelpers(lambda, w, {
+  memory,
+  toPackedBytes,
+  fromPackedBytes,
+  dataOffset,
+});
 let [scratchPtr, , bytesPtr, bytesPtr2, freePtr] = getPointers(5);
 
 function testDecomposeRandomScalar() {
