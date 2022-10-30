@@ -214,8 +214,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       // => similar case as for squaring, number of safe terms gets slightly smaller
       // (but here, we had to move carries to the term level to prove that this won't overflow)
       // for w=30, we get nSafeTerms=9, which adds 1 carry into the loop below
-      // empirically it's slightly faster (~2%) if the carry is in the loop
-      // (theme: if you got a loop that compiles to something fast, put more stuff in it)
+      // empirically it might be of similar speed or slightly faster if the carry is in the loop
       let nTerms;
       for (nTerms = 1; nTerms < nSafeTerms; nTerms++) {
         // compute ~tight upper bound on sum of n steps
