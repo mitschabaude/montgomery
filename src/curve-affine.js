@@ -66,9 +66,6 @@ let sizeField = 8 * n;
 let sizeAffine = 16 * n + 8; // size of one affine point in Wasm memory: x, y + 1 int64 for extra info (0 = isZero, >0 = isFilled)
 let sizeProjective = 24 * n + 8;
 
-let numberOfAdds = 0;
-let numberOfDoubles = 0;
-
 let cTable = {
   [14]: [13, 8],
   [16]: [13, 9],
@@ -77,12 +74,12 @@ let cTable = {
 
 /**
  *
- * @param {CompatibleScalar[]} scalars
+ * @param {CompatibleScalar[]} inputScalars
  * @param {CompatiblePoint[]} inputPoints
  */
-function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
+function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   // initialize buckets
-  let N = scalars.length;
+  let N = inputScalars.length;
 
   let n = log2(N);
   let c = n - 1;
@@ -119,8 +116,6 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let nPairs = 0; // we need to allocate space for one pointer per addition pair
 
   getAndResetOpCounts();
-  numberOfAdds = 0;
-  numberOfDoubles = 0;
 
   /**
    * PREPARATION PHASE 1
@@ -139,7 +134,7 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     i < N;
     i++, point += sizeAffine4
   ) {
-    let inputScalar = scalars[i];
+    let inputScalar = inputScalars[i];
     let inputPoint = inputPoints[i];
     let negPoint = point + sizeAffine;
     let endoPoint = negPoint + sizeAffine;
@@ -356,8 +351,6 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     nMul2,
     nMul3,
     nInv: nInv1 + nInv2 + nInv3,
-    numberOfAdds,
-    numberOfDoubles,
   };
 }
 
@@ -562,6 +555,8 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
       continue;
     }
     if (isEqual(G[i], H[i])) {
+      // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+      // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
       // TODO: handle y1 === -y2; right now we just assume y1 === y2
       let y = G[i] + sizeField;
       add(tmp[nBoth], y, y); // TODO: efficient doubling
@@ -569,8 +564,7 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
       iBoth[i] = nBoth;
       nDouble++, nBoth++;
     } else {
-      // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
-      // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
+      // normal case
       subtractPositive(tmp[nBoth], H[i], G[i]);
       iAdd[nAdd] = i;
       iBoth[i] = nBoth;
@@ -631,7 +625,6 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
  * @param {number} d 1/(2y)
  */
 function doubleAffine([m, tmp, x2, y2], H, G, d) {
-  numberOfDoubles++;
   let [x, y] = affineCoords(G);
   let [xOut, yOut] = affineCoords(H);
 
@@ -665,7 +658,6 @@ function addAssignProjective(scratch, P1, P2) {
     return;
   }
   if (isZeroProjective(P2)) return;
-  numberOfAdds++;
   setNonZeroProjective(P1);
   let [x1, y1, z1] = projectiveCoords(P1);
   let [x2, y2, z2] = projectiveCoords(P2);
@@ -710,7 +702,6 @@ function addAssignProjective(scratch, P1, P2) {
  */
 function doubleInPlaceProjective(scratch, P) {
   if (isZeroProjective(P)) return;
-  numberOfDoubles++;
   let [X1, Y1, Z1] = projectiveCoords(P);
   let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
   // w = 3*X1^2
@@ -983,7 +974,6 @@ function addAssignAffineFull([m, tmp, d, ...scratch], G1, G2) {
       throw Error("y1 === -y2");
     }
   }
-  numberOfAdds++;
   // m = (y2 - y1)/(x2 - x1)
   subtract(tmp, x2, x1);
   inverse(scratch[0], d, tmp);
@@ -1005,7 +995,6 @@ function addAssignAffineFull([m, tmp, d, ...scratch], G1, G2) {
  * @param {AffinePoint} G (x, y)
  */
 function doubleInPlaceAffineFull([m, tmp, d, x2, y2, ...scratch], G) {
-  numberOfDoubles++;
   let [x, y] = affineCoords(G);
 
   // m = 3*x^2/2y
@@ -1083,7 +1072,6 @@ function reduceBucketsSimple(scratchSpace, buckets, { K, L }) {
  * @param {number} d 1/(x2 - x1)
  */
 function addAffineJs([m, tmp], G3, G1, G2, d) {
-  numberOfAdds++;
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
   let [x3, y3] = affineCoords(G3);
