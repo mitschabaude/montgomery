@@ -200,18 +200,26 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   /**
    * PREPARATION PHASE 2
    */
-  let bucketPointers = Array(K);
+  /**
+   * @type {number[][]}
+   */
+  let buckets = Array(K);
   for (let k = 0; k < K; k++) {
-    bucketPointers[k] = getPointer(2 * N * sizeAffine);
+    buckets[k] = Array(L + 1);
+    buckets[k][0] = getPointer(2 * N * sizeAffine);
   }
   // integrate bucket counts to become start indices
   for (let k = 0; k < K; k++) {
     let counts = bucketCounts[k];
     let running = 0;
+    let bucketsK = buckets[k];
+    let runningIndex = bucketsK[0];
     for (let l = 1; l <= L; l++) {
       let count = counts[l];
       counts[l] = running;
       running += count;
+      runningIndex += count * sizeAffine;
+      bucketsK[l] = runningIndex;
     }
   }
   // copy points to contiguous locations, to optimize memory access
@@ -236,8 +244,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       } else {
         carry = 0;
       }
-      let ptr0 = bucketPointers[k];
       if (l === 0) continue;
+      let ptr0 = buckets[k][0];
       let l0 = bucketCounts[k][l]++;
       let newPtr = ptr0 + l0 * sizeAffine;
       let ptr = carry === 1 ? negPoint : point;
@@ -257,13 +265,12 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let sizeAffine2M = 2 * m * sizeAffine;
     // walk over all buckets to identify point-pairs to add
     for (let k = 0; k < K; k++) {
-      let firstBucket = bucketPointers[k];
-      let endIndices = bucketCounts[k];
-      let bucket = firstBucket;
+      let bucketsK = buckets[k];
+      let nextBucket = bucketsK[0];
       for (let l = 1; l <= L; l++) {
-        let point = bucket;
-        bucket = firstBucket + sizeAffine * endIndices[l];
-        for (; point + sizeAffineM < bucket; point += sizeAffine2M) {
+        let point = nextBucket;
+        nextBucket = bucketsK[l];
+        for (; point + sizeAffineM < nextBucket; point += sizeAffine2M) {
           G[p] = point;
           H[p] = point + sizeAffineM;
           p++;
@@ -281,13 +288,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let [nMul1, nInv1] = getAndResetOpCounts();
 
   // second stage
-  // let partialSums = reduceBucketsSimple(scratchSpace, buckets, { K, L });
-  let partialSums = reduceBucketsAffine(scratch, bucketPointers, bucketCounts, {
-    c,
-    c0,
-    K,
-    L,
-  });
+  let partialSums = reduceBucketsAffine(scratch, buckets, { c, c0, K, L });
 
   let [nMul2, nInv2] = getAndResetOpCounts();
 
@@ -309,7 +310,6 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let result = toAffineOutput(scratch, finalSum);
 
   let [nMul3, nInv3] = getAndResetOpCounts();
-
   resetPointers();
 
   return {
@@ -325,16 +325,11 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
  * reducing buckets into one sum per partition, using only batch-affine additions & doublings
  *
  * @param {number[]} scratch
- * @param {number[][][]} oldBuckets
+ * @param {number[][]} oldBuckets
  * @param {{c: number, K: number, L: number}}
  * @param {number} depth
  */
-function reduceBucketsAffine(
-  scratch,
-  bucketPointers,
-  bucketCounts,
-  { c, c0, K, L }
-) {
+function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
   // D = 1 is the standard algorithm, just batch-added over the K partitions
   // D > 1 means that we're doing D * K = n adds at a time
   // => more efficient than doing just K at a time, since we amortize the cost of the inversion better
@@ -351,17 +346,16 @@ function reduceBucketsAffine(
   /** @type {number[][]} */
   let buckets = Array(K);
   for (let k = 0; k < K; k++) {
-    let firstBucket = bucketPointers[k];
-    let endIndices = bucketCounts[k];
-    let nextBucket = firstBucket;
-    let bucketsK = getZeroPointers(L + 1, sizeAffine);
-    buckets[k] = bucketsK;
+    let newBuckets = getZeroPointers(L + 1, sizeAffine);
+    buckets[k] = newBuckets;
+    let oldBucketsK = oldBuckets[k];
+    let nextBucket = oldBucketsK[0];
     for (let l = 1; l <= L; l++) {
       let bucket = nextBucket;
-      nextBucket = firstBucket + sizeAffine * endIndices[l];
+      nextBucket = oldBucketsK[l];
       if (bucket === nextBucket) continue;
-      let newPtr = bucketsK[l];
-      copyAffine(newPtr, bucket);
+      let newBucket = newBuckets[l];
+      copyAffine(newBucket, bucket);
     }
   }
 
