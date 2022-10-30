@@ -40,6 +40,7 @@ import {
   readBytesScalar,
   memoryScalar,
   getPointerScalar,
+  resetPointersScalar,
 } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
@@ -311,6 +312,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
   let [nMul3, nInv3] = getAndResetOpCounts();
   resetPointers();
+  resetPointersScalar();
 
   return {
     result,
