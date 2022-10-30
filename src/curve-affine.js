@@ -278,12 +278,15 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let p = 0;
     // walk over all buckets to identify point-pairs to add
     for (let k = 0; k < K; k++) {
+      let bucketPtr0 = bucketPointers[k];
+      let counts = bucketCounts[k];
+      let bucketPtr = bucketPtr0;
       for (let l = 1; l <= L; l++) {
-        let x = buckets[k][l];
-        let bucketSize = x.length;
-        for (let i = 0; i + 1 < bucketSize; i += 2) {
-          G[p] = x[i];
-          H[p] = x[i + 1];
+        let ptr = bucketPtr;
+        bucketPtr = bucketPtr0 + sizeAffine * counts[l];
+        for (; ptr + sizeAffine < bucketPtr; ptr += sizeAffine2) {
+          G[p] = ptr;
+          H[p] = ptr + sizeAffine;
           p++;
         }
       }
@@ -294,14 +297,19 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
     let p = 0;
+    let sizeAffineM = m * sizeAffine;
+    let sizeAffine2M = 2 * m * sizeAffine;
     // walk over all buckets to identify point-pairs to add
     for (let k = 0; k < K; k++) {
+      let bucketPtr0 = bucketPointers[k];
+      let counts = bucketCounts[k];
+      let bucketPtr = bucketPtr0;
       for (let l = 1; l <= L; l++) {
-        let x = buckets[k][l];
-        let bucketSize = x.length;
-        for (let i = 0; i + m < bucketSize; i += 2 * m) {
-          G[p] = x[i];
-          H[p] = x[i + m];
+        let ptr = bucketPtr;
+        bucketPtr = bucketPtr0 + sizeAffine * counts[l];
+        for (; ptr + sizeAffineM < bucketPtr; ptr += sizeAffine2M) {
+          G[p] = ptr;
+          H[p] = ptr + sizeAffineM;
           p++;
         }
       }
