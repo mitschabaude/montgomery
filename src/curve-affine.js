@@ -221,6 +221,7 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     for (let k = 0; k < K; k++) {
       let ptr0 = bucketPointers[k];
       let l = scalars[k];
+      if (l === 0) continue;
       let l0 = bucketCounts[k][l]++;
       let newPtr = ptr0 + l0 * sizeAffine;
       let ptr = isNeg[k] ? negPoint : point;
