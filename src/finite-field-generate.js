@@ -259,7 +259,7 @@ async function createFiniteFieldWat(
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
     // this is the number of "pages" of 2^16 bytes each
     // max # pages is 2^16, which gives us 2^16*2^16 = 2^32 bytes = 4 GB
-    1 << 15,
+    (1 << 15) + (1 << 14),
     () => {
       addAffine(writer, p, w);
       wasmInverse(writer, p, w, { countOperations: !!withBenchmarks });

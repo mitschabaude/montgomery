@@ -175,9 +175,24 @@ function msmAffine(scalars, inputPoints) {
       }
     }
   }
+  // copy points to contiguous locations, to optimize memory access
+  for (let k = 0; k < K; k++) {
+    let bucketsK = buckets[k];
+    for (let l = 1; l <= L; l++) {
+      let bucket = bucketsK[l];
+      let length = bucket.length;
+      let newBucket = getPointers(length, sizeAffine);
+      for (let i = 0; i < length; i++) {
+        let ptr = bucket[i];
+        let newPtr = newBucket[i];
+        copyAffine(newPtr, ptr);
+        bucket[i] = newPtr;
+      }
+    }
+  }
+
   let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
   let [H, hPtr] = getEmptyPointersInMemory(nPairs); // holds second summands
-  let [P, pPtr] = getPointersInMemory(nPairs + K * (L + 1), sizeAffine); // holds sums
   let [denom] = getPointersInMemory(nPairs);
   let [tmp] = getPointersInMemory(nPairs);
 
@@ -189,29 +204,20 @@ function msmAffine(scalars, inputPoints) {
   // only do this if there are any pairs...
   if (m < maxBucketSize) {
     let p = 0;
-    let s = nPairs;
     // walk over all buckets to identify point-pairs to add
     for (let k = 0; k < K; k++) {
       for (let l = 1; l <= L; l++) {
         let x = buckets[k][l];
         let bucketSize = x.length;
-        // if the bucket has just 1 element, then copy it over to avoid conflicts with the same pointer
-        // in other partitions
-        if (bucketSize === 1) {
-          copyAffine(P[s], x[0]);
-          x[0] = P[s];
-          s++;
-        }
         for (let i = 0; i + 1 < bucketSize; i += 2) {
           G[p] = x[i];
           H[p] = x[i + 1];
-          x[i] = P[p]; // the point where the pair is summed into replaces x[i] in the bucket
           p++;
         }
       }
     }
     // now (P,G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratch[0], tmp[0], denom[0], pPtr, gPtr, hPtr, nPairs);
+    batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
   }
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
