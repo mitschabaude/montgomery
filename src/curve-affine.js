@@ -89,7 +89,6 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   // if parameters for c and c0 were passed in, use those instead
   if (c_) c = c_;
   if (c0_) c0 = c0_;
-  let depth = c - 1 - c0;
 
   let K = Math.ceil(129 / c); // number of partitions
   let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
@@ -320,7 +319,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
   // second stage
   // let partialSums = reduceBucketsSimple(scratchSpace, buckets, { K, L });
-  let partialSums = reduceBucketsAffine(scratch, buckets, { c, K, L }, depth);
+  let partialSums = reduceBucketsAffine(scratch, buckets, { c, c0, K, L });
 
   let [nMul2, nInv2] = getAndResetOpCounts();
 
@@ -362,14 +361,14 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
  * @param {{c: number, K: number, L: number}}
  * @param {number} depth
  */
-function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
-  // depth = 0 is the standard algorithm, just batch-added over the K partitions
-  // the loops over d=0,..,D-1 reduce to one operation with d=0 in that case
-  let c0 = c - 1 - depth;
+function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
+  // D = 1 is the standard algorithm, just batch-added over the K partitions
+  // D > 1 means that we're doing D * K = n adds at a time
+  // => more efficient than doing just K at a time, since we amortize the cost of the inversion better
+  let depth = c - 1 - c0;
   let D = 2 ** depth;
   let n = D * K;
   let L0 = 2 ** c0; // == L/D
-  // console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
   let [d] = getPointersInMemory(K * L, sizeField);
   let [tmp] = getPointersInMemory(K * L, sizeField);
