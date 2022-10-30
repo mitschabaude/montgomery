@@ -27,8 +27,8 @@ async function compileFiniteFieldWasm(
     withBenchmarks,
     endoCubeRoot,
   });
-  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
   await writeFile(`./src/finite-field.wat.js`, js);
   await fs.writeFile("./src/finite-field.wasm", wasm);
@@ -36,8 +36,8 @@ async function compileFiniteFieldWasm(
 
 async function compileGLVWasm(q, lambda, w, { withBenchmarks = false } = {}) {
   let writer = await createGLVWat(q, lambda, w, { withBenchmarks });
-  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/scalar-glv.${w}.gen.wat`, writer.text);
+  let { js, wasm } = await compileWat(writer);
   await writeFile(`./src/scalar-glv.${w}.gen.wat.js`, js);
   await writeFile(`./src/scalar-glv.wat.js`, js);
   await fs.writeFile("./src/scalar-glv.wasm", wasm);
@@ -51,8 +51,9 @@ async function writeFile(fileName, text) {
   console.log(`wrote ${(text.length / 1e3).toFixed(1)}kB to ${fileName}`);
 }
 
-async function compileWat({ text, exports }) {
+async function compileWat({ text, exports, imports }) {
   // TODO: imports
+  // console.log({ imports });
   let wat = text;
   wabt ??= await Wabt();
   let wabtModule = wabt.parseWat("", wat, wasmFeatures);
@@ -65,7 +66,10 @@ async function compileWat({ text, exports }) {
     js: `// compiled from wat
 import { toBytes } from 'fast-base64';
 let wasmBytes = await toBytes("${base64}");
-let { instance } = await WebAssembly.instantiate(wasmBytes, {});
+let { instance } = await WebAssembly.instantiate(
+  wasmBytes,
+  { js: { 'console.log': console.log } }
+);
 let { ${[...exports].join(", ")} } = instance.exports;
 export { ${[...exports].join(", ")} };
 `,

@@ -10,6 +10,7 @@ export {
   forLoop1,
   addExport,
   addFuncExport,
+  addCodeImport,
   ops,
 };
 
@@ -54,7 +55,7 @@ function Writer(initial = "") {
     text,
     indent,
     exports: new Set(),
-    imports: {},
+    imports: [],
     write,
     remove,
     spaces,
@@ -103,20 +104,20 @@ function getOperations() {
   function maybeLocalGet(a) {
     return typeof a === "string" && a[0] === "$" ? op("local.get")(a) : a;
   }
-  function mapArgs(bits, args) {
+  function mapIntArgs(bits, args) {
     return args.map((a) =>
       typeof a === "number" || typeof a === "bigint"
         ? constOp(bits, a)
         : maybeLocalGet(a)
     );
   }
-  function mappedArgs(bits, op) {
-    return (...args) => op(...mapArgs(bits, args));
+  function mappedIntArgs(bits, op) {
+    return (...args) => op(...mapIntArgs(bits, args));
   }
 
   function int(bits) {
     function iOp(name) {
-      return mappedArgs(bits, op(`i${bits}.${name}`));
+      return mappedIntArgs(bits, op(`i${bits}.${name}`));
     }
     return {
       const: (a) => constOp(bits, a),
@@ -134,6 +135,7 @@ function getOperations() {
       and: iOp("and"),
       or: iOp("or"),
       not: iOp("not"),
+      shr_s: iOp("shr_s"),
       shr_u: iOp("shr_u"),
       shl: iOp("shl"),
       eq: iOp("eq"),
@@ -149,7 +151,7 @@ function getOperations() {
     ...int(64),
     extend_i32_u: op("i64.extend_i32_u"),
     load32_u: (from, { offset = 0 } = {}) =>
-      mappedArgs(64, op("i64.load32_u"))(`offset=${offset}`, from),
+      mappedIntArgs(64, op("i64.load32_u"))(`offset=${offset}`, from),
   };
   let i32 = { ...int(32), wrap_i64: op("i32.wrap_i64") };
   return {
@@ -157,8 +159,8 @@ function getOperations() {
     i32,
     local: Object.assign(op("local"), {
       get: op("local.get"),
-      set: op("local.set"),
-      tee: op("local.tee"),
+      set: (to, ...args) => op("local.set")(to, ...args.map(maybeLocalGet)),
+      tee: (to, ...args) => op("local.tee")(to, ...args.map(maybeLocalGet)),
     }),
     local32: (name) => op("local")(name, "i32"),
     local64: (name) => op("local")(name, "i64"),
@@ -182,6 +184,8 @@ function getOperations() {
     result32: op("result")("i32"),
     result64: op("result")("i64"),
     export: (name, ...args) => op("export")(`"${name}"`, ...args),
+    import: (name, name1, ...args) =>
+      op("import")(`"${name}"`, `"${name1}"`, ...args),
     call: (name, ...args) => op("call")("$" + name, ...args.map(maybeLocalGet)),
     memory: Object.assign(
       (name, ...args) => op("memory")("$" + name, ...args),
@@ -211,6 +215,10 @@ function addExport(W, name, thing) {
 function addFuncExport(W, name) {
   W.exports.add(name);
   W.line(ops.export(name, ops.func(name)));
+}
+function addCodeImport(W, code, spec) {
+  W.imports.push({ code, spec });
+  W.line(ops.import("js", code, spec));
 }
 
 function forLoop8(writer, i, i0, length, callback) {

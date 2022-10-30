@@ -11,7 +11,7 @@ import {
   subtractPositive,
   inverse,
   multiplySchoolbook,
-  barrett,
+  batchInverse,
 } from "./src/finite-field.wat.js";
 import {
   p,
@@ -27,7 +27,7 @@ import {
 } from "./src/finite-field.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
-import { batchInverseInPlace } from "./src/curve-affine.js";
+// import { batchInverse } from "./src/curve-affine.js";
 import { modInverse } from "./src/finite-field-js.js";
 import { testDecomposeRandomScalar } from "./src/scalar-glv.js";
 // web crypto compat
@@ -86,9 +86,6 @@ function test() {
   let xy0 = x0 * y0;
   z0 = mod(x0 * y0, p);
   multiplySchoolbook(z, x, y);
-  let xy = readBigInt(z, 2);
-  console.assert(xy0 === xy, "barrett: x*y");
-  barrett(z);
   z1 = readBigInt(z);
   let l = readBigInt(z_hi);
   let lTrue = (xy0 - z0) / p;
@@ -165,14 +162,14 @@ function testBatchMontgomery() {
     inverse(scratch[0], invX[i], X[i]);
   }
   // compute inverses as batch
-  let tmpX = getPointers(n);
-  batchInverseInPlace(scratch, tmpX, X, n);
+  let invX1 = getPointers(n);
+  batchInverse(scratch[0], invX1[0], X[0], n);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {
-    if (mod(readBigInt(X[i]) - readBigInt(invX[i]), p) !== 0n)
+    if (mod(readBigInt(invX1[i]) - readBigInt(invX[i]), p) !== 0n)
       throw Error("batch inverse");
-    if (!isEqual(reduce(X[i]), reduce(invX[i])))
+    if (!isEqual(reduce(invX1[i]), reduce(invX[i])))
       console.warn("WARNING: batch inverse not exactly equal after reducing");
   }
 }

@@ -10,6 +10,15 @@ if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
+tic("warm-up JIT compiler with fixed set of points");
+{
+  let { points, scalars } = await load(14);
+  msmAffine(scalars, points);
+  await new Promise((r) => setTimeout(r, 100));
+  msmAffine(scalars, points);
+}
+toc();
+
 tic("load inputs & convert to rust");
 let points, scalars;
 if (n >= 12) {
@@ -34,5 +43,3 @@ console.log(`
   stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
   total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 `);
-
-console.log({ x, y });

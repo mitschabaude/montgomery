@@ -4,6 +4,7 @@ import { bigintFromBytes, bigintToBits } from "./util.js";
 export {
   mod,
   p,
+  beta,
   scalar,
   modExp,
   modInverse,
@@ -16,6 +17,8 @@ export {
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
+let beta =
+  0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaacn;
 
 let scalar = {
   p: 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n,

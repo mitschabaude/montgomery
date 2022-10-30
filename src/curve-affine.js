@@ -16,6 +16,8 @@ import {
   getAndResetOpCounts,
   addAffine,
   readBytes,
+  getPointersInMemory,
+  getEmptyPointersInMemory,
 } from "./finite-field.js";
 import {
   multiply,
@@ -27,12 +29,14 @@ import {
   subtractPositive,
   inverse,
   endomorphism,
+  batchInverse,
+  batchAddUnsafe,
   // } from "./finite-field.wat.js";
 } from "./finite-field.wasm";
 import { decomposeScalar } from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
-export { msmAffine, batchAdd, batchInverseInPlace };
+export { msmAffine, batchAdd };
 
 /**
  * @typedef {number} AffinePoint
@@ -60,18 +64,9 @@ let numberOfDoubles = 0;
 
 let cTable = {
   // all of the numbers in comments are wrong
-  [14]: [13, 6],
-  // [16]: [13, 5], // 8.244
-  [16]: [15, 7], // 8.240
-  // [16]: [13, 7], // 8.254
-  // [16]: [14, 6], // 8.259
-  // [16]: [14, 7], // 8.266
-  // [18]: [15, 6], // 28.7 M
-  // [18]: [15, 7], // 28.76 M
-  // [18]: [15, 8], // 28.8 M
-  // [18]: [16, 6], // 28.06 M
-  [18]: [16, 7], // 28.01 M
-  // [18]: [16, 8], // 28.02 M
+  [14]: [13, 6], // 2.28 / 2.21 real
+  [16]: [15, 7], // 8.09 / 7.86 real
+  [18]: [16, 7], // 28.4 M / 27.5 real
 };
 
 /**
@@ -93,10 +88,10 @@ function msmAffine(scalars, inputPoints) {
   let L = 2 ** (c - 1); // number of buckets per partition, +1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
-  let points = getPointers(N, sizeAffine); // initialize points
-  let negPoints = getPointers(N, sizeAffine);
-  let endoPoints = getPointers(N, sizeAffine);
-  let negEndoPoints = getPointers(N, sizeAffine);
+  let [points] = getPointersInMemory(N, sizeAffine); // initialize points
+  let [negPoints] = getPointersInMemory(N, sizeAffine);
+  let [endoPoints] = getPointersInMemory(N, sizeAffine);
+  let [negEndoPoints] = getPointersInMemory(N, sizeAffine);
 
   // a bucket is an array of pointers that will gradually get accumulated into the first element
   // initialize a L*K matrix of buckets
@@ -111,7 +106,7 @@ function msmAffine(scalars, inputPoints) {
       buckets[k][l] = [];
     }
   }
-  let scratchSpace = getPointers(30);
+  let scratch = getPointers(30);
 
   let maxBucketSize = 0;
   let nPairs = 0; // we need to allocate space for one pointer per addition pair
@@ -132,8 +127,8 @@ function msmAffine(scalars, inputPoints) {
     // convert point to montgomery
     let x = point;
     let y = point + sizeField;
-    writeBytes(scratchSpace, x, inputPoint[0]);
-    writeBytes(scratchSpace, y, inputPoint[1]);
+    writeBytes(scratch, x, inputPoint[0]);
+    writeBytes(scratch, y, inputPoint[1]);
     let isNonZero = Number(!inputPoint[2]);
     memoryBytes[point + 2 * sizeField] = isNonZero;
     toMontgomery(x);
@@ -150,57 +145,42 @@ function msmAffine(scalars, inputPoints) {
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
     // decompose scalar from one 32-byte into two 16-byte chunks
-    let [scalar0, scalar1] = decomposeScalar(scalar);
-
+    let scalarParts = decomposeScalar(scalar);
+    let pointParts = [
+      { point, negPoint },
+      { point: endoPoint, negPoint: negEndoPoint },
+    ];
     // partition each 16-byte scalar into c-bit chunks
-    let carry = 0;
-    for (let k = 0; k < K; k++) {
-      // compute k-th digit from scalar
-      let l = extractBitSlice(scalar0, k * c, c) + carry;
-      if (l > L) {
-        l = doubleL - l;
-        carry = 1;
-      } else {
-        carry = 0;
+    for (let s = 0; s < 2; s++) {
+      let carry = 0;
+      let scalar = scalarParts[s];
+      let { point, negPoint } = pointParts[s];
+      for (let k = 0; k < K; k++) {
+        // compute k-th digit from scalar
+        let l = extractBitSlice(scalar, k * c, c) + carry;
+        let G = point;
+        if (l > L) {
+          l = doubleL - l;
+          carry = 1;
+          G = negPoint;
+        } else {
+          carry = 0;
+        }
+        if (l === 0) continue;
+        // add point to bucket
+        let bucket = buckets[k][l];
+        bucket.push(G);
+        let bucketSize = bucket.length;
+        if ((bucketSize & 1) === 0) nPairs++;
+        if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
-      if (l === 0) continue;
-      // add point to bucket
-      let bucket = buckets[k][l];
-      bucket.push(carry === 1 ? negPoint : point);
-      let bucketSize = bucket.length;
-      if ((bucketSize & 1) === 0) nPairs++;
-      if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
-    }
-    carry = 0;
-    for (let k = 0; k < K; k++) {
-      // compute k-th digit from scalar
-      let l = extractBitSlice(scalar1, k * c, c) + carry;
-      if (l > L) {
-        l = doubleL - l;
-        carry = 1;
-      } else {
-        carry = 0;
-      }
-      if (l === 0) continue;
-      // add point to bucket
-      let bucket = buckets[k][l];
-      bucket.push(carry === 1 ? negEndoPoint : endoPoint);
-      let bucketSize = bucket.length;
-      if ((bucketSize & 1) === 0) nPairs++;
-      if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
     }
   }
-  /**
-   * @type {number[]}
-   */
-  let G = Array(nPairs); // holds first summands
-  /**
-   * @type {number[]}
-   */
-  let H = Array(nPairs); // holds second summands
-  let P = getPointers(nPairs + K * (L + 1), sizeAffine); // holds sums
-  let denominators = getPointers(nPairs);
-  let tmp = getPointers(nPairs);
+  let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
+  let [H, hPtr] = getEmptyPointersInMemory(nPairs); // holds second summands
+  let [P, pPtr] = getPointersInMemory(nPairs + K * (L + 1), sizeAffine); // holds sums
+  let [denom] = getPointersInMemory(nPairs);
+  let [tmp] = getPointersInMemory(nPairs);
 
   // first stage
   // batch-add buckets into their first point, in `maxBucketSize` iterations
@@ -232,7 +212,7 @@ function msmAffine(scalars, inputPoints) {
       }
     }
     // now (P,G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratchSpace, tmp, denominators, P, G, H, nPairs);
+    batchAddUnsafe(scratch[0], tmp[0], denom[0], pPtr, gPtr, hPtr, nPairs);
   }
   // now let's repeat until we summed all buckets into one element
   for (m *= 2; m < maxBucketSize; m *= 2) {
@@ -253,7 +233,7 @@ function msmAffine(scalars, inputPoints) {
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     // this time, we add with assignment since the left summands G are not original points
-    batchAddUnsafe(scratchSpace, tmp, denominators, G, G, H, nPairs);
+    batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
   }
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
@@ -262,12 +242,7 @@ function msmAffine(scalars, inputPoints) {
 
   // second stage
   // let partialSums = reduceBucketsSimple(scratchSpace, buckets, { K, L });
-  let partialSums = reduceBucketsAffine(
-    scratchSpace,
-    buckets,
-    { c, K, L },
-    depth
-  );
+  let partialSums = reduceBucketsAffine(scratch, buckets, { c, K, L }, depth);
 
   let [nMul2, nInv2] = getAndResetOpCounts();
 
@@ -279,14 +254,14 @@ function msmAffine(scalars, inputPoints) {
   k--;
   for (; k >= 0; k--) {
     for (let j = 0; j < c; j++) {
-      doubleInPlaceProjective(scratchSpace, finalSum);
+      doubleInPlaceProjective(scratch, finalSum);
     }
     let partialSum = partialSums[k];
-    addAssignProjective(scratchSpace, finalSum, partialSum);
+    addAssignProjective(scratch, finalSum, partialSum);
   }
 
   // convert final sum back to affine point
-  let result = toAffineOutput(scratchSpace, finalSum);
+  let result = toAffineOutput(scratch, finalSum);
 
   let [nMul3, nInv3] = getAndResetOpCounts();
 
@@ -314,30 +289,34 @@ function msmAffine(scalars, inputPoints) {
 function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // depth = 0 is the standard algorithm, just batch-added over the K partitions
   // the loops over d=0,..,D-1 reduce to one operation with d=0 in that case
-  let c0 = c - depth;
+  let c0 = c - 1 - depth;
   let D = 2 ** depth;
   let n = D * K;
   let L0 = 2 ** c0; // == L/D
   // console.log(`doing ${D} * ${K} = ${n} adds at a time`);
 
-  let d = getPointers(K * L, sizeAffine);
-  let tmp = getPointers(K * L, sizeAffine);
+  let [d] = getPointersInMemory(K * L, sizeField);
+  let [tmp] = getPointersInMemory(K * L, sizeField);
 
   // normalize the way buckets are stored -- we'll store intermediate running sums there
-  // just add new zero pointers here for empty buckets
+  // copy bucket sums into new contiguous pointers to improve memory access
   /** @type {number[][]} */
   let buckets = Array(K);
   for (let k = 0; k < K; k++) {
-    buckets[k] = Array(L + 1);
+    let oldBucketsK = oldBuckets[k];
+    let bucketsK = getZeroPointers(L + 1, sizeAffine);
+    buckets[k] = bucketsK;
     for (let l = 1; l <= L; l++) {
-      buckets[k][l] = oldBuckets[k][l][0] || getZeroPointer(sizeAffine);
+      let oldBucket = oldBucketsK[l];
+      if (oldBucket.length === 0) continue;
+      let ptr = oldBucket[0];
+      let newPtr = bucketsK[l];
+      copyAffine(newPtr, ptr);
     }
   }
 
-  /** @type {number[]} */
-  let runningSums = Array(n);
-  /** @type {number[]} */
-  let nextBuckets = Array(n);
+  let [runningSums] = getEmptyPointersInMemory(n);
+  let [nextBuckets] = getEmptyPointersInMemory(n);
 
   // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 1; l > 0; l--) {
@@ -411,8 +390,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // round j: let m=2^j; (l,l+m) for l=1; l<L; l+=2*m
   // in the last round we want 1 pair (1, 1 + m=2^(c-1)), so we want m < 2**c = L
 
-  let G = Array(K * L);
-  let H = Array(K * L);
+  let [G] = getEmptyPointersInMemory(K * L);
+  let [H] = getEmptyPointersInMemory(K * L);
 
   for (let m = 1; m < L; m *= 2) {
     p = 0;
@@ -449,18 +428,18 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
  * the performance improvement is in the ballpark of 1-3%
  *
  * @param {number[]} scratch
- * @param {number[]} tmp pointers of length n
- * @param {number[]} d pointers of length n
- * @param {AffinePoint[]} S
- * @param {AffinePoint[]} G
- * @param {AffinePoint[]} H
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} S
+ * @param {Uint32Array} G
+ * @param {Uint32Array} H
  * @param {number} n
  */
-function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
+function batchAddUnsafeJs(scratch, tmp, d, S, G, H, n) {
   for (let i = 0; i < n; i++) {
-    subtractPositive(d[i], H[i], G[i]);
+    subtractPositive(tmp[i], H[i], G[i]);
   }
-  batchInverseInPlace(scratch, tmp, d, n);
+  batchInverse(scratch[0], d[0], tmp[0], n);
   for (let i = 0; i < n; i++) {
     addAffine(scratch[0], S[i], G[i], H[i], d[i]);
   }
@@ -472,11 +451,11 @@ function batchAddUnsafe(scratch, tmp, d, S, G, H, n) {
  * Si = Gi + Hi, i=0,...,n-1
  *
  * @param {number[]} scratch
- * @param {number[]} tmp pointers of length n
- * @param {number[]} d pointers of length n
- * @param {AffinePoint[]} S
- * @param {AffinePoint[]} G
- * @param {AffinePoint[]} H
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} S
+ * @param {Uint32Array} G
+ * @param {Uint32Array} H
  * @param {number} n
  */
 function batchAdd(scratch, tmp, d, S, G, H, n) {
@@ -485,10 +464,10 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
   // check G, H for zero
   let iAdd = Array(n);
   let iDouble = Array(n);
+  let iBoth = Array(n);
   let nAdd = 0;
   let nDouble = 0;
   let nBoth = 0;
-  let dBoth = Array(n);
 
   for (let i = 0; i < n; i++) {
     if (isZeroAffine(G[i])) {
@@ -502,27 +481,27 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
     if (isEqual(G[i], H[i])) {
       // TODO: handle y1 === -y2; right now we just assume y1 === y2
       let y = G[i] + sizeField;
-      add(d[i], y, y); // TODO: efficient doubling
+      add(tmp[nBoth], y, y); // TODO: efficient doubling
       iDouble[nDouble] = i;
-      dBoth[nBoth] = d[i];
+      iBoth[i] = nBoth;
       nDouble++, nBoth++;
     } else {
       // TODO: here, we need to handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      subtractPositive(d[i], H[i], G[i]);
+      subtractPositive(tmp[nBoth], H[i], G[i]);
       iAdd[nAdd] = i;
-      dBoth[nBoth] = d[i];
+      iBoth[i] = nBoth;
       nAdd++, nBoth++;
     }
   }
-  batchInverseInPlace(scratch, tmp, dBoth, nBoth);
+  batchInverse(scratch[0], d[0], tmp[0], nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
-    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
+    addAffine(scratch[0], S[i], G[i], H[i], d[iBoth[i]]);
   }
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
-    doubleAffine(scratch, S[i], G[i], d[i]);
+    doubleAffine(scratch, S[i], G[i], d[iBoth[i]]);
   }
 }
 
@@ -532,9 +511,9 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
  * Gi *= 2, i=0,...,n-1
  *
  * @param {number[]} scratch
- * @param {number[]} tmp pointers of length n
- * @param {number[]} d pointers of length n
- * @param {AffinePoint[]} G
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} G
  * @param {number} n
  */
 function batchDoubleInPlace(scratch, tmp, d, G, n) {
@@ -548,10 +527,10 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
     G1[n1] = G[i];
     // TODO: confirm that y === 0 can't happen, either bc 0 === x^3 + 4 has no solutions in the field or bc the (x,0) aren't in G1
     let y = G1[n1] + sizeField;
-    add(d[n1], y, y); // TODO: efficient doubling
+    add(tmp[n1], y, y); // TODO: efficient doubling
     n1++;
   }
-  batchInverseInPlace(scratch, tmp, d, n1);
+  batchInverse(scratch[0], d[0], tmp[0], n1);
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
@@ -589,47 +568,6 @@ function doubleAffine([m, tmp, x2, y2], H, G, d) {
   // H = x2,y2
   copy(xOut, x2);
   copy(yOut, y2);
-}
-
-/**
- * @param {number[]} scratch
- * @param {number[]} tmpX tmp pointers of at least length n
- * @param {number[]} X points to invert, at least length n
- * @param {number} n length
- */
-function batchInverseInPlace([invProd, ...scratch], tmpX, X, n) {
-  // TODO: this can be made faster and cleaner by merging the 2nd and 3rd loop
-  if (n === 0) return;
-  if (n === 1) {
-    inverse(scratch[0], invProd, X[0]);
-    copy(X[0], invProd);
-    return;
-  }
-  // tmpX = [x0, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
-  // tmpX[i] = x0*...*xi
-  copy(tmpX[0], X[0]);
-  for (let i = 1; i < n; i++) {
-    multiply(tmpX[i], tmpX[i - 1], X[i]);
-  }
-  // X[0] = 1/(x0*....*x(n-1)) = 1/tmpX[n-1]
-  inverse(scratch[0], invProd, tmpX[n - 1]);
-
-  // X = [garbage, 1/x0, 1/(x0*x1), ..., 1/(x0*....*x(n-2))] (X[i] = 1/(x0*...*x(i-1)))
-  // by X[n-1] = invProd * X[n-1], X[i] = X[i+1] * X[i], i >= 1
-  // (x0 is not needed for this computation)
-  multiply(X[n - 1], invProd, X[n - 1]);
-  for (let i = n - 2; i >= 1; i--) {
-    multiply(X[i], X[i + 1], X[i]);
-  }
-  // X = [1/x0, 1/x1, ..., 1/(x(n-1))]
-  // by X[0] = X[1],
-  // X[i] = 1/xi = (x0*...*x(i-1)) / (x0*...*x(i-1)*xi) = tmpX[i-1] * X[i+1], 1 <= i <= n-2
-  // X[n-1] = tmpX[n-2] * invProd
-  copy(X[0], X[1]);
-  for (let i = 1; i < n - 1; i++) {
-    multiply(X[i], tmpX[i - 1], X[i + 1]);
-  }
-  multiply(X[n - 1], tmpX[n - 2], invProd);
 }
 
 /**
@@ -742,6 +680,36 @@ function copyAffineToProjectiveNonZero(P, A) {
   memoryBytes[P + 3 * sizeField] = 1;
   // isInfinity = isInfinity
   // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
+}
+
+/**
+ * @param {number[]} scratch
+ * @param {Uint32Array} invX inverted fields of at least length n
+ * @param {Uint32Array} X fields to invert, at least length n
+ * @param {number} n length
+ */
+function batchInverseJs([I, tmp], invX, X, n) {
+  if (n === 0) return;
+  if (n === 1) {
+    inverse(tmp, invX[0], X[0]);
+    return;
+  }
+  // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
+  // invX[i] = x0*...*xi
+  multiply(invX[1], X[1], X[0]);
+  for (let i = 2; i < n; i++) {
+    multiply(invX[i], invX[i - 1], X[i]);
+  }
+  // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
+  inverse(tmp, I, invX[n - 1]);
+
+  for (let i = n - 1; i > 1; i--) {
+    multiply(invX[i], invX[i - 1], I);
+    multiply(I, I, X[i]);
+  }
+  // now I = 1/(x0*x1)
+  multiply(invX[1], X[0], I);
+  multiply(invX[0], I, X[1]);
 }
 
 /**

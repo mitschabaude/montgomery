@@ -1,6 +1,7 @@
 import { bigintToBits, bigintToBytes, bigintToLegs, log2 } from "./util.js";
 import { mod, modInverse, randomBaseFieldx2 } from "./finite-field-js.js";
 import {
+  addCodeImport,
   addExport,
   addFuncExport,
   block,
@@ -14,7 +15,7 @@ import {
   ops,
   Writer,
 } from "./wasm-generate.js";
-import { barrett, multiply } from "./finite-field-multiply.js";
+import { barrett, karatsuba30, multiply } from "./finite-field-multiply.js";
 
 // main API
 export {
@@ -256,7 +257,9 @@ async function createFiniteFieldWat(
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    32768,
+    // this is the number of "pages" of 2^16 bytes each
+    // max # pages is 2^16, which gives us 2^16*2^16 = 2^32 bytes = 4 GB
+    1 << 15,
     () => {
       addAffine(writer, p, w);
       wasmInverse(writer, p, w, { countOperations: !!withBenchmarks });
@@ -272,6 +275,10 @@ async function createFiniteFieldWat(
 
       barrett(writer, p, w, { withBenchmarks });
 
+      if (w === 30) {
+        karatsuba30(writer, p, w, { withBenchmarks });
+      }
+
       if (endoCubeRoot !== undefined) {
         endomorphism(writer, p, w, { beta: endoCubeRoot });
       }
@@ -282,6 +289,12 @@ async function createFiniteFieldWat(
         benchSubtract(writer);
       }
     }
+    // {
+    //   "console.log": [
+    //     ops.func("log", ops.param32()),
+    //     ops.func("log64", ops.param64()),
+    //   ],
+    // }
   );
   return writer;
 }
@@ -297,7 +310,7 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    32768,
+    1,
     () => {
       barrett(writer, lambda, w, { withBenchmarks });
       glv(writer, q, lambda, w);
@@ -317,8 +330,8 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
 function addAffine(writer, p, w) {
   let { n } = montgomeryParams(p, w);
   let sizeField = 8 * n;
-  let { line, lines } = writer;
-  let { i32, local, local32, param32, call } = ops;
+  let { line, lines, comment } = writer;
+  let { i32, local, local32, param32, call, return_, br_if } = ops;
 
   let [x3, x1, x2, y3, y1, y2] = ["$x3", "$x1", "$x2", "$y3", "$y1", "$y2"];
   let [m, tmp, d] = ["$m", "$tmp", "$d"];
@@ -339,16 +352,145 @@ function addAffine(writer, p, w) {
         ";; mark output point as non-zero", // mark output point as non-zero
         i32.store8(x3, 1, { offset: 2 * sizeField }),
         ";; m = (y2 - y1)*d", // m = (y2 - y1)*d
-        call("subtractPositive", m, y2, y1),
-        call("multiply", m, m, d),
+        call("multiplyDifference", m, d, y2, y1),
         ";; x3 = m^2 - x1 - x2", // x3 = m^2 - x1 - x2
         call("square", tmp, m),
         call("subtract", x3, tmp, x1),
         call("subtract", x3, x3, x2),
         ";; y3 = (x2 - x3)*m - y2", // y3 = (x2 - x3)*m - y2
-        call("subtractPositive", y3, x2, x3),
-        call("multiply", y3, y3, m),
+        call("multiplyDifference", y3, m, x2, x3),
         call("subtract", y3, y3, y2)
+      );
+    }
+  );
+
+  let [scratch, S, G, H] = ["$scratch", "$S", "$G", "$H"];
+  let [I, x, $n, $i, $j, $N] = ["$I", "$x", "$n", "$i", "$j", "$N"];
+
+  addFuncExport(writer, "batchAddUnsafe");
+  func(
+    writer,
+    "batchAddUnsafe",
+    [
+      param32(scratch),
+      param32(d),
+      param32(x),
+      param32(S),
+      param32(G),
+      param32(H),
+      param32($n),
+    ],
+    () => {
+      line(local32($i), local32($j), local32(I), local32($N));
+      lines(
+        local.set(I, scratch),
+        local.set(scratch, i32.add(scratch, sizeField)),
+        local.set($N, i32.mul($n, sizeField))
+      );
+      comment("return early if n = 0 or 1");
+      line(i32.eqz($n));
+      if_(writer, () => {
+        line(return_());
+      });
+      line(i32.eq($n, 1));
+      if_(writer, () => {
+        lines(
+          call("subtractPositive", x, i32.load(H), i32.load(G)),
+          call("inverse", scratch, d, x),
+          call("addAffine", scratch, i32.load(S), i32.load(G), i32.load(H), d),
+          return_()
+        );
+      });
+
+      comment("create products di = x0*...*xi, where xi = Hi_x - Gi_x");
+      lines(
+        call("subtractPositive", x, i32.load(H), i32.load(G)),
+        call(
+          "subtractPositive",
+          i32.add(x, sizeField),
+          i32.load(H, { offset: 4 }),
+          i32.load(G, { offset: 4 })
+        ),
+        call("multiply", i32.add(d, sizeField), i32.add(x, sizeField), x),
+        i32.eq($n, 2)
+      );
+      if_(writer, () => {
+        lines(
+          call("inverse", scratch, I, i32.add(d, sizeField)),
+          call("multiply", i32.add(d, sizeField), x, I),
+          call(
+            "addAffine",
+            scratch,
+            i32.load(S, { offset: 4 }),
+            i32.load(G, { offset: 4 }),
+            i32.load(H, { offset: 4 }),
+            i32.add(d, sizeField)
+          ),
+          call("multiply", d, i32.add(x, sizeField), I),
+          call("addAffine", scratch, i32.load(S), i32.load(G), i32.load(H), d),
+          return_()
+        );
+      });
+      line(local.set($i, i32.const(2 * sizeField)));
+      line(local.set($j, i32.const(2 * 4)));
+      loop(writer, () => {
+        lines(
+          call(
+            "subtractPositive",
+            i32.add(x, $i),
+            i32.load(i32.add(H, $j)),
+            i32.load(i32.add(G, $j))
+          ),
+          call(
+            "multiply",
+            i32.add(d, $i),
+            i32.add(d, i32.sub($i, sizeField)),
+            i32.add(x, $i)
+          ),
+          local.set($j, i32.add($j, 4)),
+          br_if(0, i32.ne($N, local.tee($i, i32.add($i, sizeField))))
+        );
+        line();
+      });
+      comment("inverse I = 1/(x0*...*x(n-1))");
+      line(call("inverse", scratch, I, i32.add(d, i32.sub($N, sizeField))));
+      comment("create inverses 1/x(n-1), ..., 1/x2");
+      line(local.set($i, i32.sub($N, sizeField)));
+      line(local.set($j, i32.sub($j, 4)));
+      loop(writer, () => {
+        lines(
+          call(
+            "multiply",
+            i32.add(d, $i),
+            i32.add(d, i32.sub($i, sizeField)),
+            I
+          ),
+          call(
+            "addAffine",
+            scratch,
+            i32.load(i32.add(S, $j)),
+            i32.load(i32.add(G, $j)),
+            i32.load(i32.add(H, $j)),
+            i32.add(d, $i)
+          ),
+          call("multiply", I, I, i32.add(x, $i)),
+          local.set($j, i32.sub($j, 4)),
+          br_if(0, i32.ne(sizeField, local.tee($i, i32.sub($i, sizeField))))
+        );
+      });
+      comment("1/x1, 1/x0");
+      lines(
+        call("multiply", i32.add(d, sizeField), x, I),
+        call(
+          "addAffine",
+          scratch,
+          i32.load(S, { offset: 4 }),
+          i32.load(G, { offset: 4 }),
+          i32.load(H, { offset: 4 }),
+          i32.add(d, sizeField)
+        ),
+        call("multiply", d, i32.add(x, sizeField), I),
+        call("addAffine", scratch, i32.load(S), i32.load(G), i32.load(H), d)
       );
     }
   );
@@ -360,7 +502,7 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
   // constants
   let sizeField = 8 * n;
 
-  let { line, lines } = writer;
+  let { line, lines, comment } = writer;
   let {
     i64,
     i32,
@@ -373,6 +515,7 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     call,
     br_if,
     br,
+    return_,
   } = ops;
 
   // count multiplications to analyze higher-level algorithms
@@ -401,10 +544,10 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
   // * returns k-1 instead of k
   // * returns r < p unconditionally
   // * allows to batch left- / right-shifts
-  addFuncExport(writer, "almostInverseMontgomery");
+  addFuncExport(writer, "almostInverse");
   func(
     writer,
-    "almostInverseMontgomery",
+    "almostInverse",
     [param32(u), param32(r), param32(a), result32],
     () => {
       line(local32(v), local32(s), local32(k));
@@ -469,9 +612,13 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
     for (let i = 0; i < Number(mulInputFactor) * 2 - 1; i++) {
       line(call("reduce", a));
     }
+    // for debugging
+    // line(call("isZero", a));
+    // if_(writer, () => {
+    //   lines(call("log", i32.const(500)), return_());
+    // });
     lines(
-      //
-      call("almostInverseMontgomery", scratch, r, a),
+      call("almostInverse", scratch, r, a),
       local.set(k),
       // don't have to reduce r here, because it's already < p
       call("subtractNoReduce", r, global.get(pGlobal), r),
@@ -489,6 +636,76 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
       //     to a^(-1) 2^(-K+k + 2K -k) = a^(-1) 2^K = the montgomery representation of a^(-1)
     );
   });
+
+  let [I, z, x, $n, $i, $N] = ["$I", "$z", "$x", "$n", "$i", "$N"];
+
+  addFuncExport(writer, "batchInverse");
+  func(
+    writer,
+    "batchInverse",
+    [param32(scratch), param32(z), param32(x), param32($n)],
+    () => {
+      line(local32($i), local32(I), local32($N));
+      line(local.set(I, scratch));
+      line(local.set(scratch, i32.add(scratch, sizeField)));
+      line(local.set($N, i32.mul($n, sizeField)));
+      comment("return early if n = 0 or 1");
+      line(i32.eqz($n));
+      if_(writer, () => {
+        line(return_());
+      });
+      line(i32.eq($n, 1));
+      if_(writer, () => {
+        lines(call("inverse", scratch, z, x), return_());
+      });
+      comment("create products x0*x1, ..., x0*...*x(n-1)");
+      line(call("multiply", i32.add(z, sizeField), i32.add(x, sizeField), x));
+      line(i32.eq($n, 2));
+      if_(writer, () => {
+        lines(
+          call("inverse", scratch, I, i32.add(z, sizeField)),
+          call("multiply", i32.add(z, sizeField), x, I),
+          call("multiply", z, i32.add(x, sizeField), I),
+          return_()
+        );
+      });
+      line(local.set($i, i32.const(2 * sizeField)));
+      loop(writer, () => {
+        lines(
+          call(
+            "multiply",
+            i32.add(z, $i),
+            i32.add(z, i32.sub($i, sizeField)),
+            i32.add(x, $i)
+          )
+        );
+        line(br_if(0, i32.ne($N, local.tee($i, i32.add($i, sizeField)))));
+      });
+      comment("inverse I = 1/(x0*...*x(n-1))");
+      line(call("inverse", scratch, I, i32.add(z, i32.sub($N, sizeField))));
+      comment("create inverses 1/x(n-1), ..., 1/x2");
+      line(local.set($i, i32.sub($N, sizeField)));
+      loop(writer, () => {
+        lines(
+          call(
+            "multiply",
+            i32.add(z, $i),
+            i32.add(z, i32.sub($i, sizeField)),
+            I
+          ),
+          call("multiply", I, I, i32.add(x, $i))
+        );
+        line(
+          br_if(0, i32.ne(sizeField, local.tee($i, i32.sub($i, sizeField))))
+        );
+      });
+      comment("1/x1, 1/x0");
+      lines(
+        call("multiply", i32.add(z, sizeField), x, I),
+        call("multiply", z, i32.add(x, sizeField), I)
+      );
+    }
+  );
 
   if (countOperations) {
     let [i, N] = ["$i", "$N"];
@@ -541,7 +758,7 @@ function add(writer, p, w) {
         i64.load(y, { offset: 8 * i }),
         join(i64.add(), local.get(carry), i64.add()),
         // split result
-        join(local.tee(tmp), i64.const(w), i64.shr_u(), local.set(carry)),
+        join(local.tee(tmp), i64.const(w), i64.shr_s(), local.set(carry)),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i })
       );
     }
@@ -560,19 +777,19 @@ function add(writer, p, w) {
     });
     // third loop
     // if we're here, t >= 2p, so do t - 2p to get back in 0,..,2p-1
-    line(local.set(carry, i64.const(1)));
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2^w - 1 - 2p[i]) + out[i] + carry;
-        i64.const(wordMax - P2[i]),
+        // (carry, out[i]) = out[i] - 2p[i] + carry;
         i64.load(out, { offset: 8 * i }),
-        i64.add(),
+        i64.const(P2[i]),
+        i64.sub(),
         local.get(carry),
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
   }
@@ -595,58 +812,49 @@ function add(writer, p, w) {
  * @param {number} w
  */
 function subtract(writer, p, w) {
-  let { n, wordMax, R } = montgomeryParams(p, w);
+  let { n, wordMax } = montgomeryParams(p, w);
   // constants
-  let Rminus2P = bigintToLegs(R - mulInputFactor * 2n * p, w, n);
   let dP2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
-  let { line, lines, comment } = writer;
+  let { line, lines, comment, join } = writer;
   let { i64, local, local64, param32 } = ops;
 
   let [x, y, out] = ["$x", "$y", "$out"];
-  let [tmp, carry] = ["$tmp", "$carry"];
+  let [tmp] = ["$tmp"];
 
   function subtraction({ doReduce }) {
-    line(local64(tmp), local64(carry));
+    line(local64(tmp));
 
     // first loop: x - y
-    line(local.set(carry, i64.const(1)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2^w - 1) + x[i] - y[i] + carry;
-        i64.const(wordMax),
+        // (carry, out[i]) = x[i] - y[i] + carry;
         i64.load(x, { offset: 8 * i }),
-        i64.add(),
+        i > 0 && i64.add(),
         i64.load(y, { offset: 8 * i }),
         i64.sub(),
-        local.get(carry),
-        i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        (i < n - 1 || doReduce) && i64.shr_s(tmp, w) // put carry on the stack
       );
     }
     if (!doReduce) return;
-    // check if we underflowed by checking carry === 1 (in that case, we didn't and can return)
-    lines(i64.eq(carry, 1), `if return end`);
+    // check if we underflowed by checking carry === 0 (in that case, we didn't and can return)
+    lines(join(i64.const(0), i64.eq()), `if return end`);
     // second loop
-    // TODO I think this is wrong.. we can overflow intermediate values
-    // should just add 2p and ignore the overflow bit that we know we'll have
     // if we're here, y > x and out = x - y + R, while we want x - y + 2p
-    // so do (out - (R - 2p))
-    line(local.set(carry, i64.const(1)));
+    // so do (out += 2p) and ignore the known overflow of R
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2**w - 1 - (R - 2*p)[i]) + out[i] + carry;
-        i64.const(wordMax - Rminus2P[i]),
+        // (carry, out[i]) = (2*p)[i] + out[i] + carry;
+        i64.const(dP2[i]),
+        i > 0 && i64.add(),
         i64.load(out, { offset: 8 * i }),
-        i64.add(),
-        local.get(carry),
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        i < n - 1 && i64.shr_s(tmp, w)
       );
     }
   }
@@ -673,22 +881,20 @@ function subtract(writer, p, w) {
   function subtractPositive(f) {
     let f2P = bigintToLegs(BigInt(f) * 2n * p, w, n);
 
-    line(local64(tmp), local64(carry));
-    line(local.set(carry, i64.const(1)));
+    line(local64(tmp));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2p + 2^w - 1) + x[i] - y[i] + carry;
-        i64.const(wordMax + f2P[i]),
+        // (carry, out[i]) = 2p + x[i] - y[i] + carry;
+        i64.const(f2P[i]),
+        i > 0 && i64.add(),
         i64.load(x, { offset: 8 * i }),
         i64.add(),
         i64.load(y, { offset: 8 * i }),
         i64.sub(),
-        local.get(carry),
-        i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        i < n - 1 && i64.shr_s(tmp, w)
       );
     }
   }
@@ -739,19 +945,19 @@ function reduce(writer, p, w, d = 1) {
       }
     });
     // if we're here, t >= dp but we assume t < 2dp, so do t - dp
-    line(local.set(carry, i64.const(1)));
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, x[i]) = (2^w - 1 - d*p[i]) + x[i] + carry;
-        i64.const(wordMax - dp[i]),
+        // (carry, x[i]) = x[i] - dp[i] + carry;
         i64.load(x, { offset: 8 * i }),
-        i64.add(),
+        i64.const(dp[i]),
+        i64.sub(),
         local.get(carry),
         i64.add(),
         local.set(tmp),
         i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
   });
@@ -1163,17 +1369,17 @@ function glv(writer, q, lambda, w) {
       }
     });
     // if we're here, r >= lambda so do r -= lambda and also l += 1
-    line(local.set(carry, i64.const(1)));
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, r[i]) = (2^w - 1 - lambda[i]) + carry + r[i];
-        i64.add(wordMax - LAMBDA[i], carry),
-        i64.load(r, { offset: 8 * i }),
-        i64.add(),
+        // (carry, r[i]) = r[i] - lambda[i] + carry;
+        i64.add(i64.load(r, { offset: 8 * i }), carry),
+        i64.const(LAMBDA[i]),
+        i64.sub(),
         local.set(tmp),
         i64.store(r, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
     line(local.set(carry, i64.const(1)));
@@ -1184,7 +1390,7 @@ function glv(writer, q, lambda, w) {
         i64.add(i64.load(l, { offset: 8 * i }), carry),
         local.set(tmp),
         i64.store(l, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
   });
@@ -1318,16 +1524,16 @@ function glv(writer, q, lambda, w) {
 /**
  * alternative addition with a much more efficient overflow check
  * at the cost of n `i64.add`s in first loop
- * -) compute z = (R - 2p) + x + y
- * -) z overflows R <==> x + y >= 2p (this check is just a single i64.eq)
- * -) if z overflows R, implicitly ignore R (highest bit) and return z = x + y - 2p
- * -) if z doesn't overflow, compute z - (R - 2p) = x + y and return it
+ * -) compute z = x + y - 2p
+ * -) z underflows <==> x + y < 2p (this check is just a single i64.eq)
+ * -) if z doesn't underflow, return z = x + y - 2p
+ * -) if z underflows, compute z + 2p = x + y and return it
  * performance is very similar to `add`
  */
 function add2(writer, p, w) {
   let { n, wordMax, R } = montgomeryParams(p, w);
   // constants
-  let Rminus2P = bigintToLegs(R - 2n * p, w, n);
+  let dP2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment, join } = writer;
   let { i64, local, local64, param32 } = ops;
 
@@ -1341,38 +1547,38 @@ function add2(writer, p, w) {
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = x[i] + y[i] + (R - 2p)[i] + carry;
-        i64.const(Rminus2P[i]),
+        // (carry, out[i]) = x[i] + y[i] - 2p[i] + carry;
         i64.load(x, { offset: 8 * i }),
-        i64.add(),
         i64.load(y, { offset: 8 * i }),
         i64.add(),
+        i64.const(dP2[i]),
+        i64.sub(),
         local.get(carry),
         i64.add(),
         // split result
-        join(local.tee(tmp), i64.const(w), i64.shr_u(), local.set(carry)),
+        join(local.tee(tmp), i64.const(w), i64.shr_s(), local.set(carry)),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i })
       );
     }
     if (!doReduce) return;
-    // check if we overflowed by checking carry === 1 (in that case, we did and can return)
-    lines(i64.eq(carry, 1), `if return end`);
+    // check if we underflowed by checking carry === 0 (in that case, we didn't and can return)
+    lines(i64.eq(carry, 0), `if return end`);
     // second loop
     // if we're here, x + y < 2p and out = x + y + R - 2p, while we want x + y
     // so do (out - (R - 2p))
-    line(local.set(carry, i64.const(1)));
+    line(local.set(carry, i64.const(0)));
     for (let i = 0; i < n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, out[i]) = (2**w - 1 - (R - 2*p)[i]) + out[i] + carry;
-        i64.const(wordMax - Rminus2P[i]),
+        // (carry, out[i]) = out[i] - 2p[i] + carry;
         i64.load(out, { offset: 8 * i }),
-        i64.add(),
+        i64.const(dP2[i]),
+        i64.sub(),
         local.get(carry),
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
-        local.set(carry, i64.shr_u(tmp, w))
+        local.set(carry, i64.shr_s(tmp, w))
       );
     }
   }
@@ -1508,7 +1714,7 @@ function multiply32(writer, p, w, { unrollOuter }) {
 function benchMultiply(W) {
   let { line } = W;
   let { local, local32, param32, call } = ops;
-  let [x, N, i] = ["$x", "$N", "$i"];
+  let [x, y, N, i] = ["$x", "$y", "$N", "$i"];
   addFuncExport(W, "benchMultiply");
   func(W, "benchMultiply", [param32(x), param32(N)], () => {
     line(local32(i));
@@ -1524,6 +1730,35 @@ function benchMultiply(W) {
       line(call("square", local.get(x), local.get(x)));
     });
   });
+
+  addFuncExport(W, "benchMultiplyUnrolled");
+  func(W, "benchMultiplyUnrolled", [param32(x), param32(N)], () => {
+    line(local32(i));
+    forLoop1(W, i, 0, local.get(N), () => {
+      line(call("multiplyUnrolled", local.get(x), local.get(x), local.get(x)));
+    });
+  });
+
+  addFuncExport(W, "benchMultiplyDifference");
+  func(
+    W,
+    "benchMultiplyDifference",
+    [param32(x), param32(y), param32(N)],
+    () => {
+      line(local32(i));
+      forLoop1(W, i, 0, local.get(N), () => {
+        line(
+          call(
+            "multiplyDifference",
+            local.get(x),
+            local.get(x),
+            local.get(x),
+            local.get(y)
+          )
+        );
+      });
+    }
+  );
 }
 function benchAdd(W) {
   let { line } = W;
@@ -1550,10 +1785,20 @@ function benchSubtract(W) {
   });
 }
 
-function moduleWithMemory(writer, comment_, memSize, callback) {
+function moduleWithMemory(writer, comment_, memSize, callback, imports = {}) {
   let { line, comment } = writer;
   comment(comment_);
   module(writer, () => {
+    for (let code in imports) {
+      let spec = imports[code];
+      if (Array.isArray(spec)) {
+        for (let s of spec) {
+          addCodeImport(writer, code, s);
+        }
+      } else {
+        addCodeImport(writer, code, spec);
+      }
+    }
     addExport(writer, "memory", ops.memory("memory"));
     line(ops.memory("memory", memSize));
     // global for the initial data offset
@@ -1744,6 +1989,43 @@ function jsHelpers(
       }
       obj.offset = offset;
       return pointers;
+    },
+
+    /**
+     * store pointers to memory in memory themselves
+     *
+     * @param {number} N
+     * @param {number} size size per pointer (default: one field element)
+     * @returns {[Uint32Array, number]}
+     */
+    getPointersInMemory(N, size = n * 8) {
+      let offset = obj.offset;
+      // memory addresses must be multiples of 8 for BigInt64Arrays
+      let length = ((N + 1) >> 1) << 1;
+      let pointerPtr = offset;
+      let pointers = new Uint32Array(memory.buffer, pointerPtr, length);
+      offset += length * 4;
+      for (let i = 0; i < N; i++) {
+        pointers[i] = offset;
+        offset += size;
+      }
+      obj.offset = offset;
+      return [pointers, pointerPtr];
+    },
+
+    /**
+     *
+     * @param {number} N
+     * @returns {[Uint32Array, number]}
+     */
+    getEmptyPointersInMemory(N) {
+      let offset = obj.offset;
+      // memory addresses must be multiples of 8 for BigInt64Arrays
+      let length = ((N + 1) >> 1) << 1;
+      let pointerPtr = offset;
+      let pointers = new Uint32Array(memory.buffer, pointerPtr, length);
+      obj.offset += length * 4;
+      return [pointers, pointerPtr];
     },
 
     resetPointers() {

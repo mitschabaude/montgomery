@@ -1,5 +1,5 @@
 import { tic, toc } from "./src/tictoc.js";
-import { p, randomBaseFieldx2, mod } from "./src/finite-field-js.js";
+import { p, randomBaseFieldx2, mod, beta } from "./src/finite-field-js.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
@@ -20,12 +20,14 @@ import { getPointers, writeBigint } from "./src/finite-field.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
-for (let w of [28, 30]) {
-  // for (let w of [28]) {
-  await compileFiniteFieldWasm(p, w, { withBenchmarks: true });
+for (let w of [30]) {
+  await compileFiniteFieldWasm(p, w, {
+    withBenchmarks: true,
+    endoCubeRoot: beta,
+  });
   console.log();
   let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
-  let ff = await createFiniteField(p, w, wasm);
+  let ff = createFiniteField(p, w, wasm);
   // let [x, z] = testCorrectness(p, w, ff);
   let [x, z] = getPointers(2);
   writeBigint(x, randomBaseFieldx2());
@@ -45,20 +47,46 @@ for (let w of [28, 30]) {
   );
 
   tic();
+  ff.benchMultiplyUnrolled(x, N);
+  let timeMulU = toc();
+  console.log(
+    `${(N / timeMulU / 1e6).toFixed(2).padStart(5)} mio. mun / s (mun = ${(
+      timeMulU / timeMul
+    ).toFixed(2)} mul)`
+  );
+
+  tic();
   ff.benchMultiplyBarrett(x, N);
   let timeMulB = toc();
-  tic();
-  ff.benchMultiplySchoolbook(x, N);
-  let timeMulSchool = toc();
-  let timeBarrett = timeMulB - timeMulSchool;
   console.log(
     `${(N / timeMulB / 1e6).toFixed(2).padStart(5)} mio. mba / s (mba = ${(
       timeMulB / timeMul
     ).toFixed(2)} mul)`
   );
+  let timeMulKara;
+  if (w === 30) {
+    tic();
+    ff.benchMultiplyKaratsuba(x, N);
+    timeMulKara = toc();
+    console.log(
+      `${(N / timeMulKara / 1e6).toFixed(2).padStart(5)} mio. mbk / s (mbk = ${(
+        timeMulKara / timeMul
+      ).toFixed(2)} mul)`
+    );
+  }
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
-  console.log(`schoolbook mul\t ${((timeMulSchool / N) * 1e9).toFixed(0)} ns`);
-  console.log(`barrett red\t ${((timeBarrett / N) * 1e9).toFixed(0)} ns`);
+  if (w === 30)
+    console.log(`barrett mulka\t ${((timeMulKara / N) * 1e9).toFixed(0)} ns`);
+  console.log(`barrett mulsb\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
+
+  tic();
+  ff.benchMultiplyDifference(x, z, N);
+  let timeMulDiff = toc();
+  console.log(
+    `${(N / timeMulDiff / 1e6).toFixed(2).padStart(5)} mio. mud / s (mud = ${(
+      timeMulDiff / timeMul
+    ).toFixed(2)} mul)`
+  );
 
   tic();
   ff.benchAdd(x, N);
