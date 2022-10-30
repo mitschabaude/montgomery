@@ -298,13 +298,19 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   let [tmp] = getPointersInMemory(K * L, sizeField);
 
   // normalize the way buckets are stored -- we'll store intermediate running sums there
-  // just add new zero pointers here for empty buckets
+  // copy bucket sums into new contiguous pointers to improve memory access
   /** @type {number[][]} */
   let buckets = Array(K);
   for (let k = 0; k < K; k++) {
-    buckets[k] = Array(L + 1);
+    let oldBucketsK = oldBuckets[k];
+    let bucketsK = getZeroPointers(L + 1, sizeAffine);
+    buckets[k] = bucketsK;
     for (let l = 1; l <= L; l++) {
-      buckets[k][l] = oldBuckets[k][l][0] || getZeroPointer(sizeAffine);
+      let oldBucket = oldBucketsK[l];
+      if (oldBucket.length === 0) continue;
+      let ptr = oldBucket[0];
+      let newPtr = bucketsK[l];
+      copyAffine(newPtr, ptr);
     }
   }
 
