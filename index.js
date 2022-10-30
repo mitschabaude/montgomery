@@ -65,7 +65,6 @@ if (true) {
   points = randomCurvePoints(2 ** n);
   scalars = randomScalars(2 ** n);
 }
-// TODO: loading into Rust memory fails for n >= 15
 let scalarVec = ScalarVectorInput.fromJsArray(scalars);
 let pointVec = PointVectorInput.fromJsArray(points);
 toc();
