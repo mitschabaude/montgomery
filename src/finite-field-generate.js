@@ -310,7 +310,7 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    1,
+    1 << 8,
     () => {
       barrett(writer, lambda, w, { withBenchmarks });
       glv(writer, q, lambda, w);

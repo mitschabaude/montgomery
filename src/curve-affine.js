@@ -31,7 +31,15 @@ import {
   batchInverse,
   batchAddUnsafe,
 } from "./finite-field.wat.js";
-import { decomposeScalar } from "./scalar-glv.js";
+import {
+  decompose,
+  scratchPtr,
+  freePtr,
+  writeBytesScalar,
+  scalarSize,
+  packedScalarSize,
+  readBytesScalar,
+} from "./scalar-glv.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export { msmAffine, batchAdd };
@@ -96,8 +104,8 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
   let pointsHelper = Array(2 * N);
   let negPointsHelper = Array(2 * N);
-  let isNegHelper = Array(2 * N);
   let scalarsHelper = Array(2 * N);
+  let scalarPtr = freePtr;
 
   /**
    * @type {(number)[][]}
@@ -147,18 +155,26 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     copy(negEndoPoint + sizeField, negPoint + sizeField);
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
-    // decompose scalar from one 32-byte into two 16-byte chunks
-    let scalarParts = decomposeScalar(scalar);
     pointsHelper[2 * i] = point;
     negPointsHelper[2 * i] = negPoint;
     pointsHelper[2 * i + 1] = endoPoint;
     negPointsHelper[2 * i + 1] = negEndoPoint;
+
+    // decompose scalar from one 32-byte into two 16-byte chunks
+    writeBytesScalar(scratchPtr, scalar);
+    decompose(scratchPtr);
+    let s0 = readBytesScalar(scalarPtr, scratchPtr);
+    scalarsHelper[2 * i] = s0;
+    scalarPtr += packedScalarSize;
+    let s1 = readBytesScalar(scalarPtr, scratchPtr + scalarSize);
+    scalarsHelper[2 * i + 1] = s1;
+    scalarPtr += packedScalarSize;
+    let scalarParts = [s0, s1];
+
     // partition each 16-byte scalar into c-bit chunks
     for (let s = 0; s < 2; s++) {
       let carry = 0;
       let scalar = scalarParts[s];
-      let scalars = Array(K);
-      let isNeg = Array(K);
       for (let k = 0; k < K; k++) {
         // compute k-th digit from scalar
         let l = extractBitSlice(scalar, k * c, c) + carry;
@@ -168,15 +184,11 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         } else {
           carry = 0;
         }
-        scalars[k] = l;
-        isNeg[k] = carry === 1;
         if (l === 0) continue;
         let bucketSize = ++bucketCounts[k][l];
         if ((bucketSize & 1) === 0) nPairs++;
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
-      scalarsHelper[2 * i + s] = scalars;
-      isNegHelper[2 * i + s] = isNeg;
     }
   }
   let bucketPointers = Array(K);
@@ -215,16 +227,22 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   for (let i = 0; i < 2 * N; i++) {
     let point = pointsHelper[i];
     let negPoint = negPointsHelper[i];
-    let scalars = scalarsHelper[i];
-    let isNeg = isNegHelper[i];
-
+    let scalar = scalarsHelper[i];
+    let carry = 0;
+    // recomputing the scalar slices here is faster than storing them
     for (let k = 0; k < K; k++) {
+      let l = extractBitSlice(scalar, k * c, c) + carry;
+      if (l > L) {
+        l = doubleL - l;
+        carry = 1;
+      } else {
+        carry = 0;
+      }
       let ptr0 = bucketPointers[k];
-      let l = scalars[k];
       if (l === 0) continue;
       let l0 = bucketCounts[k][l]++;
       let newPtr = ptr0 + l0 * sizeAffine;
-      let ptr = isNeg[k] ? negPoint : point;
+      let ptr = carry === 1 ? negPoint : point;
       copyAffine(newPtr, ptr);
     }
   }
@@ -1059,4 +1077,12 @@ function addAffineJs([m, tmp], G3, G1, G2, d) {
   subtractPositive(y3, x2, x3);
   multiply(y3, y3, m);
   subtract(y3, y3, y2);
+}
+
+function bytesEqual(b1, b2) {
+  if (b1.length !== b2.length) return false;
+  for (let i = 0; i < b1.length; i++) {
+    if (b1[i] !== b2[i]) return false;
+  }
+  return true;
 }
