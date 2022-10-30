@@ -94,17 +94,19 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let [endoPoints] = getPointersInMemory(N, sizeAffine);
   let [negEndoPoints] = getPointersInMemory(N, sizeAffine);
 
-  // a bucket is an array of pointers that will gradually get accumulated into the first element
-  // initialize a L*K matrix of buckets
+  let pointsHelper = Array(2 * N);
+  let negPointsHelper = Array(2 * N);
+  let isNegHelper = Array(2 * N);
+  let scalarsHelper = Array(2 * N);
+
   /**
-   * @type {(number | undefined)[][][]}
+   * @type {(number)[][]}
    */
-  let buckets = Array(K);
+  let bucketCounts = Array(K);
   for (let k = 0; k < K; k++) {
-    buckets[k] = Array(L + 1);
+    bucketCounts[k] = Array(L + 1);
     for (let l = 0; l <= L; l++) {
-      // TODO figure out most efficient initialization
-      buckets[k][l] = [];
+      bucketCounts[k][l] = 0;
     }
   }
   let scratch = getPointers(30);
@@ -147,49 +149,82 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
     // decompose scalar from one 32-byte into two 16-byte chunks
     let scalarParts = decomposeScalar(scalar);
-    let pointParts = [
-      { point, negPoint },
-      { point: endoPoint, negPoint: negEndoPoint },
-    ];
+    pointsHelper[2 * i] = point;
+    negPointsHelper[2 * i] = negPoint;
+    pointsHelper[2 * i + 1] = endoPoint;
+    negPointsHelper[2 * i + 1] = negEndoPoint;
     // partition each 16-byte scalar into c-bit chunks
     for (let s = 0; s < 2; s++) {
       let carry = 0;
       let scalar = scalarParts[s];
-      let { point, negPoint } = pointParts[s];
+      let scalars = Array(K);
+      let isNeg = Array(K);
       for (let k = 0; k < K; k++) {
         // compute k-th digit from scalar
         let l = extractBitSlice(scalar, k * c, c) + carry;
-        let G = point;
         if (l > L) {
           l = doubleL - l;
           carry = 1;
-          G = negPoint;
         } else {
           carry = 0;
         }
+        scalars[k] = l;
+        isNeg[k] = carry === 1;
         if (l === 0) continue;
-        // add point to bucket
-        let bucket = buckets[k][l];
-        bucket.push(G);
-        let bucketSize = bucket.length;
+        let bucketSize = ++bucketCounts[k][l];
         if ((bucketSize & 1) === 0) nPairs++;
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
+      scalarsHelper[2 * i + s] = scalars;
+      isNegHelper[2 * i + s] = isNeg;
+    }
+  }
+  let bucketPointers = Array(K);
+  for (let k = 0; k < K; k++) {
+    bucketPointers[k] = getPointers(2 * N, sizeAffine)[0];
+  }
+  /**
+   * @type {number[][][]}
+   */
+  let buckets = Array(K);
+  for (let k = 0; k < K; k++) {
+    let ptr = bucketPointers[k];
+    buckets[k] = Array(L + 1);
+    buckets[k][0] = [];
+    for (let l = 1; l <= L; l++) {
+      let count = bucketCounts[k][l];
+      let bucket = Array(count);
+      for (let i = 0; i < count; i++) {
+        bucket[i] = ptr;
+        ptr += sizeAffine;
+      }
+      buckets[k][l] = bucket;
+    }
+  }
+  // integrate bucket counts to become start indices
+  for (let k = 0; k < K; k++) {
+    let counts = bucketCounts[k];
+    let running = 0;
+    for (let l = 1; l <= L; l++) {
+      let count = counts[l];
+      counts[l] = running;
+      running += count;
     }
   }
   // copy points to contiguous locations, to optimize memory access
-  for (let k = 0; k < K; k++) {
-    let bucketsK = buckets[k];
-    for (let l = 1; l <= L; l++) {
-      let bucket = bucketsK[l];
-      let length = bucket.length;
-      let newBucket = getPointers(length, sizeAffine);
-      for (let i = 0; i < length; i++) {
-        let ptr = bucket[i];
-        let newPtr = newBucket[i];
-        copyAffine(newPtr, ptr);
-        bucket[i] = newPtr;
-      }
+  for (let i = 0; i < 2 * N; i++) {
+    let point = pointsHelper[i];
+    let negPoint = negPointsHelper[i];
+    let scalars = scalarsHelper[i];
+    let isNeg = isNegHelper[i];
+
+    for (let k = 0; k < K; k++) {
+      let ptr0 = bucketPointers[k];
+      let l = scalars[k];
+      let l0 = bucketCounts[k][l]++;
+      let newPtr = ptr0 + l0 * sizeAffine;
+      let ptr = isNeg[k] ? negPoint : point;
+      copyAffine(newPtr, ptr);
     }
   }
 
