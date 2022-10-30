@@ -157,25 +157,35 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // decompose scalar from one 32-byte into two 16-byte chunks
     writeBytesScalar(scratchPtr, inputScalar);
     decompose(scratchPtr);
-    let s0 = readBytesScalar(scalar, scratchPtr);
+    let scalar0 = readBytesScalar(scalar, scratchPtr);
     scalar += packedScalarSize;
-    let s1 = readBytesScalar(scalar, scratchPtr + scalarSize);
+    let scalar1 = readBytesScalar(scalar, scratchPtr + scalarSize);
     scalar += packedScalarSize;
-    let scalarParts = [s0, s1];
 
     // partition each 16-byte scalar into c-bit chunks
-    for (let s = 0; s < 2; s++) {
-      let scalarBytes = scalarParts[s];
-      for (let k = 0, carry = 0; k < K; k++) {
-        // compute k-th digit from scalar
-        let l = extractBitSlice(scalarBytes, k * c, c) + carry;
-        if (l > L) {
-          l = doubleL - l;
-          carry = 1;
-        } else {
-          carry = 0;
-        }
-        if (l === 0) continue;
+    for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
+      // compute k-th digit from scalar
+      let l = extractBitSlice(scalar0, k * c, c) + carry0;
+      if (l > L) {
+        l = doubleL - l;
+        carry0 = 1;
+      } else {
+        carry0 = 0;
+      }
+      if (l !== 0) {
+        let bucketSize = ++bucketCounts[k][l];
+        if ((bucketSize & 1) === 0) nPairs++;
+        if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
+      }
+      // other scalar, same code
+      l = extractBitSlice(scalar1, k * c, c) + carry1;
+      if (l > L) {
+        l = doubleL - l;
+        carry1 = 1;
+      } else {
+        carry1 = 0;
+      }
+      if (l !== 0) {
         let bucketSize = ++bucketCounts[k][l];
         if ((bucketSize & 1) === 0) nPairs++;
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
