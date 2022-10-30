@@ -75,7 +75,7 @@ let cTable = {
 
 /**
  *
- * @param {CompatibleScalar[]} inputScalars
+ * @param {Uint8Array[]} inputScalars
  * @param {CompatiblePoint[]} inputPoints
  */
 function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
@@ -256,8 +256,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
   let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
   let [H, hPtr] = getEmptyPointersInMemory(nPairs); // holds second summands
-  let [denom] = getPointersInMemory(nPairs);
-  let [tmp] = getPointersInMemory(nPairs);
+  let denom = getPointer(nPairs * sizeField);
+  let tmp = getPointer(nPairs * sizeField);
 
   // batch-add buckets into their first point, in `maxBucketSize` iterations
   for (let m = 1; m < maxBucketSize; m *= 2) {
@@ -281,7 +281,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // update number of pairs to add
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
+    batchAddUnsafe(scratch[0], tmp, denom, gPtr, gPtr, hPtr, nPairs);
   }
   // we're done!!
   // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
@@ -340,9 +340,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
   let n = D * K;
   let L0 = 2 ** c0; // == L/D
 
-  let [d] = getPointersInMemory(K * L, sizeField);
-  let [tmp] = getPointersInMemory(K * L, sizeField);
-
   // normalize the way buckets are stored -- we'll store intermediate running sums there
   // copy bucket sums into new contiguous pointers to improve memory access
   /** @type {number[][]} */
@@ -363,6 +360,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
 
   let [runningSums] = getEmptyPointersInMemory(n);
   let [nextBuckets] = getEmptyPointersInMemory(n);
+  let [d] = getPointersInMemory(K * L, sizeField);
+  let [tmp] = getPointersInMemory(K * L, sizeField);
 
   // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 1; l > 0; l--) {
@@ -457,38 +456,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
     copyAffineToProjectiveNonZero(partialSums[k], buckets[k][1]);
   }
   return partialSums;
-}
-
-/**
- * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
- *
- * Si = Gi + Hi, i=0,...,n-1
- *
- * unsafe: this is a faster version which doesn't handle edge cases!
- * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
- *
- * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
- * where inputs are independent and pseudo-random in significant parts of the msm algorithm
- * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
- *
- * the performance improvement is in the ballpark of 1-3%
- *
- * @param {number[]} scratch
- * @param {Uint32Array} tmp pointers of length n
- * @param {Uint32Array} d pointers of length n
- * @param {Uint32Array} S
- * @param {Uint32Array} G
- * @param {Uint32Array} H
- * @param {number} n
- */
-function batchAddUnsafeJs(scratch, tmp, d, S, G, H, n) {
-  for (let i = 0; i < n; i++) {
-    subtractPositive(tmp[i], H[i], G[i]);
-  }
-  batchInverse(scratch[0], d[0], tmp[0], n);
-  for (let i = 0; i < n; i++) {
-    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
-  }
 }
 
 /**
@@ -724,36 +691,6 @@ function copyAffineToProjectiveNonZero(P, A) {
   memoryBytes[P + 3 * sizeField] = 1;
   // isInfinity = isInfinity
   // memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
-}
-
-/**
- * @param {number[]} scratch
- * @param {Uint32Array} invX inverted fields of at least length n
- * @param {Uint32Array} X fields to invert, at least length n
- * @param {number} n length
- */
-function batchInverseJs([I, tmp], invX, X, n) {
-  if (n === 0) return;
-  if (n === 1) {
-    inverse(tmp, invX[0], X[0]);
-    return;
-  }
-  // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
-  // invX[i] = x0*...*xi
-  multiply(invX[1], X[1], X[0]);
-  for (let i = 2; i < n; i++) {
-    multiply(invX[i], invX[i - 1], X[i]);
-  }
-  // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
-  inverse(tmp, I, invX[n - 1]);
-
-  for (let i = n - 1; i > 1; i--) {
-    multiply(invX[i], invX[i - 1], I);
-    multiply(I, I, X[i]);
-  }
-  // now I = 1/(x0*x1)
-  multiply(invX[1], X[0], I);
-  multiply(invX[0], I, X[1]);
 }
 
 /**
@@ -1026,6 +963,68 @@ function reduceBucketsSimple(scratchSpace, buckets, { K, L }) {
     }
   }
   return partialSums;
+}
+
+/**
+ * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
+ *
+ * Si = Gi + Hi, i=0,...,n-1
+ *
+ * unsafe: this is a faster version which doesn't handle edge cases!
+ * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
+ *
+ * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
+ * where inputs are independent and pseudo-random in significant parts of the msm algorithm
+ * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
+ *
+ * the performance improvement is in the ballpark of 1-3%
+ *
+ * @param {number[]} scratch
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} S
+ * @param {Uint32Array} G
+ * @param {Uint32Array} H
+ * @param {number} n
+ */
+function batchAddUnsafeJs(scratch, tmp, d, S, G, H, n) {
+  for (let i = 0; i < n; i++) {
+    subtractPositive(tmp[i], H[i], G[i]);
+  }
+  batchInverse(scratch[0], d[0], tmp[0], n);
+  for (let i = 0; i < n; i++) {
+    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
+  }
+}
+
+/**
+ * @param {number[]} scratch
+ * @param {Uint32Array} invX inverted fields of at least length n
+ * @param {Uint32Array} X fields to invert, at least length n
+ * @param {number} n length
+ */
+function batchInverseJs([I, tmp], invX, X, n) {
+  if (n === 0) return;
+  if (n === 1) {
+    inverse(tmp, invX[0], X[0]);
+    return;
+  }
+  // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
+  // invX[i] = x0*...*xi
+  multiply(invX[1], X[1], X[0]);
+  for (let i = 2; i < n; i++) {
+    multiply(invX[i], invX[i - 1], X[i]);
+  }
+  // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
+  inverse(tmp, I, invX[n - 1]);
+
+  for (let i = n - 1; i > 1; i--) {
+    multiply(invX[i], invX[i - 1], I);
+    multiply(I, I, X[i]);
+  }
+  // now I = 1/(x0*x1)
+  multiply(invX[1], X[0], I);
+  multiply(invX[0], I, X[1]);
 }
 
 /**
