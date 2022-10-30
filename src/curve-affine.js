@@ -85,7 +85,7 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let N = scalars.length;
 
   let n = log2(N);
-  let c = n - 1; // TODO: determine c from n and hand-optimized lookup table
+  let c = n - 1;
   if (c < 1) c = 1;
   let c0 = c >> 1;
   [c, c0] = cTable[n] || [c, c0];
@@ -122,8 +122,18 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   numberOfAdds = 0;
   numberOfDoubles = 0;
 
-  // zeroth stage
-  // convert points into our format and organize them into buckets, without additions
+  /**
+   * PREPARATION PHASE 1
+   *
+   * -) store points into our wasm memory, as w*n limbs we need
+   * -) also compute & store negative, endo, and negative-endo points
+   * -) decompose scalars s = s0 + lambda*s1 and store s0, s1
+   * -) walk over the c-bit windows of each scalar, to
+   *    > count the number of points for each bucket
+   *    > count the total number of pairs to add in the first batch addition
+   *
+   * note: actual bucket organization is done separately; here, we just count bucket sizes, as first step of a counting sort
+   */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < N;
@@ -162,9 +172,9 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let scalar1 = readBytesScalar(scalar, scratchPtr + scalarSize);
     scalar += packedScalarSize;
 
-    // partition each 16-byte scalar into c-bit chunks
+    // partition each 16-byte scalar into c-bit digits
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
-      // compute k-th digit from scalar
+      // compute kth digit from first half scalar
       let l = extractBitSlice(scalar0, k * c, c) + carry0;
       if (l > L) {
         l = doubleL - l;
@@ -173,11 +183,12 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         carry0 = 0;
       }
       if (l !== 0) {
+        // if the digit is non-zero, increase bucket count
         let bucketSize = ++bucketCounts[k][l];
         if ((bucketSize & 1) === 0) nPairs++;
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
-      // other scalar, same code
+      // compute kth digit from second half scalar
       l = extractBitSlice(scalar1, k * c, c) + carry1;
       if (l > L) {
         l = doubleL - l;
@@ -192,9 +203,12 @@ function msmAffine(scalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       }
     }
   }
+  /**
+   * PREPARATION PHASE 2
+   */
   let bucketPointers = Array(K);
   for (let k = 0; k < K; k++) {
-    bucketPointers[k] = getPointers(2 * N, sizeAffine)[0];
+    bucketPointers[k] = getPointer(2 * N * sizeAffine);
   }
   /**
    * @type {number[][][]}

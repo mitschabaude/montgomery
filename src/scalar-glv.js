@@ -91,7 +91,7 @@ function decomposeScalar(scalar) {
 
 /**
  * read field element into packed bytes representation
- *
+ * @param {number} bytesPtr pointer for packed representation
  * @param {number} pointer
  */
 function readBytes(bytesPtr, pointer) {
