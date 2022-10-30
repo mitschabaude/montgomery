@@ -43,5 +43,3 @@ console.log(`
   stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
   total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
 `);
-
-console.log({ x, y });

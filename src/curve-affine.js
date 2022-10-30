@@ -320,8 +320,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
     }
   }
 
-  let [runningSums, runningSumPtr] = getEmptyPointersInMemory(n);
-  let [nextBuckets, nextBucketPtr] = getEmptyPointersInMemory(n);
+  let [runningSums] = getEmptyPointersInMemory(n);
+  let [nextBuckets] = getEmptyPointersInMemory(n);
 
   // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
   for (let l = L0 - 1; l > 0; l--) {
@@ -395,8 +395,8 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, K, L }, depth) {
   // round j: let m=2^j; (l,l+m) for l=1; l<L; l+=2*m
   // in the last round we want 1 pair (1, 1 + m=2^(c-1)), so we want m < 2**c = L
 
-  let [G, gPtr] = getEmptyPointersInMemory(K * L);
-  let [H, hPtr] = getEmptyPointersInMemory(K * L);
+  let [G] = getEmptyPointersInMemory(K * L);
+  let [H] = getEmptyPointersInMemory(K * L);
 
   for (let m = 1; m < L; m *= 2) {
     p = 0;
