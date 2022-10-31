@@ -2,8 +2,8 @@
 //   PointVectorInput,
 //   ScalarVectorInput,
 //   compute_msm,
-// } from "./src/reference.js";
-import { tic, toc } from "./src/tictoc.web.js";
+// } from "./src/extra/reference.js";
+import { tic, toc } from "./src/extra/tictoc.web.js";
 import { load } from "./src/store-inputs.web.js";
 import { msmAffine } from "./src/curve-affine.js";
 import { randomBaseFieldx2 } from "./src/finite-field-js.js";

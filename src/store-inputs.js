@@ -1,8 +1,8 @@
 import fs from "node:fs/promises";
-import { tic, toc } from "./tictoc.js";
+import { tic, toc } from "./extra/tictoc.js";
 import { log2 } from "./util.js";
 import { webcrypto } from "node:crypto";
-import { PointVectorInput, ScalarVectorInput } from "./reference.node.js";
+import { PointVectorInput, ScalarVectorInput } from "./extra/reference.node.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 export { load };

@@ -1,7 +1,7 @@
-import { tic, toc } from "./tictoc.js";
-import { load } from "./store-inputs.js";
+import { tic, toc } from "../extra/tictoc.js";
+import { load } from "../store-inputs.js";
 import { webcrypto } from "node:crypto";
-import { msmAffine } from "./curve-affine.js";
+import { msmAffine } from "../curve-affine.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
@@ -26,26 +26,45 @@ let REPEAT = 10;
 // input log-sizes to test
 let N = [14, 16, 18];
 
-let times = {}; // { n: { time, std } }
+// window width's difference to n-1 to test
+// n-1 is thought to be the optimal default
+let C = [-3, -2, -1, 0];
+// sub bucket log-size, diff to c >> 1 which is thought to be a good default
+let C0 = [-1, 0, 1, 2, 3];
+
+let times = {}; // { n: { c: { c0: { time, std } } } }
+let best = {}; // { n: { time, std, c, c0 } }
 
 for (let n of N) {
   let scalarsN = scalars.slice(0, 1 << n);
   let pointsN = points.slice(0, 1 << n);
   times[n] = {};
-  console.log({ n });
-  let times_ = [];
-  for (let i = 0; i < REPEAT; i++) {
-    tic();
-    msmAffine(scalarsN, pointsN);
-    let time = toc();
-    times_.push(time);
-  }
-  let time = median(times_);
-  let std = standardDev(times_);
-  times[n] = { time, std };
-}
+  best[n] = { time: Infinity };
 
-console.dir({ times }, { depth: Infinity });
+  for (let cDelta of C) {
+    let c = n - 1 + cDelta;
+    if (c < 1) continue;
+    times[n][c] = {};
+    console.log({ n, c });
+
+    for (let c0Delta of C0) {
+      let c0 = (c >> 1) + c0Delta;
+      if (c0 < 1 || c0 > c - 1) continue;
+      let times_ = [];
+      for (let i = 0; i < REPEAT; i++) {
+        tic();
+        msmAffine(scalarsN, pointsN, { c, c0 });
+        let time = toc();
+        times_.push(time);
+      }
+      let time = median(times_);
+      let std = standardDev(times_);
+      times[n][c][c0] = { time, std };
+      if (time < best[n].time) best[n] = { time, std, c, c0 };
+    }
+  }
+  console.dir({ times, best }, { depth: Infinity });
+}
 
 function median(arr) {
   let mid = arr.length >> 1;

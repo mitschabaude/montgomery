@@ -2,9 +2,9 @@ import {
   PointVectorInput,
   ScalarVectorInput,
   compute_msm,
-} from "./src/reference.node.js";
+} from "./src/extra/reference.node.js";
 import { msmProjective } from "./src/msm-projective.js";
-import { tic, toc } from "./src/tictoc.js";
+import { tic, toc } from "./src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
 import { mod, p } from "./src/finite-field.js";
 import { msmAffine } from "./src/curve-affine.js";
