@@ -3,7 +3,11 @@
  * but that may still be interesting as inspiration or reference.
  */
 
-import { copyAffineToProjectiveNonZero, sizeProjective } from "../curve.js";
+import {
+  addAssignProjective,
+  copyAffineToProjectiveNonZero,
+  sizeProjective,
+} from "../curve.js";
 import { getPointers, getZeroPointers } from "../finite-field.js";
 
 /**

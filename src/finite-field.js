@@ -24,6 +24,8 @@ export {
   subtract,
   sqrt,
   square,
+  isEqual,
+  isZero,
   addAffine,
   writeBigint,
   readBigInt,
@@ -56,6 +58,8 @@ let {
   subtract,
   sqrt,
   square,
+  isEqual,
+  isZero,
   // elliptic curve
   addAffine,
   // helper

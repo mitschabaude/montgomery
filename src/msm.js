@@ -1,12 +1,13 @@
 import {
-  copyAffine,
-  copyAffineToProjectiveNonZero,
-  copyProjective,
+  addAffine,
   doubleAffine,
+  addAssignProjective,
+  doubleInPlaceProjective,
+  copyAffine,
+  copyProjective,
+  copyAffineToProjectiveNonZero,
   isZeroAffine,
-  isZeroProjective,
   projectiveCoords,
-  setNonZeroProjective,
 } from "./curve.js";
 import {
   getPointers,
@@ -20,14 +21,12 @@ import {
   fromMontgomery,
   getPointer,
   getAndResetOpCounts,
-  addAffine,
   readBytes,
   getPointersInMemory,
   getEmptyPointersInMemory,
 } from "./finite-field.js";
 import {
   multiply,
-  square,
   copy,
   subtract,
   add,
@@ -499,7 +498,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
   let [nMul2, nInv2] = getAndResetOpCounts();
 
-  // third stage -- compute final sum using horner's rule
+  // third stage -- compute final sum
   let finalSum = getPointer(sizeProjective);
   let k = K - 1;
   let partialSum = partialSums[k];
@@ -754,97 +753,6 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
-}
-
-/**
- * P1 += P2
- * @param {number[]} scratchSpace
- * @param {number} P1
- * @param {number} P2
- */
-function addAssignProjective(scratch, P1, P2) {
-  if (isZeroProjective(P1)) {
-    copyProjective(P1, P2);
-    return;
-  }
-  if (isZeroProjective(P2)) return;
-  setNonZeroProjective(P1);
-  let [x1, y1, z1] = projectiveCoords(P1);
-  let [x2, y2, z2] = projectiveCoords(P2);
-  let [u1, u2, v1, v2, u, v, vv, vvv, v2vv, w, a] = scratch;
-
-  multiply(u1, y2, z1);
-  multiply(u2, y1, z2);
-  multiply(v1, x2, z1);
-  multiply(v2, x1, z2);
-
-  // x1/z1 = x2/z2  <==>  x1*z2 = x2*z1  <==>  v2 = v1
-  if (isEqual(v1, v2) && isEqual(u1, u2)) {
-    doubleInPlaceProjective(scratch, P1);
-    return;
-  }
-
-  subtract(u, u1, u2);
-  subtract(v, v1, v2);
-  square(vv, v);
-  multiply(vvv, vv, v);
-  multiply(v2vv, v2, vv);
-  multiply(w, z1, z2);
-
-  square(a, u);
-  multiply(a, a, w);
-  subtract(a, a, vvv);
-  subtract(a, a, v2vv);
-  subtract(a, a, v2vv);
-
-  multiply(x1, v, a);
-  multiply(z1, vvv, w);
-  subtract(v2vv, v2vv, a);
-  multiply(vvv, vvv, u2);
-  multiply(y1, u, v2vv);
-  subtract(y1, y1, vvv);
-}
-
-/**
- * P *= 2
- * @param {number[]} scratchSpace
- * @param {Point} P
- */
-function doubleInPlaceProjective(scratch, P) {
-  if (isZeroProjective(P)) return;
-  let [X1, Y1, Z1] = projectiveCoords(P);
-  let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
-  // w = 3*X1^2
-  square(w, X1);
-  add(tmp, w, w); // TODO efficient doubling
-  add(w, tmp, w);
-  // s = Y1*Z1
-  multiply(s, Y1, Z1);
-  // ss = s^2
-  square(ss, s);
-  // sss = s*ss
-  multiply(sss, ss, s);
-  // R = Y1*s, Rx2 = R + R
-  multiply(Rx2, Y1, s);
-  add(Rx2, Rx2, Rx2);
-  // 2*(B = X1*R), Bx4 = 2*B+2*B
-  multiply(Bx4, X1, Rx2);
-  add(Bx4, Bx4, Bx4);
-  // h = w^2-8*B = w^2 - Bx4 - Bx4
-  square(h, w);
-  subtract(h, h, Bx4); // TODO efficient doubling
-  subtract(h, h, Bx4);
-  // X3 = 2*h*s
-  multiply(X1, h, s);
-  add(X1, X1, X1);
-  // Y3 = w*(4*B-h)-8*R^2 = (Bx4 - h)*w - (Rx2^2 + Rx2^2)
-  subtract(Y1, Bx4, h);
-  multiply(Y1, Y1, w);
-  square(tmp, Rx2);
-  add(tmp, tmp, tmp); // TODO efficient doubling
-  subtract(Y1, Y1, tmp);
-  // Z3 = 8*sss
-  multiply(Z1, sss, constants.mg8);
 }
 
 /**
