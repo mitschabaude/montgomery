@@ -20,6 +20,8 @@ export {
   multiply,
   reduce,
   inverse,
+  add,
+  subtract,
   sqrt,
   square,
   addAffine,
@@ -50,6 +52,8 @@ let {
   multiply,
   reduce,
   inverse,
+  add,
+  subtract,
   sqrt,
   square,
   // elliptic curve

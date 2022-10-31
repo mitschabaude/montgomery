@@ -1,8 +1,6 @@
-import { randomCurvePoints } from "./src/curve.js";
 import { tic, toc } from "./src/extra/tictoc.js";
 import { load } from "./src/scripts/store-inputs.js";
 import { webcrypto } from "node:crypto";
-import { randomScalars } from "./src/finite-field.js";
 import { msmAffine } from "./src/msm.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
@@ -21,15 +19,9 @@ toc();
 
 tic("load inputs & convert to rust");
 let points, scalars;
-// TODO: fix random points generation
-if (true) {
-  let result = await load(n);
-  points = result.points;
-  scalars = result.scalars;
-} else {
-  points = randomCurvePoints(2 ** n);
-  scalars = randomScalars(2 ** n);
-}
+let result = await load(n);
+points = result.points;
+scalars = result.scalars;
 toc();
 
 tic("msm (ours)");

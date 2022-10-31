@@ -11,6 +11,7 @@ export {
   extractBitSlice,
   mapRange,
   randomBytes,
+  bytesEqual,
 };
 
 /**
@@ -196,4 +197,12 @@ function mapRange(n, callback) {
   return Array(n)
     .fill(0)
     .map((_, i) => callback(i));
+}
+
+function bytesEqual(b1, b2) {
+  if (b1.length !== b2.length) return false;
+  for (let i = 0; i < b1.length; i++) {
+    if (b1[i] !== b2[i]) return false;
+  }
+  return true;
 }
