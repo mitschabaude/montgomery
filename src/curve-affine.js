@@ -230,6 +230,24 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    * note: actual copying into buckets is done in the next phase!
    * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
    *
+   * ### Performance
+   *
+   * this phase takes ~9% of the total, roughly made up of
+   *
+   * 2% write scalars & points to wasm memory
+   * 1% bucket counts
+   * 1% turn coordinates to montgomery form
+   * 1% split scalars to slices
+   * 0.7% GLV-decompose scalar (most of this is for reading the bytes back out)
+   * 0.5% endomorphism
+   *
+   * these numbers are pretty inexact, and it's hard to get perfect data from the profiler
+   * because this phase is a hodgepodge of so many different small pieces.
+   * also, there is 2.5% of unexplained runtime. there might be some value in restructuring this
+   * so that a large part happens in a dedicates wasm function.
+   *
+   * that said, most identifiable parts, like the 2% for writing to wasm memory and the 1% for contributing to counting sort,
+   * are necessitated by the architecture and can't be reduced or removed.
    */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
@@ -342,6 +360,26 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    * where one bucket ends and the next one begins, to form correct addition pairs.
    * these bucket bounds are stored in {@link buckets}.
    *
+   * ## Performance
+   *
+   * this phase needs ~12% of total runtime (for 2^16 input points).
+   *
+   * this is entirely dominated by 8.5% for the {@link copyAffine} invocation at the end of 'loop #3'.
+   * it writes to a completely unpredictable memory location (randomly distributed bucket) in each iteration.
+   *
+   * unfortunately, the copying scales superlinearly with input size:
+   * for 2^18 input points, the phase already takes ~14% of runtime.
+   *
+   * as far as we can tell, this is still preferable to any other solutions we are aware of.
+   * solutions that avoid the copying / sorting step seem to incur plenty of time for both random reads as well as random writes,
+   * causing bucket accumulations to become much slower. this solution almost entirely avoids random reads,
+   * with the exception of reading random buckets from the relatively small {@link bucketCounts} helper array.
+   *
+   * there isn't much other stuff happening in this phase.
+   * - 'loop #2' is negligible at < 0.1% of runtime.
+   * - 1-2% spent on {@link bucketCounts} reads/writes
+   * - 1% on {@link extractBitSlice} (which should be fixed by leaving the bytes in wasm and slicing them there)
+   *
    * @type {number[][]}
    */
   let buckets = Array(K);
@@ -395,7 +433,6 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let carry = 0;
     /**
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
-     * => example for how JS can be pretty fast for "complex" low-level computations
      */
     for (let k = 0; k < K; k++) {
       let l = extractBitSlice(scalarBytes, k * c, c) + carry;
