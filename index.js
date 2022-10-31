@@ -119,7 +119,7 @@ let cpu = cpus()[0].model;
 
 let benchmark = { n, ref, ours, nMul, mPerSec, commit, cpu };
 
-let file = "./bench.json";
+let file = "./evaluations/bench.json";
 /**
  * @type {(typeof benchmark)[]}
  */
