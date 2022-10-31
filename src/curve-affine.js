@@ -47,26 +47,51 @@ import { extractBitSlice, log2 } from "./util.js";
 export { msmAffine, batchAdd };
 
 /**
- * @typedef {number} AffinePoint
- * @typedef {number} ProjectivePoint
- * @typedef {[xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean]} CompatiblePoint
- */
-
-/**
- * affine point is represented as pointer p, where
- * x = p
- * y = p + fieldSize
- * isInfinity = p + 2*fieldSize
+ * Memory layout of curve points
+ * -------------
  *
- * if the point is projective, we have x, y as before and
- * z = p + 2*fieldSize
- * isInfinity = p + 3*fieldSize
+ * a _field element_ x is represented as n limbs, where n is a parameter that depends on the field order and limb size.
+ * in wasm memory, each limb is stored as an `i64`, i.e. takes up 8 bytes of space.
+ * (usually only the lowest w bits of each `i64` are filled, where w <= 32 is some configured limb size;
+ * but within computations we will sometimes fill up most or all of the 64 bits)
+ *
+ * an _affine point_ is layed out as `[x, y, isNonZero]` in memory, where x and y are field elements and
+ * `isNonZero` is a flag used to track whether a point is zero / the point at infinity.
+ * - x, y each have length sizeField = 8*n bytes
+ * - `isNonZero` is either 0 or 1, but we nevertheless reserve 8 bytes (one `i64`) of space for it.
+ *   this helps ensure that all memory addresses are multiples of 8, a property which is required by JS APIs like
+ *   BigInt64Array, and which should also make memory accesses more efficient.
+ *
+ * in code, we represent an affine point by a pointer `p`.
+ * a pointer is just a JS `number`, and can be easily passed between wasm and JS.
+ * on the wasm side, a number appears as an `i32`, suitable as input to memory load/store operations.
+ *
+ * from `p`, we obtain pointers to the individual coordinates as
+ * ```
+ * x = p
+ * y = p + sizeField
+ * isNonZero = p + 2*sizeField
+ * ```
+ *
+ * for a _projective point_, the layout is `[x, y, z, isNonZero]`.
+ * we can obtain x, y from a pointer as before, and
+ * ```
+ * z = p + 2*sizeField
+ * isNonZero = p + 3*sizeField
+ * ```
  */
-
-let sizeField = 8 * n;
-let sizeAffine = 16 * n + 8; // size of one affine point in Wasm memory: x, y + 1 int64 for extra info (0 = isZero, >0 = isFilled)
+let sizeField = 8 * n; // a field element has n limbs, each of which is an int64 (= 8 bytes)
+let sizeAffine = 16 * n + 8; // an affine point is 2 field elements + 1 int64 for isNonZero flag
 let sizeProjective = 24 * n + 8;
 
+/**
+ * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
+ * n is the log-size of scalar and point inputs.
+ * table was optimized for the zprize evaluation environment.
+ *
+ * @param c window size
+ * @param c0 log-size of sub-partitions used in the bucket reduction step
+ */
 let cTable = {
   [14]: [13, 8],
   [16]: [13, 9],
@@ -74,9 +99,68 @@ let cTable = {
 };
 
 /**
+ * @typedef {[xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean]} InputPoint
+ */
+
+/**
+ * MSM (multi-scalar multiplication)
+ * ----------------------------------
  *
- * @param {Uint8Array[]} inputScalars
- * @param {CompatiblePoint[]} inputPoints
+ * given scalars `s_i` and points `G_i`, `i=0,...N-1`, compute
+ *
+ * `[s_0] G_0 + ... + [s_(N-1)] G_(N-1)`.
+ *
+ * broadly, our implementation uses the pippenger algorithm / bucket method, where scalars are sliced
+ * into windows of size c, giving rise to K = [b/c] _partitions_ or "sub-MSMs" (where b is the scalar bit length).
+ *
+ * for each partition k, points `G_i` are sorted into `L = 2^(c-1)` _buckets_ according to the ḱth NAF slice of their scalar `s_i`.
+ * in total, we end up with `K*L` buckets, which are indexed by `(k, l)` where `k = 0,...K-1` and `l = 1,...,L`.
+ *
+ * after sorting the points, computation proceeds in **three main steps:**
+ * 1. each bucket is accumulated into a single point, the _bucket sum_ `B_(l,k)`, which is simply the sum of all points in the bucket.
+ * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
+ * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
+ *
+ * ### High-level implementation
+ *
+ * - we use **batch-affine additions** for step 1 (bucket accumulation),
+ *   as pioneered by Zac Williamson in Aztec's barretenberg library: https://github.com/AztecProtocol/barretenberg/pull/19.
+ *   thus, in this step we loop over all buckets, collect pairs of points to add, and then do a batch-addition on all of them.
+ *   this is done in multiple passes, until the points of each bucket are summed to a single point, in an implicit binary tree.
+ *   (in each pass, empty buckets and buckets with 1 remaining point are skipped;
+ *   also, buckets of uneven length have a dangling point at the end, which doesn't belong to a pair and is skipped and included in a later pass)
+ * - as a novelty, we also use **batch-affine additions for all of step 2** (bucket reduction).
+ *   we achieve this by splitting up each partition recursively into sub-partitions, which are reduced independently from each other.
+ *   this gives us enough independent additions to amortize the cost of the inversion in the batch-add step.
+ *   sub-partitions are recombined in a series of comparatively cheap, log-sized steps. for details, see {@link reduceBucketsAffine}.
+ * - we switch from an affine to a projective point representation between steps 2 and 3. step 3 is so tiny (<< 1% of the computation)
+ *   that the performance of projective curve arithmetic becomes irrelevant.
+ *
+ * the algorithm has a significant **preparation phase**, which happens before step 1, where we split scalars and sort points and such.
+ * before splitting scalars into length-c slices, we do a **GLV decomposition**, where each 256-bit scalar is split into two
+ * 128-bit chunks as `s = s0 + s1*lambda`. multiplying a point by `lambda` is a curve endomorphism,
+ * with an efficient implementation `[lambda] (x,y) = (beta*x, y) =: endo((x, y))`,
+ * where `lambda` and `beta` are certain cube roots of 1 in their respective fields.
+ * correspondingly, each point `G` becomes two points `G`, `endo(G)`.
+ * we also store `-G` and `-endo(G)` which are used when the NAF slices of `s0`, `s1` are negative.
+ *
+ * other than processing inputs, the preparation phase is concerned with organizing points. this should be done in a way which:
+ * 1. enables to efficiently collect independent point pairs to add, in multiple successive passes over all buckets;
+ * 2. makes memory access efficient when batch-adding pairs => ideally, the 2 points that form a pair, as well as consecutive pairs, are stored next to each other
+ *
+ * we address these two goals by copying all points to K independent linear arrays; one for each partition.
+ * ordering in each of these arrays is achieved by performing a _counting sort_ of all points with respect to their bucket `l` in partition `k`.
+ *
+ * between step 1 and 2, there is a similar re-organization step. at the end of step 1, bucket sums are accumulated into the `0` locations
+ * of each original bucket, which are spread apart as far as the original buckets were long.
+ * before step 2, we copy bucket sums to a new linear array from 1 to L, for each partition.
+ *
+ * you can find more details on each step in the comments below!
+ *
+ * @param {Uint8Array[]} inputScalars `s_0, ..., s_(N-1)`
+ * @param {InputPoint[]} inputPoints `G_0, ..., G_(N-1)`
+ * @param {{c: number, c0: number}} options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
+ * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   // initialize buckets
@@ -118,16 +202,17 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   getAndResetOpCounts();
 
   /**
-   * PREPARATION PHASE 1
+   * Preparation phase 1
+   * --------------------
    *
-   * -) store points into our wasm memory, as w*n limbs we need
-   * -) also compute & store negative, endo, and negative-endo points
-   * -) decompose scalars s = s0 + lambda*s1 and store s0, s1
-   * -) walk over the c-bit windows of each scalar, to
-   *    > count the number of points for each bucket
-   *    > count the total number of pairs to add in the first batch addition
+   * - store input points in wasm memory, in the format we need
+   * - also compute & store negative, endo, and negative-endo points
+   * - decompose input scalars as `s = s0 + s1*lambda` and store s0, s1 in wasm memory
+   * - walk over the c-bit windows of each scalar, to
+   *   - count the number of points for each bucket
+   *   - count the total number of pairs to add in the first batch addition
    *
-   * note: actual bucket organization is done separately; here, we just count bucket sizes, as first step of a counting sort
+   * NB: actual copying into buckets is done separately; here, we just count bucket sizes, as first step of a counting sort
    */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
@@ -136,10 +221,12 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   ) {
     let inputScalar = inputScalars[i];
     let inputPoint = inputPoints[i];
-    let negPoint = point + sizeAffine;
-    let endoPoint = negPoint + sizeAffine;
-    let negEndoPoint = endoPoint + sizeAffine;
-    // convert point to montgomery
+
+    /**
+     * store point in n-limb format and convert to montgomery representation.
+     *
+     * see {@link sizeField} for the memory layout.
+     */
     let x = point;
     let y = point + sizeField;
     writeBytes(scratch, x, inputPoint[0]);
@@ -150,8 +237,11 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     toMontgomery(y);
 
     // -point, endo(point), -endo(point)
+    let negPoint = point + sizeAffine;
+    let endoPoint = negPoint + sizeAffine;
+    let negEndoPoint = endoPoint + sizeAffine;
     copy(negPoint, x);
-    subtract(negPoint + sizeField, constants.p, y); // TODO efficient negation
+    subtract(negPoint + sizeField, constants.p, y);
     memoryBytes[negPoint + 2 * sizeField] = isNonZero;
     endomorphism(endoPoint, point);
     memoryBytes[endoPoint + 2 * sizeField] = isNonZero;
@@ -167,9 +257,9 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let scalar1 = readBytesScalar(scalar, scratchPtr + scalarSize);
     scalar += packedScalarSize;
 
-    // partition each 16-byte scalar into c-bit digits
+    // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
-      // compute kth digit from first half scalar
+      // compute kth slice from first half scalar
       let l = extractBitSlice(scalar0, k * c, c) + carry0;
       if (l > L) {
         l = doubleL - l;
@@ -178,12 +268,17 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         carry0 = 0;
       }
       if (l !== 0) {
-        // if the digit is non-zero, increase bucket count
+        // if the slice is non-zero, increase bucket count
         let bucketSize = ++bucketCounts[k][l];
         if ((bucketSize & 1) === 0) nPairs++;
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
-      // compute kth digit from second half scalar
+      // compute kth slice from second half scalar
+      // NB: we repeat this code instead of merging both into a loop of size 2,
+      // because the latter would imply creating a throw-away array of size two for the scalars.
+      // creating such throw-away objects incurs a garbage collection cost!
+      // in general, you will find us avoiding garbage-collectable objects like the plague
+      // -- everything operates on numbers or stable arrays of numbers
       l = extractBitSlice(scalar1, k * c, c) + carry1;
       if (l > L) {
         l = doubleL - l;
@@ -192,6 +287,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         carry1 = 0;
       }
       if (l !== 0) {
+        // if the slice is non-zero, increase bucket count
         let bucketSize = ++bucketCounts[k][l];
         if ((bucketSize & 1) === 0) nPairs++;
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
@@ -199,7 +295,30 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     }
   }
   /**
-   * PREPARATION PHASE 2
+   * Preparation phase 2
+   * -------------------
+   *
+   * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
+   * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
+   *
+   * we actually do K of these counting sorts -- one for each partition.
+   *
+   * note that the first loop in that link -- counting bucket sizes -- was already performed above,
+   * and we have the counts stored in {@link bucketCounts}.
+   *
+   * here's how the linked algorithm corresponds to our code:
+   * - there is an array `inputs`. in our case, this is the array of (scalar, point) pairs created in phase 1.
+   *   note: we don't actually store a JS array of scalars / points anywhere; these arrays are represented implicitly,
+   *   by a starting pointer and a loop which increments a memory position in each iteration.
+   * - there is a helper array `counts`. in our case, this is called {@link bucketCounts}, and there is one
+   *   array for each k.
+   * - there is a `key(...)` function for mapping `input` elements to integer "keys".
+   *   in our case, this is the function that computes the (kth) scalar slice belonging to each (scalar, point),
+   *   i.e. {@link extractBitSlice} which you saw above (loop 1) and which is re-executed in loop 3
+   * - we have TODO
+   *
+   *
+   * the only difference is that we perform not just one, but K independent counting sorts, one for each partition.
    */
   /**
    * @type {number[][]}
@@ -209,7 +328,9 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     buckets[k] = Array(L + 1);
     buckets[k][0] = getPointer(2 * N * sizeAffine);
   }
-  // integrate bucket counts to become start indices
+  // "integrate" bucket counts (like you integrate a histogram), to become start / end indices (i.e., bucket bounds).
+  // while we're at it, we fill an array `buckets` with the same bucket bounds but in a more convenient format
+  // -- as memory addresses
   for (let k = 0; k < K; k++) {
     let counts = bucketCounts[k];
     let running = 0;
@@ -223,7 +344,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       bucketsK[l] = runningIndex;
     }
   }
-  // copy points to contiguous locations, to optimize memory access
+  // copy points to contiguous locations, to optimize memory access.
+  // note: this time, we can just treat `G` and `endo(G)` as separate points, and iterate over 2N points
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < 2 * N;
@@ -236,7 +358,10 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       packedScalarSize
     );
     let carry = 0;
-    // recomputing the scalar slices here is faster than storing them
+    /**
+     * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
+     * => example for how JS can be pretty fast for "complex" low-level computations
+     */
     for (let k = 0; k < K; k++) {
       let l = extractBitSlice(scalarBytes, k * c, c) + carry;
       if (l > L) {
@@ -246,10 +371,12 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         carry = 0;
       }
       if (l === 0) continue;
+      // compute the memory address in the bucket array where we want to store our point
       let ptr0 = buckets[k][0];
-      let l0 = bucketCounts[k][l]++;
-      let newPtr = ptr0 + l0 * sizeAffine;
-      let ptr = carry === 1 ? negPoint : point;
+      let l0 = bucketCounts[k][l]++; // update start index, so the next point in this bucket lands at one position higher
+      let newPtr = ptr0 + l0 * sizeAffine; // this is where the point should be copied to
+      let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
+      // copy point to the bucket array -- expensive operation! (but it pays off)
       copyAffine(newPtr, ptr);
     }
   }
@@ -557,8 +684,8 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
  *
  * this supports doubling a point in-place with H === G
  * @param {number[]} scratch
- * @param {AffinePoint} H output point
- * @param {AffinePoint} G input point (x, y)
+ * @param {number} H output point
+ * @param {number} G input point (x, y)
  * @param {number} d 1/(2y)
  */
 function doubleAffine([m, tmp, x2, y2], H, G, d) {
@@ -586,8 +713,8 @@ function doubleAffine([m, tmp, x2, y2], H, G, d) {
 /**
  * P1 += P2
  * @param {number[]} scratchSpace
- * @param {ProjectivePoint} P1
- * @param {ProjectivePoint} P2
+ * @param {number} P1
+ * @param {number} P2
  */
 function addAssignProjective(scratch, P1, P2) {
   if (isZeroProjective(P1)) {
@@ -695,8 +822,8 @@ function copyAffineToProjectiveNonZero(P, A) {
 
 /**
  * @param {number[]} scratchSpace
- * @param {ProjectivePoint} point projective representation
- * @returns {CompatiblePoint}
+ * @param {number} point projective representation
+ * @returns {InputPoint}
  */
 function toAffineOutput([zinv, ...scratchSpace], P) {
   let [x, y, z] = projectiveCoords(P);
@@ -710,7 +837,7 @@ function toAffineOutput([zinv, ...scratchSpace], P) {
 }
 /**
  * @param {number[]} scratchSpace
- * @param {ProjectivePoint} point projective representation
+ * @param {number} point projective representation
  */
 function toAffine([zinv, x1, y1, ...scratchSpace], P) {
   let [x, y, z] = projectiveCoords(P);
@@ -722,7 +849,7 @@ function toAffine([zinv, x1, y1, ...scratchSpace], P) {
 }
 
 /**
- * @param {ProjectivePoint} point projective representation
+ * @param {number} point projective representation
  */
 function toProjectiveOutput(P) {
   let [x, y, z] = projectiveCoords(P);
@@ -860,8 +987,8 @@ function reduceBucketsSimpleAffine(scratchSpace, buckets, { c, K, L }) {
 /**
  * affine EC addition with assignment, G1 = G1 + G2
  * @param {number[]} scratch
- * @param {AffinePoint} G1 (x1, y1)
- * @param {AffinePoint} G2 (x2, y2)
+ * @param {number} G1 (x1, y1)
+ * @param {number} G2 (x2, y2)
  */
 function addAssignAffineFull([m, tmp, d, ...scratch], G1, G2) {
   let [x1, y1] = affineCoords(G1);
@@ -899,7 +1026,7 @@ function addAssignAffineFull([m, tmp, d, ...scratch], G1, G2) {
 /**
  * affine EC doubling in place, G *= 2
  * @param {number[]} scratch
- * @param {AffinePoint} G (x, y)
+ * @param {number} G (x, y)
  */
 function doubleInPlaceAffineFull([m, tmp, d, x2, y2, ...scratch], G) {
   let [x, y] = affineCoords(G);
@@ -1035,9 +1162,9 @@ function batchInverseJs([I, tmp], invX, X, n) {
  *
  * this supports addition with assignment where G3 === G1 (but not G3 === G2)
  * @param {number[]} scratch
- * @param {AffinePoint} G3 (x3, y3)
- * @param {AffinePoint} G1 (x1, y1)
- * @param {AffinePoint} G2 (x2, y2)
+ * @param {number} G3 (x3, y3)
+ * @param {number} G1 (x1, y1)
+ * @param {number} G2 (x2, y2)
  * @param {number} d 1/(x2 - x1)
  */
 function addAffineJs([m, tmp], G3, G1, G2, d) {
