@@ -10,10 +10,11 @@ import {
   moduleWithMemory,
   jsHelpers,
 } from "./src/finite-field-generate.js";
-import { Writer } from "./src/wasm-generate.js";
+import { Writer } from "./src/lib/wasm-generate.js";
 import {
   compileFiniteFieldWasm,
   interpretWat,
+  writeFile,
 } from "./src/finite-field-compile.js";
 import { bigintFromBytes } from "./src/util.js";
 import { getPointers, writeBigint } from "./src/finite-field.js";
@@ -21,12 +22,14 @@ if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
 for (let w of [30]) {
-  await compileFiniteFieldWasm(p, w, {
+  let { js, wat } = await compileFiniteFieldWasm(p, w, {
     withBenchmarks: true,
     endoCubeRoot: beta,
   });
-  console.log();
-  let wasm = await import(`./src/finite-field.${w}.gen.wat.js`);
+  // create extra files which we can identify by bit length
+  await writeFile(`./src/wasm/finite-field.${w}.gen.wat`, wat);
+  await writeFile(`./src/wasm/finite-field.${w}.wat.js`, js);
+  let wasm = await import(`./src/wasm/finite-field.${w}.wat.js`);
   let ff = createFiniteField(p, w, wasm);
   // let [x, z] = testCorrectness(p, w, ff);
   let [x, z] = getPointers(2);
@@ -121,7 +124,7 @@ for (let w of [30]) {
         benchMultiply(writer);
       }
     );
-    await fs.writeFile("./src/finite-field.32.gen.wat", writer.text);
+    await fs.writeFile("./src/wasm/finite-field.32.wat", writer.text);
     let wasm = await interpretWat(writer);
     let helpers = jsHelpers(p, w, wasm);
     let x = testCorrectness(p, w, { ...helpers, ...wasm });

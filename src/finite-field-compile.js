@@ -3,7 +3,7 @@ import { createFiniteFieldWat, createGLVWat } from "./finite-field-generate.js";
 import { toBase64 } from "fast-base64";
 import Wabt from "wabt";
 
-export { compileFiniteFieldWasm, compileWat, interpretWat };
+export { compileFiniteFieldWasm, compileWat, interpretWat, writeFile };
 
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
@@ -27,28 +27,32 @@ async function compileFiniteFieldWasm(
     withBenchmarks,
     endoCubeRoot,
   });
-  await writeFile(`./src/finite-field.${w}.gen.wat`, writer.text);
+  await writeFile(`./src/wasm/finite-field.wat`, writer.text);
   let { js, wasm } = await compileWat(writer);
-  await writeFile(`./src/finite-field.${w}.gen.wat.js`, js);
-  await writeFile(`./src/finite-field.wat.js`, js);
-  await fs.writeFile("./src/finite-field.wasm", wasm);
+  await writeFile(`./src/wasm/finite-field.wat.js`, js);
+  await writeFile("./src/wasm/finite-field.wasm", wasm);
+  return { js, wasm, wat: writer.text };
 }
 
 async function compileGLVWasm(q, lambda, w, { withBenchmarks = false } = {}) {
   let writer = await createGLVWat(q, lambda, w, { withBenchmarks });
-  await writeFile(`./src/scalar-glv.${w}.gen.wat`, writer.text);
+  await writeFile(`./src/wasm/scalar-glv.wat`, writer.text);
   let { js, wasm } = await compileWat(writer);
-  await writeFile(`./src/scalar-glv.${w}.gen.wat.js`, js);
-  await writeFile(`./src/scalar-glv.wat.js`, js);
-  await fs.writeFile("./src/scalar-glv.wasm", wasm);
+  await writeFile(`./src/wasm/scalar-glv.wat.js`, js);
+  await writeFile("./src/wasm/scalar-glv.wasm", wasm);
+  return { js, wasm, wat: writer.text };
 }
 
 // --- general wat2wasm functionality ---
 let wabt;
 
-async function writeFile(fileName, text) {
-  await fs.writeFile(fileName, text, "utf8");
-  console.log(`wrote ${(text.length / 1e3).toFixed(1)}kB to ${fileName}`);
+async function writeFile(fileName, content) {
+  if (typeof content === "string") {
+    await fs.writeFile(fileName, content, "utf8");
+  } else {
+    await fs.writeFile(fileName, content);
+  }
+  console.log(`wrote ${(content.length / 1e3).toFixed(1)}kB to ${fileName}`);
 }
 
 async function compileWat({ text, exports, imports }) {
@@ -67,8 +71,7 @@ async function compileWat({ text, exports, imports }) {
 import { toBytes } from 'fast-base64';
 let wasmBytes = await toBytes("${base64}");
 let { instance } = await WebAssembly.instantiate(
-  wasmBytes,
-  { js: { 'console.log': console.log } }
+  wasmBytes
 );
 let { ${[...exports].join(", ")} } = instance.exports;
 export { ${[...exports].join(", ")} };

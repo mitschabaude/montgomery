@@ -36,7 +36,7 @@ import {
   endomorphism,
   batchInverse,
   batchAddUnsafe,
-} from "./finite-field.wat.js";
+} from "./wasm/finite-field.wat.js";
 import {
   decompose,
   scratchPtr,

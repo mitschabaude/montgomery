@@ -5,6 +5,9 @@
  * (doesn't use mixed additions) -- thanks to the improvements in low-level field arithmetic
  *
  * This is useful to keep around as a reference that's simple to reason about.
+ *
+ * TODO: currently, this uses a slightly different point layout and therefor duplicates implementations
+ * used for the affine MSM; should be consolidated.
  */
 import {
   constants,
@@ -30,7 +33,7 @@ import {
   multiplyCount,
   resetMultiplyCount,
   isEqual,
-} from "./finite-field.wat.js";
+} from "./wasm/finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export {
