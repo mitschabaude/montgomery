@@ -133,7 +133,7 @@ let cTable = {
  *   we achieve this by splitting up each partition recursively into sub-partitions, which are reduced independently from each other.
  *   this gives us enough independent additions to amortize the cost of the inversion in the batch-add step.
  *   sub-partitions are recombined in a series of comparatively cheap, log-sized steps. for details, see {@link reduceBucketsAffine}.
- * - we switch from an affine to a projective point representation between steps 2 and 3. step 3 is so tiny (<< 1% of the computation)
+ * - we switch from an affine to a projective point representation between steps 2 and 3. step 3 is so tiny (< 0.1% of the computation)
  *   that the performance of projective curve arithmetic becomes irrelevant.
  *
  * the algorithm has a significant **preparation phase**, which happens before step 1, where we split scalars and sort points and such.
@@ -155,11 +155,22 @@ let cTable = {
  * of each original bucket, which are spread apart as far as the original buckets were long.
  * before step 2, we copy bucket sums to a new linear array from 1 to L, for each partition.
  *
- * you can find more details on each step in the comments below!
+ * finally, here's a rough breakdown of the time spent in the 5 different phases of the algorithm.
+ * we split the preparation phase into two; the "summation steps" are the three steps also defined above.
+ *
+ * ```txt
+ *  9% - preparation 1 (input processing)
+ * 11% - preparation 2 (sorting points in bucket order)
+ * 65% - summation step 1 (bucket accumulation)
+ * 15% - summation step 2 (bucket reduction)
+ *  0% - summation step 3 (final sum over partitions)
+ * ```
+ *
+ * you can find more details on each phase and reasoning about performance in the comments below!
  *
  * @param {Uint8Array[]} inputScalars `s_0, ..., s_(N-1)`
  * @param {InputPoint[]} inputPoints `G_0, ..., G_(N-1)`
- * @param {{c: number, c0: number}} options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
+ * @param {{c: number, c0: number}?} options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
@@ -218,6 +229,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    *
    * note: actual copying into buckets is done in the next phase!
    * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
+   *
    */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
