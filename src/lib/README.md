@@ -18,7 +18,7 @@ let writer = Writer(); // an object which holds a WAT string and various support
 let { line, comment } = writer;
 let { i64, local64 } = ops; // a global which contains most operations
 
-let a = "$a"; // variables are string that begin with a "$"
+let a = "$a"; // variables are strings that begin with a "$"
 
 // ...
 

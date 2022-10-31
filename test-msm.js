@@ -7,7 +7,7 @@ import { msmProjective } from "./src/msm-projective.js";
 import { tic, toc } from "./src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
 import { mod, p } from "./src/finite-field.js";
-import { msmAffine } from "./src/curve-affine.js";
+import { msmAffine } from "./src/msm.js";
 import { bigintFromBytes, bigintToBytes } from "./src/util.js";
 import { modInverse } from "./src/finite-field-js.js";
 import { msmDumbAffine } from "./src/extra/dumb-curve-affine.js";

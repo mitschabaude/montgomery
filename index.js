@@ -18,7 +18,7 @@ import {
   benchInverse,
   getPointer,
 } from "./src/finite-field.js";
-import { msmAffine } from "./src/curve-affine.js";
+import { msmAffine } from "./src/msm.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

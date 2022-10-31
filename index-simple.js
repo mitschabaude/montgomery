@@ -3,7 +3,7 @@ import { tic, toc } from "./src/extra/tictoc.js";
 import { load } from "./src/scripts/store-inputs.js";
 import { webcrypto } from "node:crypto";
 import { randomScalars } from "./src/finite-field.js";
-import { msmAffine } from "./src/curve-affine.js";
+import { msmAffine } from "./src/msm.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

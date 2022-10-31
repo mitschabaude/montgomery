@@ -1,8 +1,11 @@
-// all this is specialized to G1 of BLS12-381
-// EC equation: y^2 === x^3 + 4
-// x, y and z are pointers to wasm memory, i.e. integers
-// they point to n legs of 64 bit each which represent numbers modulo 2p, and only w bits of each leg is filled
-// multiply preserves those properties
+/**
+ * Simple MSM implementation based on projective arithmetic and vanilla bucket method.
+ *
+ * ~2.5x faster than the reference, even though the high-level algorithm is less optimized
+ * (doesn't use mixed additions) -- thanks to the improvements in low-level field arithmetic
+ *
+ * This is useful to keep around as a reference that's simple to reason about.
+ */
 import {
   constants,
   writeBigint,
@@ -68,7 +71,6 @@ function msmProjective(scalars, inputPoints) {
   let minC = 1;
   if (c < minC) c = minC;
 
-  // TODO: do less computations for last, smaller chunk of scalar
   let K = Math.ceil(256 / c); // number of partitions
   let L = 2 ** c - 1; // number of buckets per partition (skipping the 0 bucket)
   let points = getPointers(n * 3); // initialize points

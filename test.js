@@ -27,7 +27,6 @@ import {
 } from "./src/finite-field.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice } from "./src/util.js";
-// import { batchInverse } from "./src/curve-affine.js";
 import { modInverse } from "./src/finite-field-js.js";
 import { testDecomposeRandomScalar } from "./src/scalar-glv.js";
 // web crypto compat
