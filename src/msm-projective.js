@@ -30,7 +30,12 @@ import {
 } from "./finite-field.wat.js";
 import { extractBitSlice, log2 } from "./util.js";
 
-export { msm, randomCurvePoints, doubleInPlaceProjective, addAssignProjective };
+export {
+  msmProjective,
+  randomCurvePoints,
+  doubleInPlaceProjective,
+  addAssignProjective,
+};
 
 /**
  * @typedef {{x: number; y: number; z: number, isZero?: boolean}} Point
@@ -56,7 +61,7 @@ let numberOfDoubles = 0;
  * @param {CompatibleScalar[]} scalars
  * @param {CompatiblePoint[]} inputPoints
  */
-function msm(scalars, inputPoints) {
+function msmProjective(scalars, inputPoints) {
   // initialize buckets
   let n = scalars.length;
   let c = log2(n) - 3; // TODO: determine c from n and hand-optimized lookup table

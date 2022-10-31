@@ -1,12 +1,15 @@
-import { montgomeryParams } from "./finite-field-generate.js";
-import { mod, randomBaseFieldx4, randomScalar } from "./finite-field-js.js";
+/**
+ * initial explorations on barrett reduction, in JS
+ */
+import { montgomeryParams } from "../finite-field-generate.js";
+import { mod, randomBaseFieldx4, randomScalar } from "../finite-field-js.js";
 import {
   bigintFromBytes,
   bigintFromLegs,
   bigintToBits,
   bigintToLegs,
   log2,
-} from "./util.js";
+} from "../util.js";
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -31,7 +34,7 @@ let beta2 =
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
   let { addAffine, scale } = await import("./dumb-curve-affine.js");
-  let { load } = await import("./store-inputs.js");
+  let { load } = await import("../store-inputs.js");
 
   // check cube root properties
   let isCubeRoot = (x, p) => (x ** 2n + x + 1n) % p === 0n;

@@ -10,7 +10,7 @@ let file = "./inputs.json";
 async function load(n) {
   let response = await fetch(file);
   /**
-   * @type {{scalars: number[]; points: import("./curve.js").CompatiblePoint[]}}
+   * @type {{scalars: number[]; points: import("./msm-projective.js").CompatiblePoint[]}}
    */
   let { points, scalars } = await response.json();
   let N = points.length;

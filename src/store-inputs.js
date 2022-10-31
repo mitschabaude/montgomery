@@ -44,7 +44,7 @@ async function store(n) {
  */
 async function load(n) {
   /**
-   * @type {{scalars: number[]; points: import("./curve.js").CompatiblePoint[]}}
+   * @type {{scalars: number[]; points: import("./msm-projective.js").CompatiblePoint[]}}
    */
   let { points, scalars } = JSON.parse(await fs.readFile(file, "utf-8"));
   let N = points.length;

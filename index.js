@@ -3,7 +3,7 @@ import {
   ScalarVectorInput,
   compute_msm,
 } from "./src/reference.node.js";
-import { msm, randomCurvePoints } from "./src/curve.js";
+import { msmProjective, randomCurvePoints } from "./src/msm-projective.js";
 import { tic, toc } from "./src/tictoc.js";
 import { load } from "./src/store-inputs.js";
 import { cpus } from "node:os";
@@ -46,7 +46,7 @@ console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 tic("warm-up JIT compiler with fixed set of points");
 {
   let { points, scalars } = await load(14);
-  msm(scalars, points);
+  msmProjective(scalars, points);
   msmAffine(scalars, points);
   msmAffine(scalars, points);
   await new Promise((r) => setTimeout(r, 100));
@@ -75,7 +75,7 @@ compute_msm(pointVec, scalarVec);
 let ref = toc();
 {
   tic("msm (projective)");
-  let { nMul1, nMul2, nMul3 } = msm(scalars, points);
+  let { nMul1, nMul2, nMul3 } = msmProjective(scalars, points);
   toc();
   let nMul = nMul1 + nMul2 + nMul3;
 

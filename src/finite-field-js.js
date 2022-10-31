@@ -1,5 +1,4 @@
-import { randomBytes } from "./builtin-crypto.js";
-import { bigintFromBytes, bigintToBits } from "./util.js";
+import { bigintFromBytes, bigintToBits, randomBytes } from "./util.js";
 
 export {
   mod,
