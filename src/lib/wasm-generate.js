@@ -1,3 +1,6 @@
+/**
+ * "library" which helps us generate all the wasm code for this project.
+ */
 export {
   Writer,
   block,

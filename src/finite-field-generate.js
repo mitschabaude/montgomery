@@ -14,7 +14,7 @@ import {
   module,
   ops,
   Writer,
-} from "./wasm-generate.js";
+} from "./lib/wasm-generate.js";
 import { barrett, karatsuba30, multiply } from "./finite-field-multiply.js";
 
 // main API
