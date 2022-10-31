@@ -205,14 +205,19 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    * Preparation phase 1
    * --------------------
    *
+   * this phase is where we process inputs:
    * - store input points in wasm memory, in the format we need
-   * - also compute & store negative, endo, and negative-endo points
+   *   - writing the bytes to wasm memory takes ~2% of total runtime
+   *   - we also turn point coordinates x,y to montgomery form;
+   *     takes ~1% of runtime (= small potential savings for not using montgomery)
+   * - compute & store negative, endo, and negative-endo points
    * - decompose input scalars as `s = s0 + s1*lambda` and store s0, s1 in wasm memory
    * - walk over the c-bit windows of each scalar, to
    *   - count the number of points for each bucket
    *   - count the total number of pairs to add in the first batch addition
    *
-   * NB: actual copying into buckets is done separately; here, we just count bucket sizes, as first step of a counting sort
+   * note: actual copying into buckets is done in the next phase!
+   * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
    */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
@@ -224,19 +229,24 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
 
     /**
      * store point in n-limb format and convert to montgomery representation.
-     *
      * see {@link sizeField} for the memory layout.
      */
     let x = point;
     let y = point + sizeField;
+    // this line writes inputPoint[0] to a `scratch` location and uses `fromPackedBytes`
+    // to turn the packed layout of the input field element into our wider n-limb layout.
+    // the output field element is stored at `x`
     writeBytes(scratch, x, inputPoint[0]);
+    //
     writeBytes(scratch, y, inputPoint[1]);
     let isNonZero = Number(!inputPoint[2]);
     memoryBytes[point + 2 * sizeField] = isNonZero;
+    // do one multiplication on each coordinate to bring it into montgomery form
     toMontgomery(x);
     toMontgomery(y);
 
     // -point, endo(point), -endo(point)
+    // this just takes 1 field multiplication for the endomorphism, and 1 subtraction
     let negPoint = point + sizeAffine;
     let endoPoint = negPoint + sizeAffine;
     let negEndoPoint = endoPoint + sizeAffine;
@@ -304,23 +314,22 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    * we actually do K of these counting sorts -- one for each partition.
    *
    * note that the first loop in that link -- counting bucket sizes -- was already performed above,
-   * and we have the counts stored in {@link bucketCounts}.
+   * and we have the `counts` stored in {@link bucketCounts}.
    *
-   * here's how the linked algorithm corresponds to our code:
-   * - there is an array `inputs`. in our case, this is the array of (scalar, point) pairs created in phase 1.
-   *   note: we don't actually store a JS array of scalars / points anywhere; these arrays are represented implicitly,
-   *   by a starting pointer and a loop which increments a memory position in each iteration.
-   * - there is a helper array `counts`. in our case, this is called {@link bucketCounts}, and there is one
-   *   array for each k.
-   * - there is a `key(...)` function for mapping `input` elements to integer "keys".
+   * here's how other parts of the linked algorithm correspond to our code:
+   * - array `input`: in our case, this is the array of (scalar, point) pairs created in phase 1.
+   *   note: when we say "array" here, we mean a range of memory locations which implicitly form an array.
+   * - the `key(...)` function for mapping `input` elements to integer "keys":
    *   in our case, this is the function that computes the (kth) scalar slice belonging to each (scalar, point),
-   *   i.e. {@link extractBitSlice} which you saw above (loop 1) and which is re-executed in loop 3
-   * - we have TODO
+   *   i.e. {@link extractBitSlice} which we used above (loop 1) and which is re-executed in loop 3
+   * - array `output`: in our case, we have one output array for each k. it's implicitly represented by a starting
+   *   pointer which, right below, is stored at `buckets[k][0]`. by incrementing the pointer by the size of an affine point,
+   *   we get to the next point.
    *
+   * for our purposes, we don't only need sorting -- we also need to keep track of the indices
+   * where one bucket ends and the next one begins, to form correct addition pairs.
+   * these bucket bounds are stored in {@link buckets}.
    *
-   * the only difference is that we perform not just one, but K independent counting sorts, one for each partition.
-   */
-  /**
    * @type {number[][]}
    */
   let buckets = Array(K);
@@ -328,9 +337,12 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     buckets[k] = Array(L + 1);
     buckets[k][0] = getPointer(2 * N * sizeAffine);
   }
-  // "integrate" bucket counts (like you integrate a histogram), to become start / end indices (i.e., bucket bounds).
-  // while we're at it, we fill an array `buckets` with the same bucket bounds but in a more convenient format
-  // -- as memory addresses
+  /**
+   * loop #2 of counting sort (for each k).
+   * "integrate" bucket counts (like you integrate a histogram), to become start / end indices (i.e., bucket bounds).
+   * while we're at it, we fill an array `buckets` with the same bucket bounds but in a
+   * more convenient format -- as memory addresses.
+   */
   for (let k = 0; k < K; k++) {
     let counts = bucketCounts[k];
     let running = 0;
@@ -344,13 +356,24 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       bucketsK[l] = runningIndex;
     }
   }
-  // copy points to contiguous locations, to optimize memory access.
-  // note: this time, we can just treat `G` and `endo(G)` as separate points, and iterate over 2N points
+  /**
+   * loop #3 of counting sort (for each k).
+   * we loop over the input elements and re-compute in which bucket `l` they belong.
+   * by retrieving counts[l], we find the output position where a point should be stored in.
+   * at the beginning, counts[l] will be the 0 index of bucket l, but when we store a point we increment count[l]
+   * so that the next point in this bucket is stored at the next position.
+   *
+   * all in all, the result of this sorting is that points form a contiguous array, one bucket after another
+   * => this is fantastic for the batch additions in the next step
+   */
   for (
+    // we loop over implicit arrays of points & scalars by taking their starting pointers and incrementing by the size of one element
+    // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < 2 * N;
     i++, point += sizeAffine2, scalar += packedScalarSize
   ) {
+    // a point `A` and it's negation `-A` are stored next to each other
     let negPoint = point + sizeAffine;
     let scalarBytes = new Uint8Array(
       memoryScalar.buffer,
