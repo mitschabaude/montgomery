@@ -11,7 +11,7 @@ import { msmAffine } from "./src/curve-affine.js";
 import { bigintFromBytes, bigintToBytes } from "./src/util.js";
 import { modInverse } from "./src/finite-field-js.js";
 import { msmDumbAffine } from "./src/extra/dumb-curve-affine.js";
-import { load } from "./src/store-inputs.js";
+import { load } from "./src/scripts/store-inputs.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

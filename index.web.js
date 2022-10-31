@@ -4,7 +4,7 @@
 //   compute_msm,
 // } from "./src/extra/reference.js";
 import { tic, toc } from "./src/extra/tictoc.web.js";
-import { load } from "./src/store-inputs.web.js";
+import { load } from "./src/scripts/store-inputs.web.js";
 import { msmAffine } from "./src/curve-affine.js";
 import { randomBaseFieldx2 } from "./src/finite-field-js.js";
 import {

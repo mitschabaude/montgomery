@@ -1,8 +1,11 @@
 import fs from "node:fs/promises";
-import { tic, toc } from "./extra/tictoc.js";
-import { log2 } from "./util.js";
+import { tic, toc } from "../extra/tictoc.js";
+import { log2 } from "../util.js";
 import { webcrypto } from "node:crypto";
-import { PointVectorInput, ScalarVectorInput } from "./extra/reference.node.js";
+import {
+  PointVectorInput,
+  ScalarVectorInput,
+} from "../extra/reference.node.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 export { load };
@@ -44,7 +47,7 @@ async function store(n) {
  */
 async function load(n) {
   /**
-   * @type {{scalars: number[]; points: import("./msm-projective.js").CompatiblePoint[]}}
+   * @type {{scalars: number[]; points: import("../msm-projective.js").CompatiblePoint[]}}
    */
   let { points, scalars } = JSON.parse(await fs.readFile(file, "utf-8"));
   let N = points.length;

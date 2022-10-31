@@ -1,6 +1,6 @@
 import { randomCurvePoints } from "./src/curve.js";
 import { tic, toc } from "./src/extra/tictoc.js";
-import { load } from "./src/store-inputs.js";
+import { load } from "./src/scripts/store-inputs.js";
 import { webcrypto } from "node:crypto";
 import { randomScalars } from "./src/finite-field.js";
 import { msmAffine } from "./src/curve-affine.js";
