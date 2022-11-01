@@ -37,7 +37,7 @@ import {
   batchInverse,
   batchAddUnsafe,
 } from "./wasm/finite-field.wasm";
-// } from "./wasm/finite-field.wat.js";
+// } from "./wasm/finite-field.wasm.js";
 import {
   decompose,
   scratchPtr,

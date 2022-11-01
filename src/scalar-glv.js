@@ -8,7 +8,7 @@ import {
   memory,
   dataOffset,
 } from "./wasm/scalar-glv.wasm";
-// } from "./wasm/scalar-glv.wat.js";
+// } from "./wasm/scalar-glv.wasm.js";
 import { bigintFromBytes } from "./util.js";
 
 export {

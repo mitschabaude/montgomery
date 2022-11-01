@@ -12,7 +12,7 @@ import {
   inverse,
   multiplySchoolbook,
   batchInverse,
-} from "./src/wasm/finite-field.wat.js";
+} from "./src/wasm/finite-field.wasm.js";
 import {
   p,
   constants,
