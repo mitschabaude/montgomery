@@ -370,16 +370,17 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    *
    * this phase needs ~12% of total runtime (for 2^16 input points).
    *
-   * this is entirely dominated by 8.5% for the {@link copyAffine} invocation at the end of 'loop #3'.
-   * it writes to a completely unpredictable memory location (randomly distributed bucket) in each iteration.
+   * this time is dominated by 8.5% for the {@link copyAffine} invocation at the end of 'loop #3'.
+   * it writes to an unpredictable memory location (randomly distributed bucket) in each iteration.
    *
-   * unfortunately, the copying scales superlinearly with input size:
-   * for 2^18 input points, the phase already takes ~14% of runtime.
+   * unfortunately, copying points scales superlinearly with input size:
+   * for 2^18 input points, this phase already takes ~14% of runtime.
    *
    * as far as we can tell, this is still preferable to any other solutions we are aware of.
-   * solutions that avoid the copying / sorting step seem to incur plenty of time for both random reads as well as random writes,
-   * causing bucket accumulations to become much slower. this solution almost entirely avoids random reads,
-   * with the exception of reading random buckets from the relatively small {@link bucketCounts} helper array.
+   * solutions that avoid the copying / sorting step seem to incur plenty of time for both random reads and
+   * random writes during the bucket accumulation step, and end up being much slower -- especially or large inputs.
+   * the counting sort solution almost entirely avoids random reads, with the exception of
+   * reading random buckets from the relatively small {@link bucketCounts} helper array.
    *
    * there isn't much other stuff happening in this phase.
    * - 'loop #2' is negligible at < 0.1% of runtime.
@@ -391,11 +392,12 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let buckets = Array(K);
   for (let k = 0; k < K; k++) {
     buckets[k] = Array(L + 1);
+    // the starting pointer for the array of points, in bucket order
     buckets[k][0] = getPointer(2 * N * sizeAffine);
   }
   /**
    * loop #2 of counting sort (for each k).
-   * "integrate" bucket counts (like you integrate a histogram), to become start / end indices (i.e., bucket bounds).
+   * "integrate" bucket counts, to become start / end indices (i.e., bucket bounds).
    * while we're at it, we fill an array `buckets` with the same bucket bounds but in a
    * more convenient format -- as memory addresses.
    */
@@ -489,7 +491,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     batchAddUnsafe(scratch[0], tmp, denom, gPtr, gPtr, hPtr, nPairs);
   }
   // we're done!!
-  // buckets[k][l][0] now contains the bucket sum, or undefined for empty buckets
+  // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
 
   let [nMul1, nInv1] = getAndResetOpCounts();
 
@@ -518,14 +520,9 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let [nMul3, nInv3] = getAndResetOpCounts();
   resetPointers();
   resetPointersScalar();
+  let statistics = { nMul1, nMul2, nMul3, nInv: nInv1 + nInv2 + nInv3 };
 
-  return {
-    result,
-    nMul1,
-    nMul2,
-    nMul3,
-    nInv: nInv1 + nInv2 + nInv3,
-  };
+  return { result, statistics };
 }
 
 /**

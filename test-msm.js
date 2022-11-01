@@ -67,9 +67,9 @@ let zProjProj = mod(resultProj.z, p);
 let [xProj, yProj] = toAffine(xProjProj, yProjProj, zProjProj);
 
 tic("msm (ours)");
-let result = msmAffine(scalars, points);
+let { result } = msmAffine(scalars, points);
 toc();
-let [xAffPacked, yAffPacked] = result.result;
+let [xAffPacked, yAffPacked] = result;
 let xAff = bigintFromBytes(xAffPacked);
 let yAff = bigintFromBytes(yAffPacked);
 
@@ -82,11 +82,6 @@ console.log("ref === proj", { x: xRef === xProj, y: yRef === yProj });
 console.log("ref === aff", { x: xRef === xAff, y: yRef === yAff });
 
 console.log("proj === aff", { x: xProj === xAff, y: yProj === yAff });
-
-// console.log(xBigint);
-// console.log(xRef);
-// console.log(xProj);
-// console.log(xAff);
 
 function toAffine(x, y, z) {
   if (z === 0n) return [0n, 0n, true];

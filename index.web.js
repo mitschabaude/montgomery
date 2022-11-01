@@ -53,9 +53,10 @@ await new Promise((r) => setTimeout(r, 100));
 // toc();
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3, nInv } = msmAffine(scalars, points);
+let { statistics } = msmAffine(scalars, points);
 let ours = toc();
 
+let { nMul1, nMul2, nMul3, nInv } = statistics;
 let nMul = nMul1 + nMul2 + nMul3;
 // let nonMulOverhead = 1 - nMul / mPerSec / ours;
 

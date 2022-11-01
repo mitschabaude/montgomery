@@ -25,9 +25,10 @@ scalars = result.scalars;
 toc();
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3, x, y } = msmAffine(scalars, points);
+let { statistics } = msmAffine(scalars, points);
 toc();
 
+let { nMul1, nMul2, nMul3 } = statistics;
 let nMul = nMul1 + nMul2 + nMul3;
 
 console.log(`
