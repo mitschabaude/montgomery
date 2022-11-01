@@ -425,24 +425,12 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   ) {
     // a point `A` and it's negation `-A` are stored next to each other
     let negPoint = point + sizeAffine;
-    // let scalarBytes = new Uint8Array(
-    //   memoryScalar.buffer,
-    //   scalar,
-    //   packedScalarSize
-    // );
-    // let scalarBytes2 = readBytesScalar(scratchPtr, scalarLong);
-    // console.log(scalarBytes);
-    // console.log(scalarBytes2);
     let carry = 0;
     /**
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
      */
     for (let k = 0; k < K; k++) {
-      // let l_ = extractBitSlice(scalarBytes, k * c, c) + carry;
       let l = extractBitSlice(scalar, k * c, c) + carry;
-      // console.log({ l, l_ });
-      // console.assert(l === l_);
-      // if (l !== l_) throw Error("wrong");
       if (l > L) {
         l = doubleL - l;
         carry = 1;
