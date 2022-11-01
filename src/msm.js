@@ -39,16 +39,13 @@ import {
 } from "./wasm/finite-field.wasm.js";
 import {
   decompose,
-  scratchPtr,
   writeBytesScalar,
   scalarSize,
-  packedScalarSize,
-  readBytesScalar,
-  memoryScalar,
   getPointerScalar,
   resetPointersScalar,
+  extractBitSlice,
 } from "./scalar-glv.js";
-import { extractBitSlice, log2 } from "./util.js";
+import { log2 } from "./util.js";
 
 export { msmAffine, batchAdd };
 
@@ -199,7 +196,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let sizeAffine2 = 2 * sizeAffine;
   let sizeAffine4 = 4 * sizeAffine;
   let pointPtr = getPointer(N * sizeAffine4);
-  let scalarPtr = getPointerScalar(N * packedScalarSize);
+  let sizeScalar2 = 2 * scalarSize;
+  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
 
   /**
    * @type {(number)[][]}
@@ -258,7 +256,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < N;
-    i++, point += sizeAffine4
+    i++, point += sizeAffine4, scalar += sizeScalar2
   ) {
     let inputScalar = inputScalars[i];
     let inputPoint = inputPoints[i];
@@ -296,17 +294,14 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
     // decompose scalar from one 32-byte into two 16-byte chunks
-    writeBytesScalar(scratchPtr, inputScalar);
-    decompose(scratchPtr);
-    let scalar0 = readBytesScalar(scalar, scratchPtr);
-    scalar += packedScalarSize;
-    let scalar1 = readBytesScalar(scalar, scratchPtr + scalarSize);
-    scalar += packedScalarSize;
+    writeBytesScalar(scalar, inputScalar);
+    decompose(scalar);
 
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
       // compute kth slice from first half scalar
-      let l = extractBitSlice(scalar0, k * c, c) + carry0;
+      let l = extractBitSlice(scalar, k * c, c) + carry0;
+
       if (l > L) {
         l = doubleL - l;
         carry0 = 1;
@@ -320,12 +315,11 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
       // compute kth slice from second half scalar
-      // NB: we repeat this code instead of merging both into a loop of size 2,
+      // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
-      // creating such throw-away objects incurs a garbage collection cost!
-      // in general, you will find us avoiding garbage-collectable objects like the plague
-      // -- everything operates on numbers or stable arrays of numbers
-      l = extractBitSlice(scalar1, k * c, c) + carry1;
+      // creating such throw-away objects has a garbage collection cost
+      l = extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
+
       if (l > L) {
         l = doubleL - l;
         carry1 = 1;
@@ -429,21 +423,28 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < 2 * N;
-    i++, point += sizeAffine2, scalar += packedScalarSize
+    i++, point += sizeAffine2, scalar += scalarSize
   ) {
     // a point `A` and it's negation `-A` are stored next to each other
     let negPoint = point + sizeAffine;
-    let scalarBytes = new Uint8Array(
-      memoryScalar.buffer,
-      scalar,
-      packedScalarSize
-    );
+    // let scalarBytes = new Uint8Array(
+    //   memoryScalar.buffer,
+    //   scalar,
+    //   packedScalarSize
+    // );
+    // let scalarBytes2 = readBytesScalar(scratchPtr, scalarLong);
+    // console.log(scalarBytes);
+    // console.log(scalarBytes2);
     let carry = 0;
     /**
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
      */
     for (let k = 0; k < K; k++) {
-      let l = extractBitSlice(scalarBytes, k * c, c) + carry;
+      // let l_ = extractBitSlice(scalarBytes, k * c, c) + carry;
+      let l = extractBitSlice(scalar, k * c, c) + carry;
+      // console.log({ l, l_ });
+      // console.assert(l === l_);
+      // if (l !== l_) throw Error("wrong");
       if (l > L) {
         l = doubleL - l;
         carry = 1;

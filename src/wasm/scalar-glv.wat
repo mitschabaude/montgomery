@@ -1,7 +1,7 @@
 ;; generated for w=30, n=5, n*w=150
 (module 
   (export "memory" (memory $memory))
-  (memory $memory 256)
+  (memory $memory 1024)
   (export "dataOffset" (global $dataOffset))
   (export "barrett" (func $barrett))
   (func $barrett (param $x i32)
@@ -473,6 +473,40 @@
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 14)))
     (i64.store offset=72 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
+  )
+  (export "extractBitSlice" (func $extractBitSlice))
+  (func $extractBitSlice (param $x i32) (param $startBit i32) (param $bitLength i32) (result i32)
+    (local $endBit i32) (local $startLimb i32) (local $endLimb i32)
+    (local.set $endBit (i32.add (local.get $startBit) (local.get $bitLength)))
+    (local.set $startLimb (i32.div_u (local.get $startBit) (i32.const 30)))
+    (local.set $startBit (i32.sub (local.get $startBit) (i32.mul (local.get $startLimb) (i32.const 30))))
+    (local.set $endLimb (i32.div_u (local.get $endBit) (i32.const 30)))
+    (local.set $endBit (i32.sub (local.get $endBit) (i32.mul (local.get $endLimb) (i32.const 30))))
+    (i32.gt_u (local.get $endLimb) (i32.const 4))
+    if
+      (local.set $endBit (i32.const 30))
+      (local.set $endLimb (i32.const 4))
+    end
+    (i32.eq (local.get $startLimb) (local.get $endLimb))
+    if
+      (i64.load offset=0 (i32.add (local.get $x) (i32.shl (local.get $startLimb) (i32.const 3))))
+      i32.wrap_i64
+      (i32.sub (i32.shl (i32.const 1) (local.get $endBit)) (i32.const 1))
+      i32.and
+      (local.get $startBit)
+      i32.shr_u
+      return
+    end
+    (i64.load offset=0 (i32.add (local.get $x) (i32.shl (local.get $startLimb) (i32.const 3))))
+    i32.wrap_i64
+    (local.get $startBit)
+    i32.shr_u
+    (i64.load offset=0 (i32.add (local.get $x) (i32.shl (i32.add (local.get $startLimb) (i32.const 1)) (i32.const 3))))
+    i32.wrap_i64
+    (i32.sub (i32.shl (i32.const 1) (local.get $endBit)) (i32.const 1))
+    i32.and
+    (i32.shl (i32.sub (i32.const 30) (local.get $startBit)))
+    i32.or
   )
   (global $dataOffset i32 (i32.const 0))
 )

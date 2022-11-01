@@ -7,6 +7,7 @@ import {
   toPackedBytes,
   memory,
   dataOffset,
+  extractBitSlice,
 } from "./wasm/scalar-glv.wasm.js";
 import { bigintFromBytes } from "./util.js";
 
@@ -17,11 +18,13 @@ export {
   decomposeScalar,
   testDecomposeRandomScalar,
   scratchPtr,
+  bytesPtr,
   fieldSizeBytes as scalarSize,
   packedSizeBytes as packedScalarSize,
   getPointer as getPointerScalar,
   resetPointers as resetPointersScalar,
   memory as memoryScalar,
+  extractBitSlice,
 };
 
 let p =
@@ -61,7 +64,7 @@ let {
   fromPackedBytes,
   dataOffset,
 });
-let [scratchPtr, , bytesPtr, bytesPtr2] = getStablePointers(4);
+let [scratchPtr, , bytesPtr, bytesPtr2] = getStablePointers(5);
 
 function testDecomposeRandomScalar() {
   let [scalar] = randomScalars(1);

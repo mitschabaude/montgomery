@@ -310,7 +310,7 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
   moduleWithMemory(
     writer,
     `generated for w=${w}, n=${n}, n*w=${n * w}`,
-    1 << 8,
+    1 << 10,
     () => {
       barrett(writer, lambda, w, { withBenchmarks });
       glv(writer, q, lambda, w);
@@ -1314,7 +1314,18 @@ function endomorphism(writer, p, w, { beta }) {
 function glv(writer, q, lambda, w) {
   let { n, wordMax, lengthP } = montgomeryParams(lambda, w);
   let { line, lines, comment } = writer;
-  let { i64, i32, local, local64, local32, param32, br_if, call } = ops;
+  let {
+    i64,
+    i32,
+    local,
+    local64,
+    local32,
+    param32,
+    result32,
+    br_if,
+    call,
+    return_,
+  } = ops;
 
   let k = lengthP - 1;
   let N = n * w;
@@ -1519,6 +1530,78 @@ function glv(writer, q, lambda, w) {
       }
     }
   });
+
+  let [startBit, bitLength, endBit, startLimb, endLimb] = [
+    "$startBit",
+    "$bitLength",
+    "$endBit",
+    "$startLimb",
+    "$endLimb",
+  ];
+  addFuncExport(writer, "extractBitSlice");
+  // implicit assumption: we need at most two limbs to extract a length-c bit slice
+  // <==> w+1 >= bitLength = c
+  // w+1 is currently 31, and c is about log(N)-1, so this assumption is valid until we do MSMs with > 2^30 inputs
+  // we also assume that the startLimb can not be out of bounds
+  // this implies that after truncation of the startBit, we have
+  // startBit + bitLength <= w-1 + w+1 <= 2w < 64
+  func(
+    writer,
+    "extractBitSlice",
+    [param32(x), param32(startBit), param32(bitLength), result32],
+    () => {
+      line(local32(endBit), local32(startLimb), local32(endLimb));
+      lines(
+        local.set(endBit, i32.add(startBit, bitLength)),
+        local.set(startLimb, i32.div_u(startBit, w)),
+        local.set(startBit, i32.sub(startBit, i32.mul(startLimb, w))),
+        local.set(endLimb, i32.div_u(endBit, w)),
+        local.set(endBit, i32.sub(endBit, i32.mul(endLimb, w))),
+        // check for overflow of endLimb
+        i32.gt_u(endLimb, n - 1)
+      );
+      if_(writer, () => {
+        // in that case, truncate endBit = w and endLimb = startLimb = n-1
+        lines(
+          local.set(endBit, i32.const(w)),
+          local.set(endLimb, i32.const(n - 1))
+        );
+      });
+      lines(i32.eq(startLimb, endLimb));
+      if_(writer, () => {
+        lines(
+          // load scalar limb
+          i64.load(i32.add(x, i32.shl(startLimb, 3))),
+          i32.wrap_i64(),
+          // take bits < endBit
+          i32.sub(i32.shl(1, endBit), 1),
+          i32.and(),
+          // truncate bits < startBit
+          local.get(startBit),
+          i32.shr_u(),
+          return_()
+        );
+      });
+      // if we're here, endLimb = startLimb + 1 according to our assumptions
+      lines(
+        // load first limb
+        i64.load(i32.add(x, i32.shl(startLimb, 3))),
+        i32.wrap_i64(),
+        // truncate bits < startBit (and leave on the stack)
+        local.get(startBit),
+        i32.shr_u(),
+        // load second limb,
+        i64.load(i32.add(x, i32.shl(i32.add(startLimb, 1), 3))),
+        i32.wrap_i64(),
+        // take bits < endBit
+        i32.sub(i32.shl(1, endBit), 1),
+        i32.and(),
+        // stitch together with first half, and return
+        i32.shl(i32.sub(w, startBit)),
+        i32.or()
+      );
+    }
+  );
 }
 
 /**
