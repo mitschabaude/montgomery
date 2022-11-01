@@ -162,8 +162,8 @@ let cTable = {
  * we split the preparation phase into two; the "summation steps" are the three steps also defined above.
  *
  * ```txt
- *  9% - preparation 1 (input processing)
- * 11% - preparation 2 (sorting points in bucket order)
+ *  8% - preparation 1 (input processing)
+ * 12% - preparation 2 (sorting points in bucket order)
  * 65% - summation step 1 (bucket accumulation)
  * 15% - summation step 2 (bucket reduction)
  *  0% - summation step 3 (final sum over partitions)
@@ -236,22 +236,20 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    *
    * ### Performance
    *
-   * this phase takes ~9% of the total, roughly made up of
+   * this phase takes ~8% of the total, roughly made up of
    *
    * 2% write scalars & points to wasm memory
    * 1% bucket counts
    * 1% turn coordinates to montgomery form
-   * 1% split scalars to slices
-   * 0.7% GLV-decompose scalar (most of this is for reading the bytes back out)
    * 0.5% endomorphism
+   * 0.5% split scalars to slices
+   * 0.2% other processing of points (negation, copying)
+   * 0.1% GLV-decompose scalar
    *
-   * these numbers are pretty inexact, and it's hard to get perfect data from the profiler
-   * because this phase is a hodgepodge of so many different small pieces.
-   * also, there is 2.5% of unexplained runtime. there might be some value in restructuring this
-   * so that a large part happens in a dedicates wasm function.
-   *
-   * that said, most identifiable parts, like the 2% for writing to wasm memory and the 1% for contributing to counting sort,
-   * are necessitated by the architecture and can't be reduced or removed.
+   * it's hard to get perfect data from the profiler because this phase is a hodgepodge of so many different small pieces.
+   * also, there is ~2.7% of unexplained runtime which is spent somewhere in the JS logic.
+   * that said, most of the effort here, like writing to wasm memory and processing points, is necessitated
+   * by the architecture and can't be significantly reduced.
    */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
@@ -376,10 +374,10 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    * the counting sort solution almost entirely avoids random reads, with the exception of
    * reading random buckets from the relatively small {@link bucketCounts} helper array.
    *
-   * there isn't much other stuff happening in this phase.
+   * there is not much other stuff happening in this phase:
    * - 'loop #2' is negligible at < 0.1% of runtime.
    * - 1-2% spent on {@link bucketCounts} reads/writes
-   * - 1% on {@link extractBitSlice} (which should be fixed by leaving the bytes in wasm and slicing them there)
+   * - 0.5% on {@link extractBitSlice}
    *
    * @type {number[][]}
    */
