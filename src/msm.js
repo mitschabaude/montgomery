@@ -36,7 +36,7 @@ import {
   endomorphism,
   batchInverse,
   batchAddUnsafe,
-} from "./wasm/inite-field.wasm";
+} from "./wasm/finite-field.wasm";
 // } from "./wasm/finite-field.wat.js";
 import {
   decompose,
