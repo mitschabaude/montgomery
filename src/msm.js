@@ -39,7 +39,6 @@ import {
   endomorphism,
   batchInverse,
   batchAddUnsafe,
-  isEqualNegative,
 } from "./wasm/finite-field.wasm";
 // } from "./wasm/finite-field.wasm.js";
 import {
@@ -49,6 +48,7 @@ import {
   getPointerScalar,
   resetPointersScalar,
   extractBitSlice,
+  scalarBitlength,
 } from "./scalar-glv.js";
 import { log2 } from "./util.js";
 
@@ -182,9 +182,7 @@ let cTable = {
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
-  // initialize buckets
   let N = inputScalars.length;
-
   let n = log2(N);
   let c = n - 1;
   if (c < 1) c = 1;
@@ -194,7 +192,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   if (c_) c = c_;
   if (c0_) c0 = c0_;
 
-  let K = Math.ceil(129 / c); // number of partitions
+  let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
   let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
@@ -662,9 +660,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
  * @param {number} n
  */
 function batchAdd(scratch, tmp, d, S, G, H, n) {
-  // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
-
-  // check G, H for zero
   let iAdd = Array(n);
   let iDouble = Array(n);
   let iBoth = Array(n);
@@ -673,6 +668,7 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
   let nBoth = 0;
 
   for (let i = 0; i < n; i++) {
+    // check G, H for zero
     if (isZeroAffine(G[i])) {
       copyAffine(S[i], H[i]);
       continue;
@@ -684,11 +680,11 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
     if (isEqual(G[i], H[i])) {
       // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      if (isEqualNegative(G[i], H[i])) {
+      let y = G[i] + sizeField;
+      if (!isEqual(y, H[i] + sizeField)) {
         setIsNonZeroAffine(S[i], false);
         continue;
       }
-      let y = G[i] + sizeField;
       add(tmp[nBoth], y, y); // TODO: efficient doubling
       iDouble[nDouble] = i;
       iBoth[i] = nBoth;

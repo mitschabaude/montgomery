@@ -1995,6 +1995,7 @@ function jsHelpers(
   let obj = {
     n,
     R,
+    bitLength: lengthP,
     fieldSizeBytes: 8 * n,
     packedSizeBytes: nPackedBytes,
 
