@@ -1,5 +1,5 @@
-import { tic, toc } from "./src/extra/tictoc.js";
-import { p, randomBaseFieldx2, mod, beta } from "./src/finite-field-js.js";
+import { tic, toc } from "../extra/tictoc.js";
+import { p, randomBaseFieldx2, mod, beta } from "../finite-field-js.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
@@ -9,15 +9,15 @@ import {
   multiply32,
   moduleWithMemory,
   jsHelpers,
-} from "./src/finite-field-generate.js";
-import { Writer } from "./src/lib/wasm-generate.js";
+} from "../finite-field-generate.js";
+import { Writer } from "../lib/wasm-generate.js";
 import {
   compileFiniteFieldWasm,
   interpretWat,
   writeFile,
-} from "./src/finite-field-compile.js";
-import { bigintFromBytes } from "./src/util.js";
-import { getPointers, writeBigint } from "./src/finite-field.js";
+} from "../finite-field-compile.js";
+import { bigintFromBytes } from "../util.js";
+import { getPointers, writeBigint } from "../finite-field.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 let N = 1e7;
@@ -29,7 +29,7 @@ for (let w of [30]) {
   // create extra files which we can identify by bit length
   await writeFile(`./src/wasm/finite-field.${w}.gen.wat`, wat);
   await writeFile(`./src/wasm/finite-field.${w}.wasm.js`, js);
-  let wasm = await import(`./src/wasm/finite-field.${w}.wasm.js`);
+  let wasm = await import(`../wasm/finite-field.${w}.wasm.js`);
   let ff = createFiniteField(p, w, wasm);
   // let [x, z] = testCorrectness(p, w, ff);
   let [x, z] = getPointers(2);
@@ -139,7 +139,7 @@ for (let w of [30]) {
  *
  * @param {bigint} p
  * @param {number} w
- * @param {import("./src/finite-field-generate.js").FiniteField} ff
+ * @param {import("../finite-field-generate.js").FiniteField} ff
  * @returns
  */
 function testCorrectness(
