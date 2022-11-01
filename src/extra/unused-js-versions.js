@@ -3,7 +3,7 @@
  *
  * The JS versions are way easier to debug and typically have very similar, or just slightly degraded, performance compared to their Wasm counter-parts.
  */
-import { affineCoords, setNonZeroAffine } from "../curve.js";
+import { affineCoords, setIsNonZeroAffine } from "../curve.js";
 import {
   inverse,
   multiply,
@@ -91,7 +91,7 @@ function addAffineJs([m, tmp], G3, G1, G2, d) {
   let [x1, y1] = affineCoords(G1);
   let [x2, y2] = affineCoords(G2);
   let [x3, y3] = affineCoords(G3);
-  setNonZeroAffine(G3);
+  setIsNonZeroAffine(G3, true);
   // m = (y2 - y1)*d
   subtractPositive(m, y2, y1);
   multiply(m, m, d);

@@ -23,6 +23,7 @@ export function subtractPositive(out: number, x: number, y: number): void;
 export function makeOdd(u: number, s: number): number;
 // helpers
 export function isEqual(x: number, y: number): boolean;
+export function isEqualNegative(x: number, y: number): boolean;
 export function isZero(x: number): boolean;
 export function isGreater(x: number, y: number): boolean;
 export function copy(x: number, y: number): void;

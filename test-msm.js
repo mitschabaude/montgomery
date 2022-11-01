@@ -25,18 +25,9 @@ let points, scalars, pointVec, scalarVec;
 let loaded = await load(n);
 points = loaded.points;
 scalars = loaded.scalars;
-// pointVec = new PointVectorInput(2 ** n);
-// scalarVec = new ScalarVectorInput(2 ** n);
-// points = pointVec.toJsArray();
-// scalars = scalarVec.toJsArray();
-// points = randomCurvePoints(2 ** n);
-// scalars = randomScalars(2 ** n);
 // custom test data
 // points = [points[0], points[1]];
-// scalars = [bigintToBytes(5n, 32), bigintToBytes(2n, 32)];
-// scalars = Array(2 ** n)
-//   .fill(0)
-//   .map(() => bigintToBytes(1n, 32));
+// scalars = [bigintToBytes(0n, 32), bigintToBytes(0n, 32)];
 
 scalarVec = ScalarVectorInput.fromJsArray(scalars);
 pointVec = PointVectorInput.fromJsArray(points);

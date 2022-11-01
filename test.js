@@ -6,6 +6,7 @@ import {
   makeOdd,
   copy,
   isEqual,
+  isEqualNegative,
   leftShift,
   square,
   subtractPositive,
@@ -122,6 +123,12 @@ function test() {
   reduce(z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("reduceInPlace");
+
+  // isEqual
+  if (isEqual(x, x) !== 1) throw Error("isEqual");
+  if (isEqual(x, y) !== 0) throw Error("isEqual");
+  subtract(y, constants.p, x);
+  if (isEqualNegative(x, y) !== 1) throw Error("isEqualNegative");
 
   // inverse
   inverse(scratch[0], z, x);

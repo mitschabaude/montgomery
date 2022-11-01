@@ -8,6 +8,8 @@ import {
   copyAffineToProjectiveNonZero,
   isZeroAffine,
   projectiveCoords,
+  setIsNonZeroAffine,
+  isZeroProjective,
 } from "./curve.js";
 import {
   getPointers,
@@ -24,6 +26,7 @@ import {
   readBytes,
   getPointersInMemory,
   getEmptyPointersInMemory,
+  packedSizeBytes,
 } from "./finite-field.js";
 import {
   multiply,
@@ -36,6 +39,7 @@ import {
   endomorphism,
   batchInverse,
   batchAddUnsafe,
+  isEqualNegative,
 } from "./wasm/finite-field.wasm.js";
 import {
   decompose,
@@ -472,7 +476,6 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         }
       }
     }
-    // update number of pairs to add
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     batchAddUnsafe(scratch[0], tmp, denom, gPtr, gPtr, hPtr, nPairs);
@@ -680,14 +683,17 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
     if (isEqual(G[i], H[i])) {
       // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      // TODO: handle y1 === -y2; right now we just assume y1 === y2
+      if (isEqualNegative(G[i], H[i])) {
+        setIsNonZeroAffine(S[i], false);
+        continue;
+      }
       let y = G[i] + sizeField;
       add(tmp[nBoth], y, y); // TODO: efficient doubling
       iDouble[nDouble] = i;
       iBoth[i] = nBoth;
       nDouble++, nBoth++;
     } else {
-      // normal case
+      // typical case, where x1 !== x2 and we add the points
       subtractPositive(tmp[nBoth], H[i], G[i]);
       iAdd[nAdd] = i;
       iBoth[i] = nBoth;
@@ -743,8 +749,15 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
  * @param {number} point projective representation
  * @returns {InputPoint}
  */
-function toAffineOutput([zinv, ...scratchSpace], P) {
-  let [x, y, z] = projectiveCoords(P);
+function toAffineOutput([zinv, ...scratchSpace], point) {
+  if (isZeroProjective(point)) {
+    return [
+      new Uint8Array(packedSizeBytes),
+      new Uint8Array(packedSizeBytes),
+      true,
+    ];
+  }
+  let [x, y, z] = projectiveCoords(point);
   // return x/z, y/z
   inverse(scratchSpace[0], zinv, z);
   multiply(x, x, zinv);

@@ -30,7 +30,7 @@ export {
   affineCoords,
   projectiveCoords,
   setNonZeroProjective,
-  setNonZeroAffine,
+  setIsNonZeroAffine,
 };
 
 let sizeField = 8 * n;
@@ -247,7 +247,8 @@ function setNonZeroProjective(pointer) {
 }
 /**
  * @param {number} pointer
+ * @param {boolean} isNonZero
  */
-function setNonZeroAffine(pointer) {
-  memoryBytes[pointer + 2 * sizeField] = 1;
+function setIsNonZeroAffine(pointer, isNonZero) {
+  memoryBytes[pointer + 2 * sizeField] = Number(isNonZero);
 }

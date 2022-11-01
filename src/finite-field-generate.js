@@ -41,7 +41,7 @@ const mulInputFactor = 8n;
  *
  * @param {bigint} p
  * @param {number} w
- * @param {import('./finite-field.wat')} wasm
+ * @param {import('./wasm/finite-field.wasm')} wasm
  */
 function createFiniteField(p, w, wasm) {
   let {
@@ -1147,6 +1147,31 @@ function finiteFieldHelpers(writer, p, w) {
     line(i32.const(1));
   });
 
+  // x === -y
+  let P = bigintToLegs(p, w, n);
+  addFuncExport(writer, "isEqualNegative");
+  func(writer, "isEqualNegative", [param32(x), param32(y), result32], () => {
+    line(local64(tmp));
+    for (let i = 0; i < n; i++) {
+      lines(
+        // x[i] + y[i] ?= P[i]
+        i64.load(x, { offset: 8 * i }),
+        i > 0 && i64.add(),
+        i64.load(y, { offset: 8 * i }),
+        i64.add(),
+        local.set(tmp),
+        i64.and(tmp, wordMax),
+        i64.const(P[i]),
+        i64.ne()
+      );
+      if_(writer, () => {
+        line(return_(i32.const(0)));
+      });
+      i < n - 1 && line(i64.shr_u(tmp, w));
+    }
+    line(i32.const(1));
+  });
+
   // x === 0
   addFuncExport(writer, "isZero");
   func(writer, "isZero", [param32(x), result32], () => {
@@ -1956,7 +1981,7 @@ function montgomeryParams(p, w) {
  *
  * @param {bigint} p modulus
  * @param {number} w word size
- * @param {import('./finite-field.wat')} wasm
+ * @param {import('./wasm/finite-field.wasm')} wasm
  */
 function jsHelpers(
   p,
