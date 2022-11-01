@@ -4241,6 +4241,139 @@
     if (return (i32.const 0)) end
     (i32.const 1)
   )
+  (export "isEqualNegative" (func $isEqualNegative))
+  (func $isEqualNegative (param $x i32) (param $y i32) (result i32)
+    (local $tmp i64)
+    (i64.load offset=0 (local.get $x))
+    (i64.load offset=0 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x3fffaaab)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=8 (local.get $x))
+    i64.add
+    (i64.load offset=8 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x27fbffff)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=16 (local.get $x))
+    i64.add
+    (i64.load offset=16 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x153ffffb)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=24 (local.get $x))
+    i64.add
+    (i64.load offset=24 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x2affffac)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=32 (local.get $x))
+    i64.add
+    (i64.load offset=32 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x30f6241e)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=40 (local.get $x))
+    i64.add
+    (i64.load offset=40 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x34a83da)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=48 (local.get $x))
+    i64.add
+    (i64.load offset=48 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x112bf673)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=56 (local.get $x))
+    i64.add
+    (i64.load offset=56 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x12e13ce1)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=64 (local.get $x))
+    i64.add
+    (i64.load offset=64 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x2cd76477)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=72 (local.get $x))
+    i64.add
+    (i64.load offset=72 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x1ed90d2e)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=80 (local.get $x))
+    i64.add
+    (i64.load offset=80 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x29a4b1ba)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=88 (local.get $x))
+    i64.add
+    (i64.load offset=88 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x3a8e5ff9)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i64.shr_u (local.get $tmp) (i64.const 30))
+    (i64.load offset=96 (local.get $x))
+    i64.add
+    (i64.load offset=96 (local.get $y))
+    i64.add
+    (local.set $tmp)
+    (i64.and (local.get $tmp) (i64.const 0x3fffffff))
+    (i64.const 0x1a0111)
+    i64.ne
+    if (return (i32.const 0)) end
+    (i32.const 1)
+  )
   (export "isZero" (func $isZero))
   (func $isZero (param $x i32) (result i32)
     (i64.ne (i64.load offset=0 (local.get $x)) (i64.const 0))

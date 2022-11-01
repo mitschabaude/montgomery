@@ -8,6 +8,8 @@ import {
   copyAffineToProjectiveNonZero,
   isZeroAffine,
   projectiveCoords,
+  setIsNonZeroAffine,
+  isZeroProjective,
 } from "./curve.js";
 import {
   getPointers,
@@ -24,6 +26,7 @@ import {
   readBytes,
   getPointersInMemory,
   getEmptyPointersInMemory,
+  packedSizeBytes,
 } from "./finite-field.js";
 import {
   multiply,
@@ -36,20 +39,18 @@ import {
   endomorphism,
   batchInverse,
   batchAddUnsafe,
+  isEqualNegative,
 } from "./wasm/finite-field.wasm";
 // } from "./wasm/finite-field.wasm.js";
 import {
   decompose,
-  scratchPtr,
   writeBytesScalar,
   scalarSize,
-  packedScalarSize,
-  readBytesScalar,
-  memoryScalar,
   getPointerScalar,
   resetPointersScalar,
+  extractBitSlice,
 } from "./scalar-glv.js";
-import { extractBitSlice, log2 } from "./util.js";
+import { log2 } from "./util.js";
 
 export { msmAffine, batchAdd };
 
@@ -166,8 +167,8 @@ let cTable = {
  * we split the preparation phase into two; the "summation steps" are the three steps also defined above.
  *
  * ```txt
- *  9% - preparation 1 (input processing)
- * 11% - preparation 2 (sorting points in bucket order)
+ *  8% - preparation 1 (input processing)
+ * 12% - preparation 2 (sorting points in bucket order)
  * 65% - summation step 1 (bucket accumulation)
  * 15% - summation step 2 (bucket reduction)
  *  0% - summation step 3 (final sum over partitions)
@@ -200,7 +201,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   let sizeAffine2 = 2 * sizeAffine;
   let sizeAffine4 = 4 * sizeAffine;
   let pointPtr = getPointer(N * sizeAffine4);
-  let scalarPtr = getPointerScalar(N * packedScalarSize);
+  let sizeScalar2 = 2 * scalarSize;
+  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
 
   /**
    * @type {(number)[][]}
@@ -239,27 +241,25 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    *
    * ### Performance
    *
-   * this phase takes ~9% of the total, roughly made up of
+   * this phase takes ~8% of the total, roughly made up of
    *
    * 2% write scalars & points to wasm memory
    * 1% bucket counts
    * 1% turn coordinates to montgomery form
-   * 1% split scalars to slices
-   * 0.7% GLV-decompose scalar (most of this is for reading the bytes back out)
    * 0.5% endomorphism
+   * 0.5% split scalars to slices
+   * 0.2% other processing of points (negation, copying)
+   * 0.1% GLV-decompose scalar
    *
-   * these numbers are pretty inexact, and it's hard to get perfect data from the profiler
-   * because this phase is a hodgepodge of so many different small pieces.
-   * also, there is 2.5% of unexplained runtime. there might be some value in restructuring this
-   * so that a large part happens in a dedicates wasm function.
-   *
-   * that said, most identifiable parts, like the 2% for writing to wasm memory and the 1% for contributing to counting sort,
-   * are necessitated by the architecture and can't be reduced or removed.
+   * it's hard to get perfect data from the profiler because this phase is a hodgepodge of so many different small pieces.
+   * also, there is ~2.7% of unexplained runtime which is spent somewhere in the JS logic.
+   * that said, most of the effort here, like writing to wasm memory and processing points, is necessitated
+   * by the architecture and can't be significantly reduced.
    */
   for (
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < N;
-    i++, point += sizeAffine4
+    i++, point += sizeAffine4, scalar += sizeScalar2
   ) {
     let inputScalar = inputScalars[i];
     let inputPoint = inputPoints[i];
@@ -297,17 +297,14 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
     // decompose scalar from one 32-byte into two 16-byte chunks
-    writeBytesScalar(scratchPtr, inputScalar);
-    decompose(scratchPtr);
-    let scalar0 = readBytesScalar(scalar, scratchPtr);
-    scalar += packedScalarSize;
-    let scalar1 = readBytesScalar(scalar, scratchPtr + scalarSize);
-    scalar += packedScalarSize;
+    writeBytesScalar(scalar, inputScalar);
+    decompose(scalar);
 
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
       // compute kth slice from first half scalar
-      let l = extractBitSlice(scalar0, k * c, c) + carry0;
+      let l = extractBitSlice(scalar, k * c, c) + carry0;
+
       if (l > L) {
         l = doubleL - l;
         carry0 = 1;
@@ -321,12 +318,11 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
       }
       // compute kth slice from second half scalar
-      // NB: we repeat this code instead of merging both into a loop of size 2,
+      // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
-      // creating such throw-away objects incurs a garbage collection cost!
-      // in general, you will find us avoiding garbage-collectable objects like the plague
-      // -- everything operates on numbers or stable arrays of numbers
-      l = extractBitSlice(scalar1, k * c, c) + carry1;
+      // creating such throw-away objects has a garbage collection cost
+      l = extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
+
       if (l > L) {
         l = doubleL - l;
         carry1 = 1;
@@ -383,10 +379,10 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
    * the counting sort solution almost entirely avoids random reads, with the exception of
    * reading random buckets from the relatively small {@link bucketCounts} helper array.
    *
-   * there isn't much other stuff happening in this phase.
+   * there is not much other stuff happening in this phase:
    * - 'loop #2' is negligible at < 0.1% of runtime.
    * - 1-2% spent on {@link bucketCounts} reads/writes
-   * - 1% on {@link extractBitSlice} (which should be fixed by leaving the bytes in wasm and slicing them there)
+   * - 0.5% on {@link extractBitSlice}
    *
    * @type {number[][]}
    */
@@ -430,21 +426,16 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < 2 * N;
-    i++, point += sizeAffine2, scalar += packedScalarSize
+    i++, point += sizeAffine2, scalar += scalarSize
   ) {
     // a point `A` and it's negation `-A` are stored next to each other
     let negPoint = point + sizeAffine;
-    let scalarBytes = new Uint8Array(
-      memoryScalar.buffer,
-      scalar,
-      packedScalarSize
-    );
     let carry = 0;
     /**
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
      */
     for (let k = 0; k < K; k++) {
-      let l = extractBitSlice(scalarBytes, k * c, c) + carry;
+      let l = extractBitSlice(scalar, k * c, c) + carry;
       if (l > L) {
         l = doubleL - l;
         carry = 1;
@@ -486,7 +477,6 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
         }
       }
     }
-    // update number of pairs to add
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
     batchAddUnsafe(scratch[0], tmp, denom, gPtr, gPtr, hPtr, nPairs);
@@ -576,7 +566,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
         nextBuckets[p] = buckets[k][d * L0 + l];
       }
     }
-    // console.assert(p === n);
     // add them; we add-assign the running sum to the next bucket and not the other way;
     // building up a list of intermediary partial sums at the pointers that were the buckets before
     batchAdd(scratch, tmp, d, nextBuckets, nextBuckets, runningSums, n);
@@ -598,7 +587,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
         majorSums[p] = buckets[k][d * 2 * L1 + 1];
       }
     }
-    // console.assert(p === K * D1);
     batchAdd(scratch, tmp, d, majorSums, majorSums, minorSums, p);
   }
   // second logarithmic step: repeated doubling of some buckets until they hold square areas to fill up the triangle
@@ -610,7 +598,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
       minorSums[p] = buckets[k][d * L0 + 1];
     }
   }
-  // console.assert(p === K * (D - 1));
   if (D > 1) {
     for (let j = 0; j < c0; j++) {
       batchDoubleInPlace(scratch, tmp, d, minorSums, p);
@@ -697,14 +684,17 @@ function batchAdd(scratch, tmp, d, S, G, H, n) {
     if (isEqual(G[i], H[i])) {
       // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      // TODO: handle y1 === -y2; right now we just assume y1 === y2
+      if (isEqualNegative(G[i], H[i])) {
+        setIsNonZeroAffine(S[i], false);
+        continue;
+      }
       let y = G[i] + sizeField;
       add(tmp[nBoth], y, y); // TODO: efficient doubling
       iDouble[nDouble] = i;
       iBoth[i] = nBoth;
       nDouble++, nBoth++;
     } else {
-      // normal case
+      // typical case, where x1 !== x2 and we add the points
       subtractPositive(tmp[nBoth], H[i], G[i]);
       iAdd[nAdd] = i;
       iBoth[i] = nBoth;
@@ -760,8 +750,15 @@ function batchDoubleInPlace(scratch, tmp, d, G, n) {
  * @param {number} point projective representation
  * @returns {InputPoint}
  */
-function toAffineOutput([zinv, ...scratchSpace], P) {
-  let [x, y, z] = projectiveCoords(P);
+function toAffineOutput([zinv, ...scratchSpace], point) {
+  if (isZeroProjective(point)) {
+    return [
+      new Uint8Array(packedSizeBytes),
+      new Uint8Array(packedSizeBytes),
+      true,
+    ];
+  }
+  let [x, y, z] = projectiveCoords(point);
   // return x/z, y/z
   inverse(scratchSpace[0], zinv, z);
   multiply(x, x, zinv);
