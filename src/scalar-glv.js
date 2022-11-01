@@ -25,6 +25,7 @@ export {
   resetPointers as resetPointersScalar,
   memory as memoryScalar,
   extractBitSlice,
+  bitLength as scalarBitlength,
 };
 
 let p =
@@ -58,6 +59,7 @@ let {
   getStablePointers,
   getPointer,
   resetPointers,
+  bitLength,
 } = jsHelpers(lambda, w, {
   memory,
   toPackedBytes,
@@ -79,7 +81,7 @@ function testDecomposeRandomScalar() {
 /**
  * decompose scalar s = s0 + lambda*s1, where lambda is a cube root of 1
  *
- * WARNING: for efficiency, scalars are always decomposed into the same
+ * WARNING: scalars are always decomposed into the same
  * bytes positions in wasm memory, so one decomposition overwrites the previous one
  *
  * @param {Uint8Array} scalar

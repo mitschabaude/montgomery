@@ -47,6 +47,7 @@ import {
   getPointerScalar,
   resetPointersScalar,
   extractBitSlice,
+  scalarBitlength,
 } from "./scalar-glv.js";
 import { log2 } from "./util.js";
 
@@ -180,9 +181,7 @@ let cTable = {
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
-  // initialize buckets
   let N = inputScalars.length;
-
   let n = log2(N);
   let c = n - 1;
   if (c < 1) c = 1;
@@ -192,7 +191,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   if (c_) c = c_;
   if (c0_) c0 = c0_;
 
-  let K = Math.ceil(129 / c); // number of partitions
+  let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
   let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
