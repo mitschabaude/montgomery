@@ -7,11 +7,23 @@ import {
   toPackedBytes,
   memory,
   dataOffset,
-} from "./scalar-glv.wasm";
-// } from "./scalar-glv.wat.js";
+} from "./wasm/scalar-glv.wasm";
+// } from "./wasm/scalar-glv.wat.js";
 import { bigintFromBytes } from "./util.js";
 
-export { decomposeScalar, testDecomposeRandomScalar };
+export {
+  writeBytesDouble as writeBytesScalar,
+  readBytes as readBytesScalar,
+  decompose,
+  decomposeScalar,
+  testDecomposeRandomScalar,
+  scratchPtr,
+  fieldSizeBytes as scalarSize,
+  packedSizeBytes as packedScalarSize,
+  getPointer as getPointerScalar,
+  resetPointers as resetPointersScalar,
+  memory as memoryScalar,
+};
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -36,12 +48,21 @@ let beta2 =
 const lambda = lambda2;
 const w = 30;
 
-let { fieldSizeBytes, packedSizeBytes, readBigInt, n, getPointers } = jsHelpers(
-  lambda,
-  w,
-  { memory, toPackedBytes, fromPackedBytes, dataOffset }
-);
-let [scalarPtr, , bytesPtr, bytesPtr2] = getPointers(4);
+let {
+  fieldSizeBytes,
+  packedSizeBytes,
+  readBigInt,
+  n,
+  getStablePointers,
+  getPointer,
+  resetPointers,
+} = jsHelpers(lambda, w, {
+  memory,
+  toPackedBytes,
+  fromPackedBytes,
+  dataOffset,
+});
+let [scratchPtr, , bytesPtr, bytesPtr2] = getStablePointers(4);
 
 function testDecomposeRandomScalar() {
   let [scalar] = randomScalars(1);
@@ -63,16 +84,16 @@ function testDecomposeRandomScalar() {
  * @returns {[Uint8Array, Uint8Array]}
  */
 function decomposeScalar(scalar) {
-  writeBytesDouble(scalarPtr, scalar);
-  decompose(scalarPtr);
-  let s0 = readBytes(bytesPtr, scalarPtr);
-  let s1 = readBytes(bytesPtr2, scalarPtr + fieldSizeBytes);
+  writeBytesDouble(scratchPtr, scalar);
+  decompose(scratchPtr);
+  let s0 = readBytes(bytesPtr, scratchPtr);
+  let s1 = readBytes(bytesPtr2, scratchPtr + fieldSizeBytes);
   return [s0, s1];
 }
 
 /**
  * read field element into packed bytes representation
- *
+ * @param {number} bytesPtr pointer for packed representation
  * @param {number} pointer
  */
 function readBytes(bytesPtr, pointer) {

@@ -1,6 +1,6 @@
 import { createFiniteField } from "./finite-field-generate.js";
-// import * as wasm from "./finite-field.wat.js";
-import * as wasm from "./finite-field.wasm";
+// import * as wasm from "./wasm/finite-field.wat.js";
+import * as wasm from "./wasm/finite-field.wasm";
 
 export {
   mod,
@@ -21,8 +21,12 @@ export {
   multiply,
   reduce,
   inverse,
+  add,
+  subtract,
   sqrt,
   square,
+  isEqual,
+  isZero,
   addAffine,
   writeBigint,
   readBigInt,
@@ -51,8 +55,12 @@ let {
   multiply,
   reduce,
   inverse,
+  add,
+  subtract,
   sqrt,
   square,
+  isEqual,
+  isZero,
   // elliptic curve
   addAffine,
   // helper

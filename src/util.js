@@ -10,6 +10,8 @@ export {
   log2,
   extractBitSlice,
   mapRange,
+  randomBytes,
+  bytesEqual,
 };
 
 /**
@@ -176,6 +178,15 @@ function extractBitSlice(bytes, startBit, bitLength) {
   return slice;
 }
 
+function randomBytes(n) {
+  let arr = new Uint8Array(n);
+  for (let i = 0; i < n; i += 65536) {
+    let m = Math.min(n - i, 65536);
+    globalThis.crypto.getRandomValues(arr.subarray(i, i + m));
+  }
+  return arr;
+}
+
 /**
  * @template T
  * @param {number} n
@@ -186,4 +197,12 @@ function mapRange(n, callback) {
   return Array(n)
     .fill(0)
     .map((_, i) => callback(i));
+}
+
+function bytesEqual(b1, b2) {
+  if (b1.length !== b2.length) return false;
+  for (let i = 0; i < b1.length; i++) {
+    if (b1[i] !== b2[i]) return false;
+  }
+  return true;
 }

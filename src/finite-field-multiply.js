@@ -8,7 +8,7 @@ import {
   forLoop8,
   func,
   ops,
-} from "./wasm-generate.js";
+} from "./lib/wasm-generate.js";
 
 export { multiply, barrett, karatsuba30 };
 

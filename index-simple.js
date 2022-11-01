@@ -1,9 +1,7 @@
-import { randomCurvePoints } from "./src/curve.js";
-import { tic, toc } from "./src/tictoc.js";
-import { load } from "./src/store-inputs.js";
+import { tic, toc } from "./src/extra/tictoc.js";
+import { load } from "./src/scripts/store-inputs.js";
 import { webcrypto } from "node:crypto";
-import { randomScalars } from "./src/finite-field.js";
-import { msmAffine } from "./src/curve-affine.js";
+import { msmAffine } from "./src/msm.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
@@ -21,20 +19,16 @@ toc();
 
 tic("load inputs & convert to rust");
 let points, scalars;
-if (n >= 12) {
-  let result = await load(n);
-  points = result.points;
-  scalars = result.scalars;
-} else {
-  points = randomCurvePoints(2 ** n);
-  scalars = randomScalars(2 ** n);
-}
+let result = await load(n);
+points = result.points;
+scalars = result.scalars;
 toc();
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3, x, y } = msmAffine(scalars, points);
+let { statistics } = msmAffine(scalars, points);
 toc();
 
+let { nMul1, nMul2, nMul3 } = statistics;
 let nMul = nMul1 + nMul2 + nMul3;
 
 console.log(`

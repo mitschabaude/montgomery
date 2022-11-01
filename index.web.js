@@ -2,10 +2,10 @@
 //   PointVectorInput,
 //   ScalarVectorInput,
 //   compute_msm,
-// } from "./src/reference.js";
-import { tic, toc } from "./src/tictoc.web.js";
-import { load } from "./src/store-inputs.web.js";
-import { msmAffine } from "./src/curve-affine.js";
+// } from "./src/extra/reference.js";
+import { tic, toc } from "./src/extra/tictoc.web.js";
+import { load } from "./src/scripts/store-inputs.web.js";
+import { msmAffine } from "./src/msm.js";
 import { randomBaseFieldx2 } from "./src/finite-field-js.js";
 import {
   benchInverse,
@@ -53,9 +53,10 @@ await new Promise((r) => setTimeout(r, 100));
 // toc();
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3, nInv } = msmAffine(scalars, points);
+let { statistics } = msmAffine(scalars, points);
 let ours = toc();
 
+let { nMul1, nMul2, nMul3, nInv } = statistics;
 let nMul = nMul1 + nMul2 + nMul3;
 // let nonMulOverhead = 1 - nMul / mPerSec / ours;
 

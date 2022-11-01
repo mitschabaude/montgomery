@@ -2,16 +2,16 @@ import {
   PointVectorInput,
   ScalarVectorInput,
   compute_msm,
-} from "./src/reference.node.js";
-import { msm } from "./src/curve.js";
-import { tic, toc } from "./src/tictoc.js";
+} from "./src/extra/reference.node.js";
+import { msmProjective } from "./src/msm-projective.js";
+import { tic, toc } from "./src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
 import { mod, p } from "./src/finite-field.js";
-import { msmAffine } from "./src/curve-affine.js";
+import { msmAffine } from "./src/msm.js";
 import { bigintFromBytes, bigintToBytes } from "./src/util.js";
 import { modInverse } from "./src/finite-field-js.js";
-import { msmDumbAffine } from "./src/dumb-curve-affine.js";
-import { load } from "./src/store-inputs.js";
+import { msmDumbAffine } from "./src/extra/dumb-curve-affine.js";
+import { load } from "./src/scripts/store-inputs.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
@@ -59,7 +59,7 @@ if (runSlowMsm) {
 }
 
 tic("msm (projective)");
-let resultProj = msm(scalars, points);
+let resultProj = msmProjective(scalars, points);
 toc();
 let xProjProj = mod(resultProj.x, p);
 let yProjProj = mod(resultProj.y, p);
@@ -67,9 +67,9 @@ let zProjProj = mod(resultProj.z, p);
 let [xProj, yProj] = toAffine(xProjProj, yProjProj, zProjProj);
 
 tic("msm (ours)");
-let result = msmAffine(scalars, points);
+let { result } = msmAffine(scalars, points);
 toc();
-let [xAffPacked, yAffPacked] = result.result;
+let [xAffPacked, yAffPacked] = result;
 let xAff = bigintFromBytes(xAffPacked);
 let yAff = bigintFromBytes(yAffPacked);
 
@@ -82,11 +82,6 @@ console.log("ref === proj", { x: xRef === xProj, y: yRef === yProj });
 console.log("ref === aff", { x: xRef === xAff, y: yRef === yAff });
 
 console.log("proj === aff", { x: xProj === xAff, y: yProj === yAff });
-
-// console.log(xBigint);
-// console.log(xRef);
-// console.log(xProj);
-// console.log(xAff);
 
 function toAffine(x, y, z) {
   if (z === 0n) return [0n, 0n, true];
