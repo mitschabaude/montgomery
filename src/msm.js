@@ -562,7 +562,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
         nextBuckets[p] = buckets[k][d * L0 + l];
       }
     }
-    // console.assert(p === n);
     // add them; we add-assign the running sum to the next bucket and not the other way;
     // building up a list of intermediary partial sums at the pointers that were the buckets before
     batchAdd(scratch, tmp, d, nextBuckets, nextBuckets, runningSums, n);
@@ -584,7 +583,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
         majorSums[p] = buckets[k][d * 2 * L1 + 1];
       }
     }
-    // console.assert(p === K * D1);
     batchAdd(scratch, tmp, d, majorSums, majorSums, minorSums, p);
   }
   // second logarithmic step: repeated doubling of some buckets until they hold square areas to fill up the triangle
@@ -596,7 +594,6 @@ function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
       minorSums[p] = buckets[k][d * L0 + 1];
     }
   }
-  // console.assert(p === K * (D - 1));
   if (D > 1) {
     for (let j = 0; j < c0; j++) {
       batchDoubleInPlace(scratch, tmp, d, minorSums, p);
