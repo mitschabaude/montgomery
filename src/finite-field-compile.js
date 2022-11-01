@@ -29,7 +29,7 @@ async function compileFiniteFieldWasm(
   });
   await writeFile(`./src/wasm/finite-field.wat`, writer.text);
   let { js, wasm } = await compileWat(writer);
-  await writeFile(`./src/wasm/finite-field.wat.js`, js);
+  await writeFile(`./src/wasm/finite-field.wasm.js`, js);
   await writeFile("./src/wasm/finite-field.wasm", wasm);
   return { js, wasm, wat: writer.text };
 }
@@ -38,7 +38,7 @@ async function compileGLVWasm(q, lambda, w, { withBenchmarks = false } = {}) {
   let writer = await createGLVWat(q, lambda, w, { withBenchmarks });
   await writeFile(`./src/wasm/scalar-glv.wat`, writer.text);
   let { js, wasm } = await compileWat(writer);
-  await writeFile(`./src/wasm/scalar-glv.wat.js`, js);
+  await writeFile(`./src/wasm/scalar-glv.wasm.js`, js);
   await writeFile("./src/wasm/scalar-glv.wasm", wasm);
   return { js, wasm, wat: writer.text };
 }

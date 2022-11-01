@@ -33,7 +33,7 @@ import {
   multiplyCount,
   resetMultiplyCount,
   isEqual,
-} from "./wasm/finite-field.wat.js";
+} from "./wasm/finite-field.wasm.js";
 import { extractBitSlice, log2 } from "./util.js";
 
 export {

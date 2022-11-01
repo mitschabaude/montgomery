@@ -1,5 +1,5 @@
 import { createFiniteField } from "./finite-field-generate.js";
-import * as wasm from "./wasm/finite-field.wat.js";
+import * as wasm from "./wasm/finite-field.wasm.js";
 
 export {
   mod,

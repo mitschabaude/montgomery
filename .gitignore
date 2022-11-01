@@ -1,5 +1,5 @@
 node_modules
-*.wat.js
+*.wasm.js
 *.wasm
 *.gen.wat
 resources

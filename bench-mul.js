@@ -28,8 +28,8 @@ for (let w of [30]) {
   });
   // create extra files which we can identify by bit length
   await writeFile(`./src/wasm/finite-field.${w}.gen.wat`, wat);
-  await writeFile(`./src/wasm/finite-field.${w}.wat.js`, js);
-  let wasm = await import(`./src/wasm/finite-field.${w}.wat.js`);
+  await writeFile(`./src/wasm/finite-field.${w}.wasm.js`, js);
+  let wasm = await import(`./src/wasm/finite-field.${w}.wasm.js`);
   let ff = createFiniteField(p, w, wasm);
   // let [x, z] = testCorrectness(p, w, ff);
   let [x, z] = getPointers(2);
