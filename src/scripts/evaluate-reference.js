@@ -1,5 +1,5 @@
 import { tic, toc } from "../extra/tictoc.js";
-import { load } from "../store-inputs.js";
+import { load } from "./store-inputs.js";
 import { webcrypto } from "node:crypto";
 import {
   ScalarVectorInput,

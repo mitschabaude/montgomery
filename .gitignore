@@ -1,6 +1,5 @@
 node_modules
 *.wasm.js
-*.wasm
 *.gen.wat
 resources
 inputs.json

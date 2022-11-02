@@ -33,7 +33,8 @@ for (let w of [30]) {
   let ff = createFiniteField(p, w, wasm);
   // let [x, z] = testCorrectness(p, w, ff);
   let [x, z] = getPointers(2);
-  writeBigint(x, randomBaseFieldx2());
+  let x0 = randomBaseFieldx2();
+  writeBigint(x, x0);
   writeBigint(z, randomBaseFieldx2());
   tic(`multiply (w=${w}) x ${N}`);
   ff.benchMultiply(x, N);
@@ -79,8 +80,12 @@ for (let w of [30]) {
   }
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
   if (w === 30)
-    console.log(`barrett mulka\t ${((timeMulKara / N) * 1e9).toFixed(0)} ns`);
-  console.log(`barrett mulsb\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`);
+    console.log(
+      `barrett-karatsuba mul\t ${((timeMulKara / N) * 1e9).toFixed(0)} ns`
+    );
+  console.log(
+    `barrett-schoolbook mul\t ${((timeMulB / N) * 1e9).toFixed(0)} ns`
+  );
 
   tic();
   ff.benchMultiplyDifference(x, z, N);
@@ -107,6 +112,17 @@ for (let w of [30]) {
       timeSubtract / timeMul
     ).toFixed(2)} mul)`
   );
+
+  tic();
+  benchMultiplyJs(x0, N);
+  let timeJs = toc();
+  console.log(
+    `${(N / timeJs / 1e6).toFixed(2).padStart(5)} mio. mjs / s (mjs = ${(
+      timeJs / timeMul
+    ).toFixed(2)} mul)`
+  );
+  console.log(`bigint mul\t ${((timeJs / N) * 1e9).toFixed(0)} ns`);
+
   console.log();
 }
 {
@@ -133,6 +149,13 @@ for (let w of [30]) {
     let time = toc();
     console.log(`${(N / time / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
   }
+}
+
+function benchMultiplyJs(x, N) {
+  for (let i = 0; i < N; i++) {
+    x = (x * x) % p;
+  }
+  return x;
 }
 
 /**
