@@ -29,6 +29,8 @@ Here are some performance timings, measured in node 16 on the CoreWeave server, 
 
 On my local machine (Intel i7), overall performance is a bit better than these numbers, but relative gains somewhat smaller, between 5-6x.
 
+Below, I give a more detailed account of my implementation and convey some of my personal learnings.
+
 ## JS vs Wasm
 
 First, a couple of words on the project architecture. I started into this competition with a specific assumption: That, to create code that runs fast in the browser, the best way to go is to just write most of it in JavaScript, and only mix in hand-written Wasm for the low-level arithmetic and some hot loops. This is in contrast to more typical architectures where all the crypto-related code is written in a separate high-level language and compiled to Wasm for use in the JS ecosystem. Being a JS developer, who professionally works in a code base where large parts are compiled to JS from OCaml and Rust, I developed a dislike for the impendance mismatch, bad debugging experience, and general complexity such an architecture creates. It's nice if you can click on a function definition and end up _in source code of that function_, not in.. some auto-generated TS declaration file which hides an opaque blob of compiled Wasm. (Looking at layers of glue code and wasm-bindgen incantations, I feel a similar amount of pain for the Rust developer on the other side of the language gap.)
@@ -152,7 +154,7 @@ Now concretely, how has the algorithm above to be modified to use less carries? 
   - for $j =  1,\ldots,n-2$, do:
     - $t = S_j + x_i y_j + q_i p_j$
     - add carry from last iteration:  
-      `if ((j-1) % nSafe === 0)`, $t = t + c$
+      `if ((j-1) % nSafe === 0) ` $t = t + c$
     - maybe do a carry in this iteration:  
       `if (j % nSafe === 0) ` $(c, S_{j-1}) = t$  
       `else ` $S_{j-1} = t$
@@ -176,3 +178,160 @@ In our implementation, we use a sort of meta-programming for that: Our Wasm gets
 
 My conclusion on this section is that if you implement cryptography in a new environment like Wasm, you have to rederive your algorithms from first principles.
 If you just port over well-known algorithms, like the "CIOS method", you will adopt implicit assumptions about what's efficient that went into crafting these algorithms, which might not hold in your environment.
+
+### Barrett vs Montgomery?
+
+TODO
+
+### Unrolling vs loops
+
+TODO
+
+## MSM overview
+
+Let's move to the higher-level algorithms for computing the MSM:
+
+$$S = s_0G_0 + \ldots + s_{n-1} G_{n-1}$$
+
+The bucket method and the technique of batching affine additions is well-documented elsewhere, so I'll skip over most details of those.
+
+Broadly, our implementation uses the Pippenger algorithm / bucket method, where scalars are sliced
+into windows of size $c$, giving rise to $K = \lfloor b/c \rfloor$ _partitions_ or "sub-MSMs" ($b$ is the scalar bit length).
+
+For each partition k, points $G_i$ are sorted into $L = 2^{c-1}$ _buckets_ according to the ḱth NAF slice of their scalar $s_i$. In total, we end up with $KL$ buckets, which are indexed by $(k, l)$ where $k = 0,\ldots,K-1$ and $l = 1,\ldots,L$.
+
+After sorting the points, computation proceeds in **three main steps:**
+
+1. Each bucket is accumulated into a single point, the _bucket sum_ $B_{l,k}$, which is simply the sum of all points in the bucket.
+2. The bucket sums of each partition k are reduced into a partition sum  
+   $P_k = 1 B_{k, 1} + 2 B_{k, 2} + \ldots + L B_{k, L}$.
+3. the partition sums are reduced into the final result,  
+   $S = P_0 + 2^c P_1 + \ldots + 2^{c(K-1)} P_{K-1}$.
+
+We use batch-affine additions for step 1 (bucket accumulation), as pioneered by Zac Williamson in Aztec's barretenberg library: https://github.com/AztecProtocol/barretenberg/pull/19. Thus, in this step we loop over all buckets, collect the pairs of points to add, and then do a batch-addition on all of those. This is done in multiple passes, until the points of each bucket are summed to a single point, in an implicit binary tree. In each pass, empty buckets and buckets with 1 remaining point are skipped; also, buckets of uneven length have a dangling point at the end, which doesn't belong to a pair and is skipped and included in a later pass.
+
+As a novelty, we also use batch-affine additions for _all of step 2_ (bucket reduction). More on that below.
+
+We switch from an affine to a projective point representation between steps 2 and 3. Step 3 is so tiny (< 0.1% of the computation) that the performance of projective curve arithmetic becomes irrelevant.
+
+The algorithm has a significant preparation phase, which happens before step 1, where we split scalars and sort points and such. Before splitting scalars into length-c slices, we do a GLV decomposition, where each 256-bit scalar is split into two 128-bit chunks as $s = s_0 + s_1 \lambda$. Multiplying a point by \lambda is a curve endomorphism, with an efficient implementation
+
+$$\lambda (x,y) = (\beta x, y) =: \mathrm{endo}((x, y)),$$
+
+where $\lambda$ and $\beta$ are certain cube roots of 1 in their respective fields.
+Correspondingly, each point $G$ becomes two points $G$, $\mathrm{endo}(G)$. We also store $-G$ and $-\mathrm{endo}(G)$ which are used when the NAF slices of $s_0$, $s_1$ are negative.
+
+Other than processing inputs, the preparation phase is concerned with organizing points. This should be done in a way which:
+
+1. enables to efficiently collect independent point pairs to add, in multiple successive passes over all buckets;
+2. makes memory access efficient when batch-adding pairs => ideally, the 2 points that form a pair, as well as consecutive pairs, are stored next to each other.
+
+We address these two goals by copying all points to linear arrays; we do this K times, once for each partition.
+Ordering in each of these arrays is achieved by performing a _counting sort_ of all points with respect to their bucket $l$ in partition $k$.
+
+Between steps 1 and 2, there is a similar re-organization step. At the end of step 1, bucket sums are accumulated into the `0` locations of each original bucket, which are spread apart as far as the original buckets were long. Before step 2, we copy these bucket sums to a new linear array from 1 to L, for each partition. Doing this empirically reduces the runtime.
+
+Here's a rough breakdown of the time spent in the 5 different phases of the algorithm. We split the preparation phase into two; the "summation steps" are the three steps also defined above.
+
+| % Runtime | Phase description                                      |
+| --------: | ------------------------------------------------------ |
+|        8% | Preparation phase 1 - input processing                 |
+|       12% | Preparation phase 2 - copying points into bucket order |
+|       65% | Summation step 1 - bucket accumulation                 |
+|       15% | Summation step 2 - bucket reduction                    |
+|        0% | Summation step 3 - final sum over partitions           |
+
+### How to form a valid addition tree
+
+When you have a list of buckets to accumulate – how do you create a series of valid batches of _independent_ additions, such that in the end, you have accumulated those points into one per bucket?
+
+I want to describe this aspect because it's a bit confusing when you first encounter it, and the literature / code comments I found are also confusing, while the actual answer is super simple.
+
+For simplicity, just look at one bucket, with points in an array:
+
+```
+x_0 | x_1 | x_2 | x_3 | x_4 | x_5
+```
+
+Here's what we do: When we encounter this bucket to collect addition pairs for the first batch, we just greedily take one pair after another, until we run out of pairs:
+
+```
+ (x_0, x_1), (x_2, x_3), (x_4, x_5) --> addition pairs
+```
+
+For each collected pair, our batch addition routine add-assigns the second to the first point. So, after the first round, we can implicitly ignore every uneven-indexed point, because the entire sum is now contained at the even indices:
+
+```
+x_0 | ___ | x_2 | ___ | x_4 | ___
+```
+
+When we encounter this bucket for the next addition batch, we again greedily collect pairs starting from index 0. This time, we only have to skip an index every time when we collect a pair. The last point can't be added to a pair, so is skipped:
+
+```
+ (x_0, x_2) --> addition pairs
+```
+
+After this round `x_2` was added into `x_0`. Now, we can ignore every index not divisible by 4:
+
+```
+x_0 | ___ | ___ | ___ | x_4 | ___
+```
+
+When collecting points the third round, we take pairs from 4 indices apart at a time, which just gives us the final pair:
+
+```
+ (x_0, x_4) --> addition pairs
+```
+
+We end up with the final bucket layout, which has all points accumulated into the first one, in a series of independent additions:
+
+```
+x_0 | ___ | ___ | ___ | __ | ___
+```
+
+When we encounter that bucket in every subsequent round, we will skip it every time because the length is not $> 2^m$, where $m$ is the round number (the first round has $m = 1$).
+
+This trivial algorithm sums up each bucket, in an implicit binary tree, in the minimum possible number of rounds. In the implementation, you walk over all buckets and do what I described here. Simple!
+
+## Affine Addition is All You Need
+
+Let's turn our attention to step 2. At the beginning of this step, we are given bucket sums $B_l$, for $l = 1,\ldots,L$ and the task is compute the _partition sum_
+
+$$P = 1 B_1 + 2 B_2 + \ldots + L B_L = \sum_{1=1}^L l B_l$$
+
+We actually need one such sum for every partition, but they are fully independent, so we are leaving out the $k$ index, $B_l = B_{k,l}$.
+
+There's a well-known algorithm for computing this sum with just $2L$ additions. In pseudo-code:
+
+- Set $R = 0$, $P = 0$.
+- for $l = L, \ldots 1$:
+  - $R = R + B_l$
+  - $P = P + R$
+
+In each step $l$, $R$ becomes the partial sum $R_l := B_L + \ldots + B_l$, and it's easy to see that $P$ is the sum of all those partial sums, $P = R_L + \ldots + R_1$.
+
+Now the obvious question: Can we use batch-affine additions here? Clearly, $P = R_L + \ldots + R_1$, like the bucket sum, can be written as a tree of independent additions, if we'd store the intermediate partial sums $R_l$!
+
+The bad news is that every partial sum depends on the last one: $R_l = R_{l+1} + B_l$. So, these all have to be computed in sequence. Therefore, it seems we can't use batch-affine addition, since we won't amortize the cost of the inversion. We can only batch over the $K$ independent partitions, but that's not enough ($K = \lceil 128 / c\rceil \approx 10$ for the input lengths covered here, and gets smaller for larger inputs).
+
+Let's quickly understand the trade-off with a napkin calculation: With projective arithmetic, we could use mixed additions for all the $R_l = R_{l+1} + B_l$ steps since the $B_l$ is affine. So this addition costs 11 multiplications. Batch additions would only cost 6, plus 1 inversion divided by the batch size $N_b$. One inversion, in our implementation, costs about 100-150 muls, let's say 125, so for batch addition to be faster for computing the $R_l$, we need
+
+$$11 N_b > 125 + 6 N_b \Leftrightarrow N_b > 25.$$
+
+So, it's clearly not worth it to use batch additions here, even if we account for the savings possible in computing $P$.
+
+However, what if we had a way to split the partition sum into independent sub-sums? Actually, we can do this:
+
+$$P = \sum_{l=1}^L l B_l = \sum_{l=1}^{L/2} l B_l + \sum_{l=1}^{L/2} \left( l + \frac{L}{2} \right)  B_{l+L/2}$$
+
+This is just the same sum with the indices written differently: An index $l' > L/2$ is written as $l' = l + L/2$, with $l \le L/2$. Let's split the second sum in two:
+
+$$P = \sum_{l=1}^{L/2} l B_l + \sum_{l=1}^{L/2} l  B_{l+L/2} + \frac{L}{2} \sum_{l=1}^{L/2} B_{l+L/2}$$
+
+Voilà, the first two sums are both of the form of the original parition sum, and they can be computed independently from each other. We have split our two partitions into a lower half $(B_1,\ldots,B_{L/2})$ and an upper half $(B'_{1},\ldots,B'_{L/2})$, where $B'_l := B_{l + L/2}$. For the extra, third sum, note that if we ignore the ${L/2}$ factor, then $\sum_{l=1}^{L/2} B'_l = R'_1$ is the last partial sum in the upper half. This is computed anyway! We only have to multiply it by $L/2$. Recall that $L = 2^{c-1}$ is a power of 2 – so, the computing that third sum just consists of doing $c-2$ doublings.
+
+In summary, we can split a partition in two independent halves, at the cost of a logarithmic number of doublings, plus 2 additions to add the three sums back together. These extra doublings/additions don't even have to be affine, since they can be done at the end, when we're ready to leave affine land, so they are really negligible.
+
+We don't have to stop there: We can split each of the sub-partitions again, and so on, recursively. We can do this until we have enough independent partitions that the cost of inversions is amortized. This let's us easily amortize the inversion, and we get the full benefit of batch-affine additions when doing the sums $P = R_L + \ldots + R_1$. All-in-all, I think this should save us at least 25% of the effortin the bucket reduction step.
+
+This is implemented in `src/msm.js`, `reduceBucketsAffine`. Unfortunately, I didn't realize until writing this down that the extra doublings/additions don't have to be affine; I use batched-affine for those as well, which is probably just slightly suboptimal. Also, I should add that with a well-chosen window size, the bucket reduction step is 3-5x cheaper than the bucket accumulation step, so shaving off 25% of it ends up saving only <5% of overall runtime.
