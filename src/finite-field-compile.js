@@ -3,7 +3,13 @@ import { createFiniteFieldWat, createGLVWat } from "./finite-field-generate.js";
 import { toBase64 } from "fast-base64";
 import Wabt from "wabt";
 
-export { compileFiniteFieldWasm, compileWat, interpretWat, writeFile };
+export {
+  compileFiniteFieldWasm,
+  compileWat,
+  interpretWat,
+  writeFile,
+  wasmToJs,
+};
 
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
@@ -77,6 +83,19 @@ let { ${[...exports].join(", ")} } = instance.exports;
 export { ${[...exports].join(", ")} };
 `,
   };
+}
+
+async function wasmToJs(wasmBytes, exports) {
+  let base64 = await toBase64(wasmBytes);
+  return `// compiled from wat
+import { toBytes } from 'fast-base64';
+let wasmBytes = await toBytes("${base64}");
+let { instance } = await WebAssembly.instantiate(
+  wasmBytes
+);
+let { ${[...exports].join(", ")} } = instance.exports;
+export { ${[...exports].join(", ")} };
+`;
 }
 
 async function interpretWat({ text }) {

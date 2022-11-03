@@ -58,7 +58,7 @@ for (let n of N) {
   times[n] = { time, std };
 }
 
-console.dir({ times }, { depth: Infinity });
+console.dir(times, { depth: Infinity });
 
 function median(arr) {
   let mid = arr.length >> 1;
