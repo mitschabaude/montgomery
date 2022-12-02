@@ -65,13 +65,13 @@ A toy algorithm which captures the idea goes like this: You add a multiple of $p
 
 The real algorithm only needs $2 + \epsilon$ multiplications, and while based on the same idea, is not mathematically equivalent. It starts from the assumption that $x$, $y$ and $p$ are represented as $n$ limbs of $w$ bits each. We call $w$ the _limb size_ or _word size_. In math, we can express this as
 
-$$x = \sum_{i<n}{ x_i 2^{iw} }.$$
+$$x = \sum_{i=1}^{n-1}{ x_i 2^{iw} }.$$
 
 We store $x$ as an array of integers $(x_0,\ldots,x_{n-1})$, and similarly for $y$ and $p$.
 
 Now, the Montgomery radix $2^N$ is chosen as $N = wn$. We can write the Montgomery product as
 
-$$S = xy 2^{-N} =  \sum_{i<n}{ x_i y 2^{iw} 2^{-wn} } = x_0 y 2^{-nw} + x_1 y 2^{-(n-1)w} + \ldots + x_{n-1} y 2^{-w}.$$
+$$S = xy 2^{-N} =  \sum_{i=1}^{n-1}{ x_i y 2^{iw} 2^{-wn} } = x_0 y 2^{-nw} + x_1 y 2^{-(n-1)w} + \ldots + x_{n-1} y 2^{-w}.$$
 
 We can compute this sum iteratively:
 
@@ -86,7 +86,7 @@ $$q_i = (-p^{-1}) (S + x_i y) \pmod{2^w}$$
 
 Now, here comes the beauty: Since this equation is mod $2^w$, which is just the size of a single limb, we can replace all terms by their lowest limbs! For example,
 
-$$y = \sum_{j<n}{ y_j 2^{jw} } = y_0 \pmod{2^w}.$$
+$$y = \sum_{j=1}^{n-1}{ y_j 2^{jw} } = y_0 \pmod{2^w}.$$
 
 Similarly, you can replace $S$ by $S_0$, and $-p^{-1}$ with $\mu_0 := (-p_0^{-1}) \bmod {2^w}$. All in all, finding $q_i$ becomes a computation on integers: $q_i = \mu_0 (S_0 + x_i y_0)$. The constant $\mu_0$ is a pre-computed integer.
 
@@ -328,7 +328,7 @@ This is just the same sum with the indices written differently: An index $l' > L
 
 $$P = \sum_{l=1}^{L/2} l B_l + \sum_{l=1}^{L/2} l  B_{l+L/2} + \frac{L}{2} \sum_{l=1}^{L/2} B_{l+L/2}$$
 
-Voilà, the first two sums are both of the form of the original parition sum, and they can be computed independently from each other. We have split our two partitions into a lower half $(B_1,\ldots,B_{L/2})$ and an upper half $(B'_{1},\ldots,B'_{L/2})$, where $B'_l := B_{l + L/2}$. For the extra, third sum, note that if we ignore the ${L/2}$ factor, then $\sum_{l=1}^{L/2} B'_l = R'_1$ is the last partial sum in the upper half. This is computed anyway! We only have to multiply it by $L/2$. Recall that $L = 2^{c-1}$ is a power of 2 – so, the computing that third sum just consists of doing $c-2$ doublings.
+Voilà, the first two sums are both of the form of the original parition sum, and they can be computed independently from each other. We have split our two partitions into a lower half $(B_1,\ldots,B_{L/2})$ and an upper half $(B_{L/2 + 1},\ldots,B_L)$. For the extra, third sum, note that if we ignore the ${L/2}$ factor, then the sum is the last partial sum in the upper half. This is computed anyway! We only have to multiply it by $L/2$. Recall that $L = 2^{c-1}$ is a power of 2 – so, the computing that third sum just consists of doing $c-2$ doublings.
 
 In summary, we can split a partition in two independent halves, at the cost of a logarithmic number of doublings, plus 2 additions to add the three sums back together. These extra doublings/additions don't even have to be affine, since they can be done at the end, when we're ready to leave affine land, so they are really negligible.
 
