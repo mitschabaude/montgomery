@@ -43,7 +43,7 @@ Do you need any Wasm? There's a notion sometimes circling around that WebAssembl
 let z = (x * y) % p;
 ```
 
-However, one such modular bigint multiplication, for 381-bits inputs, takes 550ns on my machine. The Montgomery multiplication I created in Wasm takes **85ns**!
+However, one such modular bigint multiplication, for 381-bits inputs, takes 550ns on my machine. The Montgomery multiplication I created in Wasm takes **87ns**!
 
 We definitely want to have multiplication, addition, subtraction and low-level helpers like `isEqual` in WebAssembly, using some custom bytes representation for field elements. The funny thing is that this is basically enough! There are diminishing returns for putting anything else in Wasm than this lowest layer. In fact, I was already close to Arkworks speed at the point where I had _only_ the multiplication in Wasm, and was reading out field element limbs as bigints for routines like subtraction. However, it's slow to read out the field elements. What works well is if JS functions only operate with pointers to Wasm memory, never reading their content and just passing them from one Wasm function to the next. For the longest time during working on this competition, I had all slightly higher-level functions, like inversion, curve arithmetic etc, written in JS and operate in this way. This was good enough to be 3-4x faster than Arkworks, which is 100% Wasm!
 
@@ -51,7 +51,7 @@ Near the end, I put a lot of work into moving more critical path logic to Wasm, 
 
 ## 13 x 30 bit multiplication
 
-A major breakthrough in my work was when I changed the size of field elements limbs from 32 to 30 – this decreases the time for a multiplication from 140ns to 85ns. Multiplications are the clear bottleneck at 60%-80% of the total MSM runtime.
+A major breakthrough in my work was when I changed the size of field elements limbs from 32 to 30 – this decreases the time for a multiplication from 140ns to 87ns. Multiplications are the clear bottleneck at 60%-80% of the total MSM runtime.
 
 To understand why decreasing the limb size has such an impact, or come up with a change like that in the first place, we have to dive into the details of Montgomery multiplication - which I will do now.
 
@@ -182,11 +182,27 @@ If you just port over well-known algorithms, like the "CIOS method", you will ad
 
 ### Barrett vs Montgomery?
 
-TODO
+I did a lot more experiments trying to find the fastest multiplication algorithm, that I want to mention briefly. Some time during the competition, it came to my attention that there are some [brand-new findings](https://static1.squarespace.com/static/61f7cacf2d7af938cad5b81c/t/62deb4e0c434f7134c2730ee/1658762465114/modular_multiplication.pdf) about _Barrett reduction_, which is a completely different way of reducing products modulo p. This paper, plus some closer analysis done by me within the framework it establishes, reveal that a multiplication + Barrett reduction can be done with an effort of
+$$N_\mathrm{barrett} = 2n^2 + 2n + 1$$
+integer multiplications. In contrast, as we saw before, a Montgomery multiplication can be done in
+$$N_\mathrm{montgomery} = 2n^2 + n$$
+integer multiplications. This is sufficiently close that I wanted to implement Barrett (which has similar, but not exactly the same structure), and see if the small difference in multiplication effort might be negligible, or offset by other gains.
+
+An interesting sub-result of my analysis is that for many primes (in particular, ours), we can prove that the maximium error is $e(l) = 1$ (notation/concept from [the paper](https://static1.squarespace.com/static/61f7cacf2d7af938cad5b81c/t/62deb4e0c434f7134c2730ee/1658762465114/modular_multiplication.pdf)). In other words, the result of a Barrett multiplication is a number between 0 and $2p$. This still works if the input factors are themselves in $[0, 2p)$. Thus, we get a product $[0, 2p) \times [0, 2p) \rightarrow [0, 2p)$ and never have to do the full reduction modulo p (except before doing inversions, which needs an input in $[0, p)$). This is exactly the same as for Montgomery reduction! So, the two algorithms can be compared quite well.
+
+An awesome property of Barrett reduction is that it is literally performing the reduction $(x \bmod{p})$, not $(x 2^{-N} \bmod{p})$. So, numbers are not stored in some weird representation like $x 2^N$ -- you just operate on the "normal" numbers. For example, a $1$ will just be an integer array $(1, 0, \ldots, 0)$ instead of some random garbage as for Montgomery. This is clearly nicer for debugging, and might give opportunities to save effort when operating on some common, special numbers. Another nice implication is that we never have to move numbers into or out of their Montgomery representation (which costs 1 Montgomery product per field element). This reduces some effort (~1% in our case) and simplifies the overall algorithm (in our case, by a negligible amount).
+
+Unfortunately, the fastest Barrett multiplication I was able to implement takes 99ns on my machine -- too much of a difference to Montgomery's 87ns to justify the switch. (At least, I could use the Barrett implementation for the GLV decomposition of scalars, where scalars have to be split up modulo the cube root $\lambda$ -- because Barrett works for all moduli, not just primes.)
 
 ### Unrolling vs loops
 
-TODO
+One reason for the "unreasonable effectiveness of Montgomery" I observed is that it can be structured so that all of the work happens in a single outer loop. And, for reasons unclear to me, implementing that outer loop with a Wasm `loop` instruction is much faster than unrolling it; the inner loop, on the other hand, _has_ to be unrolled. Ridiculously, my fully unrolled Montgomery product is 40% slower than the one with an outer loop. Much slower than the Barrett implementations, which are also unrolled. I wasn't able to get any of those voodoo gains by refactoring the Barrett implementation to use loops.
+
+One hint I heard was that V8 (the JS engine) JIT-compiles vectorized instructions if operations are structured in just the right way. I haven't confirmed this myself, and I don't know if that's what's happening here. It would be great to find out, though.
+
+### Karatsuba?
+
+I tried to use one layer of Karatsuba multiplication in the Barrett version. This is straight-forward as for Barrett, the multiplication and the reduction are two clearly separated steps. Karatsuba didn't help, though -- it was exactly as fast as the version with schoolbook multiplication. For Montgomery, I didn't try Karatsuba because I only understood very late that this was even possible. However, given the `loop` paradoxon, and Karatsuba not resulting in a single nice loop, I don't imagine that it can yield any benefits.
 
 ## MSM overview
 
