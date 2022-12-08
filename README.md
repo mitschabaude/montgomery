@@ -2,7 +2,7 @@
 
 _by Gregor Mitscha-Baude_
 
-> To get started with the code, see [how to use this repo](#how-to-use-this-repo).
+> To get started with the code, see [how to use this repo](#how-to-use-this-repo). To contribute, see [contributing](#contributing)
 
 The multi-scalar multiplication (MSM) problem is: Given elliptic curve points $G_i$ and scalars $s_i$, compute
 
@@ -357,9 +357,9 @@ This is implemented in `src/msm.js`, `reduceBucketsAffine`. Unfortunately, I did
 
 ## How to use this repo
 
-The main source code is in `/src`. The entry-point for the MSM code used in the competition is `src/msm.js`. Also in `/src` there is JS that generates the Wasm output. There are two Wasm modules, one for the base field arithmetic, and one for the scalar decomposition. For each Wasm module we generate 3 artifacts:
+The entry-point for the MSM code used in the competition is [/src/msm.js](src/msm.js). Also in `/src` at the top level there is JS that generates the Wasm output. There are two Wasm modules, one for the base field arithmetic, and one for the scalar decomposition. For each Wasm module we generate 3 artifacts:
 
-- `module-name.wat` -- Wasm in text format. These are designed to be sort of readable, and I looked a lot at them for debugging my Wasm output. They are checked into git, for visibility
+- `module-name.wat` -- Wasm in text format. These are designed to be sort of readable, and I looked a lot at them for debugging my Wasm output. They are checked into git, for visibility: [finite-field.wat](src/wasm/finite-field.wat), [scalar-glv.wat](src/wasm/scalar-glv.wat)
 - `module-name.wasm.js` -- JS file which contains the Wasm code inlined, as base64 string. It instantiates that Wasm module at the top level, with `await WebAssembly.instantiate(...)`. It then re-exports the Wasm exports. The idea is that this gives the exact same feel and usability as if the Wasm module were a proper ES module. It relies on top-level await, which is natively supported in all major browsers and JS engines, but some bundlers still have problems with it (looking at you, webpack).
 - `module-name.wasm` -- Wasm file, which is not used in this repo right now. Once the [Wasm ESM integration](https://github.com/WebAssembly/esm-integration/tree/main/proposals/esm-integration) finally lands, it will be possible to drop-in replace the `.wasm.js` file by the corresponding `.wasm` file. Importing `.wasm` files directly is already supported by some bundlers (like webpack) and in node via the [--experimental-wasm-modules](https://nodejs.org/api/esm.html#wasm-modules) flag.
 
@@ -400,3 +400,18 @@ You can also vary the MSM input size by using the first CLI parameter:
 ```sh
 node index.js 16 # run msm with 2^16 inputs
 ```
+
+### Contributing
+
+I hope to polish up this repo to become a go-to library for fast finite field and elliptic curve arithmetic, usable across the JS ecosystem. There is some work to do on this and every contribution is highly welcome 🙌
+
+Specifically, these are major TODOs:
+
+- Give this a proper `package.json` which will make it importable in node projects and major bundlers (that support top-level await)
+- Find a good name for an npm library that we can publish this to :D
+- Make it usable for arbitrary elliptic curves. This shouldn't be hard because the Wasm generation code is already generic over the prime (and limb size), and the MSM has nothing specific to the curve except for the scalar bit length. So, this is just a matter of organizing the code. The vision is to export the building blocks so that people can build the Wasm module that exactly contains what they need, for their curve of interest. See `createFiniteFieldWat` in [src/finite-field-generate.js](src/finite-field-generate.js).
+- Ship pre-generated code for the most popular curves, e.g. BLS12-381, Pasta
+- **MAKE THIS FASTER!!** This is supposed to be the fastest possible implementation of everything that's here. Every change that demostrably makes this faster is highly welcome. Known speed TODOs:
+  - Refactor the point layout in memory, to use less memory. Right now, we store 64 bit limbs (which only contain 30 non-zero bits), and we store 4 variants of each point. Instead, we should store 32 bits limbs (with 30 non-zero bits) and at most 2 variants of each point (the point and its endo-scaled version; we don't need to store their negatives)
+  - Implement a version (should be optional) that uses SIMD instructions
+  - Implement a version (should be optional) that is parallelized using Wasm multithreading
