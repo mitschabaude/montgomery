@@ -2,6 +2,8 @@
 
 _by Gregor Mitscha-Baude_
 
+**This code won 2nd place in the Wasm/MSM ZPrize -- see [official results](https://www.zprize.io/blog/announcing-zprize-results)**
+
 > To get started with the code, see [how to use this repo](#how-to-use-this-repo). To contribute, see [contributing](#contributing)
 
 The multi-scalar multiplication (MSM) problem is: Given elliptic curve points $G_i$ and scalars $s_i$, compute
@@ -21,7 +23,7 @@ Here's the 2-minute summary of my approach:
 - An interesting realization was that we can use batch-affine, not just for the bucket accumulation as shown by Aztec, but also for the entire bucket reduction step. Thus, curve arithmetic in my MSM is **99.9% affine**!
 - Laying out points in memory in the right order before doing batched additions seems like the way to go
 
-Here are some performance timings, measured in node 16 on the CoreWeave server, by running each instance 10 times and taking the median and standard deviation:
+Here are some performance timings, measured in node 16 on the CoreWeave server that ZPrize participants were given. We ran each instance 10 times and took the median and standard deviation:
 
 | Size     | Reference (sec) | Ours (sec)      | Speed-up     |
 | -------- | --------------- | --------------- | ------------ |
