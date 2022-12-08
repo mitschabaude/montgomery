@@ -2,6 +2,8 @@
 
 _by Gregor Mitscha-Baude_
 
+> To get started with the code, see [how to use this repo](#how-to-use-this-repo).
+
 The multi-scalar multiplication (MSM) problem is: Given elliptic curve points $G_i$ and scalars $s_i$, compute
 
 $$S = s_0G_0 + \ldots + s_{n-1} G_{n-1}$$
@@ -29,7 +31,7 @@ Here are some performance timings, measured in node 16 on the CoreWeave server, 
 
 On my local machine (Intel i7), overall performance is a bit better than these numbers, but relative gains somewhat smaller, between 5-6x.
 
-Below, I give a more detailed account of my implementation and convey some of my personal learnings.
+Below, I give a more detailed account of my implementation and convey some of my personal learnings. Further at the bottom, you'll find a section on [how to use this repo](#how-to-use-this-repo).
 
 ## JS vs Wasm
 
@@ -352,3 +354,49 @@ In summary, we can split a partition in two independent halves, at the cost of a
 We don't have to stop there: We can split each of the sub-partitions again, and so on, recursively. We can do this until we have enough independent partitions that the cost of inversions is amortized. This let's us easily amortize the inversion, and we get the full benefit of batch-affine additions when doing the sums $P = R_L + \ldots + R_1$. All-in-all, I think this should save us at least 25% of the effortin the bucket reduction step.
 
 This is implemented in `src/msm.js`, `reduceBucketsAffine`. Unfortunately, I didn't realize until writing this down that the extra doublings/additions don't have to be affine; I use batched-affine for those as well, which is probably just slightly suboptimal. Also, I should add that with a well-chosen window size, the bucket reduction step is 3-5x cheaper than the bucket accumulation step, so shaving off 25% of it ends up saving only <5% of overall runtime.
+
+## How to use this repo
+
+The main source code is in `/src`. The entry-point for the MSM code used in the competition is `src/msm.js`. Also in `/src` there is JS that generates the Wasm output. There are two Wasm modules, one for the base field arithmetic, and one for the scalar decomposition. For each Wasm module we generate 3 artifacts:
+
+- `module-name.wat` -- Wasm in text format. These are designed to be sort of readable, and I looked a lot at them for debugging my Wasm output. They are checked into git, for visibility
+- `module-name.wasm.js` -- JS file which contains the Wasm code inlined, as base64 string. It instantiates that Wasm module at the top level, with `await WebAssembly.instantiate(...)`. It then re-exports the Wasm exports. The idea is that this gives the exact same feel and usability as if the Wasm module were a proper ES module. It relies on top-level await, which is natively supported in all major browsers and JS engines, but some bundlers still have problems with it (looking at you, webpack).
+- `module-name.wasm` -- Wasm file, which is not used in this repo right now. Once the [Wasm ESM integration](https://github.com/WebAssembly/esm-integration/tree/main/proposals/esm-integration) finally lands, it will be possible to drop-in replace the `.wasm.js` file by the corresponding `.wasm` file. Importing `.wasm` files directly is already supported by some bundlers (like webpack) and in node via the [--experimental-wasm-modules](https://nodejs.org/api/esm.html#wasm-modules) flag.
+
+To build the missing Wasm files, first install the JS dependencies and then run the build script:
+
+```sh
+npm i
+npm run build
+```
+
+At this point, the main library code is usable and can be imported and executed in browser environments and node 19. Earlier node versions only work when your script has an additional code snippet, which provides compatibility with the web crypto API (used for random number generation):
+
+```js
+import { webcrypto } from "node:crypto";
+globalThis.crypto = webcrypto;
+```
+
+To execute most of our benchmark scripts, you additionally need pre-stored random curve points. We load them from a file because recreating them takes extremely long. So, first run the following and go make yourself a cup of coffee:
+
+```sh
+node scripts/store-inputs.js 18 # generate 2^18 points
+```
+
+After this finished, you're ready to run our benchmarks. The most reliable benchmark, which runs different input sizes multiple times and reports performance statistics, is the following:
+
+```sh
+node scripts/evaluate-msm.js
+```
+
+The script that I ran most often just runs everything once, but also compares with the reference implementation, and another implementation of mine based on projective arithmetic; also runs some benchmarks of raw multiplication / inversion performance, and reports those numbers together with a breakdown of the multiplication count across parts of the algorithm:
+
+```sh
+node index.js
+```
+
+You can also vary the MSM input size by using the first CLI parameter:
+
+```sh
+node index.js 16 # run msm with 2^16 inputs
+```
