@@ -1,3 +1,6 @@
+/**
+ * The main MSM implementation, based on batched-affine additions
+ */
 import {
   addAffine,
   doubleAffine,
