@@ -403,7 +403,7 @@ You can also vary the MSM input size by using the first CLI parameter:
 node index.js 16 # run msm with 2^16 inputs
 ```
 
-### Contributing
+## Contributing
 
 I hope to polish up this repo to become a go-to library for fast finite field and elliptic curve arithmetic, usable across the JS ecosystem. There is some work to do on this and every contribution is highly welcome 🙌
 
