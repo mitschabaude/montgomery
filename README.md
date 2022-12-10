@@ -110,7 +110,7 @@ The $(c, l) = ...$ notation means we split a result in its lower $w$ bits $l$, a
 
 Note that, in the inner loop, we assign the $S_j$ term to the old $S_{j-1}$ location. Shifting down by one limb like this is equivalent to division by $2^w$.
 
-Also, let's see why the iterative algorithm is much better than the toy algorithm: There, computing $q$ needed a full bigint multiplication, that's $n^2$ integer multiplications. Here, computing all of the $q_i$ only needs $n$ integer multiplications. The rest still needs $2n^2$ multiplications for $x_i y_j + q_i p_j$, so we go from $3 n^2$ to $2 n^2 + n$.
+Also, let's see why the iterative algorithm is much better than the naive algorithm: There, computing $q$ needed a full bigint multiplication, that's $n^2$ integer multiplications. Here, computing all of the $q_i$ only needs $n$ integer multiplications. The rest still needs $2n^2$ multiplications for $x_i y_j + q_i p_j$, so we go from $3 n^2$ to $2 n^2 + n$.
 
 Another note: In the last step, we don't need another carry like $(S_{n},S_{n-1}) = S_{n-1} + c$, if $2p < 2^N$, because we always have $c < 2^w$. This was [shown by the Gnark authors](https://hackmd.io/@gnark/modular_multiplication) and extends to any limb size $w$. This is also why we only need $n$ limbs for storing $S$.
 
