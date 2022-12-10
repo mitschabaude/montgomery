@@ -125,7 +125,7 @@ Also, every carry is associated with an addition, because $c$ has to be added so
 
 Second, with 32-bit limbs, we need to add 1 carry after every product term, because products fill up the full 64 bits. (If we would add two 64-bit terms, we'd get something that can have 65 bits. This would overflow, i.e. the 65th bit gets discarded, giving us wrong results.) It turns out that 1 carry is almost as heavy as 1 mul + add, so doing the carrying on the terms $S + x_i y_j + q_i p_j$ takes up almost half of the runtime!
 
-How many carries do we need for smaller $w$? Let's model this by introducing $K$, defined as the number of _carry-free terms_: the number of product terms we can add (with 64-bit additions) without overflowing 64 bits. For a w-by-w product, we have $xy < 2^{2w}$. We can add $K$ such terms without overflow if $k$ satisfies $k 2^{2w} \le 2^{64}$. Solving for $k$ gives
+How many carries do we need for smaller $w$? Let's model this by introducing $k$, defined as the number of _carry-free terms_: the number of product terms we can add (with 64-bit additions) without overflowing 64 bits. For a w-by-w product, we have $xy < 2^{2w}$. We can add $k$ such terms without overflow if $k$ satisfies $k 2^{2w} \le 2^{64}$. Solving for $k$ gives
 
 - $k = 2^0 = 1$ term for $w = 32$
 - $k = 2^2 = 4$ terms for $w = 31$
