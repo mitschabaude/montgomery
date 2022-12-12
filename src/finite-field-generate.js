@@ -33,7 +33,7 @@ export { benchMultiply, multiply32, moduleWithMemory };
 const mulInputFactor = 8n;
 
 /**
- * @typedef {ReturnType<typeof createFiniteField> extends Promise<infer T> ? T : never} FiniteField
+ * @typedef {ReturnType<typeof createFiniteField>} FiniteField
  */
 
 /**

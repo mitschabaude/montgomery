@@ -10,6 +10,7 @@ export {
   ifElse,
   module,
   forLoop8,
+  forLoop4,
   forLoop1,
   addExport,
   addFuncExport,
@@ -230,6 +231,15 @@ function forLoop8(writer, i, i0, length, callback) {
   loop(writer, () => {
     callback();
     writer.line(br_if(0, i32.ne(8 * length, local.tee(i, i32.add(i, 8)))));
+  });
+}
+
+function forLoop4(writer, i, i0, length, callback) {
+  let { local, i32, br_if } = ops;
+  writer.line(local.set(i, i32.const(i0)));
+  loop(writer, () => {
+    callback();
+    writer.line(br_if(0, i32.ne(4 * length, local.tee(i, i32.add(i, 4)))));
   });
 }
 

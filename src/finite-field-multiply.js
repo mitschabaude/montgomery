@@ -5,6 +5,7 @@ import {
   addExport,
   addFuncExport,
   forLoop1,
+  forLoop4,
   forLoop8,
   func,
   ops,
@@ -103,12 +104,17 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
 
     // load y
     for (let i = 0; i < n; i++) {
-      line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      line(
+        local.set(
+          Y[i],
+          i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))
+        )
+      );
     }
 
-    forLoop8(writer, i, 0, n, () => {
+    forLoop4(writer, i, 0, n, () => {
       // load x[i]
-      line(local.set(xi, i64.load(i32.add(x, i))));
+      line(local.set(xi, i64.extend_i32_u(i32.load(i32.add(x, i)))));
 
       // j=0, compute q_i
       let didCarry = false;
@@ -182,11 +188,15 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     comment("final carrying & storing");
     for (let j = 1; j < n; j++) {
       lines(
-        i64.store(xy, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
+        i32.store(xy, i32.wrap_i64(i64.and(S[j - 1], wordMax)), {
+          offset: 4 * (j - 1),
+        }),
         local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
       );
     }
-    line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
+    line(
+      i32.store(xy, i32.wrap_i64(local.get(S[n - 1])), { offset: 4 * (n - 1) })
+    );
   });
 
   const mulInputFactor = 8n;
