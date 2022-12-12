@@ -6,7 +6,7 @@ import {
   addFuncExport,
   block,
   forLoop1,
-  forLoop8,
+  forLoop4,
   func,
   ifElse,
   if_,
@@ -741,7 +741,7 @@ function add(writer, p, w) {
 
   let P2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32, br_if } = ops;
+  let { i64, i32, local, local64, param32, br_if } = ops;
 
   let [x, y, out] = ["$x", "$y", "$out"];
   let [tmp, carry] = ["$tmp", "$carry"];
@@ -754,8 +754,8 @@ function add(writer, p, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = x[i] + y[i] + carry;
-        i64.load(x, { offset: 8 * i }),
-        i64.load(y, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
+        i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         join(i64.add(), local.get(carry), i64.add()),
         // split result
         join(local.tee(tmp), i64.const(w), i64.shr_s(), local.set(carry)),
@@ -768,7 +768,7 @@ function add(writer, p, w) {
       for (let i = n - 1; i >= 0; i--) {
         lines(
           // if (out[i] < 2p[i]) return
-          local.set(tmp, i64.load(out, { offset: 8 * i })),
+          local.set(tmp, i64.extend_i32_u(i32.load(out, { offset: 4 * i }))),
           br_if(1, i64.lt_u(tmp, P2[i])),
           // if (out[i] !== 2p[i]) break;
           br_if(0, i64.ne(tmp, P2[i]))
@@ -782,7 +782,7 @@ function add(writer, p, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = out[i] - 2p[i] + carry;
-        i64.load(out, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(out, { offset: 4 * i })),
         i64.const(P2[i]),
         i64.sub(),
         local.get(carry),
@@ -816,7 +816,7 @@ function subtract(writer, p, w) {
   // constants
   let dP2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32 } = ops;
+  let { i64, i32, local, local64, param32 } = ops;
 
   let [x, y, out] = ["$x", "$y", "$out"];
   let [tmp] = ["$tmp"];
@@ -829,9 +829,9 @@ function subtract(writer, p, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = x[i] - y[i] + carry;
-        i64.load(x, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
         i > 0 && i64.add(),
-        i64.load(y, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         i64.sub(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
@@ -850,7 +850,7 @@ function subtract(writer, p, w) {
         // (carry, out[i]) = (2*p)[i] + out[i] + carry;
         i64.const(dP2[i]),
         i > 0 && i64.add(),
-        i64.load(out, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(out, { offset: 4 * i })),
         i64.add(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
@@ -888,9 +888,9 @@ function subtract(writer, p, w) {
         // (carry, out[i]) = 2p + x[i] - y[i] + carry;
         i64.const(f2P[i]),
         i > 0 && i64.add(),
-        i64.load(x, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
         i64.add(),
-        i64.load(y, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         i64.sub(),
         local.set(tmp),
         i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
@@ -924,7 +924,7 @@ function reduce(writer, p, w, d = 1) {
   // constants
   let dp = bigintToLegs(BigInt(d) * p, w, n);
   let { line, lines, comment } = writer;
-  let { i64, local, local64, param32, br_if } = ops;
+  let { i64, i32, local, local64, param32, br_if } = ops;
 
   let [x] = ["$x"];
   let [tmp, carry] = ["$tmp", "$carry"];
@@ -937,7 +937,7 @@ function reduce(writer, p, w, d = 1) {
       for (let i = n - 1; i >= 0; i--) {
         lines(
           // if (x[i] < d*p[i]) return
-          local.set(tmp, i64.load(x, { offset: 8 * i })),
+          local.set(tmp, i64.extend_i32_u(i32.load(x, { offset: 4 * i }))),
           br_if(1, i64.lt_u(tmp, dp[i])),
           // if (x[i] !== d*p[i]) break;
           br_if(0, i64.ne(tmp, dp[i]))
@@ -950,7 +950,7 @@ function reduce(writer, p, w, d = 1) {
       comment(`i = ${i}`);
       lines(
         // (carry, x[i]) = x[i] - dp[i] + carry;
-        i64.load(x, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
         i64.const(dp[i]),
         i64.sub(),
         local.get(carry),
@@ -1003,7 +1003,7 @@ function makeOdd(writer, p, w) {
     line(local64(k), local32(k0), local64(l), local64(tmp));
 
     // k = count_trailing_zeros(u[0])
-    lines(local.set(k, i64.ctz(i64.load(u))), i64.eqz(k));
+    lines(local.set(k, i64.ctz(i64.extend_i32_u(i32.load(u)))), i64.eqz(k));
     if_(writer, () => {
       lines(i32.const(0), return_());
     });
@@ -1015,17 +1015,17 @@ function makeOdd(writer, p, w) {
           br_if(1, i64.ne(k, 64)),
 
           // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
-          memory.copy(local.get(u), i32.add(u, 8), i32.const((n - 1) * 8)),
+          memory.copy(local.get(u), i32.add(u, 4), i32.const((n - 1) * 4)),
           // u[n-1] = 0
           i64.store(u, 0, { offset: 8 * (n - 1) }),
           // copy s[0],...,u[n-2] --> s[1],...,s[n-1]
-          memory.copy(i32.add(s, 8), local.get(s), i32.const((n - 1) * 8)),
+          memory.copy(i32.add(s, 4), local.get(s), i32.const((n - 1) * 4)),
           // s[0] = 0
           i64.store(s, 0),
 
           local.set(k0, i32.add(k0, w)),
 
-          local.set(k, i64.ctz(i64.load(u))),
+          local.set(k, i64.ctz(i64.extend_i32_u(i32.load(u)))),
           br(0)
         );
       });
@@ -1039,13 +1039,19 @@ function makeOdd(writer, p, w) {
     //   u[i] = (u[i] >> k) | ((u[i + 1] << l) & wordMax);
     // }
     // u[n-1] = u[n-1] >> k;
-    line(local.set(tmp, i64.load(u)));
+    line(local.set(tmp, i64.extend_i32_u(i32.load(u))));
     for (let i = 0; i < n - 1; i++) {
       lines(
         local.get(u),
         i64.shr_u(tmp, k),
         i64.and(
-          i64.shl(local.tee(tmp, i64.load(u, { offset: 8 * (i + 1) })), l),
+          i64.shl(
+            local.tee(
+              tmp,
+              i64.extend_i32_u(i32.load(u, { offset: 4 * (i + 1) }))
+            ),
+            l
+          ),
           wordMax
         ),
         i64.or(),
@@ -1058,12 +1064,17 @@ function makeOdd(writer, p, w) {
     //   s[i+1] = (s[i] >> l) | ((s[i+1] << k) & wordMax);
     // }
     // s[0] = (s[0] << k) & wordMax;
-    line(local.set(tmp, i64.load(s, { offset: 8 * (n - 1) })));
+    line(
+      local.set(tmp, i64.extend_i32_u(i32.load(s, { offset: 4 * (n - 1) })))
+    );
     for (let i = n - 2; i >= 0; i--) {
       lines(
         local.get(s),
         i64.and(i64.shl(tmp, k), wordMax),
-        i64.shr_u(local.tee(tmp, i64.load(s, { offset: 8 * i })), l),
+        i64.shr_u(
+          local.tee(tmp, i64.extend_i32_u(i32.load(s, { offset: 4 * i }))),
+          l
+        ),
         i64.or(),
         i64.store(null, null, { offset: 8 * (i + 1) })
       );
@@ -1072,50 +1083,6 @@ function makeOdd(writer, p, w) {
     comment("return k");
     line(i32.add(k0, i32.wrap_i64(local.get(k))));
   });
-
-  // doing the constant 1 shift + a variable shift (which then is often a no-op)
-  // turns out to be slower than just doing the variable shift right away
-  // addFuncExport(writer, "shiftTogether1");
-  // func(writer, "shiftTogether1", [param32(u), param32(s)], () => {
-  //   line(local64(tmp));
-  //   let k = 1;
-  //   let l = w - 1;
-  //   comment("u >> 1");
-  //   // for (let i = 0; i < n-1; i++) {
-  //   //   u[i] = (u[i] >> 1) | ((u[i + 1] << l) & wordMax);
-  //   // }
-  //   // u[n-1] = u[n-1] >> k;
-  //   line(local.set(tmp, i64.load(u)));
-  //   for (let i = 0; i < n - 1; i++) {
-  //     lines(
-  //       local.get(u),
-  //       i64.shr_u(tmp, k),
-  //       i64.and(
-  //         i64.shl(local.tee(tmp, i64.load(u, { offset: 8 * (i + 1) })), l),
-  //         wordMax
-  //       ),
-  //       i64.or(),
-  //       i64.store("", "", { offset: 8 * i })
-  //     );
-  //   }
-  //   line(i64.store(u, i64.shr_u(tmp, k), { offset: 8 * (n - 1) }));
-  //   comment("s << 1");
-  //   // for (let i = 10; i >= 0; i--) {
-  //   //   s[i+1] = (s[i] >> l) | ((s[i+1] << k) & wordMax);
-  //   // }
-  //   // s[0] = (s[0] << k) & wordMax;
-  //   line(local.set(tmp, i64.load(s, { offset: 8 * (n - 1) })));
-  //   for (let i = n - 2; i >= 0; i--) {
-  //     lines(
-  //       local.get(s),
-  //       i64.and(i64.shl(tmp, k), wordMax),
-  //       i64.shr_u(local.tee(tmp, i64.load(s, { offset: 8 * i })), l),
-  //       i64.or(),
-  //       i64.store(null, null, { offset: 8 * (i + 1) })
-  //     );
-  //   }
-  //   line(i64.store(s, i64.and(i64.shl(tmp, k), wordMax)));
-  // });
 }
 
 /**
@@ -1138,7 +1105,10 @@ function finiteFieldHelpers(writer, p, w) {
   func(writer, "isEqual", [param32(x), param32(y), result32], () => {
     for (let i = 0; i < n; i++) {
       line(
-        i64.ne(i64.load(x, { offset: 8 * i }), i64.load(y, { offset: 8 * i }))
+        i64.ne(
+          i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
+          i64.extend_i32_u(i32.load(y, { offset: 4 * i }))
+        )
       );
       if_(writer, () => {
         line(return_(i32.const(0)));
@@ -1155,9 +1125,9 @@ function finiteFieldHelpers(writer, p, w) {
     for (let i = 0; i < n; i++) {
       lines(
         // x[i] + y[i] ?= P[i]
-        i64.load(x, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
         i > 0 && i64.add(),
-        i64.load(y, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         i64.add(),
         local.set(tmp),
         i64.and(tmp, wordMax),
@@ -1176,7 +1146,7 @@ function finiteFieldHelpers(writer, p, w) {
   addFuncExport(writer, "isZero");
   func(writer, "isZero", [param32(x), result32], () => {
     for (let i = 0; i < n; i++) {
-      line(i64.ne(i64.load(x, { offset: 8 * i }), 0));
+      line(i64.ne(i64.extend_i32_u(i32.load(x, { offset: 4 * i })), 0));
       if_(writer, () => {
         line(return_(i32.const(0)));
       });
@@ -1191,8 +1161,8 @@ function finiteFieldHelpers(writer, p, w) {
     block(writer, () => {
       for (let i = n - 1; i >= 0; i--) {
         lines(
-          local.tee(xi, i64.load(x, { offset: 8 * i })),
-          local.tee(yi, i64.load(y, { offset: 8 * i })),
+          local.tee(xi, i64.extend_i32_u(i32.load(x, { offset: 4 * i }))),
+          local.tee(yi, i64.extend_i32_u(i32.load(y, { offset: 4 * i }))),
           i64.gt_u()
         );
         if_(writer, () => {
@@ -1230,7 +1200,7 @@ function finiteFieldHelpers(writer, p, w) {
       let bytesMask = (1n << (8n * BigInt(nBytes))) - 1n;
       lines(
         // tmp = tmp | (x[i] >> nr)  where nr is the bit length of tmp (nr < 8)
-        i64.shl(i64.load(x, { offset: 8 * i }), nRes),
+        i64.shl(i64.extend_i32_u(i32.load(x, { offset: 4 * i })), nRes),
         local.get(tmp),
         i64.or(),
         local.set(tmp),
@@ -1397,7 +1367,7 @@ function glv(writer, q, lambda, w) {
       for (let i = n - 1; i >= 0; i--) {
         lines(
           // if (r[i] < lambda[i]) return
-          local.set(tmp, i64.load(r, { offset: 8 * i })),
+          local.set(tmp, i64.extend_i32_u(i32.load(r, { offset: 4 * i }))),
           br_if(1, i64.lt_u(tmp, LAMBDA[i])),
           // if (r[i] !== lambda[i]) break;
           br_if(0, i64.ne(tmp, LAMBDA[i]))
@@ -1410,7 +1380,7 @@ function glv(writer, q, lambda, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, r[i]) = r[i] - lambda[i] + carry;
-        i64.add(i64.load(r, { offset: 8 * i }), carry),
+        i64.add(i64.extend_i32_u(i32.load(r, { offset: 4 * i })), carry),
         i64.const(LAMBDA[i]),
         i64.sub(),
         local.set(tmp),
@@ -1423,7 +1393,7 @@ function glv(writer, q, lambda, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, l[i]) = l[i] + carry;
-        i64.add(i64.load(l, { offset: 8 * i }), carry),
+        i64.add(i64.extend_i32_u(i32.load(l, { offset: 4 * i })), carry),
         local.set(tmp),
         i64.store(l, i64.and(tmp, wordMax), { offset: 8 * i }),
         local.set(carry, i64.shr_s(tmp, w))
@@ -1450,7 +1420,7 @@ function glv(writer, q, lambda, w) {
       let bytesMask = (1n << (8n * BigInt(nBytes))) - 1n;
       lines(
         // tmp = tmp | (x[i] >> nr)  where nr is the bit length of tmp (nr < 8)
-        i64.shl(i64.load(x, { offset: 8 * i }), nRes),
+        i64.shl(i64.extend_i32_u(i32.load(x, { offset: 4 * i })), nRes),
         local.get(tmp),
         i64.or(),
         local.set(tmp),
@@ -1596,8 +1566,7 @@ function glv(writer, q, lambda, w) {
       if_(writer, () => {
         lines(
           // load scalar limb
-          i64.load(i32.add(x, i32.shl(startLimb, 3))),
-          i32.wrap_i64(),
+          i32.load(i32.add(x, i32.shl(startLimb, 2))),
           // take bits < endBit
           i32.sub(i32.shl(1, endBit), 1),
           i32.and(),
@@ -1610,14 +1579,12 @@ function glv(writer, q, lambda, w) {
       // if we're here, endLimb = startLimb + 1 according to our assumptions
       lines(
         // load first limb
-        i64.load(i32.add(x, i32.shl(startLimb, 3))),
-        i32.wrap_i64(),
+        i32.load(i32.add(x, i32.shl(startLimb, 2))),
         // truncate bits < startBit (and leave on the stack)
         local.get(startBit),
         i32.shr_u(),
         // load second limb,
-        i64.load(i32.add(x, i32.shl(i32.add(startLimb, 1), 3))),
-        i32.wrap_i64(),
+        i32.load(i32.add(x, i32.shl(i32.add(startLimb, 1), 2))),
         // take bits < endBit
         i32.sub(i32.shl(1, endBit), 1),
         i32.and(),
@@ -1643,7 +1610,7 @@ function add2(writer, p, w) {
   // constants
   let dP2 = bigintToLegs(mulInputFactor * 2n * p, w, n);
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32 } = ops;
+  let { i64, i32, local, local64, param32 } = ops;
 
   let [x, y, out] = ["$x", "$y", "$out"];
   let [tmp, carry] = ["$tmp", "$carry"];
@@ -1656,8 +1623,8 @@ function add2(writer, p, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = x[i] + y[i] - 2p[i] + carry;
-        i64.load(x, { offset: 8 * i }),
-        i64.load(y, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
+        i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         i64.add(),
         i64.const(dP2[i]),
         i64.sub(),
@@ -1679,7 +1646,7 @@ function add2(writer, p, w) {
       comment(`i = ${i}`);
       lines(
         // (carry, out[i]) = out[i] - 2p[i] + carry;
-        i64.load(out, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(out, { offset: 4 * i })),
         i64.const(dP2[i]),
         i64.sub(),
         local.get(carry),
@@ -1738,7 +1705,12 @@ function multiply32(writer, p, w, { unrollOuter }) {
     let T = defineLocals(writer, "t", n);
     // load y
     for (let i = 0; i < n; i++) {
-      line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      line(
+        local.set(
+          Y[i],
+          i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))
+        )
+      );
     }
     line();
     function innerLoop() {
@@ -1803,13 +1775,13 @@ function multiply32(writer, p, w, { unrollOuter }) {
     if (unrollOuter) {
       for (let i = 0; i < n; i++) {
         comment(`i = ${i}`);
-        line(local.set(xi, i64.load(x, { offset: i * 8 })));
+        line(local.set(xi, i64.extend_i32_u(i32.load(x, { offset: i * 4 }))));
         innerLoop();
         line();
       }
     } else {
-      forLoop8(writer, i, 0, n, () => {
-        line(local.set(xi, i64.load(i32.add(x, i))));
+      forLoop4(writer, i, 0, n, () => {
+        line(local.set(xi, i64.extend_i32_u(i32.load(i32.add(x, i)))));
         innerLoop();
       });
     }

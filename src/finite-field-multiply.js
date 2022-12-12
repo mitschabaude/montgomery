@@ -69,8 +69,6 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
   let nSafeStepsSquare = Math.floor(2 ** (64 - 2 * w) / 3); // three terms per step
   // strategy is to use a carry at j=0, plus whenever we reach nSafeSteps
   // (and finally at the end)
-  // how many carry variables we need
-  let nCarry = 1 + Math.floor(n / nSafeSteps);
 
   let { line, lines, comment, join } = writer;
   let { i64, i32, local, local32, local64, param32, global32Mut, global } = ops;
@@ -255,9 +253,9 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
             d2P[i] + (i < n - 1 ? wordMax + 1n : 0n) + (i === 0 ? 0n : -1n)
           ),
           // i > 0 && i64.add(),
-          i64.load(y, { offset: 8 * i }),
+          i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
           i64.add(),
-          i64.load(z, { offset: 8 * i }),
+          i64.extend_i32_u(i32.load(z, { offset: 4 * i })),
           i64.sub(),
           // i64.and(local.tee(tmp), wordMax),
           local.set(Y[i])
@@ -265,9 +263,9 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
         );
       }
 
-      forLoop8(writer, i, 0, n, () => {
+      forLoop4(writer, i, 0, n, () => {
         // load x[i]
-        line(local.set(xi, i64.load(i32.add(x, i))));
+        line(local.set(xi, i64.extend_i32_u(i32.load(i32.add(x, i)))));
 
         // j=0, compute q_i
         let doCarry = true;
@@ -382,10 +380,20 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
 
       // load x, y
       for (let i = 0; i < n; i++) {
-        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+        line(
+          local.set(
+            X[i],
+            i64.extend_i32_u(i32.load(local.get(x), { offset: i * 4 }))
+          )
+        );
       }
       for (let i = 0; i < n; i++) {
-        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+        line(
+          local.set(
+            Y[i],
+            i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))
+          )
+        );
       }
       // for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
       for (let i = 0; i < 2 * n - 1; i++) {
@@ -487,7 +495,12 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
 
     // load x
     for (let i = 0; i < n; i++) {
-      line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+      line(
+        local.set(
+          X[i],
+          i64.extend_i32_u(i32.load(local.get(x), { offset: i * 4 }))
+        )
+      );
     }
 
     for (let i = 0; i < n; i++) {
@@ -599,7 +612,12 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
 
     // load y
     for (let i = 0; i < n; i++) {
-      line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+      line(
+        local.set(
+          Y[i],
+          i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))
+        )
+      );
     }
     // figure out the value of i0, xi0 where 2^k has its bit set
     lines(
@@ -752,7 +770,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
   console.assert(m <= n - m, "m <= n-m");
 
   let { line, lines, comment, join } = writer;
-  let { i64, local, local64, param32, local32, call, param64, result64 } = ops;
+  let { i64, i32, local, local64, param32, local32, call } = ops;
 
   let [x, y, xy] = ["$x", "$y", "$xy"];
   let [tmp, carry] = ["$tmp", "$carry"];
@@ -769,10 +787,10 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
         let X = defineLocals(writer, "x", n);
         let Y = defineLocals(writer, "y", n);
         for (let i = 0; i < n; i++) {
-          line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+          line(local.set(X[i], i64.extend_i32_u(i32.load(local.get(x), { offset: i * 4 }))));
         }
         for (let i = 0; i < n; i++) {
-          line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+          line(local.set(Y[i], i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))));
         }
         for (let i = 0; i < 2 * n; i++) {
           comment(`k = ${i}`);
@@ -845,10 +863,10 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
 
       // load x, y
       for (let i = 0; i < n; i++) {
-        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+        line(local.set(X[i], i64.extend_i32_u(i32.load(local.get(x), { offset: i * 4 }))));
       }
       for (let i = 0; i < n; i++) {
-        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+        line(local.set(Y[i], i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))));
       }
       // split up inputs into two halfs
       let X0 = X.slice(0, m);
@@ -940,10 +958,20 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
 
       // load x, y
       for (let i = 0; i < n; i++) {
-        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+        line(
+          local.set(
+            X[i],
+            i64.extend_i32_u(i32.load(local.get(x), { offset: i * 4 }))
+          )
+        );
       }
       for (let i = 0; i < n; i++) {
-        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+        line(
+          local.set(
+            Y[i],
+            i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))
+          )
+        );
       }
       // split up inputs into two halfs
       let X0 = X.slice(0, m);
@@ -1150,13 +1178,21 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
     let k0 = BigInt(k - (n - 1) * w);
     let l0 = wn - k0;
     comment(`then do l >>= ${k0} (because ${k0} = ${k} - ${n - 1}*${w})`);
-    lines(local.set(tmp, i64.load(x, { offset: 8 * (n - 1) })));
+    lines(
+      local.set(tmp, i64.extend_i32_u(i32.load(x, { offset: 4 * (n - 1) })))
+    );
     for (let i = 0; i < n; i++) {
       // x_hi[i] = (x_hi[i] >> k0) | ((x_hi[i + 1] << l) & wordMax);
       lines(
         i64.shr_u(tmp, k0),
         i64.and(
-          i64.shl(local.tee(tmp, i64.load(x, { offset: 8 * (i + n) })), l0),
+          i64.shl(
+            local.tee(
+              tmp,
+              i64.extend_i32_u(i32.load(x, { offset: 4 * (i + n) }))
+            ),
+            l0
+          ),
           wordMax
         ),
         i64.or(),
@@ -1203,7 +1239,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
     for (let i = 0; i < n; i++) {
       lines(
         // (carry, x[i]) = x[i] - LP[i] + carry;
-        i64.load(x, { offset: 8 * i }),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
         i > 0 && i64.add(),
         local.get(LP[i]),
         i64.sub(),
@@ -1231,18 +1267,27 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       let Y = defineLocals(writer, "y", n);
       // load x, y
       for (let i = 0; i < n; i++) {
-        line(local.set(X[i], i64.load(local.get(x), { offset: i * 8 })));
+        line(
+          local.set(
+            X[i],
+            i64.extend_i32_u(i32.load(local.get(x), { offset: i * 4 }))
+          )
+        );
       }
       for (let i = 0; i < n; i++) {
-        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+        line(
+          local.set(
+            Y[i],
+            i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))
+          )
+        );
       }
       // multiply
       comment(`multiply in ${n}x${n} steps`);
       // TODO: find out if time could be saved with loop
-      // forLoop8(writer, $i, 0, n, () => {});
+      // forLoop4(writer, $i, 0, n, () => {});
       for (let i = 0; i < 2 * n; i++) {
         comment(`k = ${i}`);
-        // line(local.set(xi, i64.load(x, { offset: 8 * i })));
         for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
           lines(
             // mul
@@ -1273,12 +1318,12 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       let Y = defineLocals(writer, "y", n);
       // load y
       for (let i = 0; i < n; i++) {
-        line(local.set(Y[i], i64.load(local.get(y), { offset: i * 8 })));
+        line(local.set(Y[i], i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))));
       }
       comment(`multiply in ${n}x${n} steps`);
       forLoop8(writer, $i, 0, n, () => {
         lines(
-          local.set(xi, i64.load(i32.add(x, $i))),
+          local.set(xi, i64.extend_i32_u(i32.load(i32.add(x, $i)))),
           local.get(XY[0]),
           i64.mul(xi, Y[0]),
           i64.add(),
