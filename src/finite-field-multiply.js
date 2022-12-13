@@ -641,7 +641,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       local.set(i0, i32.div_u(k, w)),
       local.set(xi0, i32.shl(1, i32.rem_u(k, w))),
       // local.set(xi0, i32.shl(1, i32.sub(k, i32.mul(i0, w)))),
-      local.set(i0, i32.mul(i0, 8))
+      local.set(i0, i32.mul(i0, 4))
     );
 
     forLoop4(writer, i, 0, n, () => {
