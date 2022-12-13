@@ -561,15 +561,15 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
       );
       // u = p, v = a, r = 0, s = 1
       for (let i = 0; i < n; i++) {
-        line(i64.store(u, P[i], { offset: 8 * i }));
+        line(i32.store(u, P[i], { offset: 4 * i }));
       }
       line(call("copy", v, a));
       for (let i = 0; i < n; i++) {
-        line(i64.store(r, 0, { offset: 8 * i }));
+        line(i32.store(r, 0, { offset: 4 * i }));
       }
       let one = bigintToLegs(1n, w, n);
       for (let i = 0; i < n; i++) {
-        line(i64.store(s, one[i], { offset: 8 * i }));
+        line(i32.store(s, one[i], { offset: 4 * i }));
       }
       lines(
         call("makeOdd", u, s),
@@ -759,7 +759,7 @@ function add(writer, p, w) {
         join(i64.add(), local.get(carry), i64.add()),
         // split result
         join(local.tee(tmp), i64.const(w), i64.shr_s(), local.set(carry)),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i })
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i })
       );
     }
     if (!doReduce) return;
@@ -788,7 +788,7 @@ function add(writer, p, w) {
         local.get(carry),
         i64.add(),
         local.set(tmp),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
@@ -834,7 +834,7 @@ function subtract(writer, p, w) {
         i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         i64.sub(),
         local.set(tmp),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         (i < n - 1 || doReduce) && i64.shr_s(tmp, w) // put carry on the stack
       );
     }
@@ -853,7 +853,7 @@ function subtract(writer, p, w) {
         i64.extend_i32_u(i32.load(out, { offset: 4 * i })),
         i64.add(),
         local.set(tmp),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         i < n - 1 && i64.shr_s(tmp, w)
       );
     }
@@ -893,7 +893,7 @@ function subtract(writer, p, w) {
         i64.extend_i32_u(i32.load(y, { offset: 4 * i })),
         i64.sub(),
         local.set(tmp),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         i < n - 1 && i64.shr_s(tmp, w)
       );
     }
@@ -956,7 +956,7 @@ function reduce(writer, p, w, d = 1) {
         local.get(carry),
         i64.add(),
         local.set(tmp),
-        i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
@@ -1017,11 +1017,11 @@ function makeOdd(writer, p, w) {
           // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
           memory.copy(local.get(u), i32.add(u, 4), i32.const((n - 1) * 4)),
           // u[n-1] = 0
-          i64.store(u, 0, { offset: 8 * (n - 1) }),
+          i32.store(u, 0, { offset: 4 * (n - 1) }),
           // copy s[0],...,u[n-2] --> s[1],...,s[n-1]
           memory.copy(i32.add(s, 4), local.get(s), i32.const((n - 1) * 4)),
           // s[0] = 0
-          i64.store(s, 0),
+          i32.store(s, 0),
 
           local.set(k0, i32.add(k0, w)),
 
@@ -1055,10 +1055,13 @@ function makeOdd(writer, p, w) {
           wordMax
         ),
         i64.or(),
-        i64.store("", "", { offset: 8 * i })
+        i32.wrap_i64(),
+        i32.store("", "", { offset: 4 * i })
       );
     }
-    line(i64.store(u, i64.shr_u(tmp, k), { offset: 8 * (n - 1) }));
+    line(
+      i32.store(u, i32.wrap_i64(i64.shr_u(tmp, k)), { offset: 4 * (n - 1) })
+    );
     comment("s << k");
     // for (let i = 10; i >= 0; i--) {
     //   s[i+1] = (s[i] >> l) | ((s[i+1] << k) & wordMax);
@@ -1076,10 +1079,11 @@ function makeOdd(writer, p, w) {
           l
         ),
         i64.or(),
-        i64.store(null, null, { offset: 8 * (i + 1) })
+        i32.wrap_i64(),
+        i32.store(null, null, { offset: 4 * (i + 1) })
       );
     }
-    line(i64.store(s, i64.and(i64.shl(tmp, k), wordMax)));
+    line(i32.store(s, i32.wrap_i64(i64.and(i64.shl(tmp, k), wordMax))));
     comment("return k");
     line(i32.add(k0, i32.wrap_i64(local.get(k))));
   });
@@ -1245,7 +1249,7 @@ function finiteFieldHelpers(writer, p, w) {
           i64.or(),
           local.set(tmp),
           // store what fits in next word
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
           // keep residual bits for next iteration
           local.set(tmp, i64.shr_u(chunk, w - nRes))
         );
@@ -1254,7 +1258,7 @@ function finiteFieldHelpers(writer, p, w) {
       } else {
         // otherwise, the current tmp is just what we want!
         lines(
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
           local.set(tmp, i64.shr_u(tmp, w))
         );
         nRes = nRes - w;
@@ -1384,7 +1388,7 @@ function glv(writer, q, lambda, w) {
         i64.const(LAMBDA[i]),
         i64.sub(),
         local.set(tmp),
-        i64.store(r, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(r, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
@@ -1395,7 +1399,7 @@ function glv(writer, q, lambda, w) {
         // (carry, l[i]) = l[i] + carry;
         i64.add(i64.extend_i32_u(i32.load(l, { offset: 4 * i })), carry),
         local.set(tmp),
-        i64.store(l, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(l, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
@@ -1465,7 +1469,7 @@ function glv(writer, q, lambda, w) {
           i64.or(),
           local.set(tmp),
           // store what fits in next word
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
           // keep residual bits for next iteration
           local.set(tmp, i64.shr_u(chunk, w - nRes))
         );
@@ -1474,7 +1478,7 @@ function glv(writer, q, lambda, w) {
       } else {
         // otherwise, the current tmp is just what we want!
         lines(
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
           local.set(tmp, i64.shr_u(tmp, w))
         );
         nRes = nRes - w;
@@ -1509,7 +1513,7 @@ function glv(writer, q, lambda, w) {
           i64.or(),
           local.set(tmp),
           // store what fits in next word
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
           // keep residual bits for next iteration
           local.set(tmp, i64.shr_u(chunk, w - nRes))
         );
@@ -1518,7 +1522,7 @@ function glv(writer, q, lambda, w) {
       } else {
         // otherwise, the current tmp is just what we want!
         lines(
-          i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
           local.set(tmp, i64.shr_u(tmp, w))
         );
         nRes = nRes - w;
@@ -1632,7 +1636,7 @@ function add2(writer, p, w) {
         i64.add(),
         // split result
         join(local.tee(tmp), i64.const(w), i64.shr_s(), local.set(carry)),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i })
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i })
       );
     }
     if (!doReduce) return;
@@ -1652,7 +1656,7 @@ function add2(writer, p, w) {
         local.get(carry),
         i64.add(),
         local.set(tmp),
-        i64.store(out, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(out, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
@@ -1786,7 +1790,7 @@ function multiply32(writer, p, w, { unrollOuter }) {
       });
     }
     for (let i = 0; i < n; i++) {
-      line(i64.store(xy, T[i], { offset: 8 * i }));
+      line(i32.store(xy, i32.wrap_i64(local.get(T[i])), { offset: 4 * i }));
     }
   });
 }

@@ -352,11 +352,17 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       comment("final carrying & storing");
       for (let j = 1; j < n; j++) {
         lines(
-          i64.store(xy, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
+          i32.store(xy, i32.wrap_i64(i64.and(S[j - 1], wordMax)), {
+            offset: 4 * (j - 1),
+          }),
           local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
         );
       }
-      line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
+      line(
+        i32.store(xy, i32.wrap_i64(local.get(S[n - 1])), {
+          offset: 4 * (n - 1),
+        })
+      );
     }
   );
 
@@ -466,7 +472,9 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
             );
             lines(
               local.set(tmp),
-              i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * (i - n) }),
+              i32.store(xy, i32.wrap_i64(i64.and(tmp, wordMax)), {
+                offset: 4 * (i - n),
+              }),
               i64.shr_u(tmp, w),
               didCarry && local.get(carry),
               didCarry && i64.add()
@@ -476,7 +484,9 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       }
       lines(
         local.set(tmp),
-        i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * (n - 1) })
+        i32.store(xy, i32.wrap_i64(i64.and(tmp, wordMax)), {
+          offset: 4 * (n - 1),
+        })
       );
     }
   );
@@ -583,11 +593,17 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     comment("final carrying & storing");
     for (let j = 1; j < n; j++) {
       lines(
-        i64.store(out, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
+        i32.store(out, i32.wrap_i64(i64.and(S[j - 1], wordMax)), {
+          offset: 4 * (j - 1),
+        }),
         local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
       );
     }
-    line(i64.store(out, S[n - 1], { offset: 8 * (n - 1) }));
+    line(
+      i32.store(out, i32.extend_i32_u(local.get(S[n - 1])), {
+        offset: 4 * (n - 1),
+      })
+    );
   }
 
   addFuncExport(writer, "square");
@@ -628,7 +644,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       local.set(i0, i32.mul(i0, 8))
     );
 
-    forLoop8(writer, i, 0, n, () => {
+    forLoop4(writer, i, 0, n, () => {
       // compute x[i]
       line(local.set(xi, i64.extend_i32_u(i32.mul(i32.eq(i, i0), xi0))));
 
@@ -704,11 +720,15 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
     comment("final carrying & storing");
     for (let j = 1; j < n; j++) {
       lines(
-        i64.store(xy, i64.and(S[j - 1], wordMax), { offset: 8 * (j - 1) }),
+        i32.store(xy, i32.wrap_i64(i64.and(S[j - 1], wordMax)), {
+          offset: 4 * (j - 1),
+        }),
         local.set(S[j], i64.add(S[j], i64.shr_u(S[j - 1], w)))
       );
     }
-    line(i64.store(xy, S[n - 1], { offset: 8 * (n - 1) }));
+    line(
+      i32.store(xy, i32.wrap_i64(local.get(S[n - 1])), { offset: 4 * (n - 1) })
+    );
   });
 }
 
@@ -803,7 +823,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
             );
           }
           let isLast = i === 2 * n - 1;
-          !isLast && line(i64.store(xy, tmp, { offset: 8 * i }));
+          !isLast && line(i32.store(xy, tmp, { offset: 4 * i }));
         }
       }
     );
@@ -929,13 +949,13 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       for (let i = 0; i < 2 * n - 1; i++) {
         lines(
           local.set(tmp, i64.shr_s(W[i], w)),
-          i64.store(xy, i64.and(W[i], wordMax), { offset: 8 * i }),
+          i32.store(xy, i64.and(W[i], wordMax), { offset: 4 * i }),
           local.set(W[i + 1], i64.add(W[i + 1], tmp))
         );
       }
       lines(
-        i64.store(xy, i64.and(W[2 * n - 1], wordMax), {
-          offset: 8 * (2 * n - 1),
+        i32.store(xy, i64.and(W[2 * n - 1], wordMax), {
+          offset: 4 * (2 * n - 1),
         })
       );
 
@@ -1046,13 +1066,15 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
       for (let i = 0; i < 2 * n - 1; i++) {
         lines(
           local.set(tmp, i64.shr_s(W[i], w)),
-          i64.store(xy, i64.and(W[i], wordMax), { offset: 8 * i }),
+          i32.store(xy, i32.wrap_i64(i64.and(W[i], wordMax)), {
+            offset: 4 * i,
+          }),
           local.set(W[i + 1], i64.add(W[i + 1], tmp))
         );
       }
       lines(
-        i64.store(xy, i64.and(W[2 * n - 1], wordMax), {
-          offset: 8 * (2 * n - 1),
+        i32.store(xy, i32.extend_i32_u(i64.and(W[2 * n - 1], wordMax)), {
+          offset: 4 * (2 * n - 1),
         })
       );
 
@@ -1244,14 +1266,14 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
         local.get(LP[i]),
         i64.sub(),
         local.set(tmp),
-        i64.store(x, i64.and(tmp, wordMax), { offset: 8 * i }),
+        i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
         i !== n - 1 && i64.shr_s(tmp, w)
       );
     }
     // overwrite the high n limbs with l
     comment("x|hi = l");
     for (let i = n; i < 2 * n; i++) {
-      lines(i64.store(x, L[i - n], { offset: 8 * i }));
+      lines(i32.store(x, i32.wrap_i64(local.get(L[i - n])), { offset: 4 * i }));
     }
   });
 
@@ -1298,8 +1320,10 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
         lines(
           local.set(tmp),
           i < 2 * n - 1
-            ? i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * i })
-            : i64.store(xy, tmp, { offset: 8 * i }),
+            ? i32.store(xy, i32.wrap_i64(i64.and(tmp, wordMax)), {
+                offset: 4 * i,
+              })
+            : i32.store(xy, i32.wrap_i64(local.get(tmp)), { offset: 4 * i }),
           i < 2 * n - 1 && i64.shr_u(tmp, w)
         );
       }
@@ -1321,14 +1345,14 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
         line(local.set(Y[i], i64.extend_i32_u(i32.load(local.get(y), { offset: i * 4 }))));
       }
       comment(`multiply in ${n}x${n} steps`);
-      forLoop8(writer, $i, 0, n, () => {
+      forLoop4(writer, $i, 0, n, () => {
         lines(
           local.set(xi, i64.extend_i32_u(i32.load(i32.add(x, $i)))),
           local.get(XY[0]),
           i64.mul(xi, Y[0]),
           i64.add(),
           local.set(tmp),
-          i64.store(i32.add(xy, $i), i64.and(tmp, wordMax)),
+          i32.store(i32.add(xy, $i), i64.and(tmp, wordMax)),
           i64.shr_u(tmp, w),
           local.get(XY[1]),
           i64.add(),
@@ -1348,7 +1372,7 @@ function barrett(writer, p, w, { withBenchmarks = false } = {}) {
       for (let i = n; i < 2 * n; i++) {
         lines(
           local.set(tmp, local.get(XY[i - n])),
-          i64.store(xy, i64.and(tmp, wordMax), { offset: 8 * i }),
+          i32.store(xy, i64.and(tmp, wordMax), { offset: 4 * i }),
           i < 2 * n - 1 &&
             local.set(XY[i - n + 1], i64.add(XY[i - n + 1], i64.shr_u(tmp, w)))
         );
