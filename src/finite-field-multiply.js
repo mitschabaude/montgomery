@@ -600,7 +600,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       );
     }
     line(
-      i32.store(out, i32.extend_i32_u(local.get(S[n - 1])), {
+      i32.store(out, i32.wrap_i64(local.get(S[n - 1])), {
         offset: 4 * (n - 1),
       })
     );
@@ -1073,7 +1073,7 @@ function karatsuba30(writer, p, w, { withBenchmarks = false }) {
         );
       }
       lines(
-        i32.store(xy, i32.extend_i32_u(i64.and(W[2 * n - 1], wordMax)), {
+        i32.store(xy, i32.wrap_i64(i64.and(W[2 * n - 1], wordMax)), {
           offset: 4 * (2 * n - 1),
         })
       );
