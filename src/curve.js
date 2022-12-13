@@ -33,9 +33,9 @@ export {
   setIsNonZeroAffine,
 };
 
-let sizeField = 8 * n;
-let sizeAffine = 16 * n + 8;
-let sizeProjective = 24 * n + 8;
+let sizeField = 4 * n;
+let sizeAffine = 8 * n + 4;
+let sizeProjective = 12 * n + 4;
 
 /**
  * affine EC doubling, H = 2*G

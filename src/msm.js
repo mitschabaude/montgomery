@@ -61,16 +61,16 @@ export { msmAffine, batchAdd };
  * -------------
  *
  * a _field element_ x is represented as n limbs, where n is a parameter that depends on the field order and limb size.
- * in wasm memory, each limb is stored as an `i64`, i.e. takes up 8 bytes of space.
- * (usually only the lowest w bits of each `i64` are filled, where w <= 32 is some configured limb size;
+ * in wasm memory, each limb is stored as an `i32`, i.e. takes up 4 bytes of space.
+ * (usually only the lowest w bits of each `i32` are filled, where w <= 32 is some configured limb size;
  * but within computations we will sometimes fill up most or all of the 64 bits)
  *
  * an _affine point_ is layed out as `[x, y, isNonZero]` in memory, where x and y are field elements and
  * `isNonZero` is a flag used to track whether a point is zero / the point at infinity.
- * - x, y each have length sizeField = 8*n bytes
- * - `isNonZero` is either 0 or 1, but we nevertheless reserve 8 bytes (one `i64`) of space for it.
- *   this helps ensure that all memory addresses are multiples of 8, a property which is required by JS APIs like
- *   BigInt64Array, and which should also make memory accesses more efficient.
+ * - x, y each have length sizeField = 4*n bytes
+ * - `isNonZero` is either 0 or 1, but we nevertheless reserve 4 bytes (one `i32`) of space for it.
+ *   this helps ensure that all memory addresses are multiples of 4, a property which is required by JS APIs like
+ *   Uint32Array, and which should also make memory accesses more efficient.
  *
  * in code, we represent an affine point by a pointer `p`.
  * a pointer is just a JS `number`, and can be easily passed between wasm and JS.
@@ -90,9 +90,9 @@ export { msmAffine, batchAdd };
  * isNonZero = p + 3*sizeField
  * ```
  */
-let sizeField = 8 * n; // a field element has n limbs, each of which is an int64 (= 8 bytes)
-let sizeAffine = 16 * n + 8; // an affine point is 2 field elements + 1 int64 for isNonZero flag
-let sizeProjective = 24 * n + 8;
+let sizeField = 4 * n; // a field element has n limbs, each of which is an int64 (= 8 bytes)
+let sizeAffine = 8 * n + 4; // an affine point is 2 field elements + 1 int64 for isNonZero flag
+let sizeProjective = 12 * n + 4;
 
 /**
  * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.

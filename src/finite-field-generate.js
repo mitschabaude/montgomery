@@ -329,7 +329,7 @@ async function createGLVWat(q, lambda, w, { withBenchmarks = false } = {}) {
  */
 function addAffine(writer, p, w) {
   let { n } = montgomeryParams(p, w);
-  let sizeField = 8 * n;
+  let sizeField = 4 * n;
   let { line, lines, comment } = writer;
   let { i32, local, local32, param32, call, return_, br_if } = ops;
 
@@ -500,7 +500,7 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
   let { n, K, lengthP } = montgomeryParams(p, w);
   let N = lengthP;
   // constants
-  let sizeField = 8 * n;
+  let sizeField = 4 * n;
 
   let { line, lines, comment } = writer;
   let {
@@ -534,8 +534,8 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
 
   let R2corr = mod(1n << BigInt(4 * K - 2 * N + 1), p);
   let P = bigintToLegs(p, w, n);
-  dataInt64(writer, r2corrGlobal, bigintToLegs(R2corr, w, n));
-  dataInt64(writer, pGlobal, P);
+  dataInt32(writer, r2corrGlobal, bigintToLegs(R2corr, w, n));
+  dataInt32(writer, pGlobal, P);
 
   let [r, a, scratch] = ["$r", "$a", "$scratch"];
   let [u, v, s, k] = ["$u", "$v", "$s", "$k"];
@@ -1182,7 +1182,7 @@ function finiteFieldHelpers(writer, p, w) {
   // this should just be inlined if possible
   addFuncExport(writer, "copy");
   func(writer, "copy", [param32(x), param32(y)], () => {
-    line(memory.copy(local.get(x), local.get(y), i32.const(8 * n)));
+    line(memory.copy(local.get(x), local.get(y), i32.const(4 * n)));
   });
 
   // convert between internal format and I/O-friendly, packed byte format
@@ -1284,7 +1284,7 @@ function endomorphism(writer, p, w, { beta }) {
   // store beta as global pointer
   let [betaGlobal] = ["$beta"];
   let betaMontgomery = mod(beta * R, p);
-  dataInt64(writer, betaGlobal, bigintToLegs(betaMontgomery, w, n));
+  dataInt32(writer, betaGlobal, bigintToLegs(betaMontgomery, w, n));
 
   let [x, xOut, y, yOut] = ["$x", "$x_out", "$y", "$y_out"];
 
@@ -1365,7 +1365,7 @@ function glv(writer, q, lambda, w) {
   addFuncExport(writer, "reduceByOne");
   func(writer, "reduceByOne", [param32(r)], () => {
     line(local64(tmp), local64(carry), local32(l));
-    line(local.set(l, i32.add(r, n * 8)));
+    line(local.set(l, i32.add(r, n * 4)));
     // check if r < lambda
     block(writer, () => {
       for (let i = n - 1; i >= 0; i--) {
@@ -1916,6 +1916,30 @@ function dataInt64(writer, globalName, data) {
     ")"
   );
 }
+/**
+ *
+ * @param {any} writer
+ * @param {string} globalName
+ * @param {bigint[]} data
+ */
+function dataInt32(writer, globalName, data) {
+  let dataOffset = writer.dataOffset;
+  writer.dataOffset = dataOffset + data.length * 4;
+  let strings = [...data].map((x) => {
+    let bytes = [...bigintToBytes(x, 4)];
+    return (
+      `"` +
+      bytes.map((byte) => `\\${byte.toString(16).padStart(2, "0")}`).join("") +
+      `"`
+    );
+  });
+  writer.lines(
+    ops.global32(globalName, dataOffset),
+    `(data ${ops.i32.const(dataOffset)}`,
+    ...strings.map((s) => "  " + s),
+    ")"
+  );
+}
 
 function defineLocals(t, name, n) {
   let locals = [];
@@ -1972,7 +1996,7 @@ function jsHelpers(
     n,
     R,
     bitLength: lengthP,
-    fieldSizeBytes: 8 * n,
+    fieldSizeBytes: 4 * n,
     packedSizeBytes: nPackedBytes,
 
     /**
@@ -1980,9 +2004,9 @@ function jsHelpers(
      * @param {bigint} x0
      */
     writeBigint(x, x0) {
-      let arr = new BigUint64Array(memory.buffer, x, n);
+      let arr = new Uint32Array(memory.buffer, x, n);
       for (let i = 0; i < n; i++) {
-        arr[i] = x0 & wordMax;
+        arr[i] = Number(x0 & wordMax);
         x0 >>= wn;
       }
     },
@@ -1991,11 +2015,11 @@ function jsHelpers(
      * @param {number} x
      */
     readBigInt(x, length = 1) {
-      let arr = new BigUint64Array(memory.buffer.slice(x, x + n * 8 * length));
+      let arr = new Uint32Array(memory.buffer.slice(x, x + n * 4 * length));
       let x0 = 0n;
       let bitPosition = 0n;
       for (let i = 0; i < arr.length; i++) {
-        x0 += arr[i] << bitPosition;
+        x0 += BigInt(arr[i]) << bitPosition;
         bitPosition += wn;
       }
       return x0;
@@ -2013,7 +2037,7 @@ function jsHelpers(
     /**
      * @param {number} size size of pointer (default: one field element)
      */
-    getPointer(size = n * 8) {
+    getPointer(size = n * 4) {
       let pointer = obj.offset;
       obj.offset += size;
       return pointer;
@@ -2023,7 +2047,7 @@ function jsHelpers(
      * @param {number} N
      * @param {number} size size per pointer (default: one field element)
      */
-    getPointers(N, size = n * 8) {
+    getPointers(N, size = n * 4) {
       /**
        * @type {number[]}
        */
@@ -2049,7 +2073,7 @@ function jsHelpers(
     /**
      * @param {number} size size of pointer (default: one field element)
      */
-    getZeroPointer(size = n * 8) {
+    getZeroPointer(size = n * 4) {
       let offset = obj.offset;
       let pointer = obj.offset;
       memoryBytes.fill(0, offset, offset + size);
@@ -2061,7 +2085,7 @@ function jsHelpers(
      * @param {number} N
      * @param {number} size size per pointer (default: one field element)
      */
-    getZeroPointers(N, size = n * 8) {
+    getZeroPointers(N, size = n * 4) {
       /**
        * @type {number[]}
        */
@@ -2083,7 +2107,7 @@ function jsHelpers(
      * @param {number} size size per pointer (default: one field element)
      * @returns {[Uint32Array, number]}
      */
-    getPointersInMemory(N, size = n * 8) {
+    getPointersInMemory(N, size = n * 4) {
       let offset = obj.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
@@ -2127,7 +2151,7 @@ function jsHelpers(
      * @param {Uint8Array} bytes
      */
     writeBytes([bytesPtr], pointer, bytes) {
-      let arr = new Uint8Array(memory.buffer, bytesPtr, 8 * n);
+      let arr = new Uint8Array(memory.buffer, bytesPtr, 4 * n);
       arr.fill(0);
       arr.set(bytes);
       fromPackedBytes(pointer, bytesPtr);

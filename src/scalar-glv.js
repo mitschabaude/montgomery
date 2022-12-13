@@ -110,7 +110,7 @@ function readBytes(bytesPtr, pointer) {
  * @param {Uint8Array} bytes
  */
 function writeBytesDouble(pointer, bytes) {
-  let arr = new Uint8Array(memory.buffer, bytesPtr, 2 * 8 * n);
+  let arr = new Uint8Array(memory.buffer, bytesPtr, 2 * 4 * n);
   arr.fill(0);
   arr.set(bytes);
   fromPackedBytesDouble(pointer, bytesPtr);
