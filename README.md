@@ -382,13 +382,13 @@ globalThis.crypto = webcrypto;
 To execute most of our benchmark scripts, you additionally need pre-stored random curve points. We load them from a file because recreating them takes extremely long. So, first run the following and go make yourself a cup of coffee:
 
 ```sh
-node scripts/store-inputs.js 18 # generate 2^18 points
+node src/scripts/store-inputs.js 18 # generate 2^18 points
 ```
 
 After this finished, you're ready to run our benchmarks. The most reliable benchmark, which runs different input sizes multiple times and reports performance statistics, is the following:
 
 ```sh
-node scripts/evaluate-msm.js
+node src/scripts/evaluate-msm.js
 ```
 
 The script that I ran most often just runs everything once, but also compares with the reference implementation, and another implementation of mine based on projective arithmetic; also runs some benchmarks of raw multiplication / inversion performance, and reports those numbers together with a breakdown of the multiplication count across parts of the algorithm:

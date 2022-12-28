@@ -88,7 +88,9 @@ let ref = toc();
 }
 
 tic("msm (ours)");
-let { nMul1, nMul2, nMul3, nInv } = msmAffine(scalars, points);
+let {
+  statistics: { nMul1, nMul2, nMul3, nInv },
+} = msmAffine(scalars, points);
 let ours = toc();
 
 let nMul = nMul1 + nMul2 + nMul3;
