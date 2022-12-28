@@ -6,12 +6,12 @@
   (export "addAffine" (func $addAffine))
   (func $addAffine (param $m i32) (param $x3 i32) (param $x1 i32) (param $x2 i32) (param $d i32)
     (local $y3 i32) (local $y1 i32) (local $y2 i32) (local $tmp i32)
-    (local.set $y1 (i32.add (local.get $x1) (i32.const 104)))
-    (local.set $y2 (i32.add (local.get $x2) (i32.const 104)))
-    (local.set $y3 (i32.add (local.get $x3) (i32.const 104)))
-    (local.set $tmp (i32.add (local.get $m) (i32.const 104)))
+    (local.set $y1 (i32.add (local.get $x1) (i32.const 52)))
+    (local.set $y2 (i32.add (local.get $x2) (i32.const 52)))
+    (local.set $y3 (i32.add (local.get $x3) (i32.const 52)))
+    (local.set $tmp (i32.add (local.get $m) (i32.const 52)))
     ;; mark output point as non-zero
-    (i32.store8 offset=208 (local.get $x3) (i32.const 1))
+    (i32.store8 offset=104 (local.get $x3) (i32.const 1))
     ;; m = (y2 - y1)*d
     (call $multiplyDifference (local.get $m) (local.get $d) (local.get $y2) (local.get $y1))
     ;; x3 = m^2 - x1 - x2
@@ -26,8 +26,8 @@
   (func $batchAddUnsafe (param $scratch i32) (param $d i32) (param $x i32) (param $S i32) (param $G i32) (param $H i32) (param $n i32)
     (local $i i32) (local $j i32) (local $I i32) (local $N i32)
     (local.set $I (local.get $scratch))
-    (local.set $scratch (i32.add (local.get $scratch) (i32.const 104)))
-    (local.set $N (i32.mul (local.get $n) (i32.const 104)))
+    (local.set $scratch (i32.add (local.get $scratch) (i32.const 52)))
+    (local.set $N (i32.mul (local.get $n) (i32.const 52)))
     ;; return early if n = 0 or 1
     (i32.eqz (local.get $n))
     if return end
@@ -40,42 +40,42 @@
     end
     ;; create products di = x0*...*xi, where xi = Hi_x - Gi_x
     (call $subtractPositive (local.get $x) (i32.load offset=0 (local.get $H)) (i32.load offset=0 (local.get $G)))
-    (call $subtractPositive (i32.add (local.get $x) (i32.const 104)) (i32.load offset=4 (local.get $H)) (i32.load offset=4 (local.get $G)))
-    (call $multiply (i32.add (local.get $d) (i32.const 104)) (i32.add (local.get $x) (i32.const 104)) (local.get $x))
+    (call $subtractPositive (i32.add (local.get $x) (i32.const 52)) (i32.load offset=4 (local.get $H)) (i32.load offset=4 (local.get $G)))
+    (call $multiply (i32.add (local.get $d) (i32.const 52)) (i32.add (local.get $x) (i32.const 52)) (local.get $x))
     (i32.eq (local.get $n) (i32.const 2))
     if
-      (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $d) (i32.const 104)))
-      (call $multiply (i32.add (local.get $d) (i32.const 104)) (local.get $x) (local.get $I))
-      (call $addAffine (local.get $scratch) (i32.load offset=4 (local.get $S)) (i32.load offset=4 (local.get $G)) (i32.load offset=4 (local.get $H)) (i32.add (local.get $d) (i32.const 104)))
-      (call $multiply (local.get $d) (i32.add (local.get $x) (i32.const 104)) (local.get $I))
+      (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $d) (i32.const 52)))
+      (call $multiply (i32.add (local.get $d) (i32.const 52)) (local.get $x) (local.get $I))
+      (call $addAffine (local.get $scratch) (i32.load offset=4 (local.get $S)) (i32.load offset=4 (local.get $G)) (i32.load offset=4 (local.get $H)) (i32.add (local.get $d) (i32.const 52)))
+      (call $multiply (local.get $d) (i32.add (local.get $x) (i32.const 52)) (local.get $I))
       (call $addAffine (local.get $scratch) (i32.load offset=0 (local.get $S)) (i32.load offset=0 (local.get $G)) (i32.load offset=0 (local.get $H)) (local.get $d))
       return
     end
-    (local.set $i (i32.const 208))
+    (local.set $i (i32.const 104))
     (local.set $j (i32.const 8))
     (loop 
       (call $subtractPositive (i32.add (local.get $x) (local.get $i)) (i32.load offset=0 (i32.add (local.get $H) (local.get $j))) (i32.load offset=0 (i32.add (local.get $G) (local.get $j))))
-      (call $multiply (i32.add (local.get $d) (local.get $i)) (i32.add (local.get $d) (i32.sub (local.get $i) (i32.const 104))) (i32.add (local.get $x) (local.get $i)))
+      (call $multiply (i32.add (local.get $d) (local.get $i)) (i32.add (local.get $d) (i32.sub (local.get $i) (i32.const 52))) (i32.add (local.get $x) (local.get $i)))
       (local.set $j (i32.add (local.get $j) (i32.const 4)))
-      (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 104)))))
+      (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 52)))))
       
     )
     ;; inverse I = 1/(x0*...*x(n-1))
-    (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $d) (i32.sub (local.get $N) (i32.const 104))))
+    (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $d) (i32.sub (local.get $N) (i32.const 52))))
     ;; create inverses 1/x(n-1), ..., 1/x2
-    (local.set $i (i32.sub (local.get $N) (i32.const 104)))
+    (local.set $i (i32.sub (local.get $N) (i32.const 52)))
     (local.set $j (i32.sub (local.get $j) (i32.const 4)))
     (loop 
-      (call $multiply (i32.add (local.get $d) (local.get $i)) (i32.add (local.get $d) (i32.sub (local.get $i) (i32.const 104))) (local.get $I))
+      (call $multiply (i32.add (local.get $d) (local.get $i)) (i32.add (local.get $d) (i32.sub (local.get $i) (i32.const 52))) (local.get $I))
       (call $addAffine (local.get $scratch) (i32.load offset=0 (i32.add (local.get $S) (local.get $j))) (i32.load offset=0 (i32.add (local.get $G) (local.get $j))) (i32.load offset=0 (i32.add (local.get $H) (local.get $j))) (i32.add (local.get $d) (local.get $i)))
       (call $multiply (local.get $I) (local.get $I) (i32.add (local.get $x) (local.get $i)))
       (local.set $j (i32.sub (local.get $j) (i32.const 4)))
-      (br_if 0 (i32.ne (i32.const 104) (local.tee $i (i32.sub (local.get $i) (i32.const 104)))))
+      (br_if 0 (i32.ne (i32.const 52) (local.tee $i (i32.sub (local.get $i) (i32.const 52)))))
     )
     ;; 1/x1, 1/x0
-    (call $multiply (i32.add (local.get $d) (i32.const 104)) (local.get $x) (local.get $I))
-    (call $addAffine (local.get $scratch) (i32.load offset=4 (local.get $S)) (i32.load offset=4 (local.get $G)) (i32.load offset=4 (local.get $H)) (i32.add (local.get $d) (i32.const 104)))
-    (call $multiply (local.get $d) (i32.add (local.get $x) (i32.const 104)) (local.get $I))
+    (call $multiply (i32.add (local.get $d) (i32.const 52)) (local.get $x) (local.get $I))
+    (call $addAffine (local.get $scratch) (i32.load offset=4 (local.get $S)) (i32.load offset=4 (local.get $G)) (i32.load offset=4 (local.get $H)) (i32.add (local.get $d) (i32.const 52)))
+    (call $multiply (local.get $d) (i32.add (local.get $x) (i32.const 52)) (local.get $I))
     (call $addAffine (local.get $scratch) (i32.load offset=0 (local.get $S)) (i32.load offset=0 (local.get $G)) (i32.load offset=0 (local.get $H)) (local.get $d))
   )
   (export "inverseCount" (global $inverseCount))
@@ -86,82 +86,82 @@
   )
   (global $r2corr i32 (i32.const 0))
   (data (i32.const 0)
-    "\68\6b\0e\0d\00\00\00\00"
-    "\07\a2\88\2f\00\00\00\00"
-    "\b7\21\ec\07\00\00\00\00"
-    "\e1\d8\cc\30\00\00\00\00"
-    "\83\a6\03\32\00\00\00\00"
-    "\13\0c\c4\3e\00\00\00\00"
-    "\fa\c0\67\36\00\00\00\00"
-    "\b5\43\35\20\00\00\00\00"
-    "\07\8b\d1\2a\00\00\00\00"
-    "\e9\4c\56\19\00\00\00\00"
-    "\3c\47\35\21\00\00\00\00"
-    "\df\33\26\3f\00\00\00\00"
-    "\84\49\14\00\00\00\00\00"
+    "\68\6b\0e\0d"
+    "\07\a2\88\2f"
+    "\b7\21\ec\07"
+    "\e1\d8\cc\30"
+    "\83\a6\03\32"
+    "\13\0c\c4\3e"
+    "\fa\c0\67\36"
+    "\b5\43\35\20"
+    "\07\8b\d1\2a"
+    "\e9\4c\56\19"
+    "\3c\47\35\21"
+    "\df\33\26\3f"
+    "\84\49\14\00"
   )
-  (global $p i32 (i32.const 104))
-  (data (i32.const 104)
-    "\ab\aa\ff\3f\00\00\00\00"
-    "\ff\ff\fb\27\00\00\00\00"
-    "\fb\ff\3f\15\00\00\00\00"
-    "\ac\ff\ff\2a\00\00\00\00"
-    "\1e\24\f6\30\00\00\00\00"
-    "\da\83\4a\03\00\00\00\00"
-    "\73\f6\2b\11\00\00\00\00"
-    "\e1\3c\e1\12\00\00\00\00"
-    "\77\64\d7\2c\00\00\00\00"
-    "\2e\0d\d9\1e\00\00\00\00"
-    "\ba\b1\a4\29\00\00\00\00"
-    "\f9\5f\8e\3a\00\00\00\00"
-    "\11\01\1a\00\00\00\00\00"
+  (global $p i32 (i32.const 52))
+  (data (i32.const 52)
+    "\ab\aa\ff\3f"
+    "\ff\ff\fb\27"
+    "\fb\ff\3f\15"
+    "\ac\ff\ff\2a"
+    "\1e\24\f6\30"
+    "\da\83\4a\03"
+    "\73\f6\2b\11"
+    "\e1\3c\e1\12"
+    "\77\64\d7\2c"
+    "\2e\0d\d9\1e"
+    "\ba\b1\a4\29"
+    "\f9\5f\8e\3a"
+    "\11\01\1a\00"
   )
   (export "almostInverse" (func $almostInverse))
   (func $almostInverse (param $u i32) (param $r i32) (param $a i32) (result i32)
     (local $v i32) (local $s i32) (local $k i32)
     (global.set $inverseCount (i32.add (global.get $inverseCount) (i32.const 1)))
-    (local.set $v (i32.add (local.get $u) (i32.const 104)))
-    (local.set $s (i32.add (local.get $v) (i32.const 104)))
-    (i64.store offset=0 (local.get $u) (i64.const 0x3fffaaab))
-    (i64.store offset=8 (local.get $u) (i64.const 0x27fbffff))
-    (i64.store offset=16 (local.get $u) (i64.const 0x153ffffb))
-    (i64.store offset=24 (local.get $u) (i64.const 0x2affffac))
-    (i64.store offset=32 (local.get $u) (i64.const 0x30f6241e))
-    (i64.store offset=40 (local.get $u) (i64.const 0x34a83da))
-    (i64.store offset=48 (local.get $u) (i64.const 0x112bf673))
-    (i64.store offset=56 (local.get $u) (i64.const 0x12e13ce1))
-    (i64.store offset=64 (local.get $u) (i64.const 0x2cd76477))
-    (i64.store offset=72 (local.get $u) (i64.const 0x1ed90d2e))
-    (i64.store offset=80 (local.get $u) (i64.const 0x29a4b1ba))
-    (i64.store offset=88 (local.get $u) (i64.const 0x3a8e5ff9))
-    (i64.store offset=96 (local.get $u) (i64.const 0x1a0111))
+    (local.set $v (i32.add (local.get $u) (i32.const 52)))
+    (local.set $s (i32.add (local.get $v) (i32.const 52)))
+    (i32.store offset=0 (local.get $u) (i32.const 0x3fffaaab))
+    (i32.store offset=4 (local.get $u) (i32.const 0x27fbffff))
+    (i32.store offset=8 (local.get $u) (i32.const 0x153ffffb))
+    (i32.store offset=12 (local.get $u) (i32.const 0x2affffac))
+    (i32.store offset=16 (local.get $u) (i32.const 0x30f6241e))
+    (i32.store offset=20 (local.get $u) (i32.const 0x34a83da))
+    (i32.store offset=24 (local.get $u) (i32.const 0x112bf673))
+    (i32.store offset=28 (local.get $u) (i32.const 0x12e13ce1))
+    (i32.store offset=32 (local.get $u) (i32.const 0x2cd76477))
+    (i32.store offset=36 (local.get $u) (i32.const 0x1ed90d2e))
+    (i32.store offset=40 (local.get $u) (i32.const 0x29a4b1ba))
+    (i32.store offset=44 (local.get $u) (i32.const 0x3a8e5ff9))
+    (i32.store offset=48 (local.get $u) (i32.const 0x1a0111))
     (call $copy (local.get $v) (local.get $a))
-    (i64.store offset=0 (local.get $r) (i64.const 0))
-    (i64.store offset=8 (local.get $r) (i64.const 0))
-    (i64.store offset=16 (local.get $r) (i64.const 0))
-    (i64.store offset=24 (local.get $r) (i64.const 0))
-    (i64.store offset=32 (local.get $r) (i64.const 0))
-    (i64.store offset=40 (local.get $r) (i64.const 0))
-    (i64.store offset=48 (local.get $r) (i64.const 0))
-    (i64.store offset=56 (local.get $r) (i64.const 0))
-    (i64.store offset=64 (local.get $r) (i64.const 0))
-    (i64.store offset=72 (local.get $r) (i64.const 0))
-    (i64.store offset=80 (local.get $r) (i64.const 0))
-    (i64.store offset=88 (local.get $r) (i64.const 0))
-    (i64.store offset=96 (local.get $r) (i64.const 0))
-    (i64.store offset=0 (local.get $s) (i64.const 1))
-    (i64.store offset=8 (local.get $s) (i64.const 0))
-    (i64.store offset=16 (local.get $s) (i64.const 0))
-    (i64.store offset=24 (local.get $s) (i64.const 0))
-    (i64.store offset=32 (local.get $s) (i64.const 0))
-    (i64.store offset=40 (local.get $s) (i64.const 0))
-    (i64.store offset=48 (local.get $s) (i64.const 0))
-    (i64.store offset=56 (local.get $s) (i64.const 0))
-    (i64.store offset=64 (local.get $s) (i64.const 0))
-    (i64.store offset=72 (local.get $s) (i64.const 0))
-    (i64.store offset=80 (local.get $s) (i64.const 0))
-    (i64.store offset=88 (local.get $s) (i64.const 0))
-    (i64.store offset=96 (local.get $s) (i64.const 0))
+    (i32.store offset=0 (local.get $r) (i32.const 0))
+    (i32.store offset=4 (local.get $r) (i32.const 0))
+    (i32.store offset=8 (local.get $r) (i32.const 0))
+    (i32.store offset=12 (local.get $r) (i32.const 0))
+    (i32.store offset=16 (local.get $r) (i32.const 0))
+    (i32.store offset=20 (local.get $r) (i32.const 0))
+    (i32.store offset=24 (local.get $r) (i32.const 0))
+    (i32.store offset=28 (local.get $r) (i32.const 0))
+    (i32.store offset=32 (local.get $r) (i32.const 0))
+    (i32.store offset=36 (local.get $r) (i32.const 0))
+    (i32.store offset=40 (local.get $r) (i32.const 0))
+    (i32.store offset=44 (local.get $r) (i32.const 0))
+    (i32.store offset=48 (local.get $r) (i32.const 0))
+    (i32.store offset=0 (local.get $s) (i32.const 1))
+    (i32.store offset=4 (local.get $s) (i32.const 0))
+    (i32.store offset=8 (local.get $s) (i32.const 0))
+    (i32.store offset=12 (local.get $s) (i32.const 0))
+    (i32.store offset=16 (local.get $s) (i32.const 0))
+    (i32.store offset=20 (local.get $s) (i32.const 0))
+    (i32.store offset=24 (local.get $s) (i32.const 0))
+    (i32.store offset=28 (local.get $s) (i32.const 0))
+    (i32.store offset=32 (local.get $s) (i32.const 0))
+    (i32.store offset=36 (local.get $s) (i32.const 0))
+    (i32.store offset=40 (local.get $s) (i32.const 0))
+    (i32.store offset=44 (local.get $s) (i32.const 0))
+    (i32.store offset=48 (local.get $s) (i32.const 0))
     (call $makeOdd (local.get $u) (local.get $s))
     (call $makeOdd (local.get $v) (local.get $r))
     i32.add
@@ -212,8 +212,8 @@
   (func $batchInverse (param $scratch i32) (param $z i32) (param $x i32) (param $n i32)
     (local $i i32) (local $I i32) (local $N i32)
     (local.set $I (local.get $scratch))
-    (local.set $scratch (i32.add (local.get $scratch) (i32.const 104)))
-    (local.set $N (i32.mul (local.get $n) (i32.const 104)))
+    (local.set $scratch (i32.add (local.get $scratch) (i32.const 52)))
+    (local.set $N (i32.mul (local.get $n) (i32.const 52)))
     ;; return early if n = 0 or 1
     (i32.eqz (local.get $n))
     if return end
@@ -223,31 +223,31 @@
       return
     end
     ;; create products x0*x1, ..., x0*...*x(n-1)
-    (call $multiply (i32.add (local.get $z) (i32.const 104)) (i32.add (local.get $x) (i32.const 104)) (local.get $x))
+    (call $multiply (i32.add (local.get $z) (i32.const 52)) (i32.add (local.get $x) (i32.const 52)) (local.get $x))
     (i32.eq (local.get $n) (i32.const 2))
     if
-      (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $z) (i32.const 104)))
-      (call $multiply (i32.add (local.get $z) (i32.const 104)) (local.get $x) (local.get $I))
-      (call $multiply (local.get $z) (i32.add (local.get $x) (i32.const 104)) (local.get $I))
+      (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $z) (i32.const 52)))
+      (call $multiply (i32.add (local.get $z) (i32.const 52)) (local.get $x) (local.get $I))
+      (call $multiply (local.get $z) (i32.add (local.get $x) (i32.const 52)) (local.get $I))
       return
     end
-    (local.set $i (i32.const 208))
+    (local.set $i (i32.const 104))
     (loop 
-      (call $multiply (i32.add (local.get $z) (local.get $i)) (i32.add (local.get $z) (i32.sub (local.get $i) (i32.const 104))) (i32.add (local.get $x) (local.get $i)))
-      (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 104)))))
+      (call $multiply (i32.add (local.get $z) (local.get $i)) (i32.add (local.get $z) (i32.sub (local.get $i) (i32.const 52))) (i32.add (local.get $x) (local.get $i)))
+      (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 52)))))
     )
     ;; inverse I = 1/(x0*...*x(n-1))
-    (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $z) (i32.sub (local.get $N) (i32.const 104))))
+    (call $inverse (local.get $scratch) (local.get $I) (i32.add (local.get $z) (i32.sub (local.get $N) (i32.const 52))))
     ;; create inverses 1/x(n-1), ..., 1/x2
-    (local.set $i (i32.sub (local.get $N) (i32.const 104)))
+    (local.set $i (i32.sub (local.get $N) (i32.const 52)))
     (loop 
-      (call $multiply (i32.add (local.get $z) (local.get $i)) (i32.add (local.get $z) (i32.sub (local.get $i) (i32.const 104))) (local.get $I))
+      (call $multiply (i32.add (local.get $z) (local.get $i)) (i32.add (local.get $z) (i32.sub (local.get $i) (i32.const 52))) (local.get $I))
       (call $multiply (local.get $I) (local.get $I) (i32.add (local.get $x) (local.get $i)))
-      (br_if 0 (i32.ne (i32.const 104) (local.tee $i (i32.sub (local.get $i) (i32.const 104)))))
+      (br_if 0 (i32.ne (i32.const 52) (local.tee $i (i32.sub (local.get $i) (i32.const 52)))))
     )
     ;; 1/x1, 1/x0
-    (call $multiply (i32.add (local.get $z) (i32.const 104)) (local.get $x) (local.get $I))
-    (call $multiply (local.get $z) (i32.add (local.get $x) (i32.const 104)) (local.get $I))
+    (call $multiply (i32.add (local.get $z) (i32.const 52)) (local.get $x) (local.get $I))
+    (call $multiply (local.get $z) (i32.add (local.get $x) (i32.const 52)) (local.get $I))
   )
   (export "benchInverse" (func $benchInverse))
   (func $benchInverse (param $scratch i32) (param $a i32) (param $u i32) (param $N i32)
@@ -433,86 +433,86 @@
     (local $t12 i64) 
     (global.set $multiplyCount (i32.add (global.get $multiplyCount) (i32.const 1)))
     (i64.const 0x7ffaaab0)
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.add
-    (i64.load offset=0 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $z)))
     i64.sub
     (local.set $y00)
     (i64.const 0x7fbffffe)
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.add
-    (i64.load offset=8 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $z)))
     i64.sub
     (local.set $y01)
     (i64.const 0x53ffffb8)
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.add
-    (i64.load offset=16 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $z)))
     i64.sub
     (local.set $y02)
     (i64.const 0x6ffffac4)
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.add
-    (i64.load offset=24 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $z)))
     i64.sub
     (local.set $y03)
     (i64.const 0x4f6241e9)
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.add
-    (i64.load offset=32 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $z)))
     i64.sub
     (local.set $y04)
     (i64.const 0x74a83dab)
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.add
-    (i64.load offset=40 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $z)))
     i64.sub
     (local.set $y05)
     (i64.const 0x52bf672f)
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.add
-    (i64.load offset=48 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $z)))
     i64.sub
     (local.set $y06)
     (i64.const 0x6e13ce13)
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.add
-    (i64.load offset=56 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $z)))
     i64.sub
     (local.set $y07)
     (i64.const 0x4d764773)
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.add
-    (i64.load offset=64 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $z)))
     i64.sub
     (local.set $y08)
     (i64.const 0x6d90d2ea)
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.add
-    (i64.load offset=72 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $z)))
     i64.sub
     (local.set $y09)
     (i64.const 0x5a4b1ba6)
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.add
-    (i64.load offset=80 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $z)))
     i64.sub
     (local.set $y10)
     (i64.const 0x68e5ff99)
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.add
-    (i64.load offset=88 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $z)))
     i64.sub
     (local.set $y11)
     (i64.const 0x1a0111d)
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.add
-    (i64.load offset=96 (local.get $z))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $z)))
     i64.sub
     (local.set $y12)
     (local.set $i (i32.const 0))
     (loop 
-      (local.set $xi (i64.load offset=0 (i32.add (local.get $x) (local.get $i))))
+      (local.set $xi (i64.extend_i32_u (i32.load offset=0 (i32.add (local.get $x) (local.get $i)))))
       ;; j = 0, do carry, ignore result below carry
       (local.get $t00)
       (i64.mul (local.get $xi) (local.get $y00))
@@ -614,34 +614,34 @@
       (i64.mul (local.get $qi) (i64.const 0x1a0111))
       i64.add
       (local.set $t11)
-      (br_if 0 (i32.ne (i32.const 104) (local.tee $i (i32.add (local.get $i) (i32.const 8)))))
+      (br_if 0 (i32.ne (i32.const 52) (local.tee $i (i32.add (local.get $i) (i32.const 4)))))
     )
     ;; final carrying & storing
-    (i64.store offset=0 (local.get $xy) (i64.and (local.get $t00) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t00) (i64.const 0x3fffffff))))
     (local.set $t01 (i64.add (local.get $t01) (i64.shr_u (local.get $t00) (i64.const 30))))
-    (i64.store offset=8 (local.get $xy) (i64.and (local.get $t01) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t01) (i64.const 0x3fffffff))))
     (local.set $t02 (i64.add (local.get $t02) (i64.shr_u (local.get $t01) (i64.const 30))))
-    (i64.store offset=16 (local.get $xy) (i64.and (local.get $t02) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t02) (i64.const 0x3fffffff))))
     (local.set $t03 (i64.add (local.get $t03) (i64.shr_u (local.get $t02) (i64.const 30))))
-    (i64.store offset=24 (local.get $xy) (i64.and (local.get $t03) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t03) (i64.const 0x3fffffff))))
     (local.set $t04 (i64.add (local.get $t04) (i64.shr_u (local.get $t03) (i64.const 30))))
-    (i64.store offset=32 (local.get $xy) (i64.and (local.get $t04) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t04) (i64.const 0x3fffffff))))
     (local.set $t05 (i64.add (local.get $t05) (i64.shr_u (local.get $t04) (i64.const 30))))
-    (i64.store offset=40 (local.get $xy) (i64.and (local.get $t05) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t05) (i64.const 0x3fffffff))))
     (local.set $t06 (i64.add (local.get $t06) (i64.shr_u (local.get $t05) (i64.const 30))))
-    (i64.store offset=48 (local.get $xy) (i64.and (local.get $t06) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t06) (i64.const 0x3fffffff))))
     (local.set $t07 (i64.add (local.get $t07) (i64.shr_u (local.get $t06) (i64.const 30))))
-    (i64.store offset=56 (local.get $xy) (i64.and (local.get $t07) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t07) (i64.const 0x3fffffff))))
     (local.set $t08 (i64.add (local.get $t08) (i64.shr_u (local.get $t07) (i64.const 30))))
-    (i64.store offset=64 (local.get $xy) (i64.and (local.get $t08) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t08) (i64.const 0x3fffffff))))
     (local.set $t09 (i64.add (local.get $t09) (i64.shr_u (local.get $t08) (i64.const 30))))
-    (i64.store offset=72 (local.get $xy) (i64.and (local.get $t09) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t09) (i64.const 0x3fffffff))))
     (local.set $t10 (i64.add (local.get $t10) (i64.shr_u (local.get $t09) (i64.const 30))))
-    (i64.store offset=80 (local.get $xy) (i64.and (local.get $t10) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t10) (i64.const 0x3fffffff))))
     (local.set $t11 (i64.add (local.get $t11) (i64.shr_u (local.get $t10) (i64.const 30))))
-    (i64.store offset=88 (local.get $xy) (i64.and (local.get $t11) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t11) (i64.const 0x3fffffff))))
     (local.set $t12 (i64.add (local.get $t12) (i64.shr_u (local.get $t11) (i64.const 30))))
-    (i64.store offset=96 (local.get $xy) (local.get $t12))
+    (i32.store offset=48 (local.get $xy) (i32.wrap_i64 (local.get $t12)))
   )
   (export "multiplyUnrolled" (func $multiplyUnrolled))
   (func $multiplyUnrolled (param $xy i32) (param $x i32) (param $y i32)
@@ -659,32 +659,32 @@
     (local $q08 i64) (local $q09 i64) (local $q10 i64) (local $q11 i64) 
     (local $q12 i64) 
     (global.set $multiplyCount (i32.add (global.get $multiplyCount) (i32.const 1)))
-    (local.set $x00 (i64.load offset=0 (local.get $x)))
-    (local.set $x01 (i64.load offset=8 (local.get $x)))
-    (local.set $x02 (i64.load offset=16 (local.get $x)))
-    (local.set $x03 (i64.load offset=24 (local.get $x)))
-    (local.set $x04 (i64.load offset=32 (local.get $x)))
-    (local.set $x05 (i64.load offset=40 (local.get $x)))
-    (local.set $x06 (i64.load offset=48 (local.get $x)))
-    (local.set $x07 (i64.load offset=56 (local.get $x)))
-    (local.set $x08 (i64.load offset=64 (local.get $x)))
-    (local.set $x09 (i64.load offset=72 (local.get $x)))
-    (local.set $x10 (i64.load offset=80 (local.get $x)))
-    (local.set $x11 (i64.load offset=88 (local.get $x)))
-    (local.set $x12 (i64.load offset=96 (local.get $x)))
-    (local.set $y00 (i64.load offset=0 (local.get $y)))
-    (local.set $y01 (i64.load offset=8 (local.get $y)))
-    (local.set $y02 (i64.load offset=16 (local.get $y)))
-    (local.set $y03 (i64.load offset=24 (local.get $y)))
-    (local.set $y04 (i64.load offset=32 (local.get $y)))
-    (local.set $y05 (i64.load offset=40 (local.get $y)))
-    (local.set $y06 (i64.load offset=48 (local.get $y)))
-    (local.set $y07 (i64.load offset=56 (local.get $y)))
-    (local.set $y08 (i64.load offset=64 (local.get $y)))
-    (local.set $y09 (i64.load offset=72 (local.get $y)))
-    (local.set $y10 (i64.load offset=80 (local.get $y)))
-    (local.set $y11 (i64.load offset=88 (local.get $y)))
-    (local.set $y12 (i64.load offset=96 (local.get $y)))
+    (local.set $x00 (i64.extend_i32_u (i32.load offset=0 (local.get $x))))
+    (local.set $x01 (i64.extend_i32_u (i32.load offset=4 (local.get $x))))
+    (local.set $x02 (i64.extend_i32_u (i32.load offset=8 (local.get $x))))
+    (local.set $x03 (i64.extend_i32_u (i32.load offset=12 (local.get $x))))
+    (local.set $x04 (i64.extend_i32_u (i32.load offset=16 (local.get $x))))
+    (local.set $x05 (i64.extend_i32_u (i32.load offset=20 (local.get $x))))
+    (local.set $x06 (i64.extend_i32_u (i32.load offset=24 (local.get $x))))
+    (local.set $x07 (i64.extend_i32_u (i32.load offset=28 (local.get $x))))
+    (local.set $x08 (i64.extend_i32_u (i32.load offset=32 (local.get $x))))
+    (local.set $x09 (i64.extend_i32_u (i32.load offset=36 (local.get $x))))
+    (local.set $x10 (i64.extend_i32_u (i32.load offset=40 (local.get $x))))
+    (local.set $x11 (i64.extend_i32_u (i32.load offset=44 (local.get $x))))
+    (local.set $x12 (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
+    (local.set $y00 (i64.extend_i32_u (i32.load offset=0 (local.get $y))))
+    (local.set $y01 (i64.extend_i32_u (i32.load offset=4 (local.get $y))))
+    (local.set $y02 (i64.extend_i32_u (i32.load offset=8 (local.get $y))))
+    (local.set $y03 (i64.extend_i32_u (i32.load offset=12 (local.get $y))))
+    (local.set $y04 (i64.extend_i32_u (i32.load offset=16 (local.get $y))))
+    (local.set $y05 (i64.extend_i32_u (i32.load offset=20 (local.get $y))))
+    (local.set $y06 (i64.extend_i32_u (i32.load offset=24 (local.get $y))))
+    (local.set $y07 (i64.extend_i32_u (i32.load offset=28 (local.get $y))))
+    (local.set $y08 (i64.extend_i32_u (i32.load offset=32 (local.get $y))))
+    (local.set $y09 (i64.extend_i32_u (i32.load offset=36 (local.get $y))))
+    (local.set $y10 (i64.extend_i32_u (i32.load offset=40 (local.get $y))))
+    (local.set $y11 (i64.extend_i32_u (i32.load offset=44 (local.get $y))))
+    (local.set $y12 (i64.extend_i32_u (i32.load offset=48 (local.get $y))))
     ;; i = 0
     ;; > j = 0
     (i64.mul (local.get $x00) (local.get $y00))
@@ -1306,7 +1306,7 @@
     (i64.mul (local.get $q12) (i64.const 0x27fbffff))
     i64.add
     (local.set $tmp)
-    (i64.store offset=0 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     (local.get $carry)
     i64.add
@@ -1372,7 +1372,7 @@
     (i64.mul (local.get $q12) (i64.const 0x153ffffb))
     i64.add
     (local.set $tmp)
-    (i64.store offset=8 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     (local.get $carry)
     i64.add
@@ -1433,7 +1433,7 @@
     (i64.mul (local.get $q12) (i64.const 0x2affffac))
     i64.add
     (local.set $tmp)
-    (i64.store offset=16 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     (local.get $carry)
     i64.add
@@ -1489,7 +1489,7 @@
     (i64.mul (local.get $q12) (i64.const 0x30f6241e))
     i64.add
     (local.set $tmp)
-    (i64.store offset=24 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     (local.get $carry)
     i64.add
@@ -1535,7 +1535,7 @@
     (i64.mul (local.get $q12) (i64.const 0x34a83da))
     i64.add
     (local.set $tmp)
-    (i64.store offset=32 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 18
     ;; > j = 6
@@ -1574,7 +1574,7 @@
     (i64.mul (local.get $q12) (i64.const 0x112bf673))
     i64.add
     (local.set $tmp)
-    (i64.store offset=40 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 19
     ;; > j = 7
@@ -1608,7 +1608,7 @@
     (i64.mul (local.get $q12) (i64.const 0x12e13ce1))
     i64.add
     (local.set $tmp)
-    (i64.store offset=48 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 20
     ;; > j = 8
@@ -1637,7 +1637,7 @@
     (i64.mul (local.get $q12) (i64.const 0x2cd76477))
     i64.add
     (local.set $tmp)
-    (i64.store offset=56 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 21
     ;; > j = 9
@@ -1661,7 +1661,7 @@
     (i64.mul (local.get $q12) (i64.const 0x1ed90d2e))
     i64.add
     (local.set $tmp)
-    (i64.store offset=64 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 22
     ;; > j = 10
@@ -1680,7 +1680,7 @@
     (i64.mul (local.get $q12) (i64.const 0x29a4b1ba))
     i64.add
     (local.set $tmp)
-    (i64.store offset=72 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 23
     ;; > j = 11
@@ -1694,7 +1694,7 @@
     (i64.mul (local.get $q12) (i64.const 0x3a8e5ff9))
     i64.add
     (local.set $tmp)
-    (i64.store offset=80 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; i = 24
     ;; > j = 12
@@ -1703,10 +1703,10 @@
     (i64.mul (local.get $q12) (i64.const 0x1a0111))
     i64.add
     (local.set $tmp)
-    (i64.store offset=88 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     (local.set $tmp)
-    (i64.store offset=96 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
   )
   (export "square" (func $square))
   (func $square (param $out i32) (param $x i32)
@@ -1721,19 +1721,19 @@
     (local $t08 i64) (local $t09 i64) (local $t10 i64) (local $t11 i64) 
     (local $t12 i64) 
     (global.set $multiplyCount (i32.add (global.get $multiplyCount) (i32.const 1)))
-    (local.set $x00 (i64.load offset=0 (local.get $x)))
-    (local.set $x01 (i64.load offset=8 (local.get $x)))
-    (local.set $x02 (i64.load offset=16 (local.get $x)))
-    (local.set $x03 (i64.load offset=24 (local.get $x)))
-    (local.set $x04 (i64.load offset=32 (local.get $x)))
-    (local.set $x05 (i64.load offset=40 (local.get $x)))
-    (local.set $x06 (i64.load offset=48 (local.get $x)))
-    (local.set $x07 (i64.load offset=56 (local.get $x)))
-    (local.set $x08 (i64.load offset=64 (local.get $x)))
-    (local.set $x09 (i64.load offset=72 (local.get $x)))
-    (local.set $x10 (i64.load offset=80 (local.get $x)))
-    (local.set $x11 (i64.load offset=88 (local.get $x)))
-    (local.set $x12 (i64.load offset=96 (local.get $x)))
+    (local.set $x00 (i64.extend_i32_u (i32.load offset=0 (local.get $x))))
+    (local.set $x01 (i64.extend_i32_u (i32.load offset=4 (local.get $x))))
+    (local.set $x02 (i64.extend_i32_u (i32.load offset=8 (local.get $x))))
+    (local.set $x03 (i64.extend_i32_u (i32.load offset=12 (local.get $x))))
+    (local.set $x04 (i64.extend_i32_u (i32.load offset=16 (local.get $x))))
+    (local.set $x05 (i64.extend_i32_u (i32.load offset=20 (local.get $x))))
+    (local.set $x06 (i64.extend_i32_u (i32.load offset=24 (local.get $x))))
+    (local.set $x07 (i64.extend_i32_u (i32.load offset=28 (local.get $x))))
+    (local.set $x08 (i64.extend_i32_u (i32.load offset=32 (local.get $x))))
+    (local.set $x09 (i64.extend_i32_u (i32.load offset=36 (local.get $x))))
+    (local.set $x10 (i64.extend_i32_u (i32.load offset=40 (local.get $x))))
+    (local.set $x11 (i64.extend_i32_u (i32.load offset=44 (local.get $x))))
+    (local.set $x12 (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
     ;; i = 0
     ;; j = 0, do carry, ignore result below carry
     (i64.mul (local.get $x00) (local.get $x00))
@@ -2943,31 +2943,31 @@
     i64.add
     (local.set $t11)
     ;; final carrying & storing
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $t00) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t00) (i64.const 0x3fffffff))))
     (local.set $t01 (i64.add (local.get $t01) (i64.shr_u (local.get $t00) (i64.const 30))))
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $t01) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t01) (i64.const 0x3fffffff))))
     (local.set $t02 (i64.add (local.get $t02) (i64.shr_u (local.get $t01) (i64.const 30))))
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $t02) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t02) (i64.const 0x3fffffff))))
     (local.set $t03 (i64.add (local.get $t03) (i64.shr_u (local.get $t02) (i64.const 30))))
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $t03) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t03) (i64.const 0x3fffffff))))
     (local.set $t04 (i64.add (local.get $t04) (i64.shr_u (local.get $t03) (i64.const 30))))
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $t04) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t04) (i64.const 0x3fffffff))))
     (local.set $t05 (i64.add (local.get $t05) (i64.shr_u (local.get $t04) (i64.const 30))))
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $t05) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t05) (i64.const 0x3fffffff))))
     (local.set $t06 (i64.add (local.get $t06) (i64.shr_u (local.get $t05) (i64.const 30))))
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $t06) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t06) (i64.const 0x3fffffff))))
     (local.set $t07 (i64.add (local.get $t07) (i64.shr_u (local.get $t06) (i64.const 30))))
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $t07) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t07) (i64.const 0x3fffffff))))
     (local.set $t08 (i64.add (local.get $t08) (i64.shr_u (local.get $t07) (i64.const 30))))
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $t08) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t08) (i64.const 0x3fffffff))))
     (local.set $t09 (i64.add (local.get $t09) (i64.shr_u (local.get $t08) (i64.const 30))))
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $t09) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t09) (i64.const 0x3fffffff))))
     (local.set $t10 (i64.add (local.get $t10) (i64.shr_u (local.get $t09) (i64.const 30))))
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $t10) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t10) (i64.const 0x3fffffff))))
     (local.set $t11 (i64.add (local.get $t11) (i64.shr_u (local.get $t10) (i64.const 30))))
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $t11) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $t11) (i64.const 0x3fffffff))))
     (local.set $t12 (i64.add (local.get $t12) (i64.shr_u (local.get $t11) (i64.const 30))))
-    (i64.store offset=96 (local.get $out) (local.get $t12))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (local.get $t12)))
   )
   (export "leftShift" (func $leftShift))
   (func $leftShift (param $xy i32) (param $y i32) (param $k i32)
@@ -2981,22 +2981,22 @@
     (local $t04 i64) (local $t05 i64) (local $t06 i64) (local $t07 i64) 
     (local $t08 i64) (local $t09 i64) (local $t10 i64) (local $t11 i64) 
     (local $t12 i64) 
-    (local.set $y00 (i64.load offset=0 (local.get $y)))
-    (local.set $y01 (i64.load offset=8 (local.get $y)))
-    (local.set $y02 (i64.load offset=16 (local.get $y)))
-    (local.set $y03 (i64.load offset=24 (local.get $y)))
-    (local.set $y04 (i64.load offset=32 (local.get $y)))
-    (local.set $y05 (i64.load offset=40 (local.get $y)))
-    (local.set $y06 (i64.load offset=48 (local.get $y)))
-    (local.set $y07 (i64.load offset=56 (local.get $y)))
-    (local.set $y08 (i64.load offset=64 (local.get $y)))
-    (local.set $y09 (i64.load offset=72 (local.get $y)))
-    (local.set $y10 (i64.load offset=80 (local.get $y)))
-    (local.set $y11 (i64.load offset=88 (local.get $y)))
-    (local.set $y12 (i64.load offset=96 (local.get $y)))
+    (local.set $y00 (i64.extend_i32_u (i32.load offset=0 (local.get $y))))
+    (local.set $y01 (i64.extend_i32_u (i32.load offset=4 (local.get $y))))
+    (local.set $y02 (i64.extend_i32_u (i32.load offset=8 (local.get $y))))
+    (local.set $y03 (i64.extend_i32_u (i32.load offset=12 (local.get $y))))
+    (local.set $y04 (i64.extend_i32_u (i32.load offset=16 (local.get $y))))
+    (local.set $y05 (i64.extend_i32_u (i32.load offset=20 (local.get $y))))
+    (local.set $y06 (i64.extend_i32_u (i32.load offset=24 (local.get $y))))
+    (local.set $y07 (i64.extend_i32_u (i32.load offset=28 (local.get $y))))
+    (local.set $y08 (i64.extend_i32_u (i32.load offset=32 (local.get $y))))
+    (local.set $y09 (i64.extend_i32_u (i32.load offset=36 (local.get $y))))
+    (local.set $y10 (i64.extend_i32_u (i32.load offset=40 (local.get $y))))
+    (local.set $y11 (i64.extend_i32_u (i32.load offset=44 (local.get $y))))
+    (local.set $y12 (i64.extend_i32_u (i32.load offset=48 (local.get $y))))
     (local.set $i0 (i32.div_u (local.get $k) (i32.const 30)))
     (local.set $xi0 (i32.shl (i32.const 1) (i32.rem_u (local.get $k) (i32.const 30))))
-    (local.set $i0 (i32.mul (local.get $i0) (i32.const 8)))
+    (local.set $i0 (i32.mul (local.get $i0) (i32.const 4)))
     (local.set $i (i32.const 0))
     (loop 
       (local.set $xi (i64.extend_i32_u (i32.mul (i32.eq (local.get $i) (local.get $i0)) (local.get $xi0))))
@@ -3096,974 +3096,974 @@
       (i64.mul (local.get $qi) (i64.const 0x1a0111))
       i64.add
       (local.set $t11)
-      (br_if 0 (i32.ne (i32.const 104) (local.tee $i (i32.add (local.get $i) (i32.const 8)))))
+      (br_if 0 (i32.ne (i32.const 52) (local.tee $i (i32.add (local.get $i) (i32.const 4)))))
     )
     ;; final carrying & storing
-    (i64.store offset=0 (local.get $xy) (i64.and (local.get $t00) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t00) (i64.const 0x3fffffff))))
     (local.set $t01 (i64.add (local.get $t01) (i64.shr_u (local.get $t00) (i64.const 30))))
-    (i64.store offset=8 (local.get $xy) (i64.and (local.get $t01) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t01) (i64.const 0x3fffffff))))
     (local.set $t02 (i64.add (local.get $t02) (i64.shr_u (local.get $t01) (i64.const 30))))
-    (i64.store offset=16 (local.get $xy) (i64.and (local.get $t02) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t02) (i64.const 0x3fffffff))))
     (local.set $t03 (i64.add (local.get $t03) (i64.shr_u (local.get $t02) (i64.const 30))))
-    (i64.store offset=24 (local.get $xy) (i64.and (local.get $t03) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t03) (i64.const 0x3fffffff))))
     (local.set $t04 (i64.add (local.get $t04) (i64.shr_u (local.get $t03) (i64.const 30))))
-    (i64.store offset=32 (local.get $xy) (i64.and (local.get $t04) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t04) (i64.const 0x3fffffff))))
     (local.set $t05 (i64.add (local.get $t05) (i64.shr_u (local.get $t04) (i64.const 30))))
-    (i64.store offset=40 (local.get $xy) (i64.and (local.get $t05) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t05) (i64.const 0x3fffffff))))
     (local.set $t06 (i64.add (local.get $t06) (i64.shr_u (local.get $t05) (i64.const 30))))
-    (i64.store offset=48 (local.get $xy) (i64.and (local.get $t06) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t06) (i64.const 0x3fffffff))))
     (local.set $t07 (i64.add (local.get $t07) (i64.shr_u (local.get $t06) (i64.const 30))))
-    (i64.store offset=56 (local.get $xy) (i64.and (local.get $t07) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t07) (i64.const 0x3fffffff))))
     (local.set $t08 (i64.add (local.get $t08) (i64.shr_u (local.get $t07) (i64.const 30))))
-    (i64.store offset=64 (local.get $xy) (i64.and (local.get $t08) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t08) (i64.const 0x3fffffff))))
     (local.set $t09 (i64.add (local.get $t09) (i64.shr_u (local.get $t08) (i64.const 30))))
-    (i64.store offset=72 (local.get $xy) (i64.and (local.get $t09) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t09) (i64.const 0x3fffffff))))
     (local.set $t10 (i64.add (local.get $t10) (i64.shr_u (local.get $t09) (i64.const 30))))
-    (i64.store offset=80 (local.get $xy) (i64.and (local.get $t10) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t10) (i64.const 0x3fffffff))))
     (local.set $t11 (i64.add (local.get $t11) (i64.shr_u (local.get $t10) (i64.const 30))))
-    (i64.store offset=88 (local.get $xy) (i64.and (local.get $t11) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $t11) (i64.const 0x3fffffff))))
     (local.set $t12 (i64.add (local.get $t12) (i64.shr_u (local.get $t11) (i64.const 30))))
-    (i64.store offset=96 (local.get $xy) (local.get $t12))
+    (i32.store offset=48 (local.get $xy) (i32.wrap_i64 (local.get $t12)))
   )
   (export "add" (func $add))
   (func $add (param $out i32) (param $x i32) (param $y i32)
     (local $tmp i64) (local $carry i64)
     ;; i = 0
-    (i64.load offset=0 (local.get $x))
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 1
-    (i64.load offset=8 (local.get $x))
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 2
-    (i64.load offset=16 (local.get $x))
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 3
-    (i64.load offset=24 (local.get $x))
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 4
-    (i64.load offset=32 (local.get $x))
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 5
-    (i64.load offset=40 (local.get $x))
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 6
-    (i64.load offset=48 (local.get $x))
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 7
-    (i64.load offset=56 (local.get $x))
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 8
-    (i64.load offset=64 (local.get $x))
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 9
-    (i64.load offset=72 (local.get $x))
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 10
-    (i64.load offset=80 (local.get $x))
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 11
-    (i64.load offset=88 (local.get $x))
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 12
-    (i64.load offset=96 (local.get $x))
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (block 
-      (local.set $tmp (i64.load offset=96 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=48 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x1a0111e)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x1a0111e)))
-      (local.set $tmp (i64.load offset=88 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=44 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x28e5ff9a)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x28e5ff9a)))
-      (local.set $tmp (i64.load offset=80 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=40 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x1a4b1ba7)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x1a4b1ba7)))
-      (local.set $tmp (i64.load offset=72 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=36 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x2d90d2eb)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x2d90d2eb)))
-      (local.set $tmp (i64.load offset=64 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=32 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0xd764774)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0xd764774)))
-      (local.set $tmp (i64.load offset=56 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=28 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x2e13ce14)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x2e13ce14)))
-      (local.set $tmp (i64.load offset=48 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=24 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x12bf6730)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x12bf6730)))
-      (local.set $tmp (i64.load offset=40 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=20 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x34a83dac)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x34a83dac)))
-      (local.set $tmp (i64.load offset=32 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=16 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0xf6241ea)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0xf6241ea)))
-      (local.set $tmp (i64.load offset=24 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=12 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x2ffffac5)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x2ffffac5)))
-      (local.set $tmp (i64.load offset=16 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=8 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x13ffffb9)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x13ffffb9)))
-      (local.set $tmp (i64.load offset=8 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=4 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x3fbfffff)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x3fbfffff)))
-      (local.set $tmp (i64.load offset=0 (local.get $out)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=0 (local.get $out))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x3ffaaab0)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x3ffaaab0)))
     )
     (local.set $carry (i64.const 0))
     ;; i = 0
-    (i64.load offset=0 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $out)))
     (i64.const 0x3ffaaab0)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 1
-    (i64.load offset=8 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $out)))
     (i64.const 0x3fbfffff)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 2
-    (i64.load offset=16 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $out)))
     (i64.const 0x13ffffb9)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 3
-    (i64.load offset=24 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $out)))
     (i64.const 0x2ffffac5)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 4
-    (i64.load offset=32 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $out)))
     (i64.const 0xf6241ea)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 5
-    (i64.load offset=40 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $out)))
     (i64.const 0x34a83dac)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 6
-    (i64.load offset=48 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $out)))
     (i64.const 0x12bf6730)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 7
-    (i64.load offset=56 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $out)))
     (i64.const 0x2e13ce14)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 8
-    (i64.load offset=64 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $out)))
     (i64.const 0xd764774)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 9
-    (i64.load offset=72 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $out)))
     (i64.const 0x2d90d2eb)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 10
-    (i64.load offset=80 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $out)))
     (i64.const 0x1a4b1ba7)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 11
-    (i64.load offset=88 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $out)))
     (i64.const 0x28e5ff9a)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 12
-    (i64.load offset=96 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $out)))
     (i64.const 0x1a0111e)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
   )
   (export "addNoReduce" (func $addNoReduce))
   (func $addNoReduce (param $out i32) (param $x i32) (param $y i32)
     (local $tmp i64) (local $carry i64)
     ;; i = 0
-    (i64.load offset=0 (local.get $x))
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 1
-    (i64.load offset=8 (local.get $x))
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 2
-    (i64.load offset=16 (local.get $x))
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 3
-    (i64.load offset=24 (local.get $x))
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 4
-    (i64.load offset=32 (local.get $x))
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 5
-    (i64.load offset=40 (local.get $x))
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 6
-    (i64.load offset=48 (local.get $x))
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 7
-    (i64.load offset=56 (local.get $x))
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 8
-    (i64.load offset=64 (local.get $x))
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 9
-    (i64.load offset=72 (local.get $x))
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 10
-    (i64.load offset=80 (local.get $x))
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 11
-    (i64.load offset=88 (local.get $x))
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; i = 12
-    (i64.load offset=96 (local.get $x))
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.add (local.get $carry) i64.add
     (local.tee $tmp) (i64.const 30) i64.shr_s (local.set $carry)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
   )
   (export "subtract" (func $subtract))
   (func $subtract (param $out i32) (param $x i32) (param $y i32)
     (local $tmp i64)
     ;; i = 0
-    (i64.load offset=0 (local.get $x))
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 1
-    (i64.load offset=8 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     i64.add
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 2
-    (i64.load offset=16 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     i64.add
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 3
-    (i64.load offset=24 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     i64.add
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 4
-    (i64.load offset=32 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     i64.add
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 5
-    (i64.load offset=40 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
     i64.add
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 6
-    (i64.load offset=48 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
     i64.add
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 7
-    (i64.load offset=56 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
     i64.add
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 8
-    (i64.load offset=64 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
     i64.add
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 9
-    (i64.load offset=72 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
     i64.add
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 10
-    (i64.load offset=80 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
     i64.add
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 11
-    (i64.load offset=88 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
     i64.add
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 12
-    (i64.load offset=96 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
     i64.add
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     (i64.const 0) i64.eq
     if return end
     ;; i = 0
     (i64.const 0x3ffaaab0)
-    (i64.load offset=0 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 1
     (i64.const 0x3fbfffff)
     i64.add
-    (i64.load offset=8 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 2
     (i64.const 0x13ffffb9)
     i64.add
-    (i64.load offset=16 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 3
     (i64.const 0x2ffffac5)
     i64.add
-    (i64.load offset=24 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 4
     (i64.const 0xf6241ea)
     i64.add
-    (i64.load offset=32 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 5
     (i64.const 0x34a83dac)
     i64.add
-    (i64.load offset=40 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 6
     (i64.const 0x12bf6730)
     i64.add
-    (i64.load offset=48 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 7
     (i64.const 0x2e13ce14)
     i64.add
-    (i64.load offset=56 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 8
     (i64.const 0xd764774)
     i64.add
-    (i64.load offset=64 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 9
     (i64.const 0x2d90d2eb)
     i64.add
-    (i64.load offset=72 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 10
     (i64.const 0x1a4b1ba7)
     i64.add
-    (i64.load offset=80 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 11
     (i64.const 0x28e5ff9a)
     i64.add
-    (i64.load offset=88 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 12
     (i64.const 0x1a0111e)
     i64.add
-    (i64.load offset=96 (local.get $out))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $out)))
     i64.add
     (local.set $tmp)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
   )
   (export "subtractNoReduce" (func $subtractNoReduce))
   (func $subtractNoReduce (param $out i32) (param $x i32) (param $y i32)
     (local $tmp i64)
     ;; i = 0
-    (i64.load offset=0 (local.get $x))
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 1
-    (i64.load offset=8 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     i64.add
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 2
-    (i64.load offset=16 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     i64.add
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 3
-    (i64.load offset=24 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     i64.add
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 4
-    (i64.load offset=32 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     i64.add
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 5
-    (i64.load offset=40 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
     i64.add
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 6
-    (i64.load offset=48 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
     i64.add
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 7
-    (i64.load offset=56 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
     i64.add
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 8
-    (i64.load offset=64 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
     i64.add
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 9
-    (i64.load offset=72 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
     i64.add
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 10
-    (i64.load offset=80 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
     i64.add
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 11
-    (i64.load offset=88 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
     i64.add
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 12
-    (i64.load offset=96 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
     i64.add
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
   )
   (export "subtractPositive" (func $subtractPositive))
   (func $subtractPositive (param $out i32) (param $x i32) (param $y i32)
     (local $tmp i64)
     ;; i = 0
     (i64.const 0x3ffaaab0)
-    (i64.load offset=0 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
     i64.add
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=0 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 1
     (i64.const 0x3fbfffff)
     i64.add
-    (i64.load offset=8 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     i64.add
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=8 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 2
     (i64.const 0x13ffffb9)
     i64.add
-    (i64.load offset=16 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     i64.add
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=16 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 3
     (i64.const 0x2ffffac5)
     i64.add
-    (i64.load offset=24 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     i64.add
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=24 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 4
     (i64.const 0xf6241ea)
     i64.add
-    (i64.load offset=32 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     i64.add
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=32 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 5
     (i64.const 0x34a83dac)
     i64.add
-    (i64.load offset=40 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
     i64.add
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=40 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 6
     (i64.const 0x12bf6730)
     i64.add
-    (i64.load offset=48 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
     i64.add
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=48 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 7
     (i64.const 0x2e13ce14)
     i64.add
-    (i64.load offset=56 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
     i64.add
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=56 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 8
     (i64.const 0xd764774)
     i64.add
-    (i64.load offset=64 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
     i64.add
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=64 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 9
     (i64.const 0x2d90d2eb)
     i64.add
-    (i64.load offset=72 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
     i64.add
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=72 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 10
     (i64.const 0x1a4b1ba7)
     i64.add
-    (i64.load offset=80 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
     i64.add
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=80 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 11
     (i64.const 0x28e5ff9a)
     i64.add
-    (i64.load offset=88 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
     i64.add
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=88 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
     ;; i = 12
     (i64.const 0x1a0111e)
     i64.add
-    (i64.load offset=96 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
     i64.add
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.sub
     (local.set $tmp)
-    (i64.store offset=96 (local.get $out) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $out) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
   )
   (export "reduce" (func $reduce))
   (func $reduce (param $x i32)
     (local $tmp i64) (local $carry i64)
     (block 
-      (local.set $tmp (i64.load offset=96 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x1a0111)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x1a0111)))
-      (local.set $tmp (i64.load offset=88 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=44 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x3a8e5ff9)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x3a8e5ff9)))
-      (local.set $tmp (i64.load offset=80 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=40 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x29a4b1ba)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x29a4b1ba)))
-      (local.set $tmp (i64.load offset=72 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=36 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x1ed90d2e)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x1ed90d2e)))
-      (local.set $tmp (i64.load offset=64 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=32 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x2cd76477)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x2cd76477)))
-      (local.set $tmp (i64.load offset=56 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=28 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x12e13ce1)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x12e13ce1)))
-      (local.set $tmp (i64.load offset=48 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=24 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x112bf673)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x112bf673)))
-      (local.set $tmp (i64.load offset=40 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=20 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x34a83da)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x34a83da)))
-      (local.set $tmp (i64.load offset=32 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=16 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x30f6241e)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x30f6241e)))
-      (local.set $tmp (i64.load offset=24 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=12 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x2affffac)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x2affffac)))
-      (local.set $tmp (i64.load offset=16 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=8 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x153ffffb)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x153ffffb)))
-      (local.set $tmp (i64.load offset=8 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=4 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x27fbffff)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x27fbffff)))
-      (local.set $tmp (i64.load offset=0 (local.get $x)))
+      (local.set $tmp (i64.extend_i32_u (i32.load offset=0 (local.get $x))))
       (br_if 1 (i64.lt_u (local.get $tmp) (i64.const 0x3fffaaab)))
       (br_if 0 (i64.ne (local.get $tmp) (i64.const 0x3fffaaab)))
     )
     (local.set $carry (i64.const 0))
     ;; i = 0
-    (i64.load offset=0 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
     (i64.const 0x3fffaaab)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=0 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 1
-    (i64.load offset=8 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     (i64.const 0x27fbffff)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=8 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 2
-    (i64.load offset=16 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     (i64.const 0x153ffffb)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=16 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 3
-    (i64.load offset=24 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     (i64.const 0x2affffac)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=24 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 4
-    (i64.load offset=32 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     (i64.const 0x30f6241e)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=32 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 5
-    (i64.load offset=40 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
     (i64.const 0x34a83da)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=40 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 6
-    (i64.load offset=48 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
     (i64.const 0x112bf673)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=48 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 7
-    (i64.load offset=56 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
     (i64.const 0x12e13ce1)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=56 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 8
-    (i64.load offset=64 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
     (i64.const 0x2cd76477)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=64 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 9
-    (i64.load offset=72 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
     (i64.const 0x1ed90d2e)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=72 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 10
-    (i64.load offset=80 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
     (i64.const 0x29a4b1ba)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=80 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 11
-    (i64.load offset=88 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
     (i64.const 0x3a8e5ff9)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=88 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 12
-    (i64.load offset=96 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
     (i64.const 0x1a0111)
     i64.sub
     (local.get $carry)
     i64.add
     (local.set $tmp)
-    (i64.store offset=96 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
   )
   (export "makeOdd" (func $makeOdd))
   (func $makeOdd (param $u i32) (param $s i32) (result i32)
     (local $k i64) (local $k0 i32) (local $l i64) (local $tmp i64)
-    (local.set $k (i64.ctz (i64.load offset=0 (local.get $u))))
+    (local.set $k (i64.ctz (i64.extend_i32_u (i32.load offset=0 (local.get $u)))))
     (i64.eqz (local.get $k))
     if
       (i32.const 0)
@@ -4072,180 +4072,204 @@
     (block 
       (loop 
         (br_if 1 (i64.ne (local.get $k) (i64.const 64)))
-        (memory.copy (local.get $u) (i32.add (local.get $u) (i32.const 8)) (i32.const 96))
-        (i64.store offset=96 (local.get $u) (i64.const 0))
-        (memory.copy (i32.add (local.get $s) (i32.const 8)) (local.get $s) (i32.const 96))
-        (i64.store offset=0 (local.get $s) (i64.const 0))
+        (memory.copy (local.get $u) (i32.add (local.get $u) (i32.const 4)) (i32.const 48))
+        (i32.store offset=48 (local.get $u) (i32.const 0))
+        (memory.copy (i32.add (local.get $s) (i32.const 4)) (local.get $s) (i32.const 48))
+        (i32.store offset=0 (local.get $s) (i32.const 0))
         (local.set $k0 (i32.add (local.get $k0) (i32.const 30)))
-        (local.set $k (i64.ctz (i64.load offset=0 (local.get $u))))
+        (local.set $k (i64.ctz (i64.extend_i32_u (i32.load offset=0 (local.get $u)))))
         (br 0)
       )
     )
     (local.set $l (i64.sub (i64.const 30) (local.get $k)))
     ;; u >> k
-    (local.set $tmp (i64.load offset=0 (local.get $u)))
+    (local.set $tmp (i64.extend_i32_u (i32.load offset=0 (local.get $u))))
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=8 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=4 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=0)
+    i32.wrap_i64
+    (i32.store offset=0)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=16 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=8 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=8)
+    i32.wrap_i64
+    (i32.store offset=4)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=24 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=12 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=16)
+    i32.wrap_i64
+    (i32.store offset=8)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=32 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=16 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=24)
+    i32.wrap_i64
+    (i32.store offset=12)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=40 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=20 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=32)
+    i32.wrap_i64
+    (i32.store offset=16)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=48 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=24 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=40)
+    i32.wrap_i64
+    (i32.store offset=20)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=56 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=28 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=48)
+    i32.wrap_i64
+    (i32.store offset=24)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=64 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=32 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=56)
+    i32.wrap_i64
+    (i32.store offset=28)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=72 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=36 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=64)
+    i32.wrap_i64
+    (i32.store offset=32)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=80 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=40 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=72)
+    i32.wrap_i64
+    (i32.store offset=36)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=88 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=44 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=80)
+    i32.wrap_i64
+    (i32.store offset=40)
     (local.get $u)
     (i64.shr_u (local.get $tmp) (local.get $k))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=96 (local.get $u))) (local.get $l)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=48 (local.get $u)))) (local.get $l)) (i64.const 0x3fffffff))
     i64.or
-    (i64.store offset=88)
-    (i64.store offset=96 (local.get $u) (i64.shr_u (local.get $tmp) (local.get $k)))
+    i32.wrap_i64
+    (i32.store offset=44)
+    (i32.store offset=48 (local.get $u) (i32.wrap_i64 (i64.shr_u (local.get $tmp) (local.get $k))))
     ;; s << k
-    (local.set $tmp (i64.load offset=96 (local.get $s)))
+    (local.set $tmp (i64.extend_i32_u (i32.load offset=48 (local.get $s))))
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=88 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=44 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=96)
+    i32.wrap_i64
+    (i32.store offset=48)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=80 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=40 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=88)
+    i32.wrap_i64
+    (i32.store offset=44)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=72 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=36 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=80)
+    i32.wrap_i64
+    (i32.store offset=40)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=64 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=32 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=72)
+    i32.wrap_i64
+    (i32.store offset=36)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=56 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=28 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=64)
+    i32.wrap_i64
+    (i32.store offset=32)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=48 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=24 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=56)
+    i32.wrap_i64
+    (i32.store offset=28)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=40 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=20 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=48)
+    i32.wrap_i64
+    (i32.store offset=24)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=32 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=16 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=40)
+    i32.wrap_i64
+    (i32.store offset=20)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=24 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=12 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=32)
+    i32.wrap_i64
+    (i32.store offset=16)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=16 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=8 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=24)
+    i32.wrap_i64
+    (i32.store offset=12)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=8 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=4 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=16)
+    i32.wrap_i64
+    (i32.store offset=8)
     (local.get $s)
     (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))
-    (i64.shr_u (local.tee $tmp (i64.load offset=0 (local.get $s))) (local.get $l))
+    (i64.shr_u (local.tee $tmp (i64.extend_i32_u (i32.load offset=0 (local.get $s)))) (local.get $l))
     i64.or
-    (i64.store offset=8)
-    (i64.store offset=0 (local.get $s) (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff)))
+    i32.wrap_i64
+    (i32.store offset=4)
+    (i32.store offset=0 (local.get $s) (i32.wrap_i64 (i64.and (i64.shl (local.get $tmp) (local.get $k)) (i64.const 0x3fffffff))))
     ;; return k
     (i32.add (local.get $k0) (i32.wrap_i64 (local.get $k)))
   )
   (export "isEqual" (func $isEqual))
   (func $isEqual (param $x i32) (param $y i32) (result i32)
-    (i64.ne (i64.load offset=0 (local.get $x)) (i64.load offset=0 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=0 (local.get $x))) (i64.extend_i32_u (i32.load offset=0 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=8 (local.get $x)) (i64.load offset=8 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=4 (local.get $x))) (i64.extend_i32_u (i32.load offset=4 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=16 (local.get $x)) (i64.load offset=16 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=8 (local.get $x))) (i64.extend_i32_u (i32.load offset=8 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=24 (local.get $x)) (i64.load offset=24 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=12 (local.get $x))) (i64.extend_i32_u (i32.load offset=12 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=32 (local.get $x)) (i64.load offset=32 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=16 (local.get $x))) (i64.extend_i32_u (i32.load offset=16 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=40 (local.get $x)) (i64.load offset=40 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=20 (local.get $x))) (i64.extend_i32_u (i32.load offset=20 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=48 (local.get $x)) (i64.load offset=48 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=24 (local.get $x))) (i64.extend_i32_u (i32.load offset=24 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=56 (local.get $x)) (i64.load offset=56 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=28 (local.get $x))) (i64.extend_i32_u (i32.load offset=28 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=64 (local.get $x)) (i64.load offset=64 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=32 (local.get $x))) (i64.extend_i32_u (i32.load offset=32 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=72 (local.get $x)) (i64.load offset=72 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=36 (local.get $x))) (i64.extend_i32_u (i32.load offset=36 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=80 (local.get $x)) (i64.load offset=80 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=40 (local.get $x))) (i64.extend_i32_u (i32.load offset=40 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=88 (local.get $x)) (i64.load offset=88 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=44 (local.get $x))) (i64.extend_i32_u (i32.load offset=44 (local.get $y))))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=96 (local.get $x)) (i64.load offset=96 (local.get $y)))
+    (i64.ne (i64.extend_i32_u (i32.load offset=48 (local.get $x))) (i64.extend_i32_u (i32.load offset=48 (local.get $y))))
     if (return (i32.const 0)) end
     (i32.const 1)
   )
   (export "isEqualNegative" (func $isEqualNegative))
   (func $isEqualNegative (param $x i32) (param $y i32) (result i32)
     (local $tmp i64)
-    (i64.load offset=0 (local.get $x))
-    (i64.load offset=0 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4253,9 +4277,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=8 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     i64.add
-    (i64.load offset=8 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4263,9 +4287,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=16 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     i64.add
-    (i64.load offset=16 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4273,9 +4297,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=24 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     i64.add
-    (i64.load offset=24 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4283,9 +4307,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=32 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     i64.add
-    (i64.load offset=32 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4293,9 +4317,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=40 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
     i64.add
-    (i64.load offset=40 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4303,9 +4327,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=48 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
     i64.add
-    (i64.load offset=48 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4313,9 +4337,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=56 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
     i64.add
-    (i64.load offset=56 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4323,9 +4347,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=64 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
     i64.add
-    (i64.load offset=64 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4333,9 +4357,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=72 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
     i64.add
-    (i64.load offset=72 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4343,9 +4367,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=80 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
     i64.add
-    (i64.load offset=80 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4353,9 +4377,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=88 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
     i64.add
-    (i64.load offset=88 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4363,9 +4387,9 @@
     i64.ne
     if (return (i32.const 0)) end
     (i64.shr_u (local.get $tmp) (i64.const 30))
-    (i64.load offset=96 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
     i64.add
-    (i64.load offset=96 (local.get $y))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $y)))
     i64.add
     (local.set $tmp)
     (i64.and (local.get $tmp) (i64.const 0x3fffffff))
@@ -4376,31 +4400,31 @@
   )
   (export "isZero" (func $isZero))
   (func $isZero (param $x i32) (result i32)
-    (i64.ne (i64.load offset=0 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=0 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=8 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=4 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=16 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=8 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=24 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=12 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=32 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=16 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=40 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=20 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=48 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=24 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=56 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=28 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=64 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=32 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=72 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=36 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=80 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=40 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=88 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=44 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
-    (i64.ne (i64.load offset=96 (local.get $x)) (i64.const 0))
+    (i64.ne (i64.extend_i32_u (i32.load offset=48 (local.get $x))) (i64.const 0))
     if (return (i32.const 0)) end
     (i32.const 1)
   )
@@ -4408,68 +4432,68 @@
   (func $isGreater (param $x i32) (param $y i32) (result i32)
     (local $xi i64) (local $yi i64)
     (block 
-      (local.tee $xi (i64.load offset=96 (local.get $x)))
-      (local.tee $yi (i64.load offset=96 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=48 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=88 (local.get $x)))
-      (local.tee $yi (i64.load offset=88 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=44 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=44 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=80 (local.get $x)))
-      (local.tee $yi (i64.load offset=80 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=40 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=40 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=72 (local.get $x)))
-      (local.tee $yi (i64.load offset=72 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=36 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=36 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=64 (local.get $x)))
-      (local.tee $yi (i64.load offset=64 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=32 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=32 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=56 (local.get $x)))
-      (local.tee $yi (i64.load offset=56 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=28 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=28 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=48 (local.get $x)))
-      (local.tee $yi (i64.load offset=48 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=24 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=24 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=40 (local.get $x)))
-      (local.tee $yi (i64.load offset=40 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=20 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=20 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=32 (local.get $x)))
-      (local.tee $yi (i64.load offset=32 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=16 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=16 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=24 (local.get $x)))
-      (local.tee $yi (i64.load offset=24 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=12 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=12 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=16 (local.get $x)))
-      (local.tee $yi (i64.load offset=16 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=8 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=8 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=8 (local.get $x)))
-      (local.tee $yi (i64.load offset=8 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=4 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=4 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
-      (local.tee $xi (i64.load offset=0 (local.get $x)))
-      (local.tee $yi (i64.load offset=0 (local.get $y)))
+      (local.tee $xi (i64.extend_i32_u (i32.load offset=0 (local.get $x))))
+      (local.tee $yi (i64.extend_i32_u (i32.load offset=0 (local.get $y))))
       i64.gt_u
       if (return (i32.const 1)) end
       (br_if 0 (i64.ne (local.get $xi) (local.get $yi)))
@@ -4478,85 +4502,85 @@
   )
   (export "copy" (func $copy))
   (func $copy (param $x i32) (param $y i32)
-    (memory.copy (local.get $x) (local.get $y) (i32.const 104))
+    (memory.copy (local.get $x) (local.get $y) (i32.const 52))
   )
   (export "toPackedBytes" (func $toPackedBytes))
   ;; converts 13x30-bit representation (1 int64 per 30-bit limb) to packed 48-byte representation
   (func $toPackedBytes (param $bytes i32) (param $x i32)
     (local $tmp i64)
-    (i64.shl (i64.load offset=0 (local.get $x)) (i64.const 0))
+    (i64.shl (i64.extend_i32_u (i32.load offset=0 (local.get $x))) (i64.const 0))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=0 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 24)))
-    (i64.shl (i64.load offset=8 (local.get $x)) (i64.const 6))
+    (i64.shl (i64.extend_i32_u (i32.load offset=4 (local.get $x))) (i64.const 6))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=3 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=16 (local.get $x)) (i64.const 4))
+    (i64.shl (i64.extend_i32_u (i32.load offset=8 (local.get $x))) (i64.const 4))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=7 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=24 (local.get $x)) (i64.const 2))
+    (i64.shl (i64.extend_i32_u (i32.load offset=12 (local.get $x))) (i64.const 2))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=11 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=32 (local.get $x)) (i64.const 0))
+    (i64.shl (i64.extend_i32_u (i32.load offset=16 (local.get $x))) (i64.const 0))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=15 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 24)))
-    (i64.shl (i64.load offset=40 (local.get $x)) (i64.const 6))
+    (i64.shl (i64.extend_i32_u (i32.load offset=20 (local.get $x))) (i64.const 6))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=18 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=48 (local.get $x)) (i64.const 4))
+    (i64.shl (i64.extend_i32_u (i32.load offset=24 (local.get $x))) (i64.const 4))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=22 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=56 (local.get $x)) (i64.const 2))
+    (i64.shl (i64.extend_i32_u (i32.load offset=28 (local.get $x))) (i64.const 2))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=26 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=64 (local.get $x)) (i64.const 0))
+    (i64.shl (i64.extend_i32_u (i32.load offset=32 (local.get $x))) (i64.const 0))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=30 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 24)))
-    (i64.shl (i64.load offset=72 (local.get $x)) (i64.const 6))
+    (i64.shl (i64.extend_i32_u (i32.load offset=36 (local.get $x))) (i64.const 6))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=33 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=80 (local.get $x)) (i64.const 4))
+    (i64.shl (i64.extend_i32_u (i32.load offset=40 (local.get $x))) (i64.const 4))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=37 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=88 (local.get $x)) (i64.const 2))
+    (i64.shl (i64.extend_i32_u (i32.load offset=44 (local.get $x))) (i64.const 2))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
     (i64.store offset=41 (local.get $bytes) (i64.and (local.get $tmp) (i64.const 0xffffffff)))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 32)))
-    (i64.shl (i64.load offset=96 (local.get $x)) (i64.const 0))
+    (i64.shl (i64.extend_i32_u (i32.load offset=48 (local.get $x))) (i64.const 0))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
@@ -4572,55 +4596,55 @@
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=0 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 30)))
-    (i64.store offset=8 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
     (i64.shl (local.tee $chunk (i64.load offset=8 (local.get $bytes))) (i64.const 4))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=16 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 26)))
-    (i64.store offset=24 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
     (i64.shl (local.tee $chunk (i64.load offset=16 (local.get $bytes))) (i64.const 8))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=32 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 22)))
-    (i64.store offset=40 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
     (i64.shl (local.tee $chunk (i64.load offset=24 (local.get $bytes))) (i64.const 12))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=48 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 18)))
-    (i64.store offset=56 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
     (i64.shl (local.tee $chunk (i64.load offset=32 (local.get $bytes))) (i64.const 16))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=64 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 14)))
-    (i64.store offset=72 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
     (i64.shl (local.tee $chunk (i64.load offset=40 (local.get $bytes))) (i64.const 20))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=80 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 10)))
-    (i64.store offset=88 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $tmp) (i64.const 30)))
     (i64.shl (local.tee $chunk (i64.load offset=48 (local.get $bytes))) (i64.const 24))
     (local.get $tmp)
     i64.or
     (local.set $tmp)
-    (i64.store offset=96 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $tmp (i64.shr_u (local.get $chunk) (i64.const 6)))
   )
   (export "barrett" (func $barrett))
@@ -4637,57 +4661,57 @@
     ;; extract l := highest 380 bits of x = x >> 380
     ;; load l := x[12..26] = (x >> 12*30)
     ;; then do l >>= 20 (because 20 = 380 - 12*30)
-    (local.set $tmp (i64.load offset=96 (local.get $x)))
+    (local.set $tmp (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=104 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=52 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l00)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=112 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=56 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l01)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=120 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=60 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l02)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=128 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=64 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l03)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=136 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=68 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l04)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=144 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=72 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l05)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=152 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=76 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l06)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=160 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=80 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l07)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=168 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=84 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l08)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=176 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=88 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l09)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=184 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=92 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l10)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=192 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=96 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l11)
     (i64.shr_u (local.get $tmp) (i64.const 20))
-    (i64.and (i64.shl (local.tee $tmp (i64.load offset=200 (local.get $x))) (i64.const 10)) (i64.const 0x3fffffff))
+    (i64.and (i64.shl (local.tee $tmp (i64.extend_i32_u (i32.load offset=100 (local.get $x)))) (i64.const 10)) (i64.const 0x3fffffff))
     i64.or
     (local.set $l12)
     ;; l = [l * m / 2^N]; the first 11 output limbs are neglected
@@ -5119,109 +5143,109 @@
     i64.add
     (local.set $lp12)
     ;; x|lo = x - l*p to the low n limbs of x
-    (i64.load offset=0 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
     (local.get $lp00)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=0 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=8 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     i64.add
     (local.get $lp01)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=8 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=16 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     i64.add
     (local.get $lp02)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=16 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=24 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     i64.add
     (local.get $lp03)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=24 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=32 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     i64.add
     (local.get $lp04)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=32 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=40 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
     i64.add
     (local.get $lp05)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=40 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=48 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
     i64.add
     (local.get $lp06)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=48 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=56 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
     i64.add
     (local.get $lp07)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=56 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=64 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
     i64.add
     (local.get $lp08)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=64 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=72 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
     i64.add
     (local.get $lp09)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=72 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=80 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=40 (local.get $x)))
     i64.add
     (local.get $lp10)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=80 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=88 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=44 (local.get $x)))
     i64.add
     (local.get $lp11)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=88 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_s (local.get $tmp) (i64.const 30))
-    (i64.load offset=96 (local.get $x))
+    (i64.extend_i32_u (i32.load offset=48 (local.get $x)))
     i64.add
     (local.get $lp12)
     i64.sub
     (local.set $tmp)
-    (i64.store offset=96 (local.get $x) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     ;; x|hi = l
-    (i64.store offset=104 (local.get $x) (local.get $l00))
-    (i64.store offset=112 (local.get $x) (local.get $l01))
-    (i64.store offset=120 (local.get $x) (local.get $l02))
-    (i64.store offset=128 (local.get $x) (local.get $l03))
-    (i64.store offset=136 (local.get $x) (local.get $l04))
-    (i64.store offset=144 (local.get $x) (local.get $l05))
-    (i64.store offset=152 (local.get $x) (local.get $l06))
-    (i64.store offset=160 (local.get $x) (local.get $l07))
-    (i64.store offset=168 (local.get $x) (local.get $l08))
-    (i64.store offset=176 (local.get $x) (local.get $l09))
-    (i64.store offset=184 (local.get $x) (local.get $l10))
-    (i64.store offset=192 (local.get $x) (local.get $l11))
-    (i64.store offset=200 (local.get $x) (local.get $l12))
+    (i32.store offset=52 (local.get $x) (i32.wrap_i64 (local.get $l00)))
+    (i32.store offset=56 (local.get $x) (i32.wrap_i64 (local.get $l01)))
+    (i32.store offset=60 (local.get $x) (i32.wrap_i64 (local.get $l02)))
+    (i32.store offset=64 (local.get $x) (i32.wrap_i64 (local.get $l03)))
+    (i32.store offset=68 (local.get $x) (i32.wrap_i64 (local.get $l04)))
+    (i32.store offset=72 (local.get $x) (i32.wrap_i64 (local.get $l05)))
+    (i32.store offset=76 (local.get $x) (i32.wrap_i64 (local.get $l06)))
+    (i32.store offset=80 (local.get $x) (i32.wrap_i64 (local.get $l07)))
+    (i32.store offset=84 (local.get $x) (i32.wrap_i64 (local.get $l08)))
+    (i32.store offset=88 (local.get $x) (i32.wrap_i64 (local.get $l09)))
+    (i32.store offset=92 (local.get $x) (i32.wrap_i64 (local.get $l10)))
+    (i32.store offset=96 (local.get $x) (i32.wrap_i64 (local.get $l11)))
+    (i32.store offset=100 (local.get $x) (i32.wrap_i64 (local.get $l12)))
   )
   (export "multiplySchoolbook" (func $multiplySchoolbook))
   (func $multiplySchoolbook (param $xy i32) (param $x i32) (param $y i32)
@@ -5234,37 +5258,37 @@
     (local $y04 i64) (local $y05 i64) (local $y06 i64) (local $y07 i64) 
     (local $y08 i64) (local $y09 i64) (local $y10 i64) (local $y11 i64) 
     (local $y12 i64) 
-    (local.set $x00 (i64.load offset=0 (local.get $x)))
-    (local.set $x01 (i64.load offset=8 (local.get $x)))
-    (local.set $x02 (i64.load offset=16 (local.get $x)))
-    (local.set $x03 (i64.load offset=24 (local.get $x)))
-    (local.set $x04 (i64.load offset=32 (local.get $x)))
-    (local.set $x05 (i64.load offset=40 (local.get $x)))
-    (local.set $x06 (i64.load offset=48 (local.get $x)))
-    (local.set $x07 (i64.load offset=56 (local.get $x)))
-    (local.set $x08 (i64.load offset=64 (local.get $x)))
-    (local.set $x09 (i64.load offset=72 (local.get $x)))
-    (local.set $x10 (i64.load offset=80 (local.get $x)))
-    (local.set $x11 (i64.load offset=88 (local.get $x)))
-    (local.set $x12 (i64.load offset=96 (local.get $x)))
-    (local.set $y00 (i64.load offset=0 (local.get $y)))
-    (local.set $y01 (i64.load offset=8 (local.get $y)))
-    (local.set $y02 (i64.load offset=16 (local.get $y)))
-    (local.set $y03 (i64.load offset=24 (local.get $y)))
-    (local.set $y04 (i64.load offset=32 (local.get $y)))
-    (local.set $y05 (i64.load offset=40 (local.get $y)))
-    (local.set $y06 (i64.load offset=48 (local.get $y)))
-    (local.set $y07 (i64.load offset=56 (local.get $y)))
-    (local.set $y08 (i64.load offset=64 (local.get $y)))
-    (local.set $y09 (i64.load offset=72 (local.get $y)))
-    (local.set $y10 (i64.load offset=80 (local.get $y)))
-    (local.set $y11 (i64.load offset=88 (local.get $y)))
-    (local.set $y12 (i64.load offset=96 (local.get $y)))
+    (local.set $x00 (i64.extend_i32_u (i32.load offset=0 (local.get $x))))
+    (local.set $x01 (i64.extend_i32_u (i32.load offset=4 (local.get $x))))
+    (local.set $x02 (i64.extend_i32_u (i32.load offset=8 (local.get $x))))
+    (local.set $x03 (i64.extend_i32_u (i32.load offset=12 (local.get $x))))
+    (local.set $x04 (i64.extend_i32_u (i32.load offset=16 (local.get $x))))
+    (local.set $x05 (i64.extend_i32_u (i32.load offset=20 (local.get $x))))
+    (local.set $x06 (i64.extend_i32_u (i32.load offset=24 (local.get $x))))
+    (local.set $x07 (i64.extend_i32_u (i32.load offset=28 (local.get $x))))
+    (local.set $x08 (i64.extend_i32_u (i32.load offset=32 (local.get $x))))
+    (local.set $x09 (i64.extend_i32_u (i32.load offset=36 (local.get $x))))
+    (local.set $x10 (i64.extend_i32_u (i32.load offset=40 (local.get $x))))
+    (local.set $x11 (i64.extend_i32_u (i32.load offset=44 (local.get $x))))
+    (local.set $x12 (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
+    (local.set $y00 (i64.extend_i32_u (i32.load offset=0 (local.get $y))))
+    (local.set $y01 (i64.extend_i32_u (i32.load offset=4 (local.get $y))))
+    (local.set $y02 (i64.extend_i32_u (i32.load offset=8 (local.get $y))))
+    (local.set $y03 (i64.extend_i32_u (i32.load offset=12 (local.get $y))))
+    (local.set $y04 (i64.extend_i32_u (i32.load offset=16 (local.get $y))))
+    (local.set $y05 (i64.extend_i32_u (i32.load offset=20 (local.get $y))))
+    (local.set $y06 (i64.extend_i32_u (i32.load offset=24 (local.get $y))))
+    (local.set $y07 (i64.extend_i32_u (i32.load offset=28 (local.get $y))))
+    (local.set $y08 (i64.extend_i32_u (i32.load offset=32 (local.get $y))))
+    (local.set $y09 (i64.extend_i32_u (i32.load offset=36 (local.get $y))))
+    (local.set $y10 (i64.extend_i32_u (i32.load offset=40 (local.get $y))))
+    (local.set $y11 (i64.extend_i32_u (i32.load offset=44 (local.get $y))))
+    (local.set $y12 (i64.extend_i32_u (i32.load offset=48 (local.get $y))))
     ;; multiply in 13x13 steps
     ;; k = 0
     (i64.mul (local.get $x00) (local.get $y00))
     (local.set $tmp)
-    (i64.store offset=0 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 1
     (i64.mul (local.get $x00) (local.get $y01))
@@ -5272,7 +5296,7 @@
     (i64.mul (local.get $x01) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=8 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 2
     (i64.mul (local.get $x00) (local.get $y02))
@@ -5282,7 +5306,7 @@
     (i64.mul (local.get $x02) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=16 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 3
     (i64.mul (local.get $x00) (local.get $y03))
@@ -5294,7 +5318,7 @@
     (i64.mul (local.get $x03) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=24 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 4
     (i64.mul (local.get $x00) (local.get $y04))
@@ -5308,7 +5332,7 @@
     (i64.mul (local.get $x04) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=32 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 5
     (i64.mul (local.get $x00) (local.get $y05))
@@ -5324,7 +5348,7 @@
     (i64.mul (local.get $x05) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=40 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 6
     (i64.mul (local.get $x00) (local.get $y06))
@@ -5342,7 +5366,7 @@
     (i64.mul (local.get $x06) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=48 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 7
     (i64.mul (local.get $x00) (local.get $y07))
@@ -5362,7 +5386,7 @@
     (i64.mul (local.get $x07) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=56 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 8
     (i64.mul (local.get $x00) (local.get $y08))
@@ -5384,7 +5408,7 @@
     (i64.mul (local.get $x08) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=64 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 9
     (i64.mul (local.get $x00) (local.get $y09))
@@ -5408,7 +5432,7 @@
     (i64.mul (local.get $x09) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=72 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 10
     (i64.mul (local.get $x00) (local.get $y10))
@@ -5434,7 +5458,7 @@
     (i64.mul (local.get $x10) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=80 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 11
     (i64.mul (local.get $x00) (local.get $y11))
@@ -5462,7 +5486,7 @@
     (i64.mul (local.get $x11) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=88 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 12
     (i64.mul (local.get $x00) (local.get $y12))
@@ -5492,7 +5516,7 @@
     (i64.mul (local.get $x12) (local.get $y00))
     i64.add
     (local.set $tmp)
-    (i64.store offset=96 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 13
     (i64.mul (local.get $x01) (local.get $y12))
@@ -5520,7 +5544,7 @@
     (i64.mul (local.get $x12) (local.get $y01))
     i64.add
     (local.set $tmp)
-    (i64.store offset=104 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=52 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 14
     (i64.mul (local.get $x02) (local.get $y12))
@@ -5546,7 +5570,7 @@
     (i64.mul (local.get $x12) (local.get $y02))
     i64.add
     (local.set $tmp)
-    (i64.store offset=112 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=56 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 15
     (i64.mul (local.get $x03) (local.get $y12))
@@ -5570,7 +5594,7 @@
     (i64.mul (local.get $x12) (local.get $y03))
     i64.add
     (local.set $tmp)
-    (i64.store offset=120 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=60 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 16
     (i64.mul (local.get $x04) (local.get $y12))
@@ -5592,7 +5616,7 @@
     (i64.mul (local.get $x12) (local.get $y04))
     i64.add
     (local.set $tmp)
-    (i64.store offset=128 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=64 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 17
     (i64.mul (local.get $x05) (local.get $y12))
@@ -5612,7 +5636,7 @@
     (i64.mul (local.get $x12) (local.get $y05))
     i64.add
     (local.set $tmp)
-    (i64.store offset=136 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=68 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 18
     (i64.mul (local.get $x06) (local.get $y12))
@@ -5630,7 +5654,7 @@
     (i64.mul (local.get $x12) (local.get $y06))
     i64.add
     (local.set $tmp)
-    (i64.store offset=144 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=72 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 19
     (i64.mul (local.get $x07) (local.get $y12))
@@ -5646,7 +5670,7 @@
     (i64.mul (local.get $x12) (local.get $y07))
     i64.add
     (local.set $tmp)
-    (i64.store offset=152 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=76 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 20
     (i64.mul (local.get $x08) (local.get $y12))
@@ -5660,7 +5684,7 @@
     (i64.mul (local.get $x12) (local.get $y08))
     i64.add
     (local.set $tmp)
-    (i64.store offset=160 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=80 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 21
     (i64.mul (local.get $x09) (local.get $y12))
@@ -5672,7 +5696,7 @@
     (i64.mul (local.get $x12) (local.get $y09))
     i64.add
     (local.set $tmp)
-    (i64.store offset=168 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=84 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 22
     (i64.mul (local.get $x10) (local.get $y12))
@@ -5682,7 +5706,7 @@
     (i64.mul (local.get $x12) (local.get $y10))
     i64.add
     (local.set $tmp)
-    (i64.store offset=176 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=88 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 23
     (i64.mul (local.get $x11) (local.get $y12))
@@ -5690,17 +5714,17 @@
     (i64.mul (local.get $x12) (local.get $y11))
     i64.add
     (local.set $tmp)
-    (i64.store offset=184 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=92 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 24
     (i64.mul (local.get $x12) (local.get $y12))
     i64.add
     (local.set $tmp)
-    (i64.store offset=192 (local.get $xy) (i64.and (local.get $tmp) (i64.const 0x3fffffff)))
+    (i32.store offset=96 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (i64.shr_u (local.get $tmp) (i64.const 30))
     ;; k = 25
     (local.set $tmp)
-    (i64.store offset=200 (local.get $xy) (local.get $tmp))
+    (i32.store offset=100 (local.get $xy) (i32.wrap_i64 (local.get $tmp)))
     (call $barrett (local.get $xy))
   )
   (export "benchMultiplyBarrett" (func $benchMultiplyBarrett))
@@ -5737,32 +5761,32 @@
     (local $w16 i64) (local $w17 i64) (local $w18 i64) (local $w19 i64) 
     (local $w20 i64) (local $w21 i64) (local $w22 i64) (local $w23 i64) 
     (local $w24 i64) (local $w25 i64) 
-    (local.set $x00 (i64.load offset=0 (local.get $x)))
-    (local.set $x01 (i64.load offset=8 (local.get $x)))
-    (local.set $x02 (i64.load offset=16 (local.get $x)))
-    (local.set $x03 (i64.load offset=24 (local.get $x)))
-    (local.set $x04 (i64.load offset=32 (local.get $x)))
-    (local.set $x05 (i64.load offset=40 (local.get $x)))
-    (local.set $x06 (i64.load offset=48 (local.get $x)))
-    (local.set $x07 (i64.load offset=56 (local.get $x)))
-    (local.set $x08 (i64.load offset=64 (local.get $x)))
-    (local.set $x09 (i64.load offset=72 (local.get $x)))
-    (local.set $x10 (i64.load offset=80 (local.get $x)))
-    (local.set $x11 (i64.load offset=88 (local.get $x)))
-    (local.set $x12 (i64.load offset=96 (local.get $x)))
-    (local.set $y00 (i64.load offset=0 (local.get $y)))
-    (local.set $y01 (i64.load offset=8 (local.get $y)))
-    (local.set $y02 (i64.load offset=16 (local.get $y)))
-    (local.set $y03 (i64.load offset=24 (local.get $y)))
-    (local.set $y04 (i64.load offset=32 (local.get $y)))
-    (local.set $y05 (i64.load offset=40 (local.get $y)))
-    (local.set $y06 (i64.load offset=48 (local.get $y)))
-    (local.set $y07 (i64.load offset=56 (local.get $y)))
-    (local.set $y08 (i64.load offset=64 (local.get $y)))
-    (local.set $y09 (i64.load offset=72 (local.get $y)))
-    (local.set $y10 (i64.load offset=80 (local.get $y)))
-    (local.set $y11 (i64.load offset=88 (local.get $y)))
-    (local.set $y12 (i64.load offset=96 (local.get $y)))
+    (local.set $x00 (i64.extend_i32_u (i32.load offset=0 (local.get $x))))
+    (local.set $x01 (i64.extend_i32_u (i32.load offset=4 (local.get $x))))
+    (local.set $x02 (i64.extend_i32_u (i32.load offset=8 (local.get $x))))
+    (local.set $x03 (i64.extend_i32_u (i32.load offset=12 (local.get $x))))
+    (local.set $x04 (i64.extend_i32_u (i32.load offset=16 (local.get $x))))
+    (local.set $x05 (i64.extend_i32_u (i32.load offset=20 (local.get $x))))
+    (local.set $x06 (i64.extend_i32_u (i32.load offset=24 (local.get $x))))
+    (local.set $x07 (i64.extend_i32_u (i32.load offset=28 (local.get $x))))
+    (local.set $x08 (i64.extend_i32_u (i32.load offset=32 (local.get $x))))
+    (local.set $x09 (i64.extend_i32_u (i32.load offset=36 (local.get $x))))
+    (local.set $x10 (i64.extend_i32_u (i32.load offset=40 (local.get $x))))
+    (local.set $x11 (i64.extend_i32_u (i32.load offset=44 (local.get $x))))
+    (local.set $x12 (i64.extend_i32_u (i32.load offset=48 (local.get $x))))
+    (local.set $y00 (i64.extend_i32_u (i32.load offset=0 (local.get $y))))
+    (local.set $y01 (i64.extend_i32_u (i32.load offset=4 (local.get $y))))
+    (local.set $y02 (i64.extend_i32_u (i32.load offset=8 (local.get $y))))
+    (local.set $y03 (i64.extend_i32_u (i32.load offset=12 (local.get $y))))
+    (local.set $y04 (i64.extend_i32_u (i32.load offset=16 (local.get $y))))
+    (local.set $y05 (i64.extend_i32_u (i32.load offset=20 (local.get $y))))
+    (local.set $y06 (i64.extend_i32_u (i32.load offset=24 (local.get $y))))
+    (local.set $y07 (i64.extend_i32_u (i32.load offset=28 (local.get $y))))
+    (local.set $y08 (i64.extend_i32_u (i32.load offset=32 (local.get $y))))
+    (local.set $y09 (i64.extend_i32_u (i32.load offset=36 (local.get $y))))
+    (local.set $y10 (i64.extend_i32_u (i32.load offset=40 (local.get $y))))
+    (local.set $y11 (i64.extend_i32_u (i32.load offset=44 (local.get $y))))
+    (local.set $y12 (i64.extend_i32_u (i32.load offset=48 (local.get $y))))
     ;; multiply z = x0*x0 in 6x6 steps
     ;; k = 0
     (i64.mul (local.get $x00) (local.get $y00))
@@ -6146,81 +6170,81 @@
     (local.set $w19 (i64.add (local.get $w19) (local.get $z13)))
     ;; xy = carry(z)
     (local.set $tmp (i64.shr_s (local.get $w00) (i64.const 30)))
-    (i64.store offset=0 (local.get $xy) (i64.and (local.get $w00) (i64.const 0x3fffffff)))
+    (i32.store offset=0 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w00) (i64.const 0x3fffffff))))
     (local.set $w01 (i64.add (local.get $w01) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w01) (i64.const 30)))
-    (i64.store offset=8 (local.get $xy) (i64.and (local.get $w01) (i64.const 0x3fffffff)))
+    (i32.store offset=4 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w01) (i64.const 0x3fffffff))))
     (local.set $w02 (i64.add (local.get $w02) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w02) (i64.const 30)))
-    (i64.store offset=16 (local.get $xy) (i64.and (local.get $w02) (i64.const 0x3fffffff)))
+    (i32.store offset=8 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w02) (i64.const 0x3fffffff))))
     (local.set $w03 (i64.add (local.get $w03) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w03) (i64.const 30)))
-    (i64.store offset=24 (local.get $xy) (i64.and (local.get $w03) (i64.const 0x3fffffff)))
+    (i32.store offset=12 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w03) (i64.const 0x3fffffff))))
     (local.set $w04 (i64.add (local.get $w04) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w04) (i64.const 30)))
-    (i64.store offset=32 (local.get $xy) (i64.and (local.get $w04) (i64.const 0x3fffffff)))
+    (i32.store offset=16 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w04) (i64.const 0x3fffffff))))
     (local.set $w05 (i64.add (local.get $w05) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w05) (i64.const 30)))
-    (i64.store offset=40 (local.get $xy) (i64.and (local.get $w05) (i64.const 0x3fffffff)))
+    (i32.store offset=20 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w05) (i64.const 0x3fffffff))))
     (local.set $w06 (i64.add (local.get $w06) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w06) (i64.const 30)))
-    (i64.store offset=48 (local.get $xy) (i64.and (local.get $w06) (i64.const 0x3fffffff)))
+    (i32.store offset=24 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w06) (i64.const 0x3fffffff))))
     (local.set $w07 (i64.add (local.get $w07) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w07) (i64.const 30)))
-    (i64.store offset=56 (local.get $xy) (i64.and (local.get $w07) (i64.const 0x3fffffff)))
+    (i32.store offset=28 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w07) (i64.const 0x3fffffff))))
     (local.set $w08 (i64.add (local.get $w08) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w08) (i64.const 30)))
-    (i64.store offset=64 (local.get $xy) (i64.and (local.get $w08) (i64.const 0x3fffffff)))
+    (i32.store offset=32 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w08) (i64.const 0x3fffffff))))
     (local.set $w09 (i64.add (local.get $w09) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w09) (i64.const 30)))
-    (i64.store offset=72 (local.get $xy) (i64.and (local.get $w09) (i64.const 0x3fffffff)))
+    (i32.store offset=36 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w09) (i64.const 0x3fffffff))))
     (local.set $w10 (i64.add (local.get $w10) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w10) (i64.const 30)))
-    (i64.store offset=80 (local.get $xy) (i64.and (local.get $w10) (i64.const 0x3fffffff)))
+    (i32.store offset=40 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w10) (i64.const 0x3fffffff))))
     (local.set $w11 (i64.add (local.get $w11) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w11) (i64.const 30)))
-    (i64.store offset=88 (local.get $xy) (i64.and (local.get $w11) (i64.const 0x3fffffff)))
+    (i32.store offset=44 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w11) (i64.const 0x3fffffff))))
     (local.set $w12 (i64.add (local.get $w12) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w12) (i64.const 30)))
-    (i64.store offset=96 (local.get $xy) (i64.and (local.get $w12) (i64.const 0x3fffffff)))
+    (i32.store offset=48 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w12) (i64.const 0x3fffffff))))
     (local.set $w13 (i64.add (local.get $w13) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w13) (i64.const 30)))
-    (i64.store offset=104 (local.get $xy) (i64.and (local.get $w13) (i64.const 0x3fffffff)))
+    (i32.store offset=52 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w13) (i64.const 0x3fffffff))))
     (local.set $w14 (i64.add (local.get $w14) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w14) (i64.const 30)))
-    (i64.store offset=112 (local.get $xy) (i64.and (local.get $w14) (i64.const 0x3fffffff)))
+    (i32.store offset=56 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w14) (i64.const 0x3fffffff))))
     (local.set $w15 (i64.add (local.get $w15) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w15) (i64.const 30)))
-    (i64.store offset=120 (local.get $xy) (i64.and (local.get $w15) (i64.const 0x3fffffff)))
+    (i32.store offset=60 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w15) (i64.const 0x3fffffff))))
     (local.set $w16 (i64.add (local.get $w16) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w16) (i64.const 30)))
-    (i64.store offset=128 (local.get $xy) (i64.and (local.get $w16) (i64.const 0x3fffffff)))
+    (i32.store offset=64 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w16) (i64.const 0x3fffffff))))
     (local.set $w17 (i64.add (local.get $w17) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w17) (i64.const 30)))
-    (i64.store offset=136 (local.get $xy) (i64.and (local.get $w17) (i64.const 0x3fffffff)))
+    (i32.store offset=68 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w17) (i64.const 0x3fffffff))))
     (local.set $w18 (i64.add (local.get $w18) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w18) (i64.const 30)))
-    (i64.store offset=144 (local.get $xy) (i64.and (local.get $w18) (i64.const 0x3fffffff)))
+    (i32.store offset=72 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w18) (i64.const 0x3fffffff))))
     (local.set $w19 (i64.add (local.get $w19) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w19) (i64.const 30)))
-    (i64.store offset=152 (local.get $xy) (i64.and (local.get $w19) (i64.const 0x3fffffff)))
+    (i32.store offset=76 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w19) (i64.const 0x3fffffff))))
     (local.set $w20 (i64.add (local.get $w20) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w20) (i64.const 30)))
-    (i64.store offset=160 (local.get $xy) (i64.and (local.get $w20) (i64.const 0x3fffffff)))
+    (i32.store offset=80 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w20) (i64.const 0x3fffffff))))
     (local.set $w21 (i64.add (local.get $w21) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w21) (i64.const 30)))
-    (i64.store offset=168 (local.get $xy) (i64.and (local.get $w21) (i64.const 0x3fffffff)))
+    (i32.store offset=84 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w21) (i64.const 0x3fffffff))))
     (local.set $w22 (i64.add (local.get $w22) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w22) (i64.const 30)))
-    (i64.store offset=176 (local.get $xy) (i64.and (local.get $w22) (i64.const 0x3fffffff)))
+    (i32.store offset=88 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w22) (i64.const 0x3fffffff))))
     (local.set $w23 (i64.add (local.get $w23) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w23) (i64.const 30)))
-    (i64.store offset=184 (local.get $xy) (i64.and (local.get $w23) (i64.const 0x3fffffff)))
+    (i32.store offset=92 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w23) (i64.const 0x3fffffff))))
     (local.set $w24 (i64.add (local.get $w24) (local.get $tmp)))
     (local.set $tmp (i64.shr_s (local.get $w24) (i64.const 30)))
-    (i64.store offset=192 (local.get $xy) (i64.and (local.get $w24) (i64.const 0x3fffffff)))
+    (i32.store offset=96 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w24) (i64.const 0x3fffffff))))
     (local.set $w25 (i64.add (local.get $w25) (local.get $tmp)))
-    (i64.store offset=200 (local.get $xy) (i64.and (local.get $w25) (i64.const 0x3fffffff)))
+    (i32.store offset=100 (local.get $xy) (i32.wrap_i64 (i64.and (local.get $w25) (i64.const 0x3fffffff))))
     (call $barrett (local.get $xy))
   )
   (export "benchMultiplyKaratsuba" (func $benchMultiplyKaratsuba))
@@ -6232,21 +6256,21 @@
       (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 1)))))
     )
   )
-  (global $beta i32 (i32.const 208))
-  (data (i32.const 208)
-    "\81\71\90\1c\00\00\00\00"
-    "\86\e4\bd\3c\00\00\00\00"
-    "\3e\4c\57\26\00\00\00\00"
-    "\ec\75\24\33\00\00\00\00"
-    "\1b\bc\3e\1c\00\00\00\00"
-    "\64\68\ee\39\00\00\00\00"
-    "\56\a8\ff\16\00\00\00\00"
-    "\ff\99\34\2c\00\00\00\00"
-    "\16\bd\50\05\00\00\00\00"
-    "\30\ac\cb\14\00\00\00\00"
-    "\86\8c\d1\17\00\00\00\00"
-    "\f7\59\59\21\00\00\00\00"
-    "\d4\c6\09\00\00\00\00\00"
+  (global $beta i32 (i32.const 104))
+  (data (i32.const 104)
+    "\81\71\90\1c"
+    "\86\e4\bd\3c"
+    "\3e\4c\57\26"
+    "\ec\75\24\33"
+    "\1b\bc\3e\1c"
+    "\64\68\ee\39"
+    "\56\a8\ff\16"
+    "\ff\99\34\2c"
+    "\16\bd\50\05"
+    "\30\ac\cb\14"
+    "\86\8c\d1\17"
+    "\f7\59\59\21"
+    "\d4\c6\09\00"
   )
   (export "endomorphism" (func $endomorphism))
   (func $endomorphism (param $x_out i32) (param $x i32)
@@ -6310,5 +6334,5 @@
       (br_if 0 (i32.ne (local.get $N) (local.tee $i (i32.add (local.get $i) (i32.const 1)))))
     )
   )
-  (global $dataOffset i32 (i32.const 0x138))
+  (global $dataOffset i32 (i32.const 156))
 )
