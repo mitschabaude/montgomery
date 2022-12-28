@@ -27,9 +27,14 @@ import {
   n,
 } from "./src/finite-field.js";
 import { webcrypto } from "node:crypto";
-import { extractBitSlice } from "./src/util.js";
+import { extractBitSlice as extractBitSliceJS } from "./src/util.js";
 import { modInverse } from "./src/finite-field-js.js";
-import { testDecomposeRandomScalar } from "./src/scalar-glv.js";
+import {
+  extractBitSlice,
+  getPointerScalar,
+  testDecomposeRandomScalar,
+  writeBytesScalar,
+} from "./src/scalar-glv.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
@@ -128,6 +133,7 @@ function test() {
   if (isEqual(x, x) !== 1) throw Error("isEqual");
   if (isEqual(x, y) !== 0) throw Error("isEqual");
   subtract(y, constants.p, x);
+  // TODO this sometimes throws, and isn't used. remove
   if (isEqualNegative(x, y) !== 1) throw Error("isEqualNegative");
 
   // inverse
@@ -147,13 +153,25 @@ function test() {
   // extractBitSlice
   let arr = new Uint8Array([0b0010_0110, 0b1101_0101, 0b1111_1111]);
   let e = Error("extractBitSlice");
-  if (extractBitSlice(arr, 2, 4) !== 0b10_01) throw e;
-  if (extractBitSlice(arr, 0, 2) !== 0b10) throw e;
-  if (extractBitSlice(arr, 0, 8) !== 0b0010_0110) throw e;
-  if (extractBitSlice(arr, 3, 9) !== 0b0101_0010_0) throw e;
-  if (extractBitSlice(arr, 8, 8) !== 0b1101_0101) throw e;
-  if (extractBitSlice(arr, 5, 3 + 8 + 2) !== 0b11_1101_0101_001) throw e;
-  if (extractBitSlice(arr, 16, 10) !== 0b1111_1111) throw e;
+  if (extractBitSliceJS(arr, 2, 4) !== 0b10_01) throw e;
+  if (extractBitSliceJS(arr, 0, 2) !== 0b10) throw e;
+  if (extractBitSliceJS(arr, 0, 8) !== 0b0010_0110) throw e;
+  if (extractBitSliceJS(arr, 3, 9) !== 0b0101_0010_0) throw e;
+  if (extractBitSliceJS(arr, 8, 8) !== 0b1101_0101) throw e;
+  if (extractBitSliceJS(arr, 5, 3 + 8 + 2) !== 0b11_1101_0101_001) throw e;
+  if (extractBitSliceJS(arr, 16, 10) !== 0b1111_1111) throw e;
+
+  // extractBitSlice (wasm)
+  let s = getPointerScalar();
+  writeBytesScalar(s, arr);
+  e = Error("extractBitSlice (wasm");
+  if (extractBitSlice(s, 2, 4) !== 0b10_01) throw e;
+  if (extractBitSlice(s, 0, 2) !== 0b10) throw e;
+  if (extractBitSlice(s, 0, 8) !== 0b0010_0110) throw e;
+  if (extractBitSlice(s, 3, 9) !== 0b0101_0010_0) throw e;
+  if (extractBitSlice(s, 8, 8) !== 0b1101_0101) throw e;
+  if (extractBitSlice(s, 5, 3 + 8 + 2) !== 0b11_1101_0101_001) throw e;
+  if (extractBitSlice(s, 16, 10) !== 0b1111_1111) throw e;
 }
 
 function testBatchMontgomery() {
