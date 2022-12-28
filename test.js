@@ -13,6 +13,7 @@ import {
   inverse,
   multiplySchoolbook,
   batchInverse,
+  multiplyDifference,
 } from "./src/wasm/finite-field.wasm.js";
 import {
   p,
@@ -76,6 +77,12 @@ function test() {
   square(z, x);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("square");
+
+  // multiplyDifference
+  z0 = mod(x0 * (x0 - y0), p);
+  multiplyDifference(z, x, x, y);
+  z1 = ofWasm(scratch, z);
+  if (z0 !== z1) throw Error("multiplyDifference");
 
   // leftShift
   let k = 97;
