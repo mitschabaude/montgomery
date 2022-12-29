@@ -7,16 +7,25 @@ import {
   isZeroProjective,
   projectiveCoords,
 } from "../curve.js";
+import { modInverse } from "../finite-field-js.js";
 import {
   readBigInt,
   mod,
   p,
   inverse,
   multiply,
-  fromMontgomery,
+  n,
+  w,
 } from "../finite-field.js";
 
-export { readAffine, readProjective, readProjectiveAsAffine };
+export {
+  readAffine,
+  readProjective,
+  readProjectiveAsAffine,
+  assertOnCurveAffine,
+  assertOnCurveProjective,
+  printAffine,
+};
 
 function readAffine(P) {
   let isZero = isZeroAffine(P);
@@ -58,4 +67,41 @@ function toAffineBigints([zinv, x1, y1, ...scratchSpace], P) {
   multiply(x1, x, zinv);
   multiply(y1, y, zinv);
   return [mod(readBigInt(x1), p), mod(readBigInt(y1), p)];
+}
+
+let Rinv = modInverse(1n << BigInt(n * w), p);
+
+/**
+ * asserts that a point (x,y) satisfies y^2 = x^3 + 4
+ * @param {number} P
+ */
+function assertOnCurveAffine(P, message = "") {
+  let { x, y, isZero } = readAffine(P);
+  if (isZero) return;
+  // un-montgomery
+  x = mod(x * Rinv, p);
+  y = mod(y * Rinv, p);
+  let xCubedPlusB = mod(x * x * x + 4n, p);
+  let ySquared = mod(y * y, p);
+  if (xCubedPlusB !== ySquared)
+    throw Error(`not on curve; ${message}
+{ x: ${x}, y: ${y}, isZero: ${isZero} }`);
+}
+
+function assertOnCurveProjective(P, message = "") {
+  let { x, y, z, isZero } = readProjective(P);
+  if (isZero) return;
+  x = mod(x * Rinv, p);
+  y = mod(y * Rinv, p);
+  z = mod(z * Rinv, p);
+  let xCubedPlusB = mod(x * x * x + 4n * z * z * z, p);
+  let ySquared = mod(y * y * z, p);
+  if (xCubedPlusB !== ySquared)
+    throw Error(`not on curve; ${message}
+  { x: ${x}, y: ${y}, z: ${z}, isZero: ${isZero} }`);
+}
+
+function printAffine(P) {
+  let { x, y, isZero } = readAffine(P);
+  console.log(`{ x: ${x}, y: ${y}, isZero: ${isZero}`);
 }
