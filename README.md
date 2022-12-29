@@ -409,9 +409,8 @@ I hope to polish up this repo to become a go-to library for fast finite field an
 
 Specifically, these are major TODOs:
 
-- Give this a proper `package.json` which will make it importable in node projects and major bundlers (that support top-level await)
-- Find a good name for an npm library that we can publish this to :D
-- Make it usable for arbitrary elliptic curves. This shouldn't be hard because the Wasm generation code is already generic over the prime (and limb size), and the MSM has nothing specific to the curve except for the scalar bit length. So, this is just a matter of organizing the code. The vision is to export the building blocks so that people can build the Wasm module that exactly contains what they need, for their curve of interest. See `createFiniteFieldWat` in [src/finite-field-generate.js](src/finite-field-generate.js).
+- Give this library (published as [montgomery](https://www.npmjs.com/package/montgomery) to npm) a nice interface and document it
+- Make this usable for arbitrary elliptic curves. This shouldn't be hard because the Wasm generation code is already generic over the prime (and limb size), and the MSM has nothing specific to the curve except for the scalar bit length. So, this is just a matter of organizing the code. The vision is to export the building blocks so that people can build the Wasm module that exactly contains what they need, for their curve of interest. See `createFiniteFieldWat` in [src/finite-field-generate.js](src/finite-field-generate.js).
 - Ship pre-generated code for the most popular curves, e.g. BLS12-381, Pasta
 - **MAKE THIS FASTER!!** This is supposed to be the fastest possible implementation of everything that's here. Every change that demonstrably makes this faster is highly welcome. Known speed TODOs:
   - Implement a version (should be optional) that uses SIMD instructions
