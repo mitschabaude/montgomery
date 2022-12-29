@@ -1,4 +1,4 @@
-# ZPrize: Fast MSM in WebAssembly
+# montgomery: Fast MSM in WebAssembly
 
 _by Gregor Mitscha-Baude_
 
