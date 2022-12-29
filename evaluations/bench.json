@@ -1214,5 +1214,14 @@
   "mPerSec": 11532600,
   "commit": "1c7e2ae",
   "cpu": "Intel(R) Core(TM) i7-10700 CPU @ 2.90GHz"
+ },
+ {
+  "n": 14,
+  "ref": 1.5039172030007466,
+  "ours": 0.31605434299912305,
+  "nMul": 2253704,
+  "mPerSec": 9939417,
+  "commit": "3a1adb0",
+  "cpu": "12th Gen Intel(R) Core(TM) i7-12800H"
  }
 ]

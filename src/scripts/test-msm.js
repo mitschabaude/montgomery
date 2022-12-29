@@ -2,16 +2,16 @@ import {
   PointVectorInput,
   ScalarVectorInput,
   compute_msm,
-} from "./src/extra/reference.node.js";
-import { msmProjective } from "./src/msm-projective.js";
-import { tic, toc } from "./src/extra/tictoc.js";
+} from "../extra/reference.node.js";
+import { msmProjective } from "../msm-projective.js";
+import { tic, toc } from "../extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { mod, p } from "./src/finite-field.js";
-import { msmAffine } from "./src/msm.js";
-import { bigintFromBytes, bigintToBytes } from "./src/util.js";
-import { modInverse } from "./src/finite-field-js.js";
-import { msmDumbAffine } from "./src/extra/dumb-curve-affine.js";
-import { load } from "./src/scripts/store-inputs.js";
+import { mod, p } from "../finite-field.js";
+import { msmAffine } from "../msm.js";
+import { bigintFromBytes } from "../util.js";
+import { modInverse } from "../finite-field-js.js";
+import { msmDumbAffine } from "../extra/dumb-curve-affine.js";
+import { load } from "./store-inputs.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

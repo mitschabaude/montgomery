@@ -1,23 +1,26 @@
 {
-  "name": "msm",
-  "version": "1.0.0",
+  "name": "montgomery",
+  "version": "0.1.0",
   "description": "",
-  "main": "index.js",
+  "main": "./src/index.js",
   "type": "module",
+  "exports": {
+    "default": "./src/index.js"
+  },
   "scripts": {
-    "build": "node ./src/finite-field-compile.js && node test.js",
-    "start": "node index.js",
-    "test": "node test.js"
+    "build": "node src/finite-field-compile.js && node src/scripts/test.js",
+    "start": "node src/scripts/run.js",
+    "test": "node src/scripts/test.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Gregor Mitscha-Baude",
   "license": "MIT",
   "dependencies": {
-    "fast-base64": "^0.1.8",
-    "wabt": "^1.0.29"
+    "fast-base64": "^0.1.8"
   },
   "devDependencies": {
     "chrode": "^0.3.4",
-    "eslint": "^8.20.0"
+    "eslint": "^8.20.0",
+    "wabt": "^1.0.29"
   }
 }

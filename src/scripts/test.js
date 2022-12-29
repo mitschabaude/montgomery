@@ -14,7 +14,7 @@ import {
   multiplySchoolbook,
   batchInverse,
   multiplyDifference,
-} from "./src/wasm/finite-field.wasm.js";
+} from "../wasm/finite-field.wasm.js";
 import {
   p,
   constants,
@@ -26,16 +26,16 @@ import {
   getPointers,
   w,
   n,
-} from "./src/finite-field.js";
+} from "../finite-field.js";
 import { webcrypto } from "node:crypto";
-import { extractBitSlice as extractBitSliceJS } from "./src/util.js";
-import { modInverse } from "./src/finite-field-js.js";
+import { extractBitSlice as extractBitSliceJS } from "../util.js";
+import { modInverse } from "../finite-field-js.js";
 import {
   extractBitSlice,
   getPointerScalar,
   testDecomposeRandomScalar,
   writeBytesScalar,
-} from "./src/scalar-glv.js";
+} from "../scalar-glv.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

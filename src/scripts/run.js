@@ -2,10 +2,10 @@ import {
   PointVectorInput,
   ScalarVectorInput,
   compute_msm,
-} from "./src/extra/reference.node.js";
-import { msmProjective, randomCurvePoints } from "./src/msm-projective.js";
-import { tic, toc } from "./src/extra/tictoc.js";
-import { load } from "./src/scripts/store-inputs.js";
+} from "../extra/reference.node.js";
+import { msmProjective, randomCurvePoints } from "../msm-projective.js";
+import { tic, toc } from "../extra/tictoc.js";
+import { load } from "./store-inputs.js";
 import { cpus } from "node:os";
 import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -17,8 +17,8 @@ import {
   benchMultiply,
   benchInverse,
   getPointer,
-} from "./src/finite-field.js";
-import { msmAffine } from "./src/msm.js";
+} from "../finite-field.js";
+import { msmAffine } from "../msm.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
