@@ -613,10 +613,10 @@ function wasmInverse(writer, p, w, { countOperations = false } = {}) {
       line(call("reduce", a));
     }
     // for debugging
-    // line(call("isZero", a));
-    // if_(writer, () => {
-    //   lines(call("log", i32.const(500)), return_());
-    // });
+    line(call("isZero", a));
+    if_(writer, () => {
+      lines("unreachable");
+    });
     lines(
       call("almostInverse", scratch, r, a),
       local.set(k),
