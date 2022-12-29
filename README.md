@@ -2,7 +2,7 @@
 
 _by Gregor Mitscha-Baude_
 
-**This code won 2nd place in the Wasm/MSM ZPrize -- see [official results](https://www.zprize.io/blog/announcing-zprize-results).** The version that was submitted is frozen on the branch [zprize](tree/zprize).
+**This code won 2nd place in the Wasm/MSM ZPrize -- see [official results](https://www.zprize.io/blog/announcing-zprize-results).** The version that was submitted is frozen on the branch [zprize](https://github.com/mitschabaude/montgomery/tree/zprize).
 
 > To get started with the code, see [how to use this repo](#how-to-use-this-repo). To contribute, see [contributing](#contributing)
 
