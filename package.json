@@ -1,12 +1,21 @@
 {
   "name": "montgomery",
   "version": "0.1.0",
-  "description": "",
+  "description": "Fast implementation of multi-scalar multiplication in WebAssembly",
   "main": "./src/index.js",
   "type": "module",
   "exports": {
     "default": "./src/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mitschabaude/montgomery"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "NOTICE"
+  ],
   "scripts": {
     "build": "node src/finite-field-compile.js && node src/scripts/test.js",
     "start": "node src/scripts/run.js",
@@ -15,7 +24,7 @@
   },
   "keywords": [],
   "author": "Gregor Mitscha-Baude",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "fast-base64": "^0.1.8"
   },
