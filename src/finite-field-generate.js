@@ -1276,7 +1276,7 @@ function finiteFieldHelpers(writer, p, w) {
  */
 function endomorphism(writer, p, w, { beta }) {
   let { n, R } = montgomeryParams(p, w);
-  let sizeField = 8 * n;
+  let sizeField = 4 * n;
 
   let { line, lines } = writer;
   let { i32, local, local32, param32, global, call } = ops;
