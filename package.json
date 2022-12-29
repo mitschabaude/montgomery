@@ -10,7 +10,8 @@
   "scripts": {
     "build": "node src/finite-field-compile.js && node src/scripts/test.js",
     "start": "node src/scripts/run.js",
-    "test": "node src/scripts/test.js"
+    "test": "node src/scripts/test.js",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [],
   "author": "Gregor Mitscha-Baude",
