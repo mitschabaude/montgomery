@@ -149,6 +149,7 @@ function getOperations() {
       gt_u: iOp("gt_u"),
       ctz: iOp("ctz"),
       clz: iOp("clz"),
+      xor: iOp("xor"),
     };
   }
   let i64 = {

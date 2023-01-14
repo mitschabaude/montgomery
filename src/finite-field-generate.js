@@ -1307,6 +1307,7 @@ function endomorphism(writer, p, w, { beta }) {
  * functions for glv decompositions of scalars
  *
  * @param {any} writer
+ * @param {bigint} q
  * @param {bigint} lambda
  * @param {number} w
  */
@@ -1403,6 +1404,45 @@ function glv(writer, q, lambda, w) {
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
+  });
+
+  // negates the scalar if its most significant bit is set, returns boolean wasNegated
+  addFuncExport(writer, "negateIfMsb");
+  func(writer, "negateIfMsb", [param32(x)], () => {
+    line(local64(tmp), local64(carry));
+    // check if MSB set:
+    let msbInHighestLimb = lengthP - 1 - (n - 1) * w;
+    comment("if (!(x & msb)) return 0");
+    lines(
+      // load highest limb
+      i32.load(x, { offset: 4 * (n - 1) }),
+      // test msb
+      i32.const(msbInHighestLimb),
+      i32.shr_u(),
+      // not
+      i32.const(1),
+      i32.xor()
+    );
+    // if the highest bit is not set, return 0
+    if_(writer, () => {
+      line(return_(i32.const(0)));
+    });
+    // the highest bit is set, so we negate the scalar
+    // for our use case, we can assume the scalar is < lambda
+    comment("x = lambda - x");
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, x[i]) = lambda[i] - x[i] + carry;
+        i64.add(LAMBDA[i], carry),
+        i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
+        i64.sub(),
+        local.set(tmp),
+        i32.store(x, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
+        local.set(carry, i64.shr_s(tmp, w))
+      );
+    }
+    line(return_(i32.const(1)));
   });
 
   // convert between internal format and I/O-friendly, packed byte format

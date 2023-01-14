@@ -62,8 +62,7 @@ export { msmAffine, batchAdd };
  *
  * a _field element_ x is represented as n limbs, where n is a parameter that depends on the field order and limb size.
  * in wasm memory, each limb is stored as an `i32`, i.e. takes up 4 bytes of space.
- * (usually only the lowest w bits of each `i32` are filled, where w <= 32 is some configured limb size;
- * but within computations we will sometimes fill up most or all of the 64 bits)
+ * (usually only the lowest w bits of each `i32` are filled, where w <= 32 is some configured limb size)
  *
  * an _affine point_ is layed out as `[x, y, isNonZero]` in memory, where x and y are field elements and
  * `isNonZero` is a flag used to track whether a point is zero / the point at infinity.
@@ -90,8 +89,8 @@ export { msmAffine, batchAdd };
  * isNonZero = p + 3*sizeField
  * ```
  */
-let sizeField = 4 * n; // a field element has n limbs, each of which is an int64 (= 8 bytes)
-let sizeAffine = 8 * n + 4; // an affine point is 2 field elements + 1 int64 for isNonZero flag
+let sizeField = 4 * n; // a field element has n limbs, each of which is an int32 (= 4 bytes)
+let sizeAffine = 8 * n + 4; // an affine point is 2 field elements + 1 int32 for isNonZero flag
 let sizeProjective = 12 * n + 4;
 
 /**
@@ -299,6 +298,10 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // decompose scalar from one 32-byte into two 16-byte chunks
     writeBytesScalar(scalar, inputScalar);
     decompose(scalar);
+
+    // check if scalar 1 has the MSB set
+    let msb = extractBitSlice(scalar, scalarBitlength - 1, 1);
+    console.log({ msb });
 
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {

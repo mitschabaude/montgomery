@@ -365,6 +365,54 @@
     (i32.store offset=16 (local.get $l) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
   )
+  (export "negateIfMsb" (func $negateIfMsb))
+  (func $negateIfMsb (param $x i32)
+    (local $tmp i64) (local $carry i64)
+    ;; if (!(x & msb)) return 0
+    (i32.load offset=16 (local.get $x))
+    (i32.const 7)
+    i32.shr_u
+    (i32.const 1)
+    i32.xor
+    if (return (i32.const 0)) end
+    ;; x = lambda - x
+    ;; i = 0
+    (i64.add (i64.const 0x3fffffff) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=0 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 1
+    (i64.add (i64.const 3) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=4 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 2
+    (i64.add (i64.const 0x1a4020) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=8 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 3
+    (i64.add (i64.const 0x11690040) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=12 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 4
+    (i64.add (i64.const 172) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=16 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    (return (i32.const 1))
+  )
   (export "toPackedBytes" (func $toPackedBytes))
   ;; converts 5x30-bit representation (1 int64 per 30-bit limb) to packed 16-byte representation
   (func $toPackedBytes (param $bytes i32) (param $x i32)
