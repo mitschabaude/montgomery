@@ -2,6 +2,7 @@ export let memory: WebAssembly.Memory;
 export let dataOffset: WebAssembly.Global;
 
 export function decompose(x: number): void;
+export function decomposeNoMsb(x: number): number;
 export function barrett(x: number): void;
 export function multiplySchoolbook(xy: number, x: number, y: number): void;
 // helpers

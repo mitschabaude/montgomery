@@ -281,6 +281,24 @@
     (call $barrett (local.get $x))
     (call $reduceByOne (local.get $x))
   )
+  (export "decomposeNoMsb" (func $decomposeNoMsb))
+  (func $decomposeNoMsb (param $s i32) (result i32)
+    (local $flagNegateBoth i32) (local $flagNegateFirst i32)
+    ;; if (s1 > lambda) is possible, do s = q - s, flag both points for negation
+    (i32.ge_u (i32.load offset=32 (local.get $s)) (i32.const 0x5622))
+    (local.tee $flagNegateBoth)
+    if (call $negateNoReduceDouble (local.get $s)) end
+    ;; split s = s0 + s1*lambda, where s0 < lambda
+    (call $barrett (local.get $s))
+    (call $reduceByOne (local.get $s))
+    ;; if s0 >= 2^(b-1), do s0 = lambda - s0, s1++, flag first point for negation
+    (i32.shr_u (i32.load offset=16 (local.get $s)) (i32.const 7))
+    (local.tee $flagNegateFirst)
+    if (call $negateFirstHalfNoReduce (local.get $s)) end
+    (i32.xor (local.get $flagNegateFirst) (local.get $flagNegateBoth))
+    (i32.shl (local.get $flagNegateBoth) (i32.const 1))
+    i32.or
+  )
   (export "reduceByOne" (func $reduceByOne))
   (func $reduceByOne (param $r i32)
     (local $tmp i64) (local $carry i64) (local $l i32)
@@ -365,53 +383,158 @@
     (i32.store offset=16 (local.get $l) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
   )
-  (export "negateIfMsb" (func $negateIfMsb))
-  (func $negateIfMsb (param $x i32)
+  (export "negateNoReduceDouble" (func $negateNoReduceDouble))
+  (func $negateNoReduceDouble (param $x i32)
     (local $tmp i64) (local $carry i64)
-    ;; if (!(x & msb)) return 0
-    (i32.load offset=16 (local.get $x))
-    (i32.const 7)
-    i32.shr_u
-    (i32.const 1)
-    i32.xor
-    if (return (i32.const 0)) end
-    ;; x = lambda - x
+    ;; x = q - x
     ;; i = 0
-    (i64.add (i64.const 0x3fffffff) (local.get $carry))
+    (i64.add (i64.const 1) (local.get $carry))
     (i64.extend_i32_u (i32.load offset=0 (local.get $x)))
     i64.sub
     (local.set $tmp)
     (i32.store offset=0 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 1
-    (i64.add (i64.const 3) (local.get $carry))
+    (i64.add (i64.const 0x3ffffffc) (local.get $carry))
     (i64.extend_i32_u (i32.load offset=4 (local.get $x)))
     i64.sub
     (local.set $tmp)
     (i32.store offset=4 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 2
-    (i64.add (i64.const 0x1a4020) (local.get $carry))
+    (i64.add (i64.const 0x3fe5bfef) (local.get $carry))
     (i64.extend_i32_u (i32.load offset=8 (local.get $x)))
     i64.sub
     (local.set $tmp)
     (i32.store offset=8 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 3
-    (i64.add (i64.const 0x11690040) (local.get $carry))
+    (i64.add (i64.const 0x2f6900bf) (local.get $carry))
     (i64.extend_i32_u (i32.load offset=12 (local.get $x)))
     i64.sub
     (local.set $tmp)
     (i32.store offset=12 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
     ;; i = 4
-    (i64.add (i64.const 172) (local.get $carry))
+    (i64.add (i64.const 0x21d80553) (local.get $carry))
     (i64.extend_i32_u (i32.load offset=16 (local.get $x)))
     i64.sub
     (local.set $tmp)
     (i32.store offset=16 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
     (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
-    (return (i32.const 1))
+    ;; i = 5
+    (i64.add (i64.const 0x27602026) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=20 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=20 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 6
+    (i64.add (i64.const 0x17d48333) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=24 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=24 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 7
+    (i64.add (i64.const 0x29d4ca67) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=28 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=28 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 8
+    (i64.add (i64.const 0x73ed) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=32 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=32 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 9
+    (i64.add (i64.const 0) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=36 (local.get $x)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=36 (local.get $x) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+  )
+  (export "negateFirstHalfNoReduce" (func $negateFirstHalfNoReduce))
+  (func $negateFirstHalfNoReduce (param $s0 i32)
+    (local $tmp i64) (local $carry i64) (local $s1 i32)
+    (local.set $s1 (i32.add (local.get $s0) (i32.const 20)))
+    ;; s0 = lambda - s0
+    ;; i = 0
+    (i64.add (i64.const 0x3fffffff) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=0 (local.get $s0)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=0 (local.get $s0) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 1
+    (i64.add (i64.const 3) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=4 (local.get $s0)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=4 (local.get $s0) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 2
+    (i64.add (i64.const 0x1a4020) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=8 (local.get $s0)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=8 (local.get $s0) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 3
+    (i64.add (i64.const 0x11690040) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=12 (local.get $s0)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=12 (local.get $s0) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 4
+    (i64.add (i64.const 172) (local.get $carry))
+    (i64.extend_i32_u (i32.load offset=16 (local.get $s0)))
+    i64.sub
+    (local.set $tmp)
+    (i32.store offset=16 (local.get $s0) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; s1 = s1 + 1
+    (local.set $carry (i64.const 1))
+    ;; i = 0
+    (i64.extend_i32_u (i32.load offset=0 (local.get $s1)))
+    (local.get $carry)
+    i64.add
+    (local.set $tmp)
+    (i32.store offset=0 (local.get $s1) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 1
+    (i64.extend_i32_u (i32.load offset=4 (local.get $s1)))
+    (local.get $carry)
+    i64.add
+    (local.set $tmp)
+    (i32.store offset=4 (local.get $s1) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 2
+    (i64.extend_i32_u (i32.load offset=8 (local.get $s1)))
+    (local.get $carry)
+    i64.add
+    (local.set $tmp)
+    (i32.store offset=8 (local.get $s1) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 3
+    (i64.extend_i32_u (i32.load offset=12 (local.get $s1)))
+    (local.get $carry)
+    i64.add
+    (local.set $tmp)
+    (i32.store offset=12 (local.get $s1) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
+    ;; i = 4
+    (i64.extend_i32_u (i32.load offset=16 (local.get $s1)))
+    (local.get $carry)
+    i64.add
+    (local.set $tmp)
+    (i32.store offset=16 (local.get $s1) (i32.wrap_i64 (i64.and (local.get $tmp) (i64.const 0x3fffffff))))
+    (local.set $carry (i64.shr_s (local.get $tmp) (i64.const 30)))
   )
   (export "toPackedBytes" (func $toPackedBytes))
   ;; converts 5x30-bit representation (1 int64 per 30-bit limb) to packed 16-byte representation

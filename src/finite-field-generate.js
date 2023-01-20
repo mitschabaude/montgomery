@@ -1312,7 +1312,7 @@ function endomorphism(writer, p, w, { beta }) {
  * @param {number} w
  */
 function glv(writer, q, lambda, w) {
-  let { n, wordMax, lengthP } = montgomeryParams(lambda, w);
+  let { n, wordMax, lengthP: b } = montgomeryParams(lambda, w);
   let { line, lines, comment } = writer;
   let {
     i64,
@@ -1327,10 +1327,12 @@ function glv(writer, q, lambda, w) {
     return_,
   } = ops;
 
-  let k = lengthP - 1;
+  let k = b - 1;
   let N = n * w;
   let m = 2n ** BigInt(k + N) / lambda;
   let LAMBDA = bigintToLegs(lambda, w, n);
+  let Q = bigintToLegs(q, w, 2 * n);
+  let sizeScalar = 4 * n;
 
   // let's compute the maximum error in barrett reduction
   // scalars are < q, which is slightly larger than lambda^2
@@ -1352,7 +1354,7 @@ function glv(writer, q, lambda, w) {
   }
   // e is how often we have to reduce by lambda if we want a decomposition x = x0 + lambda * x1 with x0 < lambda
 
-  let [x, bytes, tmp, carry] = ["$x", "$bytes", "$tmp", "$carry"];
+  let [x, s, bytes, tmp, carry] = ["$x", "$s", "$bytes", "$tmp", "$carry"];
   let [r, l] = ["$r", "$l"];
 
   addFuncExport(writer, "decompose");
@@ -1363,10 +1365,71 @@ function glv(writer, q, lambda, w) {
     }
   });
 
+  // needed for size condition on original scalar
+  let lambdaShifted = bigintToLegs(lambda << BigInt(b - 1), w, 2 * n);
+  console.log(b - 1, lambdaShifted);
+  console.log(Q);
+  let [flagNegateBoth, flagNegateFirst] = [
+    "$flagNegateBoth",
+    "$flagNegateFirst",
+  ];
+  let [s0, s1] = ["$s0", "$s1"];
+
+  /**
+   * decompose and also kill the most significant bit of _both halves_
+   *
+   * TODO: describe algorithm and assert conditions on lambda and q
+   */
+  addFuncExport(writer, "decomposeNoMsb");
+  func(writer, "decomposeNoMsb", [param32(s), result32], () => {
+    line(local32(flagNegateBoth), local32(flagNegateFirst));
+    comment(
+      "if (s1 > lambda) is possible, do s = q - s, flag both points for negation"
+    );
+    // TODO: this check is specialized to our limb size, scalar field, lambda
+    lines(
+      i32.ge_u(
+        i32.load(s, { offset: 4 * (2 * n - 2) }),
+        lambdaShifted[2 * n - 2]
+      ),
+      local.tee(flagNegateBoth)
+    );
+    if_(writer, () => {
+      line(call("negateNoReduceDouble", s));
+    });
+    comment("split s = s0 + s1*lambda, where s0 < lambda");
+    line(call("barrett", s));
+    for (let i = 0; i < e; i++) {
+      line(call("reduceByOne", s));
+    }
+    comment(
+      "if s0 >= 2^(b-1), do s0 = lambda - s0, s1++, flag first point for negation"
+    );
+    // s0 >= 2^(b-1) is equivalent to (s0 >> (b-1)) === 1
+    let msbInHighestLimb = b - 1 - (n - 1) * w;
+    lines(
+      // test msb in highest limb
+      i32.shr_u(i32.load(s, { offset: 4 * (n - 1) }), msbInHighestLimb),
+      local.tee(flagNegateFirst)
+    );
+    if_(writer, () => {
+      lines(call("negateFirstHalfNoReduce", s));
+    });
+    // return an integer containing flags to negate first / second point
+    lines(
+      // negate first?
+      i32.xor(flagNegateFirst, flagNegateBoth),
+      // negate second? (shift up by 1)
+      i32.shl(flagNegateBoth, 1),
+      // concatenate
+      i32.or()
+    );
+  });
+
   addFuncExport(writer, "reduceByOne");
   func(writer, "reduceByOne", [param32(r)], () => {
     line(local64(tmp), local64(carry), local32(l));
-    line(local.set(l, i32.add(r, n * 4)));
+    line(local.set(l, i32.add(r, sizeScalar)));
     // check if r < lambda
     block(writer, () => {
       for (let i = n - 1; i >= 0; i--) {
@@ -1406,35 +1469,16 @@ function glv(writer, q, lambda, w) {
     }
   });
 
-  // negates the scalar if its most significant bit is set, returns boolean wasNegated
-  addFuncExport(writer, "negateIfMsb");
-  func(writer, "negateIfMsb", [param32(x)], () => {
+  // negates the scalar in the original scalar field, x = q - x; assuming x < q
+  addFuncExport(writer, "negateNoReduceDouble");
+  func(writer, "negateNoReduceDouble", [param32(x)], () => {
     line(local64(tmp), local64(carry));
-    // check if MSB set:
-    let msbInHighestLimb = lengthP - 1 - (n - 1) * w;
-    comment("if (!(x & msb)) return 0");
-    lines(
-      // load highest limb
-      i32.load(x, { offset: 4 * (n - 1) }),
-      // test msb
-      i32.const(msbInHighestLimb),
-      i32.shr_u(),
-      // not
-      i32.const(1),
-      i32.xor()
-    );
-    // if the highest bit is not set, return 0
-    if_(writer, () => {
-      line(return_(i32.const(0)));
-    });
-    // the highest bit is set, so we negate the scalar
-    // for our use case, we can assume the scalar is < lambda
-    comment("x = lambda - x");
-    for (let i = 0; i < n; i++) {
+    comment("x = q - x");
+    for (let i = 0; i < 2 * n; i++) {
       comment(`i = ${i}`);
       lines(
-        // (carry, x[i]) = lambda[i] - x[i] + carry;
-        i64.add(LAMBDA[i], carry),
+        // (carry, x[i]) = q[i] - x[i] + carry;
+        i64.add(Q[i], carry),
         i64.extend_i32_u(i32.load(x, { offset: 4 * i })),
         i64.sub(),
         local.set(tmp),
@@ -1442,12 +1486,45 @@ function glv(writer, q, lambda, w) {
         local.set(carry, i64.shr_s(tmp, w))
       );
     }
-    line(return_(i32.const(1)));
+  });
+
+  // increments half scalar x without reduction modulo lambda
+  addFuncExport(writer, "negateFirstHalfNoReduce");
+  func(writer, "negateFirstHalfNoReduce", [param32(s0)], () => {
+    line(local64(tmp), local64(carry), local32(s1));
+    lines(local.set(s1, i32.add(s0, sizeScalar)));
+    comment("s0 = lambda - s0");
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, s0[i]) = lambda[i] - s0[i] + carry;
+        i64.add(LAMBDA[i], carry),
+        i64.extend_i32_u(i32.load(s0, { offset: 4 * i })),
+        i64.sub(),
+        local.set(tmp),
+        i32.store(s0, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
+        local.set(carry, i64.shr_s(tmp, w))
+      );
+    }
+    comment("s1 = s1 + 1");
+    line(local.set(carry, i64.const(1)));
+    for (let i = 0; i < n; i++) {
+      comment(`i = ${i}`);
+      lines(
+        // (carry, s1[i]) = s1[i] + carry;
+        i64.extend_i32_u(i32.load(s1, { offset: 4 * i })),
+        local.get(carry),
+        i64.add(),
+        local.set(tmp),
+        i32.store(s1, i32.wrap_i64(i64.and(tmp, wordMax)), { offset: 4 * i }),
+        local.set(carry, i64.shr_s(tmp, w))
+      );
+    }
   });
 
   // convert between internal format and I/O-friendly, packed byte format
   // method: just pack all the n*w bits into memory contiguously
-  let nPackedBytes = Math.ceil(lengthP / 8);
+  let nPackedBytes = Math.ceil(b / 8);
   addFuncExport(writer, "toPackedBytes");
   comment(
     `converts ${n}x${w}-bit representation (1 int64 per ${w}-bit limb) to packed ${nPackedBytes}-byte representation`

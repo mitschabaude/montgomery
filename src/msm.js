@@ -44,7 +44,6 @@ import {
   batchAddUnsafe,
 } from "./wasm/finite-field.wasm.js";
 import {
-  decompose,
   writeBytesScalar,
   scalarSize,
   getPointerScalar,
@@ -53,6 +52,7 @@ import {
   scalarBitlength,
 } from "./scalar-glv.js";
 import { log2 } from "./util.js";
+import { decompose, decomposeNoMsb } from "./wasm/scalar-glv.wasm.js";
 
 export { msmAffine, batchAdd };
 
@@ -193,7 +193,8 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
   if (c_) c = c_;
   if (c0_) c0 = c0_;
 
-  let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
+  let K = Math.ceil(scalarBitlength / c); // number of partitions
+  let dividesEvenly = K * c === scalarBitlength;
   let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
@@ -263,6 +264,17 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let inputScalar = inputScalars[i];
     let inputPoint = inputPoints[i];
 
+    // load scalar and decompose from one 32-byte into two 16-byte chunks
+    writeBytesScalar(scalar, inputScalar);
+    let negateFlags = 0;
+    if (dividesEvenly) {
+      negateFlags = decomposeNoMsb(scalar);
+    } else {
+      decompose(scalar);
+    }
+    let negateFirst = negateFlags & 1;
+    let negateSecond = negateFlags >> 1;
+
     /**
      * store point in n-limb format and convert to montgomery representation.
      * see {@link sizeField} for the memory layout.
@@ -287,21 +299,26 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     let endoPoint = negPoint + sizeAffine;
     let negEndoPoint = endoPoint + sizeAffine;
     copy(negPoint, x);
-    subtract(negPoint + sizeField, constants.p, y);
+
     memoryBytes[negPoint + 2 * sizeField] = isNonZero;
     endomorphism(endoPoint, point);
     memoryBytes[endoPoint + 2 * sizeField] = isNonZero;
     copy(negEndoPoint, endoPoint);
-    copy(negEndoPoint + sizeField, negPoint + sizeField);
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
-    // decompose scalar from one 32-byte into two 16-byte chunks
-    writeBytesScalar(scalar, inputScalar);
-    decompose(scalar);
-
-    // check if scalar 1 has the MSB set
-    let msb = extractBitSlice(scalar, scalarBitlength - 1, 1);
-    console.log({ msb });
+    if (negateFirst) {
+      copy(negPoint + sizeField, y);
+      subtract(y, constants.p, y);
+    } else {
+      subtract(negPoint + sizeField, constants.p, y);
+    }
+    if (negateSecond === negateFirst) {
+      copy(endoPoint + sizeField, y);
+      copy(negEndoPoint + sizeField, negPoint + sizeField);
+    } else {
+      copy(negEndoPoint + sizeField, y);
+      copy(endoPoint + sizeField, negPoint + sizeField);
+    }
 
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
