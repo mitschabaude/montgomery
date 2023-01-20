@@ -102,9 +102,9 @@ let sizeProjective = 12 * n + 4;
  * @param c0 log-size of sub-partitions used in the bucket reduction step
  */
 let cTable = {
-  [14]: [13, 8],
-  [16]: [13, 9],
-  [18]: [16, 9],
+  [14]: [13, 7],
+  [16]: [15, 8],
+  [18]: [16, 8],
 };
 
 /**
