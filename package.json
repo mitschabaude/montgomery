@@ -31,6 +31,7 @@
   "devDependencies": {
     "chrode": "^0.3.4",
     "eslint": "^8.20.0",
+    "typescript": "^4.9.4",
     "wabt": "^1.0.29"
   }
 }
