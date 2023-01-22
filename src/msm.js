@@ -267,6 +267,11 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // load scalar and decompose from one 32-byte into two 16-byte chunks
     writeBytesScalar(scalar, inputScalar);
     let negateFlags = 0;
+    /**
+     * if the window size exactly divides the scalar bit length, we have to make sure that neither
+     * of the two scalar halfs has its MSB set, otherwise the NAF transformation below doesn't work --
+     * there'd be a final carry bit that's not accounted for.
+     */
     if (dividesEvenly) {
       negateFlags = decomposeNoMsb(scalar);
     } else {
