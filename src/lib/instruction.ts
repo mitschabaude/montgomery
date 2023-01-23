@@ -2,7 +2,7 @@ import { Binable, Empty } from "./binable.js";
 import { I32 } from "./immediate.js";
 import { i32t, JSValue, ValueType } from "./types.js";
 
-export { Instruction };
+export { Instruction, Expression };
 
 // control instructions
 let unreachable = instruction("unreachable", Empty, [], [], () => {
@@ -75,6 +75,25 @@ const Instruction = Binable<Instruction>({
       return [{ name: instr.name, immediate: null }, offset];
     let [immediate, end] = instr.immediate.readBytes(bytes, offset);
     return [{ name: instr.name, immediate }, end];
+  },
+});
+
+type Expression = Instruction[];
+const END = 0x0b;
+const Expression = Binable<Expression>({
+  toBytes(t) {
+    let instructions = t.map((i) => Instruction.toBytes(i)).flat();
+    instructions.push(END);
+    return instructions;
+  },
+  readBytes(bytes, offset) {
+    let instructions: Instruction[] = [];
+    while (bytes[offset] !== END) {
+      let instr: Instruction;
+      [instr, offset] = Instruction.readBytes(bytes, offset);
+      instructions.push(instr);
+    }
+    return [instructions, offset++];
   },
 });
 
