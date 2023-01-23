@@ -52,7 +52,8 @@ const S33 = Binable<u32>({
   },
 });
 
-// https://en.wikipedia.org/wiki/LEB128#Unsigned_LEB128
+// https://en.wikipedia.org/wiki/LEB128
+
 function uLEB128(x0: bigint | number) {
   let x = BigInt(x0);
   let bytes = [];
@@ -67,5 +68,18 @@ function uLEB128(x0: bigint | number) {
 }
 
 function sLEB128(x0: bigint | number): number[] {
-  throw "unimplemented";
+  let x = BigInt(x0);
+  let bytes = [];
+  while (true) {
+    let byte = Number(x & 0b0111_1111n);
+    x >>= 7n;
+    if (
+      (x === 0n && (byte & 0b0100_0000) === 0) ||
+      (x === -1n && (byte & 0b0100_0000) !== 0)
+    ) {
+      bytes.push(byte);
+      return bytes;
+    }
+    bytes.push(byte | 0b1000_0000);
+  }
 }

@@ -32,12 +32,8 @@ type ToLocal<T extends ValueType> = T extends i32
   ? Local<f64>
   : Local<T>;
 
-type ConcreteLocal<T extends ValueType> = {
-  name?: string;
-  type?: T;
-  index: number;
-};
-const ConcreteLocal = record<ConcreteLocal<any>>({ index: U32 }, ["index"]);
+type ConcreteLocal = { index: number };
+const ConcreteLocal = record<ConcreteLocal>({ index: U32 }, ["index"]);
 
 let local_ = {
   get: baseInstruction("local.get", ConcreteLocal, ({ stack, locals }, x) => {
@@ -52,10 +48,10 @@ let local_ = {
   }),
 };
 const local = Object.assign(function local<T extends ValueType>(
-  name: string,
+  string: string,
   type: T
 ): ToLocal<T> {
-  return { name, type } as any;
+  return { string, type } as any;
 },
 local_);
 
@@ -88,17 +84,17 @@ const opcodes: Record<number, BaseInstruction> = {
 
 const instructionToOpcode = invertOpcodes();
 
-type BaseInstruction = { name: string; immediate: Binable<any> | null };
+type BaseInstruction = { string: string; immediate: Binable<any> | null };
 
 function baseInstruction<Immediate>(
-  name: string,
+  string: string,
   immediate: Binable<Immediate> | null = null,
   validate?: (context: Context, immediate: Immediate) => void
 ) {
-  let instruction = { name, immediate };
+  let instruction = { string, immediate };
   function i(ctx: Context, immediate: Immediate) {
     validate?.(ctx, immediate);
-    ctx.instructions.push({ name, immediate });
+    ctx.instructions.push({ string, immediate });
   }
   return Object.assign(i, instruction);
 }
@@ -108,7 +104,7 @@ function instruction<
   Results extends Tuple<ValueType>,
   Immediate extends any
 >(
-  name: string,
+  string: string,
   immediate: Binable<Immediate> | null,
   args: Arguments,
   results: Results,
@@ -122,18 +118,18 @@ function instruction<
   let instruction_ = Object.assign(
     function ({ stack, instructions }: Context, immediate: Immediate) {
       apply(stack, args, results);
-      instructions.push({ name, immediate });
+      instructions.push({ string, immediate });
     },
-    { name, args, results, immediate, execute }
+    { string, args, results, immediate, execute }
   );
   return instruction_;
 }
 
-type SimpleInstruction<I> = { name: string; immediate: I };
+type SimpleInstruction<I> = { string: string; immediate: I };
 type Instruction = SimpleInstruction<any>;
 const Instruction = Binable<Instruction>({
   toBytes(instr) {
-    let opcode = instructionToOpcode[instr.name];
+    let opcode = instructionToOpcode[instr.string];
     if (opcode === undefined) throw Error("invalid instruction name");
     let instrObject = opcodes[opcode];
     let imm: number[] = [];
@@ -147,9 +143,9 @@ const Instruction = Binable<Instruction>({
     let instr = opcodes[opcode];
     if (instr === undefined) throw Error("invalid opcode");
     if (instr.immediate === null)
-      return [{ name: instr.name, immediate: null }, offset];
+      return [{ string: instr.string, immediate: null }, offset];
     let [immediate, end] = instr.immediate.readBytes(bytes, offset);
-    return [{ name: instr.name, immediate }, end];
+    return [{ string: instr.string, immediate }, end];
   },
 });
 
@@ -175,12 +171,12 @@ const Expression = Binable<Expression>({
 function apply(stack: ValueType[], args: ValueType[], results: ValueType[]) {
   for (let arg of args) {
     if (stack.length === 0) {
-      throw Error(`Stack is empty, tried to pop '${arg}'.`);
+      throw Error(`Stack is empty, tried to pop '${arg.kind}'.`);
     }
     let stackArg = stack.pop();
     if (stackArg!.kind !== arg.kind) {
       throw Error(
-        `Last stack variable is '${stackArg}', tried to pop '${arg}'.`
+        `Last stack variable is '${stackArg?.kind}', tried to pop '${arg.kind}'.`
       );
     }
   }
@@ -195,7 +191,7 @@ function invertOpcodes() {
   for (let key in opcodes) {
     let code = Number(key);
     let instruction = opcodes[code as K];
-    map[instruction.name] = code;
+    map[instruction.string] = code;
   }
   return map;
 }
@@ -211,7 +207,7 @@ function popValue(stack: ValueType[], expected: ValueType) {
 type Context = {
   stack: ValueType[];
   instructions: Instruction[];
-  locals: ConcreteLocal<any>[];
+  locals: Local<any>[];
 };
 
 type Tuple<T> = [T, ...T[]] | [];

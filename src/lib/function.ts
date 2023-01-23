@@ -20,9 +20,11 @@ function func<
 >(
   ctx: FunctionContext,
   name: string,
-  args: Arguments,
-  results: ValueType[],
-  locals: Locals,
+  {
+    args,
+    locals,
+    results,
+  }: { args: Arguments; locals: Locals; results: ValueType[] },
   // TODO: make this a nice record with the extended mapping syntax
   run: (args: ToConcrete<Arguments>, locals: ToConcrete<Locals>) => void
 ) {
@@ -33,15 +35,13 @@ function func<
   } = ctx;
   ctx.instructions = [];
   ctx.stack = [];
-  let concreteArgs = args.map((arg, i) => ({
-    ...arg,
+  let concreteArgs = args.map((_, i) => ({
     index: i,
   })) as ToConcrete<Arguments>;
-  let concreteLocals = locals.map((local, i) => ({
-    ...local,
+  let concreteLocals = locals.map((_, i) => ({
     index: i + args.length,
   })) as ToConcrete<Locals>;
-  ctx.locals = [...concreteArgs, ...concreteLocals];
+  ctx.locals = [...args, ...locals];
   run(concreteArgs, concreteLocals);
   let { stack, instructions } = ctx;
   let n = stack.length;
@@ -53,7 +53,11 @@ function func<
   stack.reverse();
   let ok = stack.every((s, i) => results[i].kind === s.kind);
   if (!ok)
-    throw Error(`${name}: Expected return types [${results}], got [${stack}]`);
+    throw Error(
+      `${name}: Expected return types [${results.map(
+        (r) => r.kind
+      )}], got [${stack.map((s) => s.kind)}]`
+    );
   let index = ctx.functions.length;
   let funcObj: Func = {
     index,
@@ -81,7 +85,9 @@ function func<
     }
     if (!ok) {
       throw Error(
-        `${name}: Expected input types [${args}], got stack [${oldStack}]`
+        `${name}: Expected input types [${args.map(
+          (a) => a.type.kind
+        )}], got stack [${oldStack.map((s) => s.kind)}]`
       );
     }
     ops.call(ctx, index);
@@ -93,7 +99,7 @@ function func<
 }
 
 type ToConcrete<T extends Tuple<Local<any>>> = {
-  [i in keyof T]: { name: T[i]["name"]; type: T[i]["type"]; index: number };
+  [i in keyof T]: { index: number };
 } & any[];
 
 // type RecordFromLocals<T extends Tuple<Local>> =
