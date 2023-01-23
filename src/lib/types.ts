@@ -2,7 +2,7 @@ import { Binable, Bool, record, withByteCode } from "./binable.js";
 import { U32, vec } from "./immediate.js";
 
 export { i32t, i64t, f32t, f64t, funcref, externref };
-export { ValueType, JSValue };
+export { ValueType, FunctionType, JSValue, ValueTypeLiteral };
 
 type RefTypeLiteral = "funcref" | "externref";
 type ValueTypeLiteral = "i32" | "i64" | "f32" | "f64" | "v128" | RefTypeLiteral;
@@ -36,6 +36,12 @@ const valueTypes: Record<ValueTypeLiteral, number> = {
   funcref: 0x70,
   externref: 0x6f,
 };
+type i32t = Type<"i32">;
+type i64t = Type<"i64">;
+type f32t = Type<"f32">;
+type f64t = Type<"f64">;
+type funcref = Type<"funcref">;
+type externref = Type<"i64">;
 const i32t = valueType("i32");
 const i64t = valueType("i64");
 const f32t = valueType("f32");
@@ -100,13 +106,13 @@ const MemoryType = record<MemoryType>({ limits: Limits }, ["limits"]);
 type TableType = { limits: Limits; element: RefType };
 const TableType = record<TableType>({ element: RefType, limits: Limits }, []);
 
-type FunctionType = { parameters: ValueType[]; results: ValueType[] };
+type FunctionType = { args: ValueType[]; results: ValueType[] };
 const FunctionType = withByteCode(
   0x60,
-  record<FunctionType>(
-    { parameters: vec(ValueType), results: vec(ValueType) },
-    ["parameters", "results"]
-  )
+  record<FunctionType>({ args: vec(ValueType), results: vec(ValueType) }, [
+    "args",
+    "results",
+  ])
 );
 
 function invertRecord<K extends string, V>(record: Record<K, V>): Map<V, K> {
