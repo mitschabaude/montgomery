@@ -1,7 +1,7 @@
 import { Binable, Bool, record, withByteCode } from "./binable.js";
 import { U32, vec } from "./immediate.js";
 
-export { i32, i64, f32, f64, funcref, externref };
+export { i32t, i64t, f32t, f64t, funcref, externref };
 export { ValueType, JSValue };
 
 type RefTypeLiteral = "funcref" | "externref";
@@ -36,10 +36,10 @@ const valueTypes: Record<ValueTypeLiteral, number> = {
   funcref: 0x70,
   externref: 0x6f,
 };
-const i32 = valueType("i32");
-const i64 = valueType("i64");
-const f32 = valueType("f32");
-const f64 = valueType("f64");
+const i32t = valueType("i32");
+const i64t = valueType("i64");
+const f32t = valueType("f32");
+const f64t = valueType("f64");
 const funcref = valueType("funcref");
 const externref = valueType("externref");
 
@@ -73,8 +73,8 @@ const RefType: Binable<RefType> = Binable<RefType>({
 
 type GlobalType = { value: ValueType; mutable: boolean };
 const GlobalType = record<GlobalType>({ value: ValueType, mutable: Bool }, [
-  "mutable",
   "value",
+  "mutable",
 ]);
 
 type Limits = { min: number; max?: number };
