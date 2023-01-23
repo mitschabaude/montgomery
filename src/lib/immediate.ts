@@ -27,34 +27,37 @@ function vec<T>(Element: Binable<T>) {
 
 const U32 = Binable<u32>({
   toBytes(x: u32) {
-    return uLEB128(x);
+    return toULEB128(x);
   },
   readBytes(bytes, offset): [u32, number] {
-    throw "todo";
+    let [x, end] = fromULEB128(bytes, offset);
+    return [Number(x), end];
   },
 });
 
 const I32 = Binable<i32>({
   toBytes(x: i32) {
-    return sLEB128(x);
+    return toSLEB128(x);
   },
   readBytes(bytes, offset): [i32, number] {
-    throw "todo";
+    let [x, end] = fromSLEB128(32, bytes, offset);
+    return [Number(x), end];
   },
 });
 
 const S33 = Binable<u32>({
   toBytes(x: u32) {
-    return sLEB128(x);
+    return toSLEB128(x);
   },
   readBytes(bytes, offset): [u32, number] {
-    throw "todo";
+    let [x, end] = fromSLEB128(33, bytes, offset);
+    return [Number(x), end];
   },
 });
 
 // https://en.wikipedia.org/wiki/LEB128
 
-function uLEB128(x0: bigint | number) {
+function toULEB128(x0: bigint | number) {
   let x = BigInt(x0);
   let bytes = [];
   while (true) {
@@ -66,8 +69,19 @@ function uLEB128(x0: bigint | number) {
   }
   return bytes;
 }
+function fromULEB128(bytes: number[], offset: number) {
+  let x = 0n;
+  let shift = 0n;
+  while (true) {
+    let byte = bytes[offset++];
+    x |= BigInt(byte & 0b0111_1111) << shift;
+    if (byte & 0b1000_0000) break;
+    shift += 7n;
+  }
+  return [x, offset] as [bigint, number];
+}
 
-function sLEB128(x0: bigint | number): number[] {
+function toSLEB128(x0: bigint | number): number[] {
   let x = BigInt(x0);
   let bytes = [];
   while (true) {
@@ -82,4 +96,20 @@ function sLEB128(x0: bigint | number): number[] {
     }
     bytes.push(byte | 0b1000_0000);
   }
+}
+
+function fromSLEB128(bitSize: number, bytes: number[], offset: number) {
+  let x = 0n;
+  let shift = 0n;
+  let byte: number;
+  while (true) {
+    byte = bytes[offset++];
+    x |= BigInt(byte & 0b0111_1111) << shift;
+    shift += 7n;
+    if ((byte & 0b1000_0000) === 0) break;
+  }
+  if (shift < bitSize && byte & 0b0100_0000) {
+    x |= -1n << shift;
+  }
+  return [x, offset] as [bigint, number];
 }
