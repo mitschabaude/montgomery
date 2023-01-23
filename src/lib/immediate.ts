@@ -1,11 +1,29 @@
 import { Binable } from "./binable.js";
 
-export { U32, I32, S33 };
+export { vec, U32, I32, S33 };
 
 type u32 = number;
 type i32 = number;
-type u64 = bigint;
-type i64 = bigint;
+
+function vec<T>(Element: Binable<T>) {
+  return Binable<T[]>({
+    toBytes(vec) {
+      let length = U32.toBytes(vec.length);
+      let elements = vec.map((t) => Element.toBytes(t));
+      return length.concat(elements.flat());
+    },
+    readBytes(bytes, start) {
+      let [length, offset] = U32.readBytes(bytes, start);
+      let elements = [];
+      for (let i = 0; i < length; i++) {
+        let element: T;
+        [element, offset] = Element.readBytes(bytes, offset);
+        elements.push(element);
+      }
+      return [elements, offset];
+    },
+  });
+}
 
 const U32 = Binable<u32>({
   toBytes(x: u32) {

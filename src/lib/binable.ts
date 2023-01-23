@@ -47,15 +47,13 @@ const Bool = Binable<boolean>({
   },
 });
 
-function withByteCode<T>(binable: Binable<T>, byte: number): Binable<T> {
+function withByteCode<T>(code: number, binable: Binable<T>): Binable<T> {
   return Binable({
     toBytes(t) {
-      let bytes = binable.toBytes(t);
-      bytes.unshift(byte);
-      return bytes;
+      return [code].concat(binable.toBytes(t));
     },
     readBytes(bytes, offset) {
-      offset++;
+      if (bytes[offset++] !== code) throw Error("invalid start byte");
       return binable.readBytes(bytes, offset);
     },
   });

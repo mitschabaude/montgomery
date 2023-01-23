@@ -1,12 +1,5 @@
-import {
-  Binable,
-  Bool,
-  record,
-  Tuple,
-  tuple,
-  withByteCode,
-} from "./binable.js";
-import { U32 } from "./immediate.js";
+import { Binable, Bool, record, withByteCode } from "./binable.js";
+import { U32, vec } from "./immediate.js";
 
 export { i32, i64, f32, f64, funcref, externref };
 export { ValueType, JSValue };
@@ -108,20 +101,13 @@ type TableType = { limits: Limits; element: RefType };
 const TableType = record<TableType>({ element: RefType, limits: Limits }, []);
 
 type FunctionType = { parameters: ValueType[]; results: ValueType[] };
-const FunctionType = (
-  parameters: Tuple<Binable<ValueType>>,
-  results: Tuple<Binable<ValueType>>
-) =>
-  withByteCode(
-    record<FunctionType>(
-      {
-        parameters: tuple<Tuple<ValueType>>(parameters),
-        results: tuple<Tuple<ValueType>>(results),
-      },
-      ["parameters", "results"]
-    ),
-    0x60
-  );
+const FunctionType = withByteCode(
+  0x60,
+  record<FunctionType>(
+    { parameters: vec(ValueType), results: vec(ValueType) },
+    ["parameters", "results"]
+  )
+);
 
 function invertRecord<K extends string, V>(record: Record<K, V>): Map<V, K> {
   let map = new Map<V, K>();
