@@ -75,7 +75,7 @@ function fromULEB128(bytes: number[], offset: number) {
   while (true) {
     let byte = bytes[offset++];
     x |= BigInt(byte & 0b0111_1111) << shift;
-    if (byte & 0b1000_0000) break;
+    if ((byte & 0b1000_0000) === 0) break;
     shift += 7n;
   }
   return [x, offset] as [bigint, number];

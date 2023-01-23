@@ -34,8 +34,11 @@ let exportedFunc = func(
   }
 );
 
-let bytes = Expression.toBytes(ctx.functions[0].expression);
+let e = ctx.functions[0].expression;
+console.log(e);
+let bytes = Expression.toBytes(e);
 console.log(bytes);
-let e = Expression.fromBytes(bytes);
+e = Expression.fromBytes(bytes);
+console.log(e);
 
-console.dir(ctx, { depth: Infinity });
+// console.dir(ctx, { depth: Infinity });

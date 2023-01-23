@@ -164,7 +164,7 @@ const Expression = Binable<Expression>({
       [instr, offset] = Instruction.readBytes(bytes, offset);
       instructions.push(instr);
     }
-    return [instructions, offset++];
+    return [instructions, offset + 1];
   },
 });
 
