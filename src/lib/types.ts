@@ -2,7 +2,7 @@ import { Binable, Bool, record, withByteCode } from "./binable.js";
 import { U32, vec } from "./immediate.js";
 
 export { i32t, i64t, f32t, f64t, funcref, externref };
-export { ValueType, FunctionType, JSValue, ValueTypeLiteral };
+export { ValueType, FunctionType, JSValue, ValueTypeLiteral, invertRecord };
 
 type RefTypeLiteral = "funcref" | "externref";
 type ValueTypeLiteral = "i32" | "i64" | "f32" | "f64" | "v128" | RefTypeLiteral;

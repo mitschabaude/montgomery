@@ -27,7 +27,7 @@ function Binable<T>({
 }
 
 const Empty = Binable<null>({
-  toBytes(_t) {
+  toBytes() {
     return [];
   },
   readBytes(_bytes, offset) {
