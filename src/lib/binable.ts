@@ -1,4 +1,4 @@
-export { Binable, tuple, record, withByteCode, Empty, Bool, Tuple };
+export { Binable, tuple, record, iso, withByteCode, Empty, Bool, Tuple };
 
 type Binable<T> = {
   toBytes(value: T): number[];
@@ -105,6 +105,21 @@ function tuple<Types extends Tuple<any>>(binables: {
         values.push(value);
       }
       return [values as Types, offset];
+    },
+  });
+}
+
+function iso<T, S>(
+  binable: Binable<T>,
+  { to, from }: { to(s: S): T; from(t: T): S }
+): Binable<S> {
+  return Binable({
+    toBytes(s: S) {
+      return binable.toBytes(to(s));
+    },
+    readBytes(bytes, offset) {
+      let [value, end] = binable.readBytes(bytes, offset);
+      return [from(value), end];
     },
   });
 }

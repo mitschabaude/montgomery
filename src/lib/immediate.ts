@@ -1,6 +1,6 @@
 import { Binable } from "./binable.js";
 
-export { vec, U32, I32, S33 };
+export { vec, withByteLength, U32, I32, S33 };
 
 type u32 = number;
 type i32 = number;
@@ -21,6 +21,21 @@ function vec<T>(Element: Binable<T>) {
         elements.push(element);
       }
       return [elements, offset];
+    },
+  });
+}
+
+function withByteLength<T>(binable: Binable<T>): Binable<T> {
+  return Binable({
+    toBytes(t) {
+      let bytes = binable.toBytes(t);
+      return U32.toBytes(bytes.length).concat(bytes);
+    },
+    readBytes(bytes, offset) {
+      let [length, start] = U32.readBytes(bytes, offset);
+      let [value, end] = binable.readBytes(bytes, start);
+      if (end !== start + length) throw Error("invalid length encoding");
+      return [value, end];
     },
   });
 }
