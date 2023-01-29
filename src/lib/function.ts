@@ -9,13 +9,14 @@ import {
 } from "./types.js";
 import { WithContext } from "./with-context.js";
 
-export { func, FunctionContext, Code };
+export { func, Func, FunctionContext, Code };
 export { TypeSection, FuncSection, CodeSection };
 
 type Func = {
+  index: number;
   type: FunctionType;
   locals: ValueType[];
-  expression: Expression;
+  body: Expression;
 };
 
 type FunctionContext = {
@@ -68,8 +69,9 @@ function func<
     );
   let index = ctx.functions.length;
   let funcObj: Func = {
+    index,
     type: { args: args.map((a) => a.type), results },
-    expression: instructions,
+    body: instructions,
     locals: locals.map((l) => l.type),
   };
   ctx.functions.push(funcObj);
@@ -128,14 +130,15 @@ const Locals = iso<[number, ValueType][], ValueType[]>(CompressedLocals, {
 });
 
 type TypeSection = FunctionType[];
-const TypeSection: WithContext<undefined, Binable<FunctionType[]>> = () =>
+const TypeSection: WithContext<{}, Binable<FunctionType[]>> = () =>
   vec(FunctionType);
 
 // TODO: actually, the context should be the import section as well
 type FuncSection = FunctionType[];
-const FuncSection: WithContext<TypeSection, Binable<FunctionType[]>> = (
-  typeSection: TypeSection
-) =>
+const FuncSection: WithContext<
+  { typeSection: TypeSection },
+  Binable<FunctionType[]>
+> = ({ typeSection }) =>
   iso(vec(U32), {
     to(funcTypes: FunctionType[]) {
       return funcTypes.map((_, i) => i);
@@ -145,22 +148,24 @@ const FuncSection: WithContext<TypeSection, Binable<FunctionType[]>> = (
     },
   });
 
-type Code = { locals: ValueType[]; expression: Expression };
+type Code = { locals: ValueType[]; body: Expression };
 const Code = withByteLength(
-  record({ locals: Locals, expression: Expression }, ["locals", "expression"])
+  record({ locals: Locals, body: Expression }, ["locals", "body"])
 );
 type CodeSection = Func[];
-const CodeSection: WithContext<FuncSection, Binable<Func[]>> = (
-  funcSection: FuncSection
-) =>
+const CodeSection: WithContext<
+  { funcSection: FuncSection },
+  Binable<Func[]>
+> = ({ funcSection }) =>
   iso(vec(Code), {
     to(funcs: Func[]) {
-      return funcs.map(({ locals, expression }) => ({ locals, expression }));
+      return funcs.map(({ locals, body }) => ({ locals, body }));
     },
     from(codes: Code[]) {
-      return codes.map(({ locals, expression }, i) => ({
+      return codes.map(({ locals, body }, i) => ({
+        index: i,
         locals,
-        expression,
+        body,
         type: funcSection[i],
       }));
     },

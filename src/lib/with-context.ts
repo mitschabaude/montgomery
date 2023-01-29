@@ -1,6 +1,6 @@
 import { vec, withByteLength } from "./immediate.js";
 
-export { WithContext, WithoutContext, BinableWithContext };
+export { WithContext, BinableWithContext };
 
 type WithContext<Context, T> = (ctx: Context) => T;
 function WithContext<C>() {
@@ -25,12 +25,10 @@ function WithContext<C>() {
   };
 }
 
-const WithoutContext = WithContext<undefined>();
-
 function BinableWithContext<C>() {
   let W = WithContext<C>();
   return {
-    return: WithoutContext.return,
+    return: W.return,
     vec: W.returnMap(vec),
     withByteLength: W.returnMap(withByteLength),
   };

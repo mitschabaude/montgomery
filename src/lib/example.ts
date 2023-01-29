@@ -34,7 +34,7 @@ let exportedFunc = func(
   }
 );
 
-let e = ctx.functions[0].expression;
+let e = ctx.functions[0].body;
 console.log(e);
 let bytes = Expression.toBytes(e);
 console.log(bytes);
