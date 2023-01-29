@@ -162,6 +162,9 @@ const CodeSection: WithContext<
       return funcs.map(({ locals, body }) => ({ locals, body }));
     },
     from(codes: Code[]) {
+      if (codes.length !== funcSection.length) {
+        throw Error("function section and code section lengths do not match");
+      }
       return codes.map(({ locals, body }, i) => ({
         index: i,
         locals,

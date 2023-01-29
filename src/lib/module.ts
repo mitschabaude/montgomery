@@ -4,14 +4,22 @@ import { U32, vec } from "./immediate.js";
 import { MemoryType } from "./types.js";
 import { BinableWithContext, WithContext } from "./with-context.js";
 
-export { FullContext };
+export { Module };
 
-type FullContext = {
+type Module = {
   typeSection: TypeSection;
   funcSection: FuncSection;
   memorySection: MemoryType[];
-  startSection: Func;
+  startSection?: Func;
   codeSection: CodeSection;
+};
+
+const emptyModule: Module = {
+  typeSection: [],
+  funcSection: [],
+  memorySection: [],
+  codeSection: [],
+  startSection: undefined,
 };
 
 const EmptyContext = BinableWithContext<undefined>();
@@ -66,9 +74,9 @@ const Section: WithContext<
   Binable<Section>
 > = ({ currentId, ctx }) =>
   Binable({
-    toBytes(t) {
-      let binable = (sections[t.id] as WithContext<any, Binable<any>>)(ctx);
-      return [t.id as number].concat(binable.toBytes(t.content as any));
+    toBytes({ id, content }) {
+      let binable = (sections[id] as WithContext<any, Binable<any>>)(ctx);
+      return [id, ...binable.toBytes(content as any)];
     },
     readBytes(bytes, offset) {
       let id = bytes[offset++] as keyof Sections;
@@ -79,3 +87,9 @@ const Section: WithContext<
       return [{ id, content }, end] as any;
     },
   });
+
+// const Module: Binable<Module> = Binable({
+// toBytes(t) {
+//   let ctx = { ...emptyModule };
+// },
+// });
