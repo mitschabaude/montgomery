@@ -2,8 +2,8 @@ import { Binable } from "./binable.js";
 
 export { vec, withByteLength, U32, I32, S33 };
 
-type u32 = number;
-type i32 = number;
+type U32 = number;
+type I32 = number;
 
 function vec<T>(Element: Binable<T>) {
   return Binable<T[]>({
@@ -40,31 +40,31 @@ function withByteLength<T>(binable: Binable<T>): Binable<T> {
   });
 }
 
-const U32 = Binable<u32>({
-  toBytes(x: u32) {
+const U32 = Binable<U32>({
+  toBytes(x: U32) {
     return toULEB128(x);
   },
-  readBytes(bytes, offset): [u32, number] {
+  readBytes(bytes, offset): [U32, number] {
     let [x, end] = fromULEB128(bytes, offset);
     return [Number(x), end];
   },
 });
 
-const I32 = Binable<i32>({
-  toBytes(x: i32) {
+const I32 = Binable<I32>({
+  toBytes(x: I32) {
     return toSLEB128(x);
   },
-  readBytes(bytes, offset): [i32, number] {
+  readBytes(bytes, offset): [I32, number] {
     let [x, end] = fromSLEB128(32, bytes, offset);
     return [Number(x), end];
   },
 });
 
-const S33 = Binable<u32>({
-  toBytes(x: u32) {
+const S33 = Binable<U32>({
+  toBytes(x: U32) {
     return toSLEB128(x);
   },
-  readBytes(bytes, offset): [u32, number] {
+  readBytes(bytes, offset): [U32, number] {
     let [x, end] = fromSLEB128(33, bytes, offset);
     return [Number(x), end];
   },

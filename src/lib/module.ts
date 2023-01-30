@@ -1,8 +1,7 @@
-import { Binable, iso } from "./binable.js";
-import { CodeSection, Func, FuncSection, TypeSection } from "./function.js";
-import { U32, vec } from "./immediate.js";
-import { MemoryType } from "./types.js";
-import { BinableWithContext, WithContext } from "./with-context.js";
+import { Binable } from "./binable.js";
+import { Code, Func } from "./function.js";
+import { U32, vec, withByteLength } from "./immediate.js";
+import { FunctionType, MemoryType } from "./types.js";
 
 export { Module };
 
@@ -13,31 +12,28 @@ type Module = {
   startSection?: Func;
   codeSection: CodeSection;
 };
-
-const emptyModule: Module = {
+const emptyModule = {
   typeSection: [],
   funcSection: [],
   memorySection: [],
   codeSection: [],
   startSection: undefined,
-};
+} satisfies Module;
 
-const EmptyContext = BinableWithContext<undefined>();
-const AnyContext = BinableWithContext<any>();
+type TypeSection = FunctionType[];
+const TypeSection = vec(FunctionType) satisfies Binable<TypeSection>;
 
-const MemorySection = EmptyContext.return(vec(MemoryType));
-const StartSection: WithContext<
-  { codeSection: CodeSection },
-  Binable<Func>
-> = ({ codeSection }) =>
-  iso(U32, {
-    to(func) {
-      return func.index;
-    },
-    from(index) {
-      return codeSection[index];
-    },
-  });
+type FuncSection = U32[];
+const FuncSection = vec(U32) satisfies Binable<FuncSection>;
+
+type CodeSection = Code[];
+const CodeSection = vec(Code) satisfies Binable<CodeSection>;
+
+type MemorySection = MemoryType[];
+const MemorySection = vec(MemoryType) satisfies Binable<MemorySection>;
+
+type StartSection = U32;
+const StartSection = U32 satisfies Binable<StartSection>;
 
 const sections = {
   // 0: CustomSection,
@@ -54,39 +50,33 @@ const sections = {
   // 11: DataSection,
   // 12: DataCountSection,
 };
+
 type Sections = typeof sections;
 type WithId<T extends Record<any, any>> = {
-  [K in keyof T]: {
-    id: K;
-    content: T[K] extends WithContext<any, Binable<infer U>> ? U : never;
-  };
+  [K in keyof T]: { id: K; content: T[K] extends Binable<infer U> ? U : never };
 }[keyof T];
 type Section = WithId<Sections>;
 
 for (let id in sections) {
-  sections[id as any as keyof Sections] = AnyContext.withByteLength(
+  sections[id as any as keyof Sections] = withByteLength(
     sections[id as any as keyof Sections] as any
   ) as any;
 }
 
-const Section: WithContext<
-  { currentId: number; ctx: any },
-  Binable<Section>
-> = ({ currentId, ctx }) =>
-  Binable({
-    toBytes({ id, content }) {
-      let binable = (sections[id] as WithContext<any, Binable<any>>)(ctx);
-      return [id, ...binable.toBytes(content as any)];
-    },
-    readBytes(bytes, offset) {
-      let id = bytes[offset++] as keyof Sections;
-      if (id <= currentId) throw Error("invalid section id");
-      let section = sections[id] as WithContext<any, Binable<any>>;
-      if (section === undefined) throw Error("invalid section id");
-      let [content, end] = section(ctx).readBytes(bytes, offset);
-      return [{ id, content }, end] as any;
-    },
-  });
+// const Section: Binable<Section> = Binable({
+//   toBytes({ id, content }) {
+//     let binable = sections[id];
+//     return [id, ...binable.toBytes(content as any)];
+//   },
+//   readBytes(bytes, offset) {
+//     let id = bytes[offset++] as keyof Sections;
+//     if (id <= currentId) throw Error("invalid section id");
+//     let section = sections[id] as WithContext<any, Binable<any>>;
+//     if (section === undefined) throw Error("invalid section id");
+//     let [content, end] = section(ctx).readBytes(bytes, offset);
+//     return [{ id, content }, end] as any;
+//   },
+// });
 
 // const Module: Binable<Module> = Binable({
 // toBytes(t) {

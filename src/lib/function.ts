@@ -7,10 +7,8 @@ import {
   ValueType,
   ValueTypeLiteral,
 } from "./types.js";
-import { WithContext } from "./with-context.js";
 
 export { func, Func, FunctionContext, Code };
-export { TypeSection, FuncSection, CodeSection };
 
 type Func = {
   index: number;
@@ -129,50 +127,10 @@ const Locals = iso<[number, ValueType][], ValueType[]>(CompressedLocals, {
   },
 });
 
-type TypeSection = FunctionType[];
-const TypeSection: WithContext<{}, Binable<FunctionType[]>> = () =>
-  vec(FunctionType);
-
-// TODO: actually, the context should be the import section as well
-type FuncSection = FunctionType[];
-const FuncSection: WithContext<
-  { typeSection: TypeSection },
-  Binable<FunctionType[]>
-> = ({ typeSection }) =>
-  iso(vec(U32), {
-    to(funcTypes: FunctionType[]) {
-      return funcTypes.map((_, i) => i);
-    },
-    from(typeIndices: number[]) {
-      return typeIndices.map((i) => typeSection[i]);
-    },
-  });
-
 type Code = { locals: ValueType[]; body: Expression };
 const Code = withByteLength(
   record({ locals: Locals, body: Expression }, ["locals", "body"])
-);
-type CodeSection = Func[];
-const CodeSection: WithContext<
-  { funcSection: FuncSection },
-  Binable<Func[]>
-> = ({ funcSection }) =>
-  iso(vec(Code), {
-    to(funcs: Func[]) {
-      return funcs.map(({ locals, body }) => ({ locals, body }));
-    },
-    from(codes: Code[]) {
-      if (codes.length !== funcSection.length) {
-        throw Error("function section and code section lengths do not match");
-      }
-      return codes.map(({ locals, body }, i) => ({
-        index: i,
-        locals,
-        body,
-        type: funcSection[i],
-      }));
-    },
-  });
+) satisfies Binable<Code>;
 
 type ToConcrete<T extends Tuple<Local<any>>> = {
   [i in keyof T]: { index: number };
