@@ -68,9 +68,12 @@ function func<
   let index = ctx.functions.length;
   let funcObj: Func = {
     index,
-    type: { args: args.map((a) => a.type), results },
+    type: {
+      args: args.map((a) => valueType(a.type.kind)),
+      results: results.map((r) => valueType(r.kind)),
+    },
     body: instructions,
-    locals: locals.map((l) => l.type),
+    locals: locals.map((l) => valueType(l.type.kind)),
   };
   ctx.functions.push(funcObj);
   ctx.stack = oldStack;

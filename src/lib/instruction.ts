@@ -1,4 +1,4 @@
-import { Binable, Empty, record } from "./binable.js";
+import { Binable, One, record } from "./binable.js";
 import { I32, U32 } from "./immediate.js";
 import { i32t, i64t, f32t, f64t, JSValue, ValueType } from "./types.js";
 
@@ -16,7 +16,7 @@ export {
 };
 
 // control
-let unreachable = baseInstruction("unreachable", Empty);
+let unreachable = baseInstruction("unreachable", One);
 let call = baseInstruction("call", U32);
 let control = { unreachable, call };
 
@@ -61,7 +61,7 @@ type f32 = f32t;
 type f64 = f64t;
 const i32 = Object.assign(i32t, {
   const: instruction("i32.const", I32, [], [i32t], (_c, i) => [i]),
-  add: instruction("i32.add", Empty, [i32t, i32t], [i32t], (_c, _i, x, y) => [
+  add: instruction("i32.add", One, [i32t, i32t], [i32t], (_c, _i, x, y) => [
     x + y,
   ]),
 });
@@ -80,15 +80,16 @@ const opcodes: Record<number, BaseInstruction> = {
 
   // variable
   0x20: local.get,
+  0x21: local.set,
 };
 
 const instructionToOpcode = invertOpcodes();
 
-type BaseInstruction = { string: string; immediate: Binable<any> | null };
+type BaseInstruction = { string: string; immediate: Binable<any> | undefined };
 
 function baseInstruction<Immediate>(
   string: string,
-  immediate: Binable<Immediate> | null = null,
+  immediate: Binable<Immediate> | undefined = undefined,
   validate?: (context: Context, immediate: Immediate) => void
 ) {
   let instruction = { string, immediate };
@@ -105,7 +106,7 @@ function instruction<
   Immediate extends any
 >(
   string: string,
-  immediate: Binable<Immediate> | null,
+  immediate: Binable<Immediate> | undefined,
   args: Arguments,
   results: Results,
   execute: (
@@ -114,7 +115,7 @@ function instruction<
     ...args: JSValues<Arguments>
   ) => JSValues<Results>
 ) {
-  immediate = immediate === Empty ? null : immediate;
+  immediate = immediate === One ? undefined : immediate;
   let instruction_ = Object.assign(
     function ({ stack, instructions }: Context, immediate: Immediate) {
       apply(stack, args, results);
@@ -133,7 +134,7 @@ const Instruction = Binable<Instruction>({
     if (opcode === undefined) throw Error("invalid instruction name");
     let instrObject = opcodes[opcode];
     let imm: number[] = [];
-    if (instrObject.immediate !== null) {
+    if (instrObject.immediate !== undefined) {
       imm = instrObject.immediate.toBytes(instr.immediate);
     }
     return [opcode, ...imm];
@@ -142,8 +143,8 @@ const Instruction = Binable<Instruction>({
     let opcode: number = bytes[offset++];
     let instr = opcodes[opcode];
     if (instr === undefined) throw Error("invalid opcode");
-    if (instr.immediate === null)
-      return [{ string: instr.string, immediate: null }, offset];
+    if (instr.immediate === undefined)
+      return [{ string: instr.string, immediate: undefined }, offset];
     let [immediate, end] = instr.immediate.readBytes(bytes, offset);
     return [{ string: instr.string, immediate }, end];
   },
