@@ -1,6 +1,6 @@
 import { Binable } from "./binable.js";
 
-export { vec, withByteLength, U32, I32, S33 };
+export { vec, withByteLength, Name, U32, I32, S33 };
 
 type U32 = number;
 type I32 = number;
@@ -24,6 +24,19 @@ function vec<T>(Element: Binable<T>) {
     },
   });
 }
+
+const Name = Binable<string>({
+  toBytes(string: string) {
+    return [...new TextEncoder().encode(string)];
+  },
+  readBytes(bytes, start) {
+    let [length, offset] = U32.readBytes(bytes, start);
+    let end = offset + length;
+    let stringBytes = Uint8Array.from(bytes.slice(offset, end));
+    let string = new TextDecoder().decode(stringBytes);
+    return [string, end];
+  },
+});
 
 function withByteLength<T>(binable: Binable<T>): Binable<T> {
   return Binable({

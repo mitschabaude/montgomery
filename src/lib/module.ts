@@ -31,20 +31,24 @@ type ParsedModule = {
   codeSection: CodeSection;
 };
 
+function section<T>(code: number, b: Binable<T>) {
+  return withByteCode(code, withByteLength(b));
+}
+
 type TypeSection = FunctionType[];
-let TypeSection = vec(FunctionType) satisfies Binable<TypeSection>;
+let TypeSection: Binable<TypeSection> = section(1, vec(FunctionType));
 
 type FuncSection = U32[];
-let FuncSection = vec(U32) satisfies Binable<FuncSection>;
-
-type CodeSection = Code[];
-let CodeSection = vec(Code) satisfies Binable<CodeSection>;
+let FuncSection: Binable<FuncSection> = section(3, vec(U32));
 
 type MemorySection = MemoryType[];
-let MemorySection = vec(MemoryType) satisfies Binable<MemorySection>;
+let MemorySection: Binable<MemorySection> = section(5, vec(MemoryType));
 
 type StartSection = U32;
-let StartSection = U32 satisfies Binable<StartSection>;
+let StartSection: Binable<StartSection> = section(8, U32);
+
+type CodeSection = Code[];
+let CodeSection: Binable<CodeSection> = section(10, vec(Code));
 
 // 0: CustomSection,
 // 1: TypeSection,
@@ -59,12 +63,6 @@ let StartSection = U32 satisfies Binable<StartSection>;
 // 10: CodeSection,
 // 11: DataSection,
 // 12: DataCountSection,
-
-TypeSection = withByteCode(1, withByteLength(TypeSection));
-FuncSection = withByteCode(3, withByteLength(FuncSection));
-MemorySection = withByteCode(5, withByteLength(MemorySection));
-StartSection = withByteCode(8, withByteLength(StartSection));
-CodeSection = withByteCode(10, withByteLength(CodeSection));
 
 const Version = iso(tuple([Byte, Byte, Byte, Byte]), {
   to(n: number) {
@@ -108,7 +106,7 @@ ParsedModule = withValidation(
     if (memorySection.length > 1) {
       throw Error("multiple memories are not allowed");
     }
-    if (startSection && !funcSection.includes(startSection)) {
+    if (startSection !== undefined && !funcSection.includes(startSection)) {
       throw Error("start function index must be included in function section");
     }
   }

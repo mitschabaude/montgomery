@@ -2,6 +2,7 @@ export {
   Binable,
   tuple,
   record,
+  named,
   iso,
   withByteCode,
   withPreamble,
@@ -15,6 +16,8 @@ export {
   and,
   orUndefined,
   orDefault,
+  byteEnum,
+  Zero as TODO,
 };
 
 type Binable<T> = {
@@ -133,6 +136,16 @@ function record<Types extends Record<string, any>>(
     },
   });
 }
+function named<K extends string, T>(binables: {
+  [i in K]-?: Binable<T>;
+}) {
+  let keys = Object.keys(binables) as Tuple<K>;
+  if (keys.length !== 1)
+    throw Error("named: input must be a record of exactly one key");
+  return record<{
+    [i in K]: T;
+  }>(binables, keys);
+}
 
 function tuple<Types extends Tuple<any>>(binables: {
   [i in keyof Types]: Binable<Types[i]>;
@@ -201,13 +214,15 @@ function or<Types extends Tuple<any>>(
     | {
         [i in keyof Types]: Binable<Types[i]>;
       }[number]
+    | number
     | undefined
 ): Binable<Union<Types>> {
   return Binable({
     toBytes(value) {
-      let binable = distinguish(value);
-      if (binable === undefined)
+      let result = distinguish(value);
+      if (result === undefined)
         throw Error("or: input matches no allowed type");
+      let binable = typeof result === "number" ? binables[result] : result;
       return binable.toBytes(value);
     },
     readBytes(bytes, offset) {
@@ -231,5 +246,31 @@ function orDefault<T>(binable: Binable<T>, defaultValue: T): Binable<T> {
   return iso(orUndefined(binable), {
     to: (t: T) => t,
     from: (t: T | undefined) => t ?? defaultValue,
+  });
+}
+
+function byteEnum<
+  Enum extends Record<number, { kind: string; value: any }>
+>(binables: {
+  [b in keyof Enum & number]: {
+    kind: Enum[b]["kind"];
+    value: Binable<Enum[b]["value"]>;
+  };
+}): Binable<Enum[keyof Enum & number]> {
+  let kindToByte = Object.fromEntries(
+    Object.entries(binables).map(([byte, { kind }]) => [kind, Number(byte)])
+  );
+  return Binable({
+    toBytes({ kind, value }) {
+      let byte = kindToByte[kind];
+      let binable = binables[byte].value;
+      return [byte].concat(binable.toBytes(value));
+    },
+    readBytes(bytes, offset) {
+      let byte = bytes[offset++];
+      if (binables[byte] === undefined)
+        throw Error(`byte ${byte} matches none of the possible types`);
+      return binables[byte].value.readBytes(bytes, offset);
+    },
   });
 }
