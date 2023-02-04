@@ -1,3 +1,4 @@
+import { exportFunction } from "./export.js";
 import { func, FunctionContext } from "./function.js";
 import { i32, local, ops } from "./instruction.js";
 import { Module } from "./module.js";
@@ -31,14 +32,17 @@ let exportedFunc = func(
   (_, [x]) => {
     i32.const(ctx, 5);
     local.get(ctx, x);
-    myFunc();
+    // myFunc();
+    i32.add(ctx, undefined);
     local.set(ctx, x);
     // ops.unreachable(ctx, undefined);
   }
 );
 
 let module: Module = {
+  imports: [],
   functions: ctx.functions,
+  exports: [exportFunction(exportedFunc)],
   start: ctx.functions[1],
 };
 

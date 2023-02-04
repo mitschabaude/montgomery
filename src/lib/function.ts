@@ -66,12 +66,13 @@ function func<
       )}], got [${stack.map((s) => s.kind)}]`
     );
   let index = ctx.functions.length;
+  let type: FunctionType = {
+    args: args.map((a) => valueType(a.type.kind)),
+    results: results.map((r) => valueType(r.kind)),
+  };
   let funcObj: Func = {
     index,
-    type: {
-      args: args.map((a) => valueType(a.type.kind)),
-      results: results.map((r) => valueType(r.kind)),
-    },
+    type,
     body: instructions,
     locals: locals.map((l) => valueType(l.type.kind)),
   };
@@ -80,32 +81,36 @@ function func<
   ctx.instructions = oldInstructions;
   ctx.locals = oldLocals;
 
-  return function call() {
-    let { stack } = ctx;
-    let n = args.length;
-    if (stack.length < n) {
-      throw Error(
-        `${name}: expected ${args.length} input arguments, but only ${n} elements on the stack.`
-      );
-    }
-    let ok = true;
-    let oldStack = [...stack];
-    for (let arg of [...args].reverse()) {
-      ok &&= popValue(stack, arg.type);
-    }
-    if (!ok) {
-      throw Error(
-        `${name}: Expected input types [${args.map(
-          (a) => a.type.kind
-        )}], got stack [${oldStack.map((s) => s.kind)}]`
-      );
-    }
-    ops.call(ctx, index);
-    // TODO: is this the right order?
-    for (let result of results) {
-      stack.push(result);
-    }
-  };
+  return Object.assign(
+    function () {
+      let { stack } = ctx;
+      let n = args.length;
+      if (stack.length < n) {
+        throw Error(
+          `${name}: expected ${args.length} input arguments, but only ${n} elements on the stack.`
+        );
+      }
+      let ok = true;
+      let oldStack = [...stack];
+      for (let arg of [...args].reverse()) {
+        ok &&= popValue(stack, arg.type);
+      }
+      if (!ok) {
+        throw Error(
+          `${name}: Expected input types [${args.map(
+            (a) => a.type.kind
+          )}], got stack [${oldStack.map((s) => s.kind)}]`
+        );
+      }
+      ops.call(ctx, index);
+      // TODO: is this the right order?
+      for (let result of results) {
+        stack.push(result);
+      }
+    },
+    { string: name },
+    funcObj
+  );
 }
 
 const CompressedLocals = vec(tuple([U32, ValueType]));

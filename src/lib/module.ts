@@ -13,12 +13,15 @@ import {
 import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { FunctionType, MemoryType } from "./types.js";
+import { Export, Import } from "./export.js";
 
 export { Module };
 
 type Module = {
+  imports: Import[];
   functions: Func[];
   memory?: MemoryType;
+  exports: Export[];
   start?: Func;
 };
 
@@ -26,7 +29,9 @@ type ParsedModule = {
   version: number;
   typeSection: TypeSection;
   funcSection: FuncSection;
+  importSection: ImportSection;
   memorySection: MemorySection;
+  exportSection: ExportSection;
   startSection?: StartSection;
   codeSection: CodeSection;
 };
@@ -34,35 +39,45 @@ type ParsedModule = {
 function section<T>(code: number, b: Binable<T>) {
   return withByteCode(code, withByteLength(b));
 }
+// 0: CustomSection
 
+// 1: TypeSection
 type TypeSection = FunctionType[];
 let TypeSection: Binable<TypeSection> = section(1, vec(FunctionType));
 
+// 2: ImportSection
+type ImportSection = Import[];
+let ImportSection: Binable<ImportSection> = section(2, vec(Import));
+
+// 3: FuncSection
 type FuncSection = U32[];
 let FuncSection: Binable<FuncSection> = section(3, vec(U32));
 
+// 4: TableSection
+
+// 5: MemorySection
 type MemorySection = MemoryType[];
 let MemorySection: Binable<MemorySection> = section(5, vec(MemoryType));
 
+// 6: GlobalSection
+
+// 7: ExportSection
+type ExportSection = Export[];
+let ExportSection: Binable<ExportSection> = section(7, vec(Export));
+
+// 8: StartSection
 type StartSection = U32;
 let StartSection: Binable<StartSection> = section(8, U32);
 
+// 9: ElementSection
+
+// 10: CodeSection
 type CodeSection = Code[];
 let CodeSection: Binable<CodeSection> = section(10, vec(Code));
 
-// 0: CustomSection,
-// 1: TypeSection,
-// 2: ImportSection,
-// 3: FuncSection,
-// 4: TableSection,
-// 5: MemorySection,
-// 6: GlobalSection,
-// 7: ExportSection,
-// 8: StartSection,
-// 9: ElementSection,
-// 10: CodeSection,
-// 11: DataSection,
-// 12: DataCountSection,
+// 11: DataSection
+
+// 12: DataCountSection
 
 const Version = iso(tuple([Byte, Byte, Byte, Byte]), {
   to(n: number) {
@@ -74,22 +89,28 @@ const Version = iso(tuple([Byte, Byte, Byte, Byte]), {
   },
 });
 
+const isEmpty = (arr: unknown[]) => arr.length === 0;
+
 let ParsedModule = withPreamble(
   [0x00, 0x61, 0x73, 0x6d],
   record<ParsedModule>(
     {
       version: Version,
-      typeSection: orDefault(TypeSection, []),
-      funcSection: orDefault(FuncSection, []),
-      memorySection: orDefault(MemorySection, []),
+      typeSection: orDefault(TypeSection, [], isEmpty),
+      importSection: orDefault(ImportSection, [], isEmpty),
+      funcSection: orDefault(FuncSection, [], isEmpty),
+      memorySection: orDefault(MemorySection, [], isEmpty),
+      exportSection: orDefault(ExportSection, [], isEmpty),
       startSection: orUndefined(StartSection),
-      codeSection: orDefault(CodeSection, []),
+      codeSection: orDefault(CodeSection, [], isEmpty),
     },
     [
       "version",
       "typeSection",
+      "importSection",
       "funcSection",
       "memorySection",
+      "exportSection",
       "startSection",
       "codeSection",
     ]
@@ -113,7 +134,7 @@ ParsedModule = withValidation(
 );
 
 const Module = iso<ParsedModule, Module>(ParsedModule, {
-  to({ functions, memory, start }) {
+  to({ imports, functions, memory, exports, start }) {
     // TODO imports go at the start of type section
     let typeSection = functions.map((f) => f.type);
     let funcSection = typeSection.map((_, i) => i);
@@ -126,13 +147,23 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     return {
       version: 1,
       typeSection,
+      importSection: imports,
       funcSection,
       memorySection,
+      exportSection: exports,
       startSection,
       codeSection,
     };
   },
-  from({ typeSection, funcSection, memorySection, startSection, codeSection }) {
+  from({
+    typeSection,
+    importSection,
+    funcSection,
+    memorySection,
+    exportSection,
+    startSection,
+    codeSection,
+  }) {
     let functions = funcSection.map((typeIdx, funcIdx) => {
       let type = typeSection[typeIdx];
       let { locals, body } = codeSection[funcIdx];
@@ -141,6 +172,12 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     let start =
       startSection === undefined ? undefined : functions[startSection];
     let [memory] = memorySection;
-    return { functions, start, memory };
+    return {
+      imports: importSection,
+      functions,
+      memory,
+      exports: exportSection,
+      start,
+    };
   },
 });

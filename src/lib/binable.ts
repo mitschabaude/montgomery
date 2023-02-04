@@ -242,9 +242,13 @@ function orUndefined<T>(binable: Binable<T>): Binable<T | undefined> {
   return or([binable, One], (value) => (value === undefined ? One : binable));
 }
 
-function orDefault<T>(binable: Binable<T>, defaultValue: T): Binable<T> {
+function orDefault<T>(
+  binable: Binable<T>,
+  defaultValue: T,
+  isDefault: (t: T) => boolean
+): Binable<T> {
   return iso(orUndefined(binable), {
-    to: (t: T) => t,
+    to: (t: T) => (isDefault(t) ? undefined : t),
     from: (t: T | undefined) => t ?? defaultValue,
   });
 }
