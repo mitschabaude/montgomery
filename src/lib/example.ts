@@ -55,14 +55,13 @@ let module: Module = {
 
 console.dir(module, { depth: 10 });
 let wasmByteCode = Module.toBytes(module);
-console.log(wasmByteCode);
+console.log(`wasm size: ${wasmByteCode.length} byte`);
 let recoveredModule = Module.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module);
 
 let wasmModule = await WebAssembly.instantiate(Uint8Array.from(wasmByteCode), {
-  env: { "console.log": console.log },
+  env: { "console.log": (x: number) => console.log("logging from wasm:", x) },
 });
-console.log(wasmModule.instance);
 console.log(wasmModule.instance.exports);
 let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports as any;
 let result = exportedFunc_(10);
