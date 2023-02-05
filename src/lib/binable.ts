@@ -272,9 +272,12 @@ function byteEnum<
     },
     readBytes(bytes, offset) {
       let byte = bytes[offset++];
-      if (binables[byte] === undefined)
+      let entry = binables[byte];
+      if (entry === undefined)
         throw Error(`byte ${byte} matches none of the possible types`);
-      return binables[byte].value.readBytes(bytes, offset);
+      let { kind, value: binable } = entry;
+      let [value, end] = binable.readBytes(bytes, offset);
+      return [{ kind, value }, end];
     },
   });
 }

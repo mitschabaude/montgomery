@@ -27,7 +27,7 @@ function vec<T>(Element: Binable<T>) {
 
 const Name = Binable<string>({
   toBytes(string: string) {
-    return [...new TextEncoder().encode(string)];
+    return [...U32.toBytes(string.length), ...new TextEncoder().encode(string)];
   },
   readBytes(bytes, start) {
     let [length, offset] = U32.readBytes(bytes, start);
