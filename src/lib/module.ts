@@ -12,28 +12,36 @@ import {
 } from "./binable.js";
 import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
-import { FunctionType, MemoryType } from "./types.js";
+import { FunctionType, MemoryType, TableType } from "./types.js";
 import { Export, ParsedImport, Import } from "./export.js";
+import { Data, Global } from "./memory.js";
 
 export { Module };
 
 type Module = {
   imports: Import[];
   functions: Func[];
+  tables: TableType[];
   memory?: MemoryType;
+  globals: Global[];
   exports: Export[];
   start?: Func;
+  data: Data[];
 };
 
 type ParsedModule = {
   version: number;
   typeSection: TypeSection;
-  funcSection: FuncSection;
   importSection: ImportSection;
+  funcSection: FuncSection;
+  tableSection: TableSection;
   memorySection: MemorySection;
+  globalSection: GlobalSection;
   exportSection: ExportSection;
   startSection?: StartSection;
   codeSection: CodeSection;
+  dataSection: DataSection;
+  dataCountSection?: DataCountSection;
 };
 
 function section<T>(code: number, b: Binable<T>) {
@@ -43,41 +51,49 @@ function section<T>(code: number, b: Binable<T>) {
 
 // 1: TypeSection
 type TypeSection = FunctionType[];
-let TypeSection: Binable<TypeSection> = section(1, vec(FunctionType));
+let TypeSection = section<TypeSection>(1, vec(FunctionType));
 
 // 2: ImportSection
 type ImportSection = ParsedImport[];
-let ImportSection: Binable<ImportSection> = section(2, vec(ParsedImport));
+let ImportSection = section<ImportSection>(2, vec(ParsedImport));
 
 // 3: FuncSection
 type FuncSection = U32[];
-let FuncSection: Binable<FuncSection> = section(3, vec(U32));
+let FuncSection = section<FuncSection>(3, vec(U32));
 
 // 4: TableSection
+type TableSection = TableType[];
+let TableSection = section<TableSection>(4, vec(TableType));
 
 // 5: MemorySection
 type MemorySection = MemoryType[];
-let MemorySection: Binable<MemorySection> = section(5, vec(MemoryType));
+let MemorySection = section<MemorySection>(5, vec(MemoryType));
 
 // 6: GlobalSection
+type GlobalSection = Global[];
+let GlobalSection = section<GlobalSection>(6, vec(Global));
 
 // 7: ExportSection
 type ExportSection = Export[];
-let ExportSection: Binable<ExportSection> = section(7, vec(Export));
+let ExportSection = section<ExportSection>(7, vec(Export));
 
 // 8: StartSection
 type StartSection = U32;
-let StartSection: Binable<StartSection> = section(8, U32);
+let StartSection = section<StartSection>(8, U32);
 
 // 9: ElementSection
 
 // 10: CodeSection
 type CodeSection = Code[];
-let CodeSection: Binable<CodeSection> = section(10, vec(Code));
+let CodeSection = section<CodeSection>(10, vec(Code));
 
 // 11: DataSection
+type DataSection = Data[];
+let DataSection = section<DataSection>(11, vec(Data));
 
 // 12: DataCountSection
+type DataCountSection = U32;
+let DataCountSection = section<DataCountSection>(12, U32);
 
 const Version = iso(tuple([Byte, Byte, Byte, Byte]), {
   to(n: number) {
@@ -99,20 +115,28 @@ let ParsedModule = withPreamble(
       typeSection: orDefault(TypeSection, [], isEmpty),
       importSection: orDefault(ImportSection, [], isEmpty),
       funcSection: orDefault(FuncSection, [], isEmpty),
+      tableSection: orDefault(TableSection, [], isEmpty),
       memorySection: orDefault(MemorySection, [], isEmpty),
+      globalSection: orDefault(GlobalSection, [], isEmpty),
       exportSection: orDefault(ExportSection, [], isEmpty),
       startSection: orUndefined(StartSection),
+      dataCountSection: orUndefined(DataCountSection),
       codeSection: orDefault(CodeSection, [], isEmpty),
+      dataSection: orDefault(DataSection, [], isEmpty),
     },
     [
       "version",
       "typeSection",
       "importSection",
       "funcSection",
+      "tableSection",
       "memorySection",
+      "globalSection",
       "exportSection",
       "startSection",
+      "dataCountSection",
       "codeSection",
+      "dataSection",
     ]
   )
 );
@@ -134,7 +158,7 @@ ParsedModule = withValidation(
 );
 
 const Module = iso<ParsedModule, Module>(ParsedModule, {
-  to({ imports, functions, memory, exports, start }) {
+  to({ imports, functions, tables, memory, globals, exports, start, data }) {
     let importSection: ImportSection = [];
     let importedFunctionTypes: FunctionType[] = [];
     for (let { module, string, description } of imports) {
@@ -167,20 +191,28 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       typeSection,
       importSection,
       funcSection,
+      tableSection: tables,
       memorySection,
+      globalSection: globals,
       exportSection,
       startSection,
       codeSection,
+      dataSection: data,
+      dataCountSection: data.length,
     };
   },
   from({
     typeSection,
     importSection,
     funcSection,
+    tableSection,
     memorySection,
+    globalSection,
     exportSection,
     startSection,
     codeSection,
+    dataSection,
+    dataCountSection,
   }) {
     let importedFunctionsLength = 0;
     let imports = importSection.map(
@@ -202,12 +234,17 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       startSection === undefined ? undefined : functions[startSection];
     let [memory] = memorySection;
     let exports: Export[] = exportSection;
+    if (dataSection.length !== (dataCountSection ?? 0))
+      throw Error("data section length does not match data count section");
     return {
       imports,
       functions,
+      tables: tableSection,
       memory,
+      globals: globalSection,
       exports,
       start,
+      data: dataSection,
     };
   },
 });

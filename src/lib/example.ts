@@ -48,9 +48,12 @@ let exportedFunc = func(
 let module: Module = {
   imports: [consoleLog.import],
   functions: ctx.functions,
-  exports: [exportFunction(exportedFunc)],
+  tables: [],
   memory: undefined,
+  globals: [],
+  exports: [exportFunction(exportedFunc)],
   start: undefined,
+  data: [],
 };
 
 console.dir(module, { depth: 10 });

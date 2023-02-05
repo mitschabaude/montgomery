@@ -4,6 +4,7 @@ export {
   record,
   named,
   iso,
+  constant,
   withByteCode,
   withPreamble,
   withValidation,
@@ -189,6 +190,17 @@ function iso<T, S>(
   });
 }
 
+function constant<C>(c: C) {
+  return Binable<C>({
+    toBytes() {
+      return [];
+    },
+    readBytes(_bytes, offset) {
+      return [c, offset];
+    },
+  });
+}
+
 type Zero = never;
 const Zero = Binable<never>({
   toBytes() {
@@ -199,14 +211,7 @@ const Zero = Binable<never>({
   },
 });
 type One = undefined;
-const One = Binable<undefined>({
-  toBytes() {
-    return [];
-  },
-  readBytes(_bytes, offset) {
-    return [undefined, offset];
-  },
-});
+const One = constant(undefined);
 
 const and = tuple;
 
