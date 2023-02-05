@@ -1,9 +1,25 @@
 import { Binable, byteEnum, record } from "./binable.js";
 import { Func } from "./function.js";
 import { Name, U32 } from "./immediate.js";
-import { FunctionType, GlobalType, MemoryType, TableType } from "./types.js";
+import { Instruction } from "./instruction.js";
+import {
+  FunctionType,
+  GlobalType,
+  MemoryType,
+  TableType,
+  valueType,
+  ValueType,
+} from "./types.js";
 
-export { Export, ParsedImport, Import, ExternType, exportFunction };
+export {
+  Export,
+  ParsedImport,
+  Import,
+  ExternType,
+  exportFunction,
+  importFunction,
+  shiftFunctionIndices,
+};
 
 type ExternType =
   | { kind: "function"; value: FunctionType }
@@ -69,3 +85,26 @@ type Import = {
   name: string;
   description: ExternType;
 };
+
+function importFunction(
+  name: string,
+  args_: ValueType[],
+  results_: ValueType[]
+): Import {
+  let args = args_.map((a) => valueType(a.kind));
+  let results = results_.map((r) => valueType(r.kind));
+  return {
+    module: "env",
+    name,
+    description: { kind: "function", value: { args, results } },
+  };
+}
+
+// TODO: need cleaner solution for this
+function shiftFunctionIndices(body: Instruction[], shift: number) {
+  return body.map((instr): Instruction => {
+    if (instr.string === "call")
+      return { string: instr.string, immediate: instr.immediate + shift };
+    return instr;
+  });
+}

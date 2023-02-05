@@ -1,4 +1,4 @@
-import { exportFunction } from "./export.js";
+import { exportFunction, importFunction } from "./export.js";
 import { func, FunctionContext } from "./function.js";
 import { i32, local, ops } from "./instruction.js";
 import { Module } from "./module.js";
@@ -41,7 +41,8 @@ let exportedFunc = func(
 );
 
 let module: Module = {
-  imports: [],
+  // imports: [],
+  imports: [importFunction("console.log", [i32], [])],
   functions: ctx.functions,
   exports: [exportFunction(exportedFunc)],
   memory: undefined,
@@ -54,7 +55,9 @@ console.log(wasmByteCode);
 let recoveredModule = Module.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module);
 
-let wasmModule = await WebAssembly.instantiate(Uint8Array.from(wasmByteCode));
+let wasmModule = await WebAssembly.instantiate(Uint8Array.from(wasmByteCode), {
+  env: { "console.log": console.log },
+});
 console.log(wasmModule.instance);
 console.log(wasmModule.instance.exports);
 let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports as any;

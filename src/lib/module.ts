@@ -13,7 +13,12 @@ import {
 import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { FunctionType, MemoryType } from "./types.js";
-import { Export, ParsedImport, Import } from "./export.js";
+import {
+  Export,
+  ParsedImport,
+  Import,
+  shiftFunctionIndices,
+} from "./export.js";
 
 export { Module };
 
@@ -148,25 +153,35 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       let description = { kind: <"function">"function", value: typeIdx };
       importSection.push({ ...imp, description });
     }
+    let importedFunctionLength = importedFunctionTypes.length;
     let typeSection = importedFunctionTypes.concat(
       functions.map((f) => f.type)
     );
     let funcSection = typeSection
       .map((_, i) => i)
-      .slice(importedFunctionTypes.length);
+      .slice(importedFunctionLength);
     let memorySection = memory ? [memory] : [];
     let startSection = start && functions.indexOf(start);
     if (startSection === -1) {
       throw Error("start function is not included in functions");
     }
-    let codeSection = functions.map(({ locals, body }) => ({ locals, body }));
+    let codeSection = functions.map(({ locals, body }) => ({
+      locals,
+      body: shiftFunctionIndices(body, importedFunctionLength),
+    }));
+    let exportSection: Export[] = exports.map((exp) => {
+      if (exp.description.kind !== "function") return exp;
+      let { kind, value } = exp.description;
+      let description = { kind, value: value + importedFunctionLength };
+      return { ...exp, description };
+    });
     return {
       version: 1,
       typeSection,
       importSection,
       funcSection,
       memorySection,
-      exportSection: exports,
+      exportSection,
       startSection,
       codeSection,
     };
@@ -180,9 +195,11 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     startSection,
     codeSection,
   }) {
+    let importedFunctionsLength = 0;
     let imports = importSection.map((imp: ParsedImport): Import => {
       if (imp.description.kind !== "function")
         return { ...imp, description: imp.description };
+      importedFunctionsLength++;
       let { kind, value: typeIdx } = imp.description;
       let description = { kind, value: typeSection[typeIdx] };
       return { ...imp, description };
@@ -190,16 +207,27 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     let functions = funcSection.map((typeIdx, funcIdx) => {
       let type = typeSection[typeIdx];
       let { locals, body } = codeSection[funcIdx];
-      return { index: funcIdx, type, locals, body };
+      return {
+        index: funcIdx,
+        type,
+        locals,
+        body: shiftFunctionIndices(body, -importedFunctionsLength),
+      };
     });
     let start =
       startSection === undefined ? undefined : functions[startSection];
     let [memory] = memorySection;
+    let exports: Export[] = exportSection.map((exp) => {
+      if (exp.description.kind !== "function") return exp;
+      let { kind, value } = exp.description;
+      let description = { kind, value: value - importedFunctionsLength };
+      return { ...exp, description };
+    });
     return {
       imports,
       functions,
       memory,
-      exports: exportSection,
+      exports,
       start,
     };
   },
