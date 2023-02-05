@@ -1,4 +1,4 @@
-import { Binable, iso, named, One, record } from "./binable.js";
+import { Binable, named, One } from "./binable.js";
 import { I32, U32 } from "./immediate.js";
 import {
   i32t,
@@ -23,14 +23,6 @@ export {
   ToLocal,
   popValue,
 };
-
-let FunctionIndex = <B extends boolean>({ needsShift }: { needsShift: B }) =>
-  iso<number, { functionIndex: number; needsShift: B }>(U32, {
-    to: ({ functionIndex }) => functionIndex,
-    from: (functionIndex) => ({ functionIndex, needsShift }),
-  });
-let RawFunctionIndex = FunctionIndex({ needsShift: false });
-let ShiftedFunctionIndex = FunctionIndex({ needsShift: true });
 
 // control
 let unreachable = baseInstruction("unreachable", One);
