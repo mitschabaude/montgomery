@@ -1,7 +1,7 @@
 import { Binable, Bool, record, withByteCode } from "./binable.js";
 import { U32, vec } from "./immediate.js";
 
-export { i32t, i64t, f32t, f64t, funcref, externref };
+export { i32t, i64t, f32t, f64t, v128t, funcref, externref };
 export {
   ValueType,
   FunctionType,
@@ -27,6 +27,8 @@ type JSValueFromLiteral<T extends ValueTypeLiteral> = T extends "i32"
   ? number
   : T extends "i64"
   ? bigint
+  : T extends "v128"
+  ? bigint
   : T extends "funcref"
   ? Function
   : T extends "externref"
@@ -51,12 +53,14 @@ type i32t = Type<"i32">;
 type i64t = Type<"i64">;
 type f32t = Type<"f32">;
 type f64t = Type<"f64">;
+type v128t = Type<"v128">;
 type funcref = Type<"funcref">;
 type externref = Type<"i64">;
 const i32t = valueType("i32");
 const i64t = valueType("i64");
 const f32t = valueType("f32");
 const f64t = valueType("f64");
+const v128t = valueType("v128");
 const funcref = valueType("funcref");
 const externref = valueType("externref");
 
