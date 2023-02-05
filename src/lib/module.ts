@@ -13,7 +13,7 @@ import {
 import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { FunctionType, MemoryType } from "./types.js";
-import { Export, Import } from "./export.js";
+import { Export, ParsedImport, Import } from "./export.js";
 
 export { Module };
 
@@ -46,8 +46,8 @@ type TypeSection = FunctionType[];
 let TypeSection: Binable<TypeSection> = section(1, vec(FunctionType));
 
 // 2: ImportSection
-type ImportSection = Import[];
-let ImportSection: Binable<ImportSection> = section(2, vec(Import));
+type ImportSection = ParsedImport[];
+let ImportSection: Binable<ImportSection> = section(2, vec(ParsedImport));
 
 // 3: FuncSection
 type FuncSection = U32[];
@@ -135,9 +135,25 @@ ParsedModule = withValidation(
 
 const Module = iso<ParsedModule, Module>(ParsedModule, {
   to({ imports, functions, memory, exports, start }) {
-    // TODO imports go at the start of type section
-    let typeSection = functions.map((f) => f.type);
-    let funcSection = typeSection.map((_, i) => i);
+    let importSection: ImportSection = [];
+    let importedFunctionTypes: FunctionType[] = [];
+    for (let imp of imports) {
+      if (imp.description.kind !== "function") {
+        importSection.push({ ...imp, description: imp.description });
+        continue;
+      }
+      let functionType = imp.description.value;
+      let typeIdx = importedFunctionTypes.length;
+      importedFunctionTypes[typeIdx] = functionType;
+      let description = { kind: <"function">"function", value: typeIdx };
+      importSection.push({ ...imp, description });
+    }
+    let typeSection = importedFunctionTypes.concat(
+      functions.map((f) => f.type)
+    );
+    let funcSection = typeSection
+      .map((_, i) => i)
+      .slice(importedFunctionTypes.length);
     let memorySection = memory ? [memory] : [];
     let startSection = start && functions.indexOf(start);
     if (startSection === -1) {
@@ -147,7 +163,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     return {
       version: 1,
       typeSection,
-      importSection: imports,
+      importSection,
       funcSection,
       memorySection,
       exportSection: exports,
@@ -164,6 +180,13 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     startSection,
     codeSection,
   }) {
+    let imports = importSection.map((imp: ParsedImport): Import => {
+      if (imp.description.kind !== "function")
+        return { ...imp, description: imp.description };
+      let { kind, value: typeIdx } = imp.description;
+      let description = { kind, value: typeSection[typeIdx] };
+      return { ...imp, description };
+    });
     let functions = funcSection.map((typeIdx, funcIdx) => {
       let type = typeSection[typeIdx];
       let { locals, body } = codeSection[funcIdx];
@@ -173,7 +196,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       startSection === undefined ? undefined : functions[startSection];
     let [memory] = memorySection;
     return {
-      imports: importSection,
+      imports,
       functions,
       memory,
       exports: exportSection,

@@ -3,7 +3,7 @@ import { Func } from "./function.js";
 import { Name, U32 } from "./immediate.js";
 import { FunctionType, GlobalType, MemoryType, TableType } from "./types.js";
 
-export { Export, Import, ExternType, exportFunction };
+export { Export, ParsedImport, Import, ExternType, exportFunction };
 
 type ExternType =
   | { kind: "function"; value: FunctionType }
@@ -54,8 +54,18 @@ const ImportDescription: Binable<ImportDescription> = byteEnum<{
   0x03: { kind: "global", value: GlobalType },
 });
 
-type Import = { module: string; name: string; description: ImportDescription };
-const Import = record(
+type ParsedImport = {
+  module: string;
+  name: string;
+  description: ImportDescription;
+};
+const ParsedImport = record<ParsedImport>(
   { module: Name, name: Name, description: ImportDescription },
   ["module", "name", "description"]
 );
+
+type Import = {
+  module: string;
+  name: string;
+  description: ExternType;
+};
