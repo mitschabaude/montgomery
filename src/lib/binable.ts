@@ -46,6 +46,7 @@ function Binable<T>({
   };
 }
 
+type Byte = number;
 const Byte = Binable<number>({
   toBytes(b) {
     return [b];
@@ -56,6 +57,7 @@ const Byte = Binable<number>({
   },
 });
 
+type Bool = boolean;
 const Bool = Binable<boolean>({
   toBytes(b) {
     return [Number(b)];
@@ -187,7 +189,8 @@ function iso<T, S>(
   });
 }
 
-const Zero = Binable<unknown>({
+type Zero = never;
+const Zero = Binable<never>({
   toBytes() {
     throw Error("can not write Zero");
   },
@@ -195,6 +198,7 @@ const Zero = Binable<unknown>({
     throw Error("can not parse Zero");
   },
 });
+type One = undefined;
 const One = Binable<undefined>({
   toBytes() {
     return [];
