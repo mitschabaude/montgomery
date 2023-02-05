@@ -1,6 +1,15 @@
-import { Binable, One, record } from "./binable.js";
+import { Binable, named, One, record } from "./binable.js";
 import { I32, U32 } from "./immediate.js";
-import { i32t, i64t, f32t, f64t, JSValue, ValueType } from "./types.js";
+import {
+  i32t,
+  i64t,
+  f32t,
+  f64t,
+  JSValue,
+  ValueType,
+  ValueTypeLiteral,
+  valueType,
+} from "./types.js";
 
 export {
   ops,
@@ -25,7 +34,7 @@ type Local<T extends ValueType> = { name: string; type: T };
 type ToLocal<T extends ValueType> = T extends i32
   ? Local<i32>
   : T extends i64
-  ? Local<i64t>
+  ? Local<i64>
   : T extends f32
   ? Local<f32>
   : T extends f64
@@ -33,7 +42,7 @@ type ToLocal<T extends ValueType> = T extends i32
   : Local<T>;
 
 type ConcreteLocal = { index: number };
-const ConcreteLocal = record<ConcreteLocal>({ index: U32 }, ["index"]);
+const ConcreteLocal = named({ index: U32 });
 
 let local_ = {
   get: baseInstruction("local.get", ConcreteLocal, ({ stack, locals }, x) => {
@@ -47,11 +56,11 @@ let local_ = {
     popValue(stack, local.type);
   }),
 };
-const local = Object.assign(function local<T extends ValueType>(
+const local = Object.assign(function local<L extends ValueTypeLiteral>(
   string: string,
-  type: T
-): ToLocal<T> {
-  return { string, type } as any;
+  type: { kind: L }
+): ToLocal<{ kind: L }> {
+  return { string, type: valueType(type.kind) } as any;
 },
 local_);
 

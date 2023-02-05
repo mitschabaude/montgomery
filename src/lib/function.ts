@@ -141,7 +141,7 @@ const Code = withByteLength(
 ) satisfies Binable<Code>;
 
 type ToConcrete<T extends Tuple<Local<any>>> = {
-  [i in keyof T]: { index: number };
+  [i in keyof T]: { name?: T[i]["name"]; type?: T[i]["type"]; index: number };
 } & any[];
 
 // type RecordFromLocals<T extends Tuple<Local>> =
