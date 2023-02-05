@@ -1,7 +1,6 @@
 import { Binable, byteEnum, record } from "./binable.js";
-import { Func } from "./function.js";
+import { addCall, Func, FunctionContext } from "./function.js";
 import { Name, U32 } from "./immediate.js";
-import { Instruction } from "./instruction.js";
 import {
   FunctionType,
   GlobalType,
@@ -18,7 +17,6 @@ export {
   ExternType,
   exportFunction,
   importFunction,
-  shiftFunctionIndices,
 };
 
 type ExternType =
@@ -82,29 +80,30 @@ const ParsedImport = record<ParsedImport>(
 
 type Import = {
   module: string;
-  name: string;
+  string: string;
   description: ExternType;
 };
 
 function importFunction(
+  ctx: FunctionContext,
   name: string,
   args_: ValueType[],
   results_: ValueType[]
-): Import {
-  let args = args_.map((a) => valueType(a.kind));
-  let results = results_.map((r) => valueType(r.kind));
-  return {
+) {
+  let args: ValueType[] = args_.map((a) => valueType(a.kind));
+  let results: ValueType[] = results_.map((r) => valueType(r.kind));
+  let type = { args, results };
+  let importObj: Import = {
     module: "env",
-    name,
-    description: { kind: "function", value: { args, results } },
+    string: name,
+    description: { kind: <"function">"function", value: type },
   };
-}
-
-// TODO: need cleaner solution for this
-function shiftFunctionIndices(body: Instruction[], shift: number) {
-  return body.map((instr): Instruction => {
-    if (instr.string === "call")
-      return { string: instr.string, immediate: instr.immediate + shift };
-    return instr;
-  });
+  let i = ctx.importedFunctionsLength;
+  ctx.importedFunctionsLength++;
+  return Object.assign(
+    function () {
+      addCall(ctx, name, type, i);
+    },
+    { import: importObj }
+  );
 }

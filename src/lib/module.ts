@@ -13,12 +13,7 @@ import {
 import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { FunctionType, MemoryType } from "./types.js";
-import {
-  Export,
-  ParsedImport,
-  Import,
-  shiftFunctionIndices,
-} from "./export.js";
+import { Export, ParsedImport, Import } from "./export.js";
 
 export { Module };
 
@@ -142,16 +137,16 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
   to({ imports, functions, memory, exports, start }) {
     let importSection: ImportSection = [];
     let importedFunctionTypes: FunctionType[] = [];
-    for (let imp of imports) {
-      if (imp.description.kind !== "function") {
-        importSection.push({ ...imp, description: imp.description });
+    for (let { module, string, description } of imports) {
+      if (description.kind !== "function") {
+        importSection.push({ module, name: string, description });
         continue;
       }
-      let functionType = imp.description.value;
+      let functionType = description.value;
       let typeIdx = importedFunctionTypes.length;
       importedFunctionTypes[typeIdx] = functionType;
-      let description = { kind: <"function">"function", value: typeIdx };
-      importSection.push({ ...imp, description });
+      let description_ = { kind: <"function">"function", value: typeIdx };
+      importSection.push({ module, name: string, description: description_ });
     }
     let importedFunctionLength = importedFunctionTypes.length;
     let typeSection = importedFunctionTypes.concat(
@@ -165,16 +160,8 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     if (startSection === -1) {
       throw Error("start function is not included in functions");
     }
-    let codeSection = functions.map(({ locals, body }) => ({
-      locals,
-      body: shiftFunctionIndices(body, importedFunctionLength),
-    }));
-    let exportSection: Export[] = exports.map((exp) => {
-      if (exp.description.kind !== "function") return exp;
-      let { kind, value } = exp.description;
-      let description = { kind, value: value + importedFunctionLength };
-      return { ...exp, description };
-    });
+    let codeSection = functions.map(({ locals, body }) => ({ locals, body }));
+    let exportSection: Export[] = exports;
     return {
       version: 1,
       typeSection,
@@ -196,33 +183,25 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     codeSection,
   }) {
     let importedFunctionsLength = 0;
-    let imports = importSection.map((imp: ParsedImport): Import => {
-      if (imp.description.kind !== "function")
-        return { ...imp, description: imp.description };
-      importedFunctionsLength++;
-      let { kind, value: typeIdx } = imp.description;
-      let description = { kind, value: typeSection[typeIdx] };
-      return { ...imp, description };
-    });
+    let imports = importSection.map(
+      ({ module, name, description }: ParsedImport): Import => {
+        if (description.kind !== "function")
+          return { module, string: name, description };
+        importedFunctionsLength++;
+        let { kind, value: typeIdx } = description;
+        let description_ = { kind, value: typeSection[typeIdx] };
+        return { module, string: name, description: description_ };
+      }
+    );
     let functions = funcSection.map((typeIdx, funcIdx) => {
       let type = typeSection[typeIdx];
       let { locals, body } = codeSection[funcIdx];
-      return {
-        index: funcIdx,
-        type,
-        locals,
-        body: shiftFunctionIndices(body, -importedFunctionsLength),
-      };
+      return { index: importedFunctionsLength + funcIdx, type, locals, body };
     });
     let start =
       startSection === undefined ? undefined : functions[startSection];
     let [memory] = memorySection;
-    let exports: Export[] = exportSection.map((exp) => {
-      if (exp.description.kind !== "function") return exp;
-      let { kind, value } = exp.description;
-      let description = { kind, value: value - importedFunctionsLength };
-      return { ...exp, description };
-    });
+    let exports: Export[] = exportSection;
     return {
       imports,
       functions,

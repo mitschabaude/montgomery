@@ -8,7 +8,7 @@ import {
   ValueTypeLiteral,
 } from "./types.js";
 
-export { func, Func, FunctionContext, Code };
+export { func, Func, FunctionContext, Code, addCall };
 
 type Func = {
   index: number;
@@ -18,6 +18,7 @@ type Func = {
 };
 
 type FunctionContext = {
+  importedFunctionsLength: number;
   functions: Func[];
 } & Context;
 
@@ -65,7 +66,7 @@ function func<
         (r) => r.kind
       )}], got [${stack.map((s) => s.kind)}]`
     );
-  let index = ctx.functions.length;
+  let index = ctx.importedFunctionsLength + ctx.functions.length;
   let type: FunctionType = {
     args: args.map((a) => valueType(a.type.kind)),
     results: results.map((r) => valueType(r.kind)),
@@ -83,30 +84,7 @@ function func<
 
   return Object.assign(
     function () {
-      let { stack } = ctx;
-      let n = args.length;
-      if (stack.length < n) {
-        throw Error(
-          `${name}: expected ${args.length} input arguments, but only ${n} elements on the stack.`
-        );
-      }
-      let ok = true;
-      let oldStack = [...stack];
-      for (let arg of [...args].reverse()) {
-        ok &&= popValue(stack, arg.type);
-      }
-      if (!ok) {
-        throw Error(
-          `${name}: Expected input types [${args.map(
-            (a) => a.type.kind
-          )}], got stack [${oldStack.map((s) => s.kind)}]`
-        );
-      }
-      ops.call(ctx, index);
-      // TODO: is this the right order?
-      for (let result of results) {
-        stack.push(result);
-      }
+      addCall(ctx, name, type, index);
     },
     { string: name },
     funcObj
@@ -143,6 +121,38 @@ const Code = withByteLength(
 type ToConcrete<T extends Tuple<Local<any>>> = {
   [i in keyof T]: { name?: T[i]["name"]; type?: T[i]["type"]; index: number };
 } & any[];
+
+function addCall(
+  ctx: FunctionContext,
+  name: string,
+  { args, results }: FunctionType,
+  index: number
+) {
+  let { stack } = ctx;
+  let n = args.length;
+  if (stack.length < n) {
+    throw Error(
+      `${name}: expected ${n} input arguments, but only ${stack.length} elements on the stack.`
+    );
+  }
+  let ok = true;
+  let oldStack = [...stack];
+  for (let arg of [...args].reverse()) {
+    ok &&= popValue(stack, arg);
+  }
+  if (!ok) {
+    throw Error(
+      `${name}: Expected input types [${args.map(
+        (a) => a.kind
+      )}], got stack [${oldStack.map((s) => s.kind)}]`
+    );
+  }
+  ops.call(ctx, index);
+  // TODO: is this the right order?
+  for (let result of results) {
+    stack.push(result);
+  }
+}
 
 // type RecordFromLocals<T extends Tuple<Local>> =
 // { [i in keyof T as T[i]['name']]: T[i]['type'] }

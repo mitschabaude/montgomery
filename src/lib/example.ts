@@ -7,11 +7,14 @@ import assert from "node:assert";
 let x = local("x", i32);
 let y = local("y", i32);
 let ctx: FunctionContext = {
+  importedFunctionsLength: 0,
   functions: [],
   instructions: [],
   locals: [],
   stack: [],
 };
+
+let consoleLog = importFunction(ctx, "console.log", [i32], []);
 
 let myFunc = func(
   ctx,
@@ -32,6 +35,8 @@ let exportedFunc = func(
   { args: [x], locals: [y], results: [i32] },
   ([x], [y]) => {
     local.get(ctx, x);
+    consoleLog();
+    local.get(ctx, x);
     local.set(ctx, y);
     local.get(ctx, y);
     i32.const(ctx, 5);
@@ -41,8 +46,7 @@ let exportedFunc = func(
 );
 
 let module: Module = {
-  // imports: [],
-  imports: [importFunction("console.log", [i32], [])],
+  imports: [consoleLog.import],
   functions: ctx.functions,
   exports: [exportFunction(exportedFunc)],
   memory: undefined,
@@ -62,4 +66,5 @@ console.log(wasmModule.instance);
 console.log(wasmModule.instance.exports);
 let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports as any;
 let result = exportedFunc_(10);
+assert(result === 15);
 console.log({ result });
