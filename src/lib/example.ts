@@ -23,9 +23,9 @@ let myFunc = func(
   ([x, y]) => {
     i32.const(ctx, 0);
     local.get(ctx, x);
-    i32.add(ctx, undefined);
+    i32.add(ctx);
     local.get(ctx, y);
-    i32.add(ctx, undefined);
+    i32.add(ctx);
   }
 );
 

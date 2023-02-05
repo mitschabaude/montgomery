@@ -133,8 +133,11 @@ function instruction<
   ) => JSValues<Results>
 ) {
   immediate = immediate === One ? undefined : immediate;
+  type InstArgs = Immediate extends undefined
+    ? [context: Context]
+    : [context: Context, immediate: Immediate];
   let instruction_ = Object.assign(
-    function ({ stack, instructions }: Context, immediate: Immediate) {
+    function (...[{ stack, instructions }, immediate]: InstArgs) {
       apply(stack, args, results);
       instructions.push({ string, immediate });
     },
