@@ -30,22 +30,6 @@ type Module = {
   elems: Elem[];
 };
 
-type ParsedModule = {
-  version: number;
-  typeSection: TypeSection;
-  importSection: ImportSection;
-  funcSection: FuncSection;
-  tableSection: TableSection;
-  memorySection: MemorySection;
-  globalSection: GlobalSection;
-  exportSection: ExportSection;
-  startSection?: StartSection;
-  elemSection: ElemSection;
-  codeSection: CodeSection;
-  dataSection: DataSection;
-  dataCountSection?: DataCountSection;
-};
-
 function section<T>(code: number, b: Binable<T>) {
   return withByteCode(code, withByteLength(b));
 }
@@ -110,6 +94,22 @@ const Version = iso(tuple([Byte, Byte, Byte, Byte]), {
 });
 
 const isEmpty = (arr: unknown[]) => arr.length === 0;
+
+type ParsedModule = {
+  version: number;
+  typeSection: TypeSection;
+  importSection: ImportSection;
+  funcSection: FuncSection;
+  tableSection: TableSection;
+  memorySection: MemorySection;
+  globalSection: GlobalSection;
+  exportSection: ExportSection;
+  startSection?: StartSection;
+  elemSection: ElemSection;
+  dataCountSection?: DataCountSection;
+  codeSection: CodeSection;
+  dataSection: DataSection;
+};
 
 let ParsedModule = withPreamble(
   [0x00, 0x61, 0x73, 0x6d],
