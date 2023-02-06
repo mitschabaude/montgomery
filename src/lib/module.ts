@@ -149,7 +149,15 @@ let ParsedModule = withPreamble(
 
 ParsedModule = withValidation(
   ParsedModule,
-  ({ version, funcSection, codeSection, startSection, memorySection }) => {
+  ({
+    version,
+    funcSection,
+    codeSection,
+    startSection,
+    memorySection,
+    dataSection,
+    dataCountSection,
+  }) => {
     if (version !== 1) throw Error("unsupported version");
     if (funcSection.length !== codeSection.length) {
       throw Error("length of function and code sections do not match.");
@@ -160,6 +168,8 @@ ParsedModule = withValidation(
     if (startSection !== undefined && !funcSection.includes(startSection)) {
       throw Error("start function index must be included in function section");
     }
+    if (dataSection.length !== (dataCountSection ?? 0))
+      throw Error("data section length does not match data count section");
   }
 );
 
@@ -229,7 +239,6 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     startSection,
     codeSection,
     dataSection,
-    dataCountSection,
     elemSection,
   }) {
     let importedFunctionsLength = 0;
@@ -252,8 +261,6 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       startSection === undefined ? undefined : functions[startSection];
     let [memory] = memorySection;
     let exports: Export[] = exportSection;
-    if (dataSection.length !== (dataCountSection ?? 0))
-      throw Error("data section length does not match data count section");
     return {
       imports,
       functions,
