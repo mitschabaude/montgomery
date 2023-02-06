@@ -27,7 +27,10 @@ const Global = record<Global>({ type: GlobalType, init: ConstExpression }, [
   "init",
 ]);
 
-type Data = { init: Byte[]; active?: { memory: U32; offset: ConstExpression } };
+type Data = {
+  init: Byte[];
+  mode: "passive" | { memory: U32; offset: ConstExpression };
+};
 
 const Offset0 = record({ memory: constant<0>(0), offset: ConstExpression }, [
   "memory",
@@ -40,22 +43,22 @@ const Offset = record({ memory: U32, offset: ConstExpression }, [
 
 type ActiveData = {
   init: Byte[];
-  active: { memory: 0; offset: ConstExpression };
+  mode: { memory: 0; offset: ConstExpression };
 };
-const ActiveData = record({ active: Offset0, init: vec(Byte) }, [
-  "active",
-  "init",
-]);
+const ActiveData = record({ mode: Offset0, init: vec(Byte) }, ["mode", "init"]);
 
-type PassiveData = { init: Byte[] };
-const PassiveData = named({ init: vec(Byte) });
+type PassiveData = { init: Byte[]; mode: "passive" };
+const PassiveData = record(
+  { init: vec(Byte), mode: constant("passive" as const) },
+  ["mode", "init"]
+);
 
 type ActiveDataMultiMemory = {
-  active: { memory: U32; offset: ConstExpression };
   init: Byte[];
+  mode: { memory: U32; offset: ConstExpression };
 };
-const ActiveDataMultiMemory = record({ active: Offset, init: vec(Byte) }, [
-  "active",
+const ActiveDataMultiMemory = record({ mode: Offset, init: vec(Byte) }, [
+  "mode",
   "init",
 ]);
 
@@ -66,9 +69,9 @@ const Data: Binable<Data> = or(
     withU32(2, ActiveDataMultiMemory),
   ],
   (t: Data) =>
-    t.active === undefined
+    t.mode === "passive"
       ? PassiveData
-      : t.active.memory === 0
+      : t.mode.memory === 0
       ? ActiveData
       : ActiveDataMultiMemory
 );
