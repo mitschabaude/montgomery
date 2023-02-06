@@ -3,7 +3,6 @@ import {
   Byte,
   constant,
   iso,
-  named,
   or,
   record,
   tuple,
