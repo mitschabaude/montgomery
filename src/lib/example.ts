@@ -54,6 +54,7 @@ let module: Module = {
   exports: [exportFunction(exportedFunc)],
   start: undefined,
   data: [],
+  elems: [],
 };
 
 console.dir(module, { depth: 10 });

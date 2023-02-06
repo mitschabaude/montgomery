@@ -17,6 +17,7 @@ export {
   local,
   Instruction,
   Expression,
+  ConstExpression,
   Context,
   Local,
   ConcreteLocal,
@@ -166,7 +167,7 @@ type Expression = Instruction[];
 const END = 0x0b;
 const Expression = Binable<Expression>({
   toBytes(t) {
-    let instructions = t.map((i) => Instruction.toBytes(i)).flat();
+    let instructions = t.map(Instruction.toBytes).flat();
     instructions.push(END);
     return instructions;
   },
@@ -180,6 +181,10 @@ const Expression = Binable<Expression>({
     return [instructions, offset + 1];
   },
 });
+
+// TODO validation
+type ConstExpression = Expression;
+const ConstExpression = Expression;
 
 function apply(stack: ValueType[], args: ValueType[], results: ValueType[]) {
   for (let arg of args) {

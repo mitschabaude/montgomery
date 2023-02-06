@@ -14,7 +14,7 @@ import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { FunctionType, MemoryType, TableType } from "./types.js";
 import { Export, ParsedImport, Import } from "./export.js";
-import { Data, Global } from "./memory.js";
+import { Data, Elem, Global } from "./memory.js";
 
 export { Module };
 
@@ -27,6 +27,7 @@ type Module = {
   exports: Export[];
   start?: Func;
   data: Data[];
+  elems: Elem[];
 };
 
 type ParsedModule = {
@@ -39,6 +40,7 @@ type ParsedModule = {
   globalSection: GlobalSection;
   exportSection: ExportSection;
   startSection?: StartSection;
+  elemSection: ElemSection;
   codeSection: CodeSection;
   dataSection: DataSection;
   dataCountSection?: DataCountSection;
@@ -82,6 +84,8 @@ type StartSection = U32;
 let StartSection = section<StartSection>(8, U32);
 
 // 9: ElementSection
+type ElemSection = Elem[];
+let ElemSection = section<ElemSection>(11, vec(Elem));
 
 // 10: CodeSection
 type CodeSection = Code[];
@@ -120,6 +124,7 @@ let ParsedModule = withPreamble(
       globalSection: orDefault(GlobalSection, [], isEmpty),
       exportSection: orDefault(ExportSection, [], isEmpty),
       startSection: orUndefined(StartSection),
+      elemSection: orDefault(ElemSection, [], isEmpty),
       dataCountSection: orUndefined(DataCountSection),
       codeSection: orDefault(CodeSection, [], isEmpty),
       dataSection: orDefault(DataSection, [], isEmpty),
@@ -134,6 +139,7 @@ let ParsedModule = withPreamble(
       "globalSection",
       "exportSection",
       "startSection",
+      "elemSection",
       "dataCountSection",
       "codeSection",
       "dataSection",
@@ -158,7 +164,17 @@ ParsedModule = withValidation(
 );
 
 const Module = iso<ParsedModule, Module>(ParsedModule, {
-  to({ imports, functions, tables, memory, globals, exports, start, data }) {
+  to({
+    imports,
+    functions,
+    tables,
+    memory,
+    globals,
+    exports,
+    start,
+    data,
+    elems,
+  }) {
     let importSection: ImportSection = [];
     let importedFunctionTypes: FunctionType[] = [];
     for (let { module, string, description } of imports) {
@@ -199,6 +215,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       codeSection,
       dataSection: data,
       dataCountSection: data.length,
+      elemSection: elems,
     };
   },
   from({
@@ -213,6 +230,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     codeSection,
     dataSection,
     dataCountSection,
+    elemSection,
   }) {
     let importedFunctionsLength = 0;
     let imports = importSection.map(
@@ -245,6 +263,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       exports,
       start,
       data: dataSection,
+      elems: elemSection,
     };
   },
 });

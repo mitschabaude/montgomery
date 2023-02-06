@@ -2,8 +2,10 @@ import { Binable, Bool, record, withByteCode } from "./binable.js";
 import { U32, vec } from "./immediate.js";
 
 export { i32t, i64t, f32t, f64t, v128t, funcref, externref };
+export { TypeIndex, FunctionIndex, MemoryIndex, TableIndex };
 export {
   ValueType,
+  RefType,
   FunctionType,
   MemoryType,
   GlobalType,
@@ -129,6 +131,15 @@ const FunctionType = withByteCode(
     "results",
   ])
 );
+
+type TypeIndex = U32;
+const TypeIndex = U32;
+type FunctionIndex = U32;
+const FunctionIndex = U32;
+type TableIndex = U32;
+const TableIndex = U32;
+type MemoryIndex = U32;
+const MemoryIndex = U32;
 
 function invertRecord<K extends string, V>(record: Record<K, V>): Map<V, K> {
   let map = new Map<V, K>();
