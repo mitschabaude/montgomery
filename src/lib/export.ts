@@ -6,18 +6,12 @@ import {
   GlobalType,
   MemoryType,
   TableType,
+  TypeIndex,
   valueType,
   ValueType,
 } from "./types.js";
 
-export {
-  Export,
-  ParsedImport,
-  Import,
-  ExternType,
-  exportFunction,
-  importFunction,
-};
+export { Export, Import, ExternType, exportFunction, importFunction };
 
 type ExternType =
   | { kind: "function"; value: FunctionType }
@@ -47,42 +41,39 @@ const Export = record({ name: Name, description: ExportDescription }, [
   "description",
 ]);
 
-function exportFunction({ string, index }: Func & { string: string }): Export {
+function exportFunction({
+  string,
+  typeIndex: index,
+}: Func & { string: string }): Export {
   return { name: string, description: { kind: "function", value: index } };
 }
 
 type ImportDescription =
-  | { kind: "function"; value: U32 }
+  | { kind: "function"; value: TypeIndex }
   | { kind: "table"; value: TableType }
   | { kind: "memory"; value: MemoryType }
   | { kind: "global"; value: GlobalType };
 const ImportDescription: Binable<ImportDescription> = byteEnum<{
-  0x00: { kind: "function"; value: U32 };
+  0x00: { kind: "function"; value: TypeIndex };
   0x01: { kind: "table"; value: TableType };
   0x02: { kind: "memory"; value: MemoryType };
   0x03: { kind: "global"; value: GlobalType };
 }>({
-  0x00: { kind: "function", value: U32 },
+  0x00: { kind: "function", value: TypeIndex },
   0x01: { kind: "table", value: TableType },
   0x02: { kind: "memory", value: MemoryType },
   0x03: { kind: "global", value: GlobalType },
 });
 
-type ParsedImport = {
-  module: string;
-  name: string;
-  description: ImportDescription;
-};
-const ParsedImport = record<ParsedImport>(
-  { module: Name, name: Name, description: ImportDescription },
-  ["module", "name", "description"]
-);
-
 type Import = {
   module: string;
   string: string;
-  description: ExternType;
+  description: ImportDescription;
 };
+const Import = record<Import>(
+  { module: Name, string: Name, description: ImportDescription },
+  ["module", "string", "description"]
+);
 
 function importFunction(
   ctx: FunctionContext,
@@ -93,16 +84,17 @@ function importFunction(
   let args: ValueType[] = args_.map((a) => valueType(a.kind));
   let results: ValueType[] = results_.map((r) => valueType(r.kind));
   let type = { args, results };
+  let typeIndex = ctx.types.length;
+  ctx.types.push(type);
+  ctx.importedFunctionsLength++;
   let importObj: Import = {
     module: "env",
     string: name,
-    description: { kind: <"function">"function", value: type },
+    description: { kind: <"function">"function", value: typeIndex },
   };
-  let i = ctx.importedFunctionsLength;
-  ctx.importedFunctionsLength++;
   return Object.assign(
     function () {
-      addCall(ctx, name, type, i);
+      addCall(ctx, name, type, typeIndex);
     },
     { import: importObj }
   );

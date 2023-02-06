@@ -7,6 +7,7 @@ import assert from "node:assert";
 let x = local("x", i32);
 let y = local("y", i32);
 let ctx: FunctionContext = {
+  types: [],
   importedFunctionsLength: 0,
   functions: [],
   instructions: [],
@@ -46,14 +47,15 @@ let exportedFunc = func(
 );
 
 let module: Module = {
+  types: ctx.types,
   imports: [consoleLog.import],
-  functions: ctx.functions,
+  funcs: ctx.functions,
   tables: [],
   memory: undefined,
   globals: [],
   exports: [exportFunction(exportedFunc)],
   start: undefined,
-  data: [],
+  datas: [],
   elems: [],
 };
 

@@ -2,7 +2,9 @@ import { Binable, iso, record, tuple, Tuple } from "./binable.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { Context, Expression, Local, ops, popValue } from "./instruction.js";
 import {
+  FunctionIndex,
   FunctionType,
+  TypeIndex,
   valueType,
   ValueType,
   ValueTypeLiteral,
@@ -11,13 +13,15 @@ import {
 export { func, Func, FunctionContext, Code, addCall };
 
 type Func = {
-  index: number;
+  functionIndex: FunctionIndex;
+  typeIndex: TypeIndex;
   type: FunctionType;
   locals: ValueType[];
   body: Expression;
 };
 
 type FunctionContext = {
+  types: FunctionType[];
   importedFunctionsLength: number;
   functions: Func[];
 } & Context;
@@ -66,13 +70,16 @@ function func<
         (r) => r.kind
       )}], got [${stack.map((s) => s.kind)}]`
     );
-  let index = ctx.importedFunctionsLength + ctx.functions.length;
+  let functionIndex = ctx.importedFunctionsLength + ctx.functions.length;
   let type: FunctionType = {
     args: args.map((a) => valueType(a.type.kind)),
     results: results.map((r) => valueType(r.kind)),
   };
+  let typeIndex = ctx.types.length;
+  ctx.types.push(type);
   let funcObj: Func = {
-    index,
+    functionIndex,
+    typeIndex,
     type,
     body: instructions,
     locals: locals.map((l) => valueType(l.type.kind)),
@@ -84,7 +91,7 @@ function func<
 
   return Object.assign(
     function () {
-      addCall(ctx, name, type, index);
+      addCall(ctx, name, type, functionIndex);
     },
     { string: name },
     funcObj
