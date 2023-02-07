@@ -1,3 +1,5 @@
+import { ValidationContext } from "./module.js";
+
 export {
   Binable,
   tuple,
@@ -25,14 +27,17 @@ type Binable<T> = {
   toBytes(value: T): number[];
   readBytes(bytes: number[], offset: number): [value: T, offset: number];
   fromBytes(bytes: number[]): T;
+  validate(ctx: ValidationContext): void;
 };
 
 function Binable<T>({
   toBytes,
   readBytes,
+  validate = noValidate,
 }: {
   toBytes(t: T): number[];
   readBytes(bytes: number[], offset: number): [value: T, offset: number];
+  validate?: (ctx: ValidationContext) => void;
 }): Binable<T> {
   return {
     toBytes,
@@ -44,6 +49,7 @@ function Binable<T>({
         throw Error("fromBytes: input bytes left over");
       return value;
     },
+    validate,
   };
 }
 
@@ -290,3 +296,5 @@ function byteEnum<
     },
   });
 }
+
+function noValidate() {}

@@ -12,11 +12,18 @@ import {
 } from "./binable.js";
 import { Code, Func } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
-import { FunctionType, MemoryType, TableType } from "./types.js";
+import {
+  FunctionIndex,
+  FunctionType,
+  GlobalType,
+  MemoryType,
+  TableType,
+  ValueType,
+} from "./types.js";
 import { Export, Import } from "./export.js";
 import { Data, Elem, Global } from "./memory.js";
 
-export { Module };
+export { Module, ValidationContext };
 
 type Module = {
   types: FunctionType[];
@@ -255,3 +262,17 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     };
   },
 });
+
+type ValidationContext = {
+  types: FunctionType[];
+  funcs: FunctionType[];
+  tables: TableType[];
+  memories: MemoryType[];
+  globals: GlobalType[];
+  elems: Elem[];
+  datas: Data[];
+  locals: ValueType[];
+  labels: ValueType[][];
+  return?: ValueType[];
+  refs: FunctionIndex[];
+};
