@@ -9,12 +9,12 @@ import { Instruction } from "./instruction.js";
 import {
   FunctionType,
   GlobalType,
+  MemoryType,
   RefType,
   TableType,
   ValueType,
 } from "./types.js";
 import { Byte } from "./binable.js";
-import { Table } from "./memory.js";
 import { I32, I64 } from "./immediate.js";
 
 type Dependency = { instructions: number[] } & (
@@ -22,13 +22,19 @@ type Dependency = { instructions: number[] } & (
   | { kind: "function"; value: Func }
   | { kind: "global"; value: Global }
   | { kind: "table"; value: TableType }
+  | { kind: "hasMemory" }
+  | { kind: "memory"; value: MemoryType }
   | { kind: "data"; value: Data }
   | { kind: "elem"; value: Elem }
-  | { kind: "hasMemory" }
+  | { kind: "hasRefTo"; value: Func }
+  | { kind: "importFunction"; value: ImportFunction }
+  | { kind: "importFable"; value: ImportTable }
+  | { kind: "importMemory"; value: ImportMemory }
+  | { kind: "importGlobal"; value: ImportGlobal }
 );
 
 type Func = {
-  type: FunctionType[];
+  type: FunctionType;
   locals: ValueType[];
   body: Instruction[];
   deps: Dependency[];
@@ -37,7 +43,9 @@ type Func = {
 type Global = {
   type: GlobalType;
   init: ConstInstruction;
-  deps: (Dependency & { kind: "global" | "function" })[];
+  deps: (Dependency & {
+    kind: "global" | "importGlobal" | "function" | "importFunction";
+  })[];
 };
 
 type Data = {
@@ -52,8 +60,31 @@ type Elem = {
   mode:
     | "passive"
     | "declarative"
-    | { table: Table; offset: I32Const | GlobalGet };
-  deps: (Dependency & { kind: "table" | "function" | "global" })[];
+    | { table: TableType; offset: I32Const | GlobalGet };
+  deps: (Dependency & {
+    kind:
+      | "table"
+      | "importTable"
+      | "function"
+      | "importFunction"
+      | "global"
+      | "importGlobal";
+  })[];
+};
+
+type ImportPath = { module: string; string: string; deps: never[] };
+type ImportFunction = ImportPath & {
+  type: FunctionType;
+  function: Function;
+};
+type ImportTable = ImportPath & { type: TableType; value: WebAssembly.Table };
+type ImportMemory = ImportPath & {
+  type: MemoryType;
+  value: WebAssembly.Memory;
+};
+type ImportGlobal = ImportPath & {
+  type: GlobalType;
+  value: WebAssembly.Global | number;
 };
 
 // constant instructions
