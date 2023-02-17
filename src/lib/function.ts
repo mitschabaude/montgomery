@@ -122,7 +122,7 @@ const Locals = iso<[number, ValueType][], ValueType[]>(CompressedLocals, {
 
 type Code = { locals: ValueType[]; body: Expression };
 const Code = withByteLength(
-  record({ locals: Locals, body: Expression }, ["locals", "body"])
+  record({ locals: Locals, body: Expression })
 ) satisfies Binable<Code>;
 
 type ToConcrete<T extends Tuple<Local<any>>> = {

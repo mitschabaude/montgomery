@@ -21,45 +21,33 @@ import {
 export { Global, Data, Elem };
 
 type Global = { type: GlobalType; init: ConstExpression };
-const Global = record<Global>({ type: GlobalType, init: ConstExpression }, [
-  "type",
-  "init",
-]);
+const Global = record<Global>({ type: GlobalType, init: ConstExpression });
 
 type Data = {
   init: Byte[];
   mode: "passive" | { memory: U32; offset: ConstExpression };
 };
 
-const Offset0 = record({ memory: constant<0>(0), offset: ConstExpression }, [
-  "memory",
-  "offset",
-]);
-const Offset = record({ memory: U32, offset: ConstExpression }, [
-  "memory",
-  "offset",
-]);
+const Offset0 = record({ memory: constant<0>(0), offset: ConstExpression });
+const Offset = record({ memory: U32, offset: ConstExpression });
 
 type ActiveData = {
   init: Byte[];
   mode: { memory: 0; offset: ConstExpression };
 };
-const ActiveData = record({ mode: Offset0, init: vec(Byte) }, ["mode", "init"]);
+const ActiveData = record({ mode: Offset0, init: vec(Byte) });
 
 type PassiveData = { init: Byte[]; mode: "passive" };
-const PassiveData = record(
-  { init: vec(Byte), mode: constant("passive" as const) },
-  ["mode", "init"]
-);
+const PassiveData = record({
+  mode: constant("passive" as const),
+  init: vec(Byte),
+});
 
 type ActiveDataMultiMemory = {
   init: Byte[];
   mode: { memory: U32; offset: ConstExpression };
 };
-const ActiveDataMultiMemory = record({ mode: Offset, init: vec(Byte) }, [
-  "mode",
-  "init",
-]);
+const ActiveDataMultiMemory = record({ mode: Offset, init: vec(Byte) });
 
 const Data: Binable<Data> = or(
   [

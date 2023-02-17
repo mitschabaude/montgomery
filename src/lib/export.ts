@@ -36,10 +36,7 @@ const ExportDescription: Binable<ExportDescription> = byteEnum<{
 });
 
 type Export = { name: string; description: ExportDescription };
-const Export = record({ name: Name, description: ExportDescription }, [
-  "name",
-  "description",
-]);
+const Export = record({ name: Name, description: ExportDescription });
 
 function exportFunction({
   string,
@@ -70,10 +67,11 @@ type Import = {
   string: string;
   description: ImportDescription;
 };
-const Import = record<Import>(
-  { module: Name, string: Name, description: ImportDescription },
-  ["module", "string", "description"]
-);
+const Import = record<Import>({
+  module: Name,
+  string: Name,
+  description: ImportDescription,
+});
 
 function importFunction(
   ctx: FunctionContext,

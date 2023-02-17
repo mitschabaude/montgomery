@@ -1,4 +1,4 @@
-import { Binable, named, One } from "./binable.js";
+import { Binable, One, record } from "./binable.js";
 import { I32, U32 } from "./immediate.js";
 import {
   i32t,
@@ -43,7 +43,7 @@ type ToLocal<T extends ValueType> = T extends i32
   : Local<T>;
 
 type ConcreteLocal = { index: number };
-const ConcreteLocal = named({ index: U32 });
+const ConcreteLocal = record({ index: U32 });
 
 let local_ = {
   get: baseInstruction("local.get", ConcreteLocal, ({ stack, locals }, x) => {

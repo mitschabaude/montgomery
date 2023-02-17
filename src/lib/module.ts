@@ -121,38 +121,21 @@ type ParsedModule = {
 
 let ParsedModule = withPreamble(
   [0x00, 0x61, 0x73, 0x6d],
-  record<ParsedModule>(
-    {
-      version: Version,
-      typeSection: orDefault(TypeSection, [], isEmpty),
-      importSection: orDefault(ImportSection, [], isEmpty),
-      funcSection: orDefault(FuncSection, [], isEmpty),
-      tableSection: orDefault(TableSection, [], isEmpty),
-      memorySection: orDefault(MemorySection, [], isEmpty),
-      globalSection: orDefault(GlobalSection, [], isEmpty),
-      exportSection: orDefault(ExportSection, [], isEmpty),
-      startSection: orUndefined(StartSection),
-      elemSection: orDefault(ElemSection, [], isEmpty),
-      dataCountSection: orUndefined(DataCountSection),
-      codeSection: orDefault(CodeSection, [], isEmpty),
-      dataSection: orDefault(DataSection, [], isEmpty),
-    },
-    [
-      "version",
-      "typeSection",
-      "importSection",
-      "funcSection",
-      "tableSection",
-      "memorySection",
-      "globalSection",
-      "exportSection",
-      "startSection",
-      "elemSection",
-      "dataCountSection",
-      "codeSection",
-      "dataSection",
-    ]
-  )
+  record<ParsedModule>({
+    version: Version,
+    typeSection: orDefault(TypeSection, [], isEmpty),
+    importSection: orDefault(ImportSection, [], isEmpty),
+    funcSection: orDefault(FuncSection, [], isEmpty),
+    tableSection: orDefault(TableSection, [], isEmpty),
+    memorySection: orDefault(MemorySection, [], isEmpty),
+    globalSection: orDefault(GlobalSection, [], isEmpty),
+    exportSection: orDefault(ExportSection, [], isEmpty),
+    startSection: orUndefined(StartSection),
+    elemSection: orDefault(ElemSection, [], isEmpty),
+    dataCountSection: orUndefined(DataCountSection),
+    codeSection: orDefault(CodeSection, [], isEmpty),
+    dataSection: orDefault(DataSection, [], isEmpty),
+  })
 );
 
 ParsedModule = withValidation(

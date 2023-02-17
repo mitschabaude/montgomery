@@ -95,10 +95,7 @@ const RefType: Binable<RefType> = Binable<RefType>({
 });
 
 type GlobalType = { value: ValueType; mutable: boolean };
-const GlobalType = record<GlobalType>({ value: ValueType, mutable: Bool }, [
-  "value",
-  "mutable",
-]);
+const GlobalType = record<GlobalType>({ value: ValueType, mutable: Bool });
 
 type Limits = { min: number; max?: number };
 const Limits = Binable<Limits>({
@@ -118,18 +115,15 @@ const Limits = Binable<Limits>({
 });
 
 type MemoryType = { limits: Limits };
-const MemoryType = record<MemoryType>({ limits: Limits }, ["limits"]);
+const MemoryType = record<MemoryType>({ limits: Limits });
 
-type TableType = { limits: Limits; element: RefType };
-const TableType = record<TableType>({ element: RefType, limits: Limits }, []);
+type TableType = { type: RefType; limits: Limits };
+const TableType = record<TableType>({ type: RefType, limits: Limits });
 
 type FunctionType = { args: ValueType[]; results: ValueType[] };
 const FunctionType = withByteCode(
   0x60,
-  record<FunctionType>({ args: vec(ValueType), results: vec(ValueType) }, [
-    "args",
-    "results",
-  ])
+  record<FunctionType>({ args: vec(ValueType), results: vec(ValueType) })
 );
 
 type TypeIndex = U32;

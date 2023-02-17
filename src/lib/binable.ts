@@ -4,7 +4,6 @@ export {
   Binable,
   tuple,
   record,
-  named,
   iso,
   constant,
   withByteCode,
@@ -123,12 +122,10 @@ type Tuple<T> = [T, ...T[]] | [];
 
 type Union<T extends Tuple<any>> = T[number];
 
-function record<Types extends Record<string, any>>(
-  binables: {
-    [i in keyof Types]-?: Binable<Types[i]>;
-  },
-  keys: Tuple<keyof Types>
-): Binable<Types> {
+function record<Types extends Record<string, any>>(binables: {
+  [i in keyof Types]-?: Binable<Types[i]>;
+}): Binable<Types> {
+  let keys = Object.keys(binables);
   let binablesTuple = keys.map((key) => binables[key]) as Tuple<Binable<any>>;
   let tupleBinable = tuple<Tuple<any>>(binablesTuple);
   return Binable({
@@ -144,16 +141,6 @@ function record<Types extends Record<string, any>>(
       return [value, end];
     },
   });
-}
-function named<K extends string, T>(binables: {
-  [i in K]-?: Binable<T>;
-}) {
-  let keys = Object.keys(binables) as Tuple<K>;
-  if (keys.length !== 1)
-    throw Error("named: input must be a record of exactly one key");
-  return record<{
-    [i in K]: T;
-  }>(binables, keys);
 }
 
 function tuple<Types extends Tuple<any>>(binables: {
