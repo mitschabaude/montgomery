@@ -1,9 +1,10 @@
 import { Binable } from "./binable.js";
 
-export { vec, withByteLength, Name, U32, I32, S33 };
+export { vec, withByteLength, Name, U32, I32, I64, S33 };
 
 type U32 = number;
 type I32 = number;
+type I64 = bigint;
 
 function vec<T>(Element: Binable<T>) {
   return Binable<T[]>({
@@ -70,6 +71,15 @@ const I32 = Binable<I32>({
   readBytes(bytes, offset): [I32, number] {
     let [x, end] = fromSLEB128(32, bytes, offset);
     return [Number(x), end];
+  },
+});
+
+const I64 = Binable<I64>({
+  toBytes(x: I64) {
+    return toSLEB128(x);
+  },
+  readBytes(bytes, offset): [I64, number] {
+    return fromSLEB128(64, bytes, offset);
   },
 });
 

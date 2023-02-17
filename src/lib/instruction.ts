@@ -14,6 +14,7 @@ import {
 export {
   ops,
   i32,
+  i64,
   local,
   Instruction,
   Expression,

@@ -16,12 +16,16 @@ import {
   GlobalType,
   RefType,
   TableIndex,
+  TableType,
 } from "./types.js";
 
-export { Global, Data, Elem };
+export { Global, Table, Data, Elem };
 
 type Global = { type: GlobalType; init: ConstExpression };
 const Global = record<Global>({ type: GlobalType, init: ConstExpression });
+
+type Table = { type: TableType };
+const Table = record<Table>({ type: TableType });
 
 type Data = {
   init: Byte[];
