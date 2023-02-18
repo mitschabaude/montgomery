@@ -17,75 +17,120 @@ import {
 import { Byte } from "./binable.js";
 import { I32, I64 } from "./immediate.js";
 
-type Dependency = { instructions: number[] } & (
-  | { kind: "type"; value: FunctionType }
-  | { kind: "function"; value: Func }
-  | { kind: "global"; value: Global }
-  | { kind: "table"; value: TableType }
-  | { kind: "hasMemory" }
-  | { kind: "memory"; value: MemoryType }
-  | { kind: "data"; value: Data }
-  | { kind: "elem"; value: Elem }
-  | { kind: "hasRefTo"; value: Func }
-  | { kind: "importFunction"; value: ImportFunction }
-  | { kind: "importFable"; value: ImportTable }
-  | { kind: "importMemory"; value: ImportMemory }
-  | { kind: "importGlobal"; value: ImportGlobal }
-);
+export {
+  Dependency,
+  GenericDependency,
+  Type,
+  Func,
+  HasRefTo,
+  Global,
+  Table,
+  Memory,
+  HasMemory,
+  Data,
+  Elem,
+  ImportFunc,
+  ImportGlobal,
+  ImportTable,
+  ImportMemory,
+  AnyFunc,
+  AnyGlobal,
+  AnyMemory,
+  AnyTable,
+};
+
+interface GenericDependency {
+  kind: string;
+  deps: GenericDependency[];
+}
+
+type Dependency =
+  | Type
+  | Func
+  | HasRefTo
+  | Global
+  | Table
+  | Memory
+  | HasMemory
+  | Data
+  | Elem
+  | ImportFunc
+  | ImportGlobal
+  | ImportTable
+  | ImportMemory;
+
+type Type = { kind: "type"; type: FunctionType; deps: [] };
 
 type Func = {
+  kind: "function";
   type: FunctionType;
   locals: ValueType[];
   body: Instruction[];
   deps: Dependency[];
 };
+type HasRefTo = { kind: "hasRefTo"; value: Func; deps: [] };
 
 type Global = {
+  kind: "global";
   type: GlobalType;
   init: ConstInstruction;
-  deps: (Dependency & {
-    kind: "global" | "importGlobal" | "function" | "importFunction";
-  })[];
+  deps: (AnyGlobal | AnyFunc)[];
 };
 
+type Table = {
+  kind: "table";
+  type: TableType;
+};
+type Memory = {
+  kind: "memory";
+  type: MemoryType;
+};
+type HasMemory = { kind: "hasMemory" };
+
 type Data = {
+  kind: "data";
   init: Byte[];
   mode: "passive" | { memory: 0; offset: I32Const | GlobalGet };
-  deps: (Dependency & { kind: "hasMemory" | "global" })[];
+  deps: (HasMemory | AnyGlobal)[];
 };
 
 type Elem = {
+  kind: "elem";
   type: RefType;
   init: (RefFunc | RefNull)[];
   mode:
     | "passive"
     | "declarative"
     | { table: TableType; offset: I32Const | GlobalGet };
-  deps: (Dependency & {
-    kind:
-      | "table"
-      | "importTable"
-      | "function"
-      | "importFunction"
-      | "global"
-      | "importGlobal";
-  })[];
+  deps: (AnyTable | AnyFunc | AnyGlobal)[];
 };
 
-type ImportPath = { module: string; string: string; deps: never[] };
-type ImportFunction = ImportPath & {
+type ImportPath = { module: string; string: string; deps: [] };
+type ImportFunc = ImportPath & {
+  kind: "importFunction";
   type: FunctionType;
   function: Function;
 };
-type ImportTable = ImportPath & { type: TableType; value: WebAssembly.Table };
-type ImportMemory = ImportPath & {
-  type: MemoryType;
-  value: WebAssembly.Memory;
-};
 type ImportGlobal = ImportPath & {
+  kind: "importGlobal";
   type: GlobalType;
   value: WebAssembly.Global | number;
 };
+type ImportTable = ImportPath & {
+  kind: "importTable";
+  type: TableType;
+  value: WebAssembly.Table;
+};
+type ImportMemory = ImportPath & {
+  kind: "importMemory";
+  type: MemoryType;
+  value: WebAssembly.Memory;
+};
+
+type AnyFunc = Func | ImportFunc;
+type AnyGlobal = Global | ImportGlobal;
+type AnyTable = Table | ImportTable;
+type AnyMemory = Memory | ImportMemory;
 
 // constant instructions
 type I32Const = { string: "i32.const"; immediate: I32 };
