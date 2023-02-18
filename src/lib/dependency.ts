@@ -18,8 +18,8 @@ import { Byte } from "./binable.js";
 import { I32, I64 } from "./immediate.js";
 
 export {
-  Dependency,
-  GenericDependency,
+  t,
+  anyDependency,
   Type,
   Func,
   HasRefTo,
@@ -39,12 +39,9 @@ export {
   AnyTable,
 };
 
-interface GenericDependency {
-  kind: string;
-  deps: GenericDependency[];
-}
+type anyDependency = { kind: string; deps: anyDependency[] };
 
-type Dependency =
+type t =
   | Type
   | Func
   | HasRefTo
@@ -66,7 +63,7 @@ type Func = {
   type: FunctionType;
   locals: ValueType[];
   body: Instruction[];
-  deps: Dependency[];
+  deps: t[];
 };
 type HasRefTo = { kind: "hasRefTo"; value: Func; deps: [] };
 
