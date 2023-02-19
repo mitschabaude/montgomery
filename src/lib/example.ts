@@ -5,14 +5,13 @@ import { emptyContext, func, Module } from "./under-construction.js";
 import { Module as Module_ } from "./module.js";
 import { importFunc } from "./export.js";
 
-let ctx = emptyContext();
-
 let consoleLog = importFunc(
   "console.log",
   { in: [i32], out: [] },
   (x: number) => console.log("logging from wasm:", x)
 );
 
+let ctx = emptyContext();
 let myFunc = func(
   ctx,
   { in: { x: i32, y: i32 }, locals: {}, out: [i32] },
@@ -25,6 +24,7 @@ let myFunc = func(
   }
 );
 
+ctx = emptyContext();
 let exportedFunc = func(
   ctx,
   { in: { x: i32 }, locals: { y: i32 }, out: [i32] },

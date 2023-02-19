@@ -211,10 +211,12 @@ function pushInstruction(
 function popStack(stack: ValueType[], values: ValueType[]) {
   // TODO nicer errors, which display entire stack vs entire instruction signature
   for (let value of values) {
-    let stackValue = stack.pop()!;
-    if (value.kind !== stackValue.kind) {
+    let stackValue = stack.pop();
+    if (stackValue === undefined || value.kind !== stackValue.kind) {
       throw Error(
-        `expected ${value.kind} on the stack, got ${stackValue.kind}`
+        `expected ${value.kind} on the stack, got ${
+          stackValue?.kind ?? "nothing"
+        }`
       );
     }
   }
