@@ -1,5 +1,4 @@
 import { Binable, byteEnum, record } from "./binable.js";
-// import { Func, FunctionContext } from "./function.js";
 import { Name, U32 } from "./immediate.js";
 import {
   FunctionType,
@@ -7,10 +6,12 @@ import {
   MemoryType,
   TableType,
   TypeIndex,
+  valueType,
+  ValueType,
 } from "./types.js";
-import { Func } from "./under-construction.js";
+import { Dependency } from "./under-construction.js";
 
-export { Export, Import, ExternType, exportFunction };
+export { Export, Import, ExternType, importFunc };
 
 type ExternType =
   | { kind: "function"; value: FunctionType }
@@ -36,13 +37,6 @@ const ExportDescription: Binable<ExportDescription> = byteEnum<{
 
 type Export = { name: string; description: ExportDescription };
 const Export = record({ name: Name, description: ExportDescription });
-
-function exportFunction({
-  string,
-  typeIndex: index,
-}: Func & { string: string }): Export {
-  return { name: string, description: { kind: "function", value: index } };
-}
 
 type ImportDescription =
   | { kind: "function"; value: TypeIndex }
@@ -72,27 +66,26 @@ const Import = record<Import>({
   description: ImportDescription,
 });
 
-// function importFunction(
-//   ctx: FunctionContext,
-//   name: string,
-//   args_: ValueType[],
-//   results_: ValueType[]
-// ) {
-//   let args: ValueType[] = args_.map((a) => valueType(a.kind));
-//   let results: ValueType[] = results_.map((r) => valueType(r.kind));
-//   let type = { args, results };
-//   let typeIndex = ctx.types.length;
-//   ctx.types.push(type);
-//   ctx.importedFunctionsLength++;
-//   let importObj: Import = {
-//     module: "env",
-//     name: name,
-//     description: { kind: <"function">"function", value: typeIndex },
-//   };
-//   return Object.assign(
-//     function () {
-//       addCall(ctx, name, type, typeIndex);
-//     },
-//     { import: importObj }
-//   );
-// }
+function importFunc<Args extends ValueType[], Results extends ValueType[]>(
+  name: string,
+  {
+    in: args_,
+    out: results_,
+  }: {
+    in: Args;
+    out: Results;
+  },
+  run: Function
+): Dependency.ImportFunc {
+  let args = args_.map((a) => valueType(a.kind));
+  let results = results_.map((r) => valueType(r.kind));
+  let type = { args, results };
+  return {
+    kind: "importFunction",
+    module: "env",
+    string: name,
+    type,
+    deps: [],
+    function: run,
+  };
+}

@@ -14,7 +14,7 @@ import {
 // external
 export { Module, func };
 // internal
-export { pushInstruction, LocalContext, emptyContext, Func };
+export { Dependency, pushInstruction, LocalContext, emptyContext, Func };
 
 type Module = Module_;
 

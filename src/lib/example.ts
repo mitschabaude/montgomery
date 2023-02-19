@@ -3,10 +3,15 @@ import { i32, local, ops } from "./instruction.js";
 import assert from "node:assert";
 import { emptyContext, func, Module } from "./under-construction.js";
 import { Module as Module_ } from "./module.js";
+import { importFunc } from "./export.js";
 
 let ctx = emptyContext();
 
-// let consoleLog = importFunction(ctx, "console.log", [i32], []);
+let consoleLog = importFunc(
+  "console.log",
+  { in: [i32], out: [] },
+  (x: number) => console.log("logging from wasm:", x)
+);
 
 let myFunc = func(
   ctx,
@@ -24,8 +29,8 @@ let exportedFunc = func(
   ctx,
   { in: { x: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x }, { y }) => {
-    // local.get(ctx, x);
-    // consoleLog();
+    local.get(ctx, x);
+    ops.call(ctx, consoleLog);
     local.get(ctx, x);
     local.set(ctx, y);
     local.get(ctx, y);
