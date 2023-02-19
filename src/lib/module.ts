@@ -10,7 +10,7 @@ import {
   withPreamble,
   withValidation,
 } from "./binable.js";
-import { Code, Func } from "./function.js";
+import { Code } from "./function.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import {
   FunctionIndex,
@@ -22,6 +22,7 @@ import {
 } from "./types.js";
 import { Export, Import } from "./export.js";
 import { Data, Elem, Global } from "./memory.js";
+import { Func } from "./under-construction.js";
 
 export { Module, ValidationContext };
 

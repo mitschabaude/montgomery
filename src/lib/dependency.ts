@@ -5,7 +5,6 @@
  * indices for them.
  */
 
-import { Instruction } from "./instruction.js";
 import {
   FunctionType,
   GlobalType,
@@ -19,6 +18,7 @@ import { I32, I64 } from "./immediate.js";
 
 export {
   t,
+  Export,
   anyDependency,
   Type,
   Func,
@@ -37,9 +37,13 @@ export {
   AnyGlobal,
   AnyMemory,
   AnyTable,
+  Instruction,
+  ConstInstruction,
 };
 
 type anyDependency = { kind: string; deps: anyDependency[] };
+
+type Export = AnyFunc | AnyGlobal | AnyMemory | AnyTable;
 
 type t =
   | Type
@@ -77,12 +81,14 @@ type Global = {
 type Table = {
   kind: "table";
   type: TableType;
+  deps: [];
 };
 type Memory = {
   kind: "memory";
   type: MemoryType;
+  deps: [];
 };
-type HasMemory = { kind: "hasMemory" };
+type HasMemory = { kind: "hasMemory"; deps: [] };
 
 type Data = {
   kind: "data";
@@ -136,3 +142,12 @@ type RefNull = { string: "ref.null" };
 type RefFunc = { string: "ref.func"; immediate: 0 };
 type GlobalGet = { string: "global.get"; immediate: 0 };
 type ConstInstruction = I32Const | I64Const | RefNull | RefFunc | GlobalGet;
+
+// general instruction
+type Instruction = {
+  string: string;
+  type: FunctionType;
+  immediate?: any;
+  deps: t[];
+  resolveArgs: any[];
+};

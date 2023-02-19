@@ -1,4 +1,5 @@
 import { Binable, One, record } from "./binable.js";
+import * as Dependency from "./dependency.js";
 import { I32, U32 } from "./immediate.js";
 import {
   i32t,
@@ -10,6 +11,7 @@ import {
   ValueTypeLiteral,
   valueType,
 } from "./types.js";
+import { LocalContext, pushInstruction } from "./under-construction.js";
 
 export {
   ops,
@@ -24,11 +26,23 @@ export {
   ConcreteLocal,
   ToLocal,
   popValue,
+  ToValueType,
+  resolveInstruction,
 };
 
 // control
-let unreachable = baseInstruction("unreachable", One);
-let call = baseInstruction("call", U32);
+let unreachable = baseInstruction("unreachable", One, {
+  create({ stack }) {
+    return { in: [...stack], out: [] };
+  },
+  resolve: () => undefined,
+});
+let call = baseInstruction("call", U32, {
+  create(_, func: Dependency.AnyFunc) {
+    return { in: func.type.args, out: func.type.results, deps: [func] };
+  },
+  resolve: ([funcIndex]) => funcIndex,
+});
 let control = { unreachable, call };
 
 // variable
@@ -43,19 +57,37 @@ type ToLocal<T extends ValueType> = T extends i32
   ? Local<f64>
   : Local<T>;
 
+type ToValueType<T extends ValueType> = T extends i32
+  ? i32
+  : T extends i64
+  ? i64
+  : T extends f32
+  ? f32
+  : T extends f64
+  ? f64
+  : Local<T>;
+
 type ConcreteLocal = { index: number };
 const ConcreteLocal = record({ index: U32 });
 
 let local_ = {
-  get: baseInstruction("local.get", ConcreteLocal, ({ stack, locals }, x) => {
-    let local = locals[x.index];
-    if (local === undefined) throw Error(`local with index ${x} not available`);
-    stack.push(local.type);
+  get: baseInstruction("local.get", ConcreteLocal, {
+    create({ locals }, x: ConcreteLocal) {
+      let local = locals[x.index];
+      if (local === undefined)
+        throw Error(`local with index ${x.index} not available`);
+      return { out: [local] };
+    },
+    resolve: (_, x: ConcreteLocal) => x,
   }),
-  set: baseInstruction("local.set", ConcreteLocal, ({ stack, locals }, x) => {
-    let local = locals[x.index];
-    if (local === undefined) throw Error(`local with index ${x} not available`);
-    popValue(stack, local.type);
+  set: baseInstruction("local.set", ConcreteLocal, {
+    create({ locals }, x: ConcreteLocal) {
+      let local = locals[x.index];
+      if (local === undefined)
+        throw Error(`local with index ${x.index} not available`);
+      return { in: [local] };
+    },
+    resolve: (_, x: ConcreteLocal) => x,
   }),
 };
 const local = Object.assign(function local<L extends ValueTypeLiteral>(
@@ -71,10 +103,8 @@ type i64 = i64t;
 type f32 = f32t;
 type f64 = f64t;
 const i32 = Object.assign(i32t, {
-  const: instruction("i32.const", I32, [], [i32t], (_c, i) => [i]),
-  add: instruction("i32.add", One, [i32t, i32t], [i32t], (_c, _i, x, y) => [
-    x + y,
-  ]),
+  const: instruction("i32.const", I32, [], [i32t]),
+  add: instruction("i32.add", One, [i32t, i32t], [i32t]),
 });
 
 const ops = { i32, local, ...control };
@@ -96,19 +126,45 @@ const opcodes: Record<number, BaseInstruction> = {
 
 const instructionToOpcode = invertOpcodes();
 
-type BaseInstruction = { string: string; immediate: Binable<any> | undefined };
+type BaseInstruction = {
+  string: string;
+  immediate: Binable<any> | undefined;
+  resolve: (deps: number[], ...args: any) => any;
+};
 
-function baseInstruction<Immediate>(
+function baseInstruction<Immediate, Args extends any[]>(
   string: string,
   immediate: Binable<Immediate> | undefined = undefined,
-  validate?: (context: Context, immediate: Immediate) => void
-) {
-  let instruction = { string, immediate };
-  function i(ctx: Context, immediate: Immediate) {
-    validate?.(ctx, immediate);
-    ctx.instructions.push({ string, immediate });
+  {
+    create,
+    resolve,
+  }: {
+    create(
+      ctx: LocalContext,
+      ...args: Args
+    ): { in?: ValueType[]; out?: ValueType[]; deps?: Dependency.t[] };
+    resolve(deps: number[], ...args: Args): Immediate;
   }
-  return Object.assign(i, instruction);
+) {
+  function i(ctx: LocalContext, ...resolveArgs: Args) {
+    let {
+      in: args = [],
+      out: results = [],
+      deps = [],
+    } = create(ctx, ...resolveArgs);
+    pushInstruction(ctx, {
+      string,
+      deps,
+      immediate,
+      type: { args, results },
+      resolveArgs,
+    });
+  }
+  return Object.assign(i, {
+    string,
+    immediate,
+    resolve,
+  });
 }
 
 function instruction<
@@ -119,25 +175,38 @@ function instruction<
   string: string,
   immediate: Binable<Immediate> | undefined,
   args: Arguments,
-  results: Results,
-  execute: (
-    context: Context,
-    immediate: Immediate,
-    ...args: JSValues<Arguments>
-  ) => JSValues<Results>
+  results: Results
+  // execute: (
+  //   context: LocalContext,
+  //   immediate: Immediate,
+  //   ...args: JSValues<Arguments>
+  // ) => JSValues<Results>
 ) {
   immediate = immediate === One ? undefined : immediate;
-  type InstArgs = Immediate extends undefined
-    ? [context: Context]
-    : [context: Context, immediate: Immediate];
-  let instruction_ = Object.assign(
-    function (...[{ stack, instructions }, immediate]: InstArgs) {
-      apply(stack, args, results);
-      instructions.push({ string, immediate });
+  type Args = Immediate extends undefined ? [] : [immediate: Immediate];
+  return baseInstruction<Immediate, Args>(string, immediate, {
+    create() {
+      return { in: args, out: results };
     },
-    { string, args, results, immediate, execute }
-  );
-  return instruction_;
+    resolve: (_, immediate) => immediate as Immediate,
+  });
+}
+
+function resolveInstruction(
+  { string, deps, resolveArgs }: Dependency.Instruction,
+  depToIndex: Map<Dependency.t, number>
+): Instruction {
+  let opcode = instructionToOpcode[string];
+  if (opcode === undefined) throw Error("invalid instruction name");
+  let instrObject = opcodes[opcode];
+  let depIndices: number[] = [];
+  for (let dep of deps) {
+    let index = depToIndex.get(dep);
+    if (index === undefined) throw Error("bug: no index for dependecy");
+    depIndices.push(index);
+  }
+  let immediate = instrObject.resolve(depIndices, ...resolveArgs);
+  return { string, immediate };
 }
 
 type SimpleInstruction<I> = { string: string; immediate: I };

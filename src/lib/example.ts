@@ -1,27 +1,17 @@
-import { exportFunction, importFunction } from "./export.js";
-import { func, FunctionContext } from "./function.js";
+// import { exportFunction, importFunction } from "./export.js";
 import { i32, local, ops } from "./instruction.js";
-import { Module } from "./module.js";
 import assert from "node:assert";
+import { emptyContext, func, Module } from "./under-construction.js";
+import { Module as Module_ } from "./module.js";
 
-let x = local("x", i32);
-let y = local("y", i32);
-let ctx: FunctionContext = {
-  types: [],
-  importedFunctionsLength: 0,
-  functions: [],
-  instructions: [],
-  locals: [],
-  stack: [],
-};
+let ctx = emptyContext();
 
-let consoleLog = importFunction(ctx, "console.log", [i32], []);
+// let consoleLog = importFunction(ctx, "console.log", [i32], []);
 
 let myFunc = func(
   ctx,
-  "myFunc",
-  { args: [x, y], locals: [], results: [i32] },
-  ([x, y]) => {
+  { in: { x: i32, y: i32 }, locals: {}, out: [i32] },
+  ({ x, y }) => {
     i32.const(ctx, 0);
     local.get(ctx, x);
     i32.add(ctx);
@@ -32,37 +22,27 @@ let myFunc = func(
 
 let exportedFunc = func(
   ctx,
-  "exportedFunc",
-  { args: [x], locals: [y], results: [i32] },
-  ([x], [y]) => {
-    local.get(ctx, x);
-    consoleLog();
+  { in: { x: i32 }, locals: { y: i32 }, out: [i32] },
+  ({ x }, { y }) => {
+    // local.get(ctx, x);
+    // consoleLog();
     local.get(ctx, x);
     local.set(ctx, y);
     local.get(ctx, y);
     i32.const(ctx, 5);
-    myFunc();
-    // ops.unreachable(ctx, undefined);
+    ops.call(ctx, myFunc);
+    // ops.unreachable(ctx);
   }
 );
 
-let module: Module = {
-  types: ctx.types,
-  imports: [consoleLog.import],
-  funcs: ctx.functions,
-  tables: [],
-  memory: undefined,
-  globals: [],
-  exports: [exportFunction(exportedFunc)],
-  start: undefined,
-  datas: [],
-  elems: [],
-};
+let module: Module = Module({
+  exports: { exportedFunc },
+});
 
 console.dir(module, { depth: 10 });
-let wasmByteCode = Module.toBytes(module);
+let wasmByteCode = Module_.toBytes(module);
 console.log(`wasm size: ${wasmByteCode.length} byte`);
-let recoveredModule = Module.fromBytes(wasmByteCode);
+let recoveredModule = Module_.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module);
 
 let wasmModule = await WebAssembly.instantiate(Uint8Array.from(wasmByteCode), {

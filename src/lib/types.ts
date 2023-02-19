@@ -12,9 +12,11 @@ export {
   TableType,
   JSValue,
   ValueTypeLiteral,
+  GenericValueType,
   invertRecord,
   valueType,
   valueTypes,
+  functionTypeEquals,
 };
 
 type RefTypeLiteral = "funcref" | "externref";
@@ -37,8 +39,8 @@ type JSValueFromLiteral<T extends ValueTypeLiteral> = T extends "i32"
   ? any
   : any;
 
-type Type<L> = { kind: L };
-function valueType<L extends ValueTypeLiteral>(kind: L): Type<L> {
+type GenericValueType<L> = { kind: L };
+function valueType<L extends ValueTypeLiteral>(kind: L): GenericValueType<L> {
   return { kind };
 }
 
@@ -51,13 +53,13 @@ const valueTypes: Record<ValueTypeLiteral, number> = {
   funcref: 0x70,
   externref: 0x6f,
 };
-type i32t = Type<"i32">;
-type i64t = Type<"i64">;
-type f32t = Type<"f32">;
-type f64t = Type<"f64">;
-type v128t = Type<"v128">;
-type funcref = Type<"funcref">;
-type externref = Type<"i64">;
+type i32t = GenericValueType<"i32">;
+type i64t = GenericValueType<"i64">;
+type f32t = GenericValueType<"f32">;
+type f64t = GenericValueType<"f64">;
+type v128t = GenericValueType<"v128">;
+type funcref = GenericValueType<"funcref">;
+type externref = GenericValueType<"i64">;
 const i32t = valueType("i32");
 const i64t = valueType("i64");
 const f32t = valueType("f32");
@@ -141,4 +143,20 @@ function invertRecord<K extends string, V>(record: Record<K, V>): Map<V, K> {
     map.set(record[key], key);
   }
   return map;
+}
+
+function functionTypeEquals(
+  { args: fArgs, results: fResults }: FunctionType,
+  { args: gArgs, results: gResults }: FunctionType
+) {
+  let nArgs = fArgs.length;
+  let nResults = fResults.length;
+  if (gArgs.length !== nArgs || gResults.length !== nResults) return false;
+  for (let i = 0; i < nArgs; i++) {
+    if (fArgs[i].kind !== gArgs[i].kind) return false;
+  }
+  for (let i = 0; i < nResults; i++) {
+    if (fResults[i].kind !== gResults[i].kind) return false;
+  }
+  return true;
 }

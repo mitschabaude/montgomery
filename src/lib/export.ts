@@ -1,5 +1,5 @@
 import { Binable, byteEnum, record } from "./binable.js";
-import { addCall, Func, FunctionContext } from "./function.js";
+// import { Func, FunctionContext } from "./function.js";
 import { Name, U32 } from "./immediate.js";
 import {
   FunctionType,
@@ -7,11 +7,10 @@ import {
   MemoryType,
   TableType,
   TypeIndex,
-  valueType,
-  ValueType,
 } from "./types.js";
+import { Func } from "./under-construction.js";
 
-export { Export, Import, ExternType, exportFunction, importFunction };
+export { Export, Import, ExternType, exportFunction };
 
 type ExternType =
   | { kind: "function"; value: FunctionType }
@@ -64,36 +63,36 @@ const ImportDescription: Binable<ImportDescription> = byteEnum<{
 
 type Import = {
   module: string;
-  string: string;
+  name: string;
   description: ImportDescription;
 };
 const Import = record<Import>({
   module: Name,
-  string: Name,
+  name: Name,
   description: ImportDescription,
 });
 
-function importFunction(
-  ctx: FunctionContext,
-  name: string,
-  args_: ValueType[],
-  results_: ValueType[]
-) {
-  let args: ValueType[] = args_.map((a) => valueType(a.kind));
-  let results: ValueType[] = results_.map((r) => valueType(r.kind));
-  let type = { args, results };
-  let typeIndex = ctx.types.length;
-  ctx.types.push(type);
-  ctx.importedFunctionsLength++;
-  let importObj: Import = {
-    module: "env",
-    string: name,
-    description: { kind: <"function">"function", value: typeIndex },
-  };
-  return Object.assign(
-    function () {
-      addCall(ctx, name, type, typeIndex);
-    },
-    { import: importObj }
-  );
-}
+// function importFunction(
+//   ctx: FunctionContext,
+//   name: string,
+//   args_: ValueType[],
+//   results_: ValueType[]
+// ) {
+//   let args: ValueType[] = args_.map((a) => valueType(a.kind));
+//   let results: ValueType[] = results_.map((r) => valueType(r.kind));
+//   let type = { args, results };
+//   let typeIndex = ctx.types.length;
+//   ctx.types.push(type);
+//   ctx.importedFunctionsLength++;
+//   let importObj: Import = {
+//     module: "env",
+//     name: name,
+//     description: { kind: <"function">"function", value: typeIndex },
+//   };
+//   return Object.assign(
+//     function () {
+//       addCall(ctx, name, type, typeIndex);
+//     },
+//     { import: importObj }
+//   );
+// }
