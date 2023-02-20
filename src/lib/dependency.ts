@@ -6,8 +6,12 @@
  */
 
 import {
+  externref,
+  funcref,
   FunctionType,
   GlobalType,
+  i32t,
+  i64t,
   MemoryType,
   RefType,
   TableType,
@@ -39,7 +43,7 @@ export {
   AnyTable,
   AnyImport,
   Instruction,
-  ConstInstruction,
+  Const,
 };
 
 type anyDependency = { kind: string; deps: anyDependency[] };
@@ -75,7 +79,7 @@ type HasRefTo = { kind: "hasRefTo"; value: Func; deps: [] };
 type Global = {
   kind: "global";
   type: GlobalType;
-  init: ConstInstruction;
+  init: Const.t;
   deps: (AnyGlobal | AnyFunc)[];
 };
 
@@ -94,18 +98,21 @@ type HasMemory = { kind: "hasMemory"; deps: [] };
 type Data = {
   kind: "data";
   init: Byte[];
-  mode: "passive" | { memory: 0; offset: I32Const | GlobalGet };
+  mode: "passive" | { memory: 0; offset: Const.i32 | Const.globalGet };
   deps: (HasMemory | AnyGlobal)[];
 };
 
 type Elem = {
   kind: "elem";
   type: RefType;
-  init: (RefFunc | RefNull)[];
+  init: (Const.refFunc | Const.refNull)[];
   mode:
     | "passive"
     | "declarative"
-    | { table: TableType; offset: I32Const | GlobalGet };
+    | {
+        table: TableType;
+        offset: Const.i32 | Const.globalGet;
+      };
   deps: (AnyTable | AnyFunc | AnyGlobal)[];
 };
 
@@ -137,19 +144,74 @@ type AnyTable = Table | ImportTable;
 type AnyMemory = Memory | ImportMemory;
 type AnyImport = ImportFunc | ImportGlobal | ImportTable | ImportMemory;
 
-// constant instructions
-type I32Const = { string: "i32.const"; immediate: I32 };
-type I64Const = { string: "i64.const"; immediate: I64 };
-type RefNull = { string: "ref.null" };
-type RefFunc = { string: "ref.func"; immediate: 0 };
-type GlobalGet = { string: "global.get"; immediate: 0 };
-type ConstInstruction = I32Const | I64Const | RefNull | RefFunc | GlobalGet;
-
 // general instruction
+
 type Instruction = {
   string: string;
   type: FunctionType;
   immediate?: any;
   deps: t[];
   resolveArgs: any[];
+};
+
+// constant instructions
+
+namespace Const {
+  export type i32 = Instruction & { string: "i32.const"; immediate: I32 };
+  export type i64 = Instruction & { string: "i64.const"; immediate: I64 };
+  export type refNull = Instruction & { string: "ref.null" };
+  export type refFunc = Instruction & { string: "ref.func" };
+  export type globalGet = Instruction & { string: "global.get" };
+  export type t = i32 | i64 | refNull | refFunc | globalGet;
+}
+
+const Const = {
+  i32(x: number | bigint): Const.i32 {
+    return {
+      string: "i32.const",
+      immediate: Number(x),
+      type: { args: [], results: [i32t] },
+      deps: [],
+      resolveArgs: [],
+    };
+  },
+  i64(x: number | bigint): Const.i64 {
+    return {
+      string: "i64.const",
+      immediate: BigInt(x),
+      type: { args: [], results: [i64t] },
+      deps: [],
+      resolveArgs: [],
+    };
+  },
+  refFuncNull: {
+    string: "ref.null",
+    type: { args: [], results: [funcref] },
+    deps: [],
+    resolveArgs: [],
+  } as Const.refNull,
+  refExternNull: {
+    string: "ref.null",
+    type: { args: [], results: [externref] },
+    deps: [],
+    resolveArgs: [],
+  } as Const.refNull,
+  refFunc(func: AnyFunc): Const.refFunc {
+    return {
+      string: "ref.func",
+      type: { args: [], results: [funcref] },
+      deps: [func],
+      resolveArgs: [],
+    };
+  },
+  globalGet(global: Global): Const.globalGet {
+    if (global.type.mutable)
+      throw Error("global in a const expression can not be mutable");
+    return {
+      string: "global.get",
+      type: { args: [], results: [global.type.value] },
+      deps: [global],
+      resolveArgs: [],
+    };
+  },
 };

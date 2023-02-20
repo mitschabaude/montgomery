@@ -3,12 +3,19 @@ import assert from "node:assert";
 import { Module, func } from "./index.js";
 import { importFunc } from "./export.js";
 import { emptyContext } from "./local-context.js";
+import { Const } from "./dependency.js";
+import { global } from "./memory.js";
+import { externref } from "./types.js";
 
-let consoleLog = importFunc(
+let log = (x: any) => console.log("logging from wasm:", x);
+let consoleLog = importFunc("console.log", { in: [i32], out: [] }, log);
+let consoleLogExtern = importFunc(
   "console.log",
-  { in: [i32], out: [] },
-  (x: number) => console.log("logging from wasm:", x)
+  { in: [externref], out: [] },
+  log
 );
+
+let nullGlobal = global(Const.refExternNull);
 
 let ctx = emptyContext();
 let myFunc = func(
