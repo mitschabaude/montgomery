@@ -11,6 +11,9 @@ type BaseInstruction = {
   resolve: (deps: number[], ...args: any) => any;
 };
 
+/**
+ * most general function to create instructions
+ */
 function baseInstruction<Immediate, Args extends any[]>(
   string: string,
   immediate: Binable<Immediate> | undefined = undefined,
@@ -42,6 +45,9 @@ function baseInstruction<Immediate, Args extends any[]>(
   return Object.assign(i, { string, immediate, resolve });
 }
 
+/**
+ * instructions of constant type without dependencies
+ */
 function simpleInstruction<
   Arguments extends Tuple<ValueType>,
   Results extends Tuple<ValueType>,
