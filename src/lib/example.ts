@@ -1,4 +1,3 @@
-// import { exportFunction, importFunction } from "./export.js";
 import { i32, local, ops } from "./instruction.js";
 import assert from "node:assert";
 import { Module, func } from "./index.js";
@@ -27,8 +26,8 @@ let myFunc = func(
 ctx = emptyContext();
 let exportedFunc = func(
   ctx,
-  { in: { x: i32 }, locals: { y: i32 }, out: [i32] },
-  ({ x }, { y }) => {
+  { in: { x: i32, z: i32 }, locals: { y: i32 }, out: [i32] },
+  ({ x, z }, { y }) => {
     local.get(ctx, x);
     ops.call(ctx, consoleLog);
     local.get(ctx, x);
@@ -40,21 +39,20 @@ let exportedFunc = func(
   }
 );
 
-let module: Module = Module({
+let module = Module({
   exports: { exportedFunc },
 });
 
-console.dir(module, { depth: 10 });
-let wasmByteCode = Module.toBytes(module);
-console.log(`wasm size: ${wasmByteCode.length} byte`);
-let recoveredModule = Module.fromBytes(wasmByteCode);
-assert.deepStrictEqual(recoveredModule, module);
+console.dir(module.module, { depth: 10 });
 
-let wasmModule = await WebAssembly.instantiate(Uint8Array.from(wasmByteCode), {
-  env: { "console.log": (x: number) => console.log("logging from wasm:", x) },
-});
+let wasmModule = await module.instantiate();
 console.log(wasmModule.instance.exports);
-let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports as any;
-let result = exportedFunc_(10);
+let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports;
+let result = exportedFunc_(10, 1);
 assert(result === 15);
 console.log({ result });
+
+let wasmByteCode = Module.toBytes(module.module);
+console.log(`wasm size: ${wasmByteCode.length} byte`);
+let recoveredModule = Module.fromBytes(wasmByteCode);
+assert.deepStrictEqual(recoveredModule, module.module);

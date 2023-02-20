@@ -37,6 +37,7 @@ export {
   AnyGlobal,
   AnyMemory,
   AnyTable,
+  AnyImport,
   Instruction,
   ConstInstruction,
 };
@@ -112,7 +113,7 @@ type ImportPath = { module: string; string: string; deps: [] };
 type ImportFunc = ImportPath & {
   kind: "importFunction";
   type: FunctionType;
-  function: Function;
+  value: Function;
 };
 type ImportGlobal = ImportPath & {
   kind: "importGlobal";
@@ -134,6 +135,7 @@ type AnyFunc = Func | ImportFunc;
 type AnyGlobal = Global | ImportGlobal;
 type AnyTable = Table | ImportTable;
 type AnyMemory = Memory | ImportMemory;
+type AnyImport = ImportFunc | ImportGlobal | ImportTable | ImportMemory;
 
 // constant instructions
 type I32Const = { string: "i32.const"; immediate: I32 };

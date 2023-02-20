@@ -86,6 +86,6 @@ function importFunc<Args extends ValueType[], Results extends ValueType[]>(
     string: name,
     type,
     deps: [],
-    function: run,
+    value: run,
   };
 }

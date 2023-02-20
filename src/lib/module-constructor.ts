@@ -1,19 +1,19 @@
 import * as Dependency from "./dependency.js";
 import { Export, Import } from "./export.js";
-import { Func } from "./func.js";
+import { Func, JSFunctionType } from "./func.js";
 import { resolveInstruction } from "./instruction.js";
-import { Module as Module_ } from "./module.js";
+import { Module as PlainModule } from "./module.js";
 import { FunctionType, functionTypeEquals } from "./types.js";
 
 export { Module };
 
-type Module = Module_;
+type Module = PlainModule;
 
 function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   exports: inputExports,
 }: {
   exports: Exports;
-}): Module {
+}) {
   // collect all dependencies (by kind)
   let dependencies = new Set<Dependency.t>();
   for (let name in inputExports) {
@@ -30,11 +30,12 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   // first types from imported functions, then from other functions,
   let types: FunctionType[] = [];
   let imports: Import[] = [];
+  let importMap: WebAssembly.Imports = {};
   let nImportFuncs = 0;
   let funcs0: (Dependency.Func & { typeIndex: number; funcIndex: number })[] =
     [];
   for (let importDep of dependencyByKind.importFunction ?? []) {
-    let { type, module, string } = importDep;
+    let { type, module, string, value } = importDep;
     let typeIndex = types.findIndex((t) => functionTypeEquals(t, type));
     if (typeIndex === -1) {
       typeIndex = types.length;
@@ -44,6 +45,13 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     let funcIndex = nImportFuncs++;
     imports.push({ module, name: string, description });
     depToIndex.set(importDep, funcIndex);
+    let importModule = (importMap[module] ??= {});
+    if (string in importModule && importModule[string] === value) {
+      throw Error(
+        `Overwriting import "${module}" > "${string}" with different value. Use the same value twice instead.`
+      );
+    }
+    importModule[string] = value;
   }
   for (let func of dependencyByKind.function ?? []) {
     let typeIndex = types.findIndex((t) => functionTypeEquals(t, func.type));
@@ -88,7 +96,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
       throw Error("non-function exports unimplemented");
     }
   }
-  return {
+  let plainModule: PlainModule = {
     types,
     funcs,
     imports,
@@ -101,9 +109,30 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     memory: undefined,
     start: undefined,
   };
+  let module = {
+    module: plainModule,
+    importMap,
+    async instantiate() {
+      let wasmByteCode = Module.toBytes(plainModule);
+      return (await WebAssembly.instantiate(
+        Uint8Array.from(wasmByteCode),
+        importMap
+      )) as {
+        instance: WebAssembly.Instance & { exports: NiceExports<Exports> };
+        module: WebAssembly.Module;
+      };
+    },
+  };
+  return module;
 }
 
-const Module = Object.assign(ModuleConstructor, Module_);
+type NiceExports<Exports extends Record<string, Dependency.Export>> = {
+  [K in keyof Exports]: NiceExport<Exports[K]>;
+};
+type NiceExport<Export extends Dependency.Export> =
+  Export extends Dependency.AnyFunc ? JSFunctionType<Export["type"]> : unknown;
+
+const Module = Object.assign(ModuleConstructor, PlainModule);
 
 function pushDependency(
   existing: Set<Dependency.anyDependency>,

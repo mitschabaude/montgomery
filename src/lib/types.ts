@@ -10,34 +10,17 @@ export {
   MemoryType,
   GlobalType,
   TableType,
-  JSValue,
   ValueTypeLiteral,
   GenericValueType,
   invertRecord,
   valueType,
   valueTypes,
   functionTypeEquals,
+  JSValue,
 };
 
 type RefTypeLiteral = "funcref" | "externref";
 type ValueTypeLiteral = "i32" | "i64" | "f32" | "f64" | "v128" | RefTypeLiteral;
-
-type JSValue<T extends ValueType> = JSValueFromLiteral<T["kind"]>;
-type JSValueFromLiteral<T extends ValueTypeLiteral> = T extends "i32"
-  ? number
-  : T extends "f32"
-  ? number
-  : T extends "f64"
-  ? number
-  : T extends "i64"
-  ? bigint
-  : T extends "v128"
-  ? bigint
-  : T extends "funcref"
-  ? Function
-  : T extends "externref"
-  ? any
-  : any;
 
 type GenericValueType<L> = { kind: L };
 function valueType<L extends ValueTypeLiteral>(kind: L): GenericValueType<L> {
@@ -122,7 +105,10 @@ const MemoryType = record<MemoryType>({ limits: Limits });
 type TableType = { type: RefType; limits: Limits };
 const TableType = record<TableType>({ type: RefType, limits: Limits });
 
-type FunctionType = { args: ValueType[]; results: ValueType[] };
+type FunctionType = {
+  args: ValueType[];
+  results: ValueType[];
+};
 const FunctionType = withByteCode(
   0x60,
   record<FunctionType>({ args: vec(ValueType), results: vec(ValueType) })
@@ -160,3 +146,23 @@ function functionTypeEquals(
   }
   return true;
 }
+
+// infer JS values
+
+type JSValue<T extends ValueType> = JSValueFromLiteral<T["kind"]>;
+
+type JSValueFromLiteral<T extends ValueTypeLiteral> = T extends "i32"
+  ? number
+  : T extends "f32"
+  ? number
+  : T extends "f64"
+  ? number
+  : T extends "i64"
+  ? bigint
+  : T extends "v128"
+  ? bigint
+  : T extends "funcref"
+  ? Function | null
+  : T extends "externref"
+  ? any
+  : any;
