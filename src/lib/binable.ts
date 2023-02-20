@@ -12,6 +12,7 @@ export {
   Tuple,
   One,
   Zero,
+  Undefined,
   or,
   and,
   orUndefined,
@@ -199,6 +200,8 @@ const Zero = Binable<never>({
 });
 type One = undefined;
 const One = constant(undefined);
+type Undefined = undefined;
+const Undefined = One;
 
 const and = tuple;
 

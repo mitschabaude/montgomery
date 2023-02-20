@@ -1,4 +1,4 @@
-import { Binable, One, record } from "./binable.js";
+import { Binable, record, Undefined } from "./binable.js";
 import * as Dependency from "./dependency.js";
 import { I32, U32 } from "./immediate.js";
 import { LocalContext, pushInstruction } from "./local-context.js";
@@ -7,7 +7,6 @@ import {
   i64t,
   f32t,
   f64t,
-  JSValue,
   ValueType,
   ValueTypeLiteral,
   valueType,
@@ -31,7 +30,7 @@ export {
 };
 
 // control
-let unreachable = baseInstruction("unreachable", One, {
+let unreachable = baseInstruction("unreachable", Undefined, {
   create({ stack }) {
     return { in: [...stack], out: [] };
   },
@@ -44,28 +43,6 @@ let call = baseInstruction("call", U32, {
   resolve: ([funcIndex]) => funcIndex,
 });
 let control = { unreachable, call };
-
-// variable
-type Local<T extends ValueType> = { name: string; type: T };
-type ToLocal<T extends ValueType> = T extends i32
-  ? Local<i32>
-  : T extends i64
-  ? Local<i64>
-  : T extends f32
-  ? Local<f32>
-  : T extends f64
-  ? Local<f64>
-  : Local<T>;
-
-type ToValueType<T extends ValueType> = T extends i32
-  ? i32
-  : T extends i64
-  ? i64
-  : T extends f32
-  ? f32
-  : T extends f64
-  ? f64
-  : Local<T>;
 
 type ConcreteLocal = { index: number };
 const ConcreteLocal = record({ index: U32 });
@@ -102,9 +79,10 @@ type i32 = i32t;
 type i64 = i64t;
 type f32 = f32t;
 type f64 = f64t;
+
 const i32 = Object.assign(i32t, {
-  const: instruction("i32.const", I32, [], [i32t]),
-  add: instruction("i32.add", One, [i32t, i32t], [i32t]),
+  const: instruction("i32.const", I32, { out: [i32t] }),
+  add: instruction("i32.add", Undefined, { in: [i32t, i32t], out: [i32t] }),
 });
 
 const ops = { i32, local, ...control };
@@ -160,11 +138,7 @@ function baseInstruction<Immediate, Args extends any[]>(
       resolveArgs,
     });
   }
-  return Object.assign(i, {
-    string,
-    immediate,
-    resolve,
-  });
+  return Object.assign(i, { string, immediate, resolve });
 }
 
 function instruction<
@@ -174,20 +148,13 @@ function instruction<
 >(
   string: string,
   immediate: Binable<Immediate> | undefined,
-  args: Arguments,
-  results: Results
-  // execute: (
-  //   context: LocalContext,
-  //   immediate: Immediate,
-  //   ...args: JSValues<Arguments>
-  // ) => JSValues<Results>
+  { in: args, out: results }: { in?: Arguments; out?: Results }
 ) {
-  immediate = immediate === One ? undefined : immediate;
+  immediate = immediate === Undefined ? undefined : immediate;
   type Args = Immediate extends undefined ? [] : [immediate: Immediate];
+  let instr = { in: args ?? [], out: results ?? [] };
   return baseInstruction<Immediate, Args>(string, immediate, {
-    create() {
-      return { in: args, out: results };
-    },
+    create: () => instr,
     resolve: (_, immediate) => immediate as Immediate,
   });
 }
@@ -299,6 +266,25 @@ type Context = {
 };
 
 type Tuple<T> = [T, ...T[]] | [];
-type JSValues<T extends Tuple<ValueType>> = {
-  [i in keyof T]: JSValue<T[i]>;
-};
+
+// variable
+type Local<T extends ValueType> = { name: string; type: T };
+type ToLocal<T extends ValueType> = T extends i32
+  ? Local<i32>
+  : T extends i64
+  ? Local<i64>
+  : T extends f32
+  ? Local<f32>
+  : T extends f64
+  ? Local<f64>
+  : Local<T>;
+
+type ToValueType<T extends ValueType> = T extends i32
+  ? i32
+  : T extends i64
+  ? i64
+  : T extends f32
+  ? f32
+  : T extends f64
+  ? f64
+  : Local<T>;
