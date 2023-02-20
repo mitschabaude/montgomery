@@ -1,2 +1,2 @@
-export { Module } from "./module-constructor.js";
+export { Module } from "./module.js";
 export { func } from "./func.js";
