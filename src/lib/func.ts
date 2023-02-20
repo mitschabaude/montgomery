@@ -1,7 +1,7 @@
 import { Binable, iso, record, tuple } from "./binable.js";
 import * as Dependency from "./dependency.js";
 import { U32, vec, withByteLength } from "./immediate.js";
-import { Expression, Instruction } from "./instruction-base.js";
+import { Expression, Instruction } from "./instruction.js";
 import { initializeContext, LocalContext, popStack } from "./local-context.js";
 import {
   FunctionIndex,

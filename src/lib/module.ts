@@ -1,7 +1,7 @@
 import * as Dependency from "./dependency.js";
 import { Export, Import } from "./export.js";
 import { Func, JSFunctionType } from "./func.js";
-import { resolveInstruction } from "./instruction-base.js";
+import { resolveInstruction } from "./instruction.js";
 import { Module as BinableModule } from "./module-binable.js";
 import { FunctionType, functionTypeEquals } from "./types.js";
 
