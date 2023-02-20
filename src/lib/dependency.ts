@@ -45,6 +45,7 @@ export {
   Instruction,
   Const,
 };
+export { hasRefTo };
 
 type anyDependency = { kind: string; deps: anyDependency[] };
 
@@ -74,7 +75,10 @@ type Func = {
   body: Instruction[];
   deps: t[];
 };
-type HasRefTo = { kind: "hasRefTo"; value: Func; deps: [] };
+type HasRefTo = { kind: "hasRefTo"; value: AnyFunc; deps: [] };
+function hasRefTo(value: AnyFunc): HasRefTo {
+  return { kind: "hasRefTo", value, deps: [] };
+}
 
 type Global = {
   kind: "global";
@@ -169,7 +173,7 @@ const Const = {
   i32(x: number | bigint): Const.i32 {
     return {
       string: "i32.const",
-      immediate: Number(x),
+      immediate: Number(x), // TODO in resolve args?
       type: { args: [], results: [i32t] },
       deps: [],
       resolveArgs: [],
@@ -178,7 +182,7 @@ const Const = {
   i64(x: number | bigint): Const.i64 {
     return {
       string: "i64.const",
-      immediate: BigInt(x),
+      immediate: BigInt(x), // TODO in resolve args?
       type: { args: [], results: [i64t] },
       deps: [],
       resolveArgs: [],
@@ -188,13 +192,13 @@ const Const = {
     string: "ref.null",
     type: { args: [], results: [funcref] },
     deps: [],
-    resolveArgs: [],
+    resolveArgs: [funcref],
   } as Const.refNull,
   refExternNull: {
     string: "ref.null",
     type: { args: [], results: [externref] },
     deps: [],
-    resolveArgs: [],
+    resolveArgs: [externref],
   } as Const.refNull,
   refFunc(func: AnyFunc): Const.refFunc {
     return {

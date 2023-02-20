@@ -1,7 +1,7 @@
 import * as Dependency from "./dependency.js";
 import { Export, Import } from "./export.js";
 import { Func, JSFunctionType } from "./func.js";
-import { Instruction, resolveInstruction } from "./instruction/instruction.js";
+import { resolveInstruction } from "./instruction/instruction.js";
 import { Module as BinableModule } from "./module-binable.js";
 import { Global } from "./memory-binable.js";
 import { FunctionType, functionTypeEquals } from "./types.js";
@@ -74,12 +74,10 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   }
   // globals
   // TODO import globals first
-  let globals: Global[] = [];
+  let globals0: Dependency.Global[] = [];
   for (let global of dependencyByKind.global ?? []) {
-    let { type, init } = global;
-    let globalIdx = globals.length;
-    let instr: Instruction = { string: init.string, immediate: init.immediate };
-    globals.push({ type, init: [instr] });
+    let globalIdx = globals0.length;
+    globals0.push(global);
     depToIndex.set(global, globalIdx);
   }
   // finalize functions
@@ -92,6 +90,11 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
       locals: func.locals,
       type: func.type,
     };
+  });
+  // finalize globals
+  let globals: Global[] = globals0.map(({ type, init }) => {
+    let init_ = [resolveInstruction(init, depToIndex)];
+    return { type, init: init_ };
   });
   // exports
   let exports: Export[] = [];

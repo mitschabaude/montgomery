@@ -1,10 +1,11 @@
-import { record } from "../binable.js";
+import { record, Undefined } from "../binable.js";
 import { Const } from "../dependency.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
 import { baseInstruction } from "./base.js";
+import { funcref, i32t, RefType } from "../types.js";
 
-export { local, global };
+export { local, global, ref };
 
 type ConcreteLocal = { index: number };
 const ConcreteLocal = record({ index: U32 });
@@ -67,3 +68,24 @@ function globalConstructor(
 }
 
 const global = Object.assign(globalConstructor, globalInstr);
+
+const ref = {
+  null: baseInstruction("ref.null", RefType, {
+    create(_, type: RefType) {
+      return { out: [type] };
+    },
+    resolve: (_, type: RefType) => type,
+  }),
+  is_null: baseInstruction("ref.is_null", Undefined, {
+    create({ stack }) {
+      return { in: [stack[stack.length - 1]], out: [i32t] };
+    },
+    resolve: () => undefined,
+  }),
+  func: baseInstruction("ref.func", U32, {
+    create(_, func: Dependency.AnyFunc) {
+      return { out: [funcref], deps: [func, Dependency.hasRefTo(func)] };
+    },
+    resolve: ([funcIdx]) => funcIdx,
+  }),
+};

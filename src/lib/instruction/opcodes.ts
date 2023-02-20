@@ -1,5 +1,5 @@
 import { BaseInstruction } from "./base.js";
-import { global, local } from "./variable.js";
+import { global, local, ref } from "./variable.js";
 import { i32 } from "./int.js";
 import { call, unreachable } from "./control.js";
 
@@ -21,6 +21,11 @@ const opcodes: Record<number, BaseInstruction> = {
   0x22: local.tee,
   0x23: global.get,
   0x24: global.set,
+
+  // reference
+  0xd0: ref.null,
+  0xd1: ref.is_null,
+  0xd2: ref.func,
 };
 
 const instructionToOpcode = invertOpcodes();
