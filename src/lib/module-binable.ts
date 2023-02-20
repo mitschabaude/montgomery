@@ -20,7 +20,7 @@ import {
   ValueType,
 } from "./types.js";
 import { Export, Import } from "./export.js";
-import { Data, Elem, Global } from "./memory.js";
+import { Data, Elem, Global } from "./memory-binable.js";
 import { Code, Func } from "./func.js";
 
 export { Module };
