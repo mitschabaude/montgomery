@@ -72,6 +72,16 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     }
     depToIndex.set(type, typeIndex);
   }
+  // globals
+  // TODO import globals first
+  let globals: Global[] = [];
+  for (let global of dependencyByKind.global ?? []) {
+    let { type, init } = global;
+    let globalIdx = globals.length;
+    let instr: Instruction = { string: init.string, immediate: init.immediate };
+    globals.push({ type, init: [instr] });
+    depToIndex.set(global, globalIdx);
+  }
   // finalize functions
   let funcs: Func[] = funcs0.map(({ typeIndex, funcIndex, ...func }) => {
     let body = func.body.map((instr) => resolveInstruction(instr, depToIndex));
@@ -83,16 +93,6 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
       type: func.type,
     };
   });
-  // globals
-  // TODO import globals first
-  let globals: Global[] = [];
-  for (let global of dependencyByKind.global ?? []) {
-    let { type, init } = global;
-    let globalIdx = globals.length;
-    let instr: Instruction = { string: init.string, immediate: init.immediate };
-    globals.push({ type, init: [instr] });
-    depToIndex.set(global, globalIdx);
-  }
   // exports
   let exports: Export[] = [];
   for (let name in inputExports) {
@@ -116,7 +116,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     datas: [],
     elems: [],
     tables: [],
-    globals: [],
+    globals,
     memory: undefined,
     start: undefined,
   };
