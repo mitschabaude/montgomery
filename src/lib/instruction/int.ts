@@ -1,7 +1,7 @@
-import { Undefined } from "./binable.js";
-import { I32 } from "./immediate.js";
-import { simpleInstruction } from "./instruction-base.js";
-import { i32t, i64t, f32t, f64t } from "./types.js";
+import { Undefined } from "../binable.js";
+import { I32 } from "../immediate.js";
+import { simpleInstruction } from "./base.js";
+import { i32t, i64t, f32t, f64t } from "../types.js";
 
 export { i32, i64, f32, f64 };
 

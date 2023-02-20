@@ -1,9 +1,9 @@
-import { Binable } from "./binable.js";
-import * as Dependency from "./dependency.js";
-import { BaseInstruction } from "./instruction-base.js";
-import { local } from "./instruction-local.js";
-import { i32, i64 } from "./instruction-int.js";
-import { call, control, unreachable } from "./instruction-control.js";
+import { Binable } from "../binable.js";
+import * as Dependency from "../dependency.js";
+import { BaseInstruction } from "./base.js";
+import { local } from "./local.js";
+import { i32, i64 } from "./int.js";
+import { call, control, unreachable } from "./control.js";
 
 export { opcodes, instructionToOpcode };
 

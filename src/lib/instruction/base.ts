@@ -1,7 +1,7 @@
-import { Binable, Undefined } from "./binable.js";
-import * as Dependency from "./dependency.js";
-import { LocalContext, pushInstruction } from "./local-context.js";
-import { ValueType } from "./types.js";
+import { Binable, Undefined } from "../binable.js";
+import * as Dependency from "../dependency.js";
+import { LocalContext, pushInstruction } from "../local-context.js";
+import { ValueType } from "../types.js";
 
 export { simpleInstruction, baseInstruction, BaseInstruction };
 

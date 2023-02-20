@@ -1,6 +1,6 @@
-import { record } from "./binable.js";
-import { U32 } from "./immediate.js";
-import { baseInstruction } from "./instruction-base.js";
+import { record } from "../binable.js";
+import { U32 } from "../immediate.js";
+import { baseInstruction } from "./base.js";
 
 export { local };
 

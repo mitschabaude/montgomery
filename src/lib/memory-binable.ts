@@ -9,7 +9,7 @@ import {
   withValidation,
 } from "./binable.js";
 import { U32, vec } from "./immediate.js";
-import { ConstExpression, Expression } from "./instruction.js";
+import { ConstExpression, Expression } from "./instruction/instruction.js";
 import {
   funcref,
   FunctionIndex,

@@ -1,4 +1,4 @@
-import { i32, local, ops } from "./instruction.js";
+import { i32, local, ops } from "./instruction/instruction.js";
 import assert from "node:assert";
 import { Module, func } from "./index.js";
 import { importFunc } from "./export.js";

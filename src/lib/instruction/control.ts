@@ -1,7 +1,7 @@
-import { Undefined } from "./binable.js";
-import { Dependency } from "./func.js";
-import { U32 } from "./immediate.js";
-import { baseInstruction } from "./instruction-base.js";
+import { Undefined } from "../binable.js";
+import { Dependency } from "../func.js";
+import { U32 } from "../immediate.js";
+import { baseInstruction } from "./base.js";
 
 export { control };
 export { unreachable, call };
