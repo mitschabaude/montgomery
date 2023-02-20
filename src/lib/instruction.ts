@@ -1,6 +1,7 @@
 import { Binable, One, record } from "./binable.js";
 import * as Dependency from "./dependency.js";
 import { I32, U32 } from "./immediate.js";
+import { LocalContext, pushInstruction } from "./local-context.js";
 import {
   i32t,
   i64t,
@@ -11,7 +12,6 @@ import {
   ValueTypeLiteral,
   valueType,
 } from "./types.js";
-import { LocalContext, pushInstruction } from "./under-construction.js";
 
 export {
   ops,

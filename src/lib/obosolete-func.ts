@@ -1,17 +1,3 @@
-import { Binable, iso, record, tuple } from "./binable.js";
-import { U32, vec, withByteLength } from "./immediate.js";
-import { Context, Expression } from "./instruction.js";
-import {
-  FunctionIndex,
-  FunctionType,
-  TypeIndex,
-  valueType,
-  ValueType,
-  ValueTypeLiteral,
-} from "./types.js";
-
-export { Code };
-
 // type FunctionContext = {
 //   types: FunctionType[];
 //   importedFunctionsLength: number;
@@ -89,33 +75,6 @@ export { Code };
 //     funcObj
 //   );
 // }
-
-const CompressedLocals = vec(tuple([U32, ValueType]));
-const Locals = iso<[number, ValueType][], ValueType[]>(CompressedLocals, {
-  to(locals) {
-    let count: Record<string, number> = {};
-    for (let local of locals) {
-      count[local.kind] ??= 0;
-      count[local.kind]++;
-    }
-    return Object.entries(count).map(([kind, count]) => [
-      count,
-      valueType(kind as ValueTypeLiteral),
-    ]);
-  },
-  from(compressed) {
-    let locals: ValueType[] = [];
-    for (let [count, local] of compressed) {
-      locals.push(...Array(count).fill(local));
-    }
-    return locals;
-  },
-});
-
-type Code = { locals: ValueType[]; body: Expression };
-const Code = withByteLength(
-  record({ locals: Locals, body: Expression })
-) satisfies Binable<Code>;
 
 // type ToConcrete<T extends Tuple<Local<any>>> = {
 //   [i in keyof T]: { name?: T[i]["name"]; type?: T[i]["type"]; index: number };

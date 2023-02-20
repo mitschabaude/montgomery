@@ -1,9 +1,9 @@
 // import { exportFunction, importFunction } from "./export.js";
 import { i32, local, ops } from "./instruction.js";
 import assert from "node:assert";
-import { emptyContext, func, Module } from "./under-construction.js";
-import { Module as Module_ } from "./module.js";
+import { Module, func } from "./index.js";
 import { importFunc } from "./export.js";
+import { emptyContext } from "./local-context.js";
 
 let consoleLog = importFunc(
   "console.log",
@@ -45,9 +45,9 @@ let module: Module = Module({
 });
 
 console.dir(module, { depth: 10 });
-let wasmByteCode = Module_.toBytes(module);
+let wasmByteCode = Module.toBytes(module);
 console.log(`wasm size: ${wasmByteCode.length} byte`);
-let recoveredModule = Module_.fromBytes(wasmByteCode);
+let recoveredModule = Module.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module);
 
 let wasmModule = await WebAssembly.instantiate(Uint8Array.from(wasmByteCode), {

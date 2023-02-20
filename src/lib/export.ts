@@ -9,7 +9,7 @@ import {
   valueType,
   ValueType,
 } from "./types.js";
-import { Dependency } from "./under-construction.js";
+import { Dependency } from "./func.js";
 
 export { Export, Import, ExternType, importFunc };
 
