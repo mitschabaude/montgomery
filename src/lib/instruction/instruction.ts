@@ -1,11 +1,11 @@
 import { Binable } from "../binable.js";
 import * as Dependency from "../dependency.js";
-import { local } from "./local.js";
+import { local, global } from "./variable.js";
 import { i32, i64 } from "./int.js";
 import { control } from "./control.js";
 import { opcodes, instructionToOpcode } from "./opcodes.js";
 
-export { ops, i32, i64, local };
+export { ops, i32, i64, local, global };
 export { Instruction, Expression, ConstExpression, resolveInstruction };
 
 const ops = { i32, local, ...control };
@@ -15,12 +15,12 @@ function resolveInstruction(
   depToIndex: Map<Dependency.t, number>
 ): Instruction {
   let opcode = instructionToOpcode[string];
-  if (opcode === undefined) throw Error("invalid instruction name");
+  if (opcode === undefined) throw Error(`invalid instruction name "${string}"`);
   let instrObject = opcodes[opcode];
   let depIndices: number[] = [];
   for (let dep of deps) {
     let index = depToIndex.get(dep);
-    if (index === undefined) throw Error("bug: no index for dependecy");
+    if (index === undefined) throw Error("bug: no index for dependency");
     depIndices.push(index);
   }
   let immediate = instrObject.resolve(depIndices, ...resolveArgs);
@@ -32,7 +32,8 @@ type Instruction = { string: string; immediate: any };
 const Instruction = Binable<Instruction>({
   toBytes(instr) {
     let opcode = instructionToOpcode[instr.string];
-    if (opcode === undefined) throw Error("invalid instruction name");
+    if (opcode === undefined)
+      throw Error(`invalid instruction name "${instr.string}"`);
     let instrObject = opcodes[opcode];
     let imm: number[] = [];
     if (instrObject.immediate !== undefined) {
@@ -43,7 +44,7 @@ const Instruction = Binable<Instruction>({
   readBytes(bytes, offset) {
     let opcode: number = bytes[offset++];
     let instr = opcodes[opcode];
-    if (instr === undefined) throw Error("invalid opcode");
+    if (instr === undefined) throw Error(`invalid opcode ${opcode}`);
     if (instr.immediate === undefined)
       return [{ string: instr.string, immediate: undefined }, offset];
     let [immediate, end] = instr.immediate.readBytes(bytes, offset);

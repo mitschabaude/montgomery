@@ -1,8 +1,9 @@
 import * as Dependency from "./dependency.js";
 import { Export, Import } from "./export.js";
 import { Func, JSFunctionType } from "./func.js";
-import { resolveInstruction } from "./instruction/instruction.js";
+import { Instruction, resolveInstruction } from "./instruction/instruction.js";
 import { Module as BinableModule } from "./module-binable.js";
+import { Global } from "./memory-binable.js";
 import { FunctionType, functionTypeEquals } from "./types.js";
 
 export { Module };
@@ -26,8 +27,8 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     (dependencyByKind[dep.kind] ??= []).push(dep as any);
   }
   let depToIndex = new Map<Dependency.t, number>();
-  // types / funcs / imports
-  // first types from imported functions, then from other functions,
+  // types / funcs / import functions
+  // first types from imported functions, then from other functions
   let types: FunctionType[] = [];
   let imports: Import[] = [];
   let importMap: WebAssembly.Imports = {};
@@ -46,7 +47,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     imports.push({ module, name: string, description });
     depToIndex.set(importDep, funcIndex);
     let importModule = (importMap[module] ??= {});
-    if (string in importModule && importModule[string] === value) {
+    if (string in importModule && importModule[string] !== value) {
       throw Error(
         `Overwriting import "${module}" > "${string}" with different value. Use the same value twice instead.`
       );
@@ -71,7 +72,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     }
     depToIndex.set(type, typeIndex);
   }
-
+  // finalize functions
   let funcs: Func[] = funcs0.map(({ typeIndex, funcIndex, ...func }) => {
     let body = func.body.map((instr) => resolveInstruction(instr, depToIndex));
     return {
@@ -82,7 +83,17 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
       type: func.type,
     };
   });
-
+  // globals
+  // TODO import globals first
+  let globals: Global[] = [];
+  for (let global of dependencyByKind.global ?? []) {
+    let { type, init } = global;
+    let globalIdx = globals.length;
+    let instr: Instruction = { string: init.string, immediate: init.immediate };
+    globals.push({ type, init: [instr] });
+    depToIndex.set(global, globalIdx);
+  }
+  // exports
   let exports: Export[] = [];
   for (let name in inputExports) {
     let exp = inputExports[name];

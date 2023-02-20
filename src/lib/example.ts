@@ -1,10 +1,9 @@
-import { i32, local, ops } from "./instruction/instruction.js";
+import { global, i32, local, ops } from "./instruction/instruction.js";
 import assert from "node:assert";
 import { Module, func } from "./index.js";
 import { importFunc } from "./export.js";
 import { emptyContext } from "./local-context.js";
 import { Const } from "./dependency.js";
-import { global } from "./memory.js";
 import { externref } from "./types.js";
 
 let log = (x: any) => console.log("logging from wasm:", x);
@@ -35,6 +34,8 @@ let exportedFunc = func(
   ctx,
   { in: { x: i32, z: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x, z }, { y }) => {
+    global.get(ctx, nullGlobal);
+    ops.call(ctx, consoleLogExtern);
     local.get(ctx, x);
     ops.call(ctx, consoleLog);
     local.get(ctx, x);

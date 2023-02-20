@@ -1,9 +1,7 @@
-import { Binable } from "../binable.js";
-import * as Dependency from "../dependency.js";
 import { BaseInstruction } from "./base.js";
-import { local } from "./local.js";
-import { i32, i64 } from "./int.js";
-import { call, control, unreachable } from "./control.js";
+import { global, local } from "./variable.js";
+import { i32 } from "./int.js";
+import { call, unreachable } from "./control.js";
 
 export { opcodes, instructionToOpcode };
 
@@ -20,6 +18,9 @@ const opcodes: Record<number, BaseInstruction> = {
   // variable
   0x20: local.get,
   0x21: local.set,
+  0x22: local.tee,
+  0x23: global.get,
+  0x24: global.set,
 };
 
 const instructionToOpcode = invertOpcodes();
