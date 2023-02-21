@@ -3,6 +3,7 @@ import { Name, U32 } from "./immediate.js";
 import {
   FunctionType,
   GlobalType,
+  JSValue,
   MemoryType,
   TableType,
   TypeIndex,
@@ -11,7 +12,7 @@ import {
 } from "./types.js";
 import { Dependency } from "./func.js";
 
-export { Export, Import, ExternType, importFunc };
+export { Export, Import, ExternType, importFunc, importGlobal };
 
 type ExternType =
   | { kind: "function"; value: FunctionType }
@@ -79,10 +80,17 @@ function importFunc<Args extends ValueType[], Results extends ValueType[]>(
   let args = args_.map((a) => valueType(a.kind));
   let results = results_.map((r) => valueType(r.kind));
   let type = { args, results };
-  return {
-    kind: "importFunction",
-    type,
-    deps: [],
-    value: run,
-  };
+  return { kind: "importFunction", type, deps: [], value: run };
+}
+
+function importGlobal<V extends ValueType>(
+  type: V,
+  value: JSValue<V>,
+  { mutable = false } = {}
+): Dependency.ImportGlobal {
+  let globalType = { value: type, mutable };
+  let valueType: WebAssembly.ValueType =
+    type.kind === "funcref" ? "anyfunc" : type.kind;
+  let value_ = new WebAssembly.Global({ value: valueType, mutable }, value);
+  return { kind: "importGlobal", type: globalType, deps: [], value: value_ };
 }

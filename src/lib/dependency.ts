@@ -45,7 +45,7 @@ export {
   Instruction,
   Const,
 };
-export { hasRefTo };
+export { hasRefTo, dependencyKinds };
 
 type anyDependency = { kind: string; deps: anyDependency[] };
 
@@ -129,7 +129,7 @@ type ImportFunc = ImportPath & {
 type ImportGlobal = ImportPath & {
   kind: "importGlobal";
   type: GlobalType;
-  value: WebAssembly.Global | number;
+  value: WebAssembly.Global;
 };
 type ImportTable = ImportPath & {
   kind: "importTable";
@@ -147,6 +147,22 @@ type AnyGlobal = Global | ImportGlobal;
 type AnyTable = Table | ImportTable;
 type AnyMemory = Memory | ImportMemory;
 type AnyImport = ImportFunc | ImportGlobal | ImportTable | ImportMemory;
+
+const dependencyKinds = [
+  "function",
+  "type",
+  "hasRefTo",
+  "global",
+  "table",
+  "memory",
+  "hasMemory",
+  "data",
+  "elem",
+  "importFunction",
+  "importGlobal",
+  "importTable",
+  "importMemory",
+] as const satisfies readonly t["kind"][];
 
 // general instruction
 

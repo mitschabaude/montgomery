@@ -1,14 +1,15 @@
 import { global, i32, local, ops } from "./instruction/instruction.js";
 import assert from "node:assert";
 import { Module, func } from "./index.js";
-import { importFunc } from "./export.js";
+import { importFunc, importGlobal } from "./export.js";
 import { emptyContext } from "./local-context.js";
 import { Const } from "./dependency.js";
-import { funcref } from "./types.js";
+import { funcref, i64t } from "./types.js";
 
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
+let consoleLog64 = importFunc({ in: [i64t], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
 let ctx = emptyContext();
@@ -24,6 +25,7 @@ let myFunc = func(
   }
 );
 
+let importedGlobal = importGlobal(i64t, 1000n);
 let funcGlobal = global(Const.refFunc(myFunc));
 
 ctx = emptyContext();
@@ -31,6 +33,8 @@ let exportedFunc = func(
   ctx,
   { in: { x: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x }, { y }) => {
+    global.get(ctx, importedGlobal);
+    ops.call(ctx, consoleLog64);
     global.get(ctx, funcGlobal);
     // ops.ref.func(ctx, myFunc); // TODO this fails, seems to be a spec bug
     ops.call(ctx, consoleLogFunc);

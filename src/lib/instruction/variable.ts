@@ -1,4 +1,4 @@
-import { record, Undefined } from "../binable.js";
+import { Undefined } from "../binable.js";
 import { Const } from "../dependency.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
@@ -73,13 +73,11 @@ const ref = {
     create(_, type: RefType) {
       return { out: [type] };
     },
-    resolve: (_, type: RefType) => type,
   }),
   is_null: baseInstruction("ref.is_null", Undefined, {
     create({ stack }) {
       return { in: [stack[stack.length - 1]], out: [i32t] };
     },
-    resolve: () => undefined,
   }),
   func: baseInstruction("ref.func", U32, {
     create(_, func: Dependency.AnyFunc) {

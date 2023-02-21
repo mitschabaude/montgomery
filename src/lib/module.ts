@@ -20,83 +20,74 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   for (let name in inputExports) {
     pushDependency(dependencies, inputExports[name]);
   }
-  let dependencyByKind: Partial<{
+  let dependencyByKind: {
     [K in Dependency.t["kind"]]: (Dependency.t & { kind: K })[];
-  }> = {};
+  } = Object.fromEntries(
+    Dependency.dependencyKinds.map((key) => [key, []])
+  ) as any;
   for (let dep of dependencies) {
-    (dependencyByKind[dep.kind] ??= []).push(dep as any);
+    (dependencyByKind[dep.kind] as Dependency.t[]).push(dep);
   }
   let depToIndex = new Map<Dependency.t, number>();
-  // types / funcs / import functions
-  // first types from imported functions, then from other functions
-  let types: FunctionType[] = [];
+
+  // process imports, along with types of imported functions
   let imports: Import[] = [];
   let importMap: WebAssembly.Imports = {};
-  let nImportFuncs = 0;
-  let funcs0: (Dependency.Func & { typeIndex: number; funcIndex: number })[] =
-    [];
-  for (let importDep of dependencyByKind.importFunction ?? []) {
-    let { type, module = "*", string, value } = importDep;
-    let typeIndex = types.findIndex((t) => functionTypeEquals(t, type));
-    if (typeIndex === -1) {
-      typeIndex = types.length;
-      types.push(type);
-    }
-    let description = { kind: "function" as const, value: typeIndex };
-    let funcIndex = nImportFuncs++;
-    string ??= `${funcIndex}`;
-    imports.push({ module, name: string, description });
-    depToIndex.set(importDep, funcIndex);
-    let importModule = (importMap[module] ??= {});
-    if (string in importModule && importModule[string] !== value) {
-      throw Error(
-        `Overwriting import "${module}" > "${string}" with different value. Use the same value twice instead.`
-      );
-    }
-    importModule[string] = value;
-  }
-  for (let func of dependencyByKind.function ?? []) {
-    let typeIndex = types.findIndex((t) => functionTypeEquals(t, func.type));
-    if (typeIndex === -1) {
-      typeIndex = types.length;
-      types.push(func.type);
-    }
-    let funcIndex = nImportFuncs + funcs0.length;
-    funcs0.push({ ...func, typeIndex, funcIndex });
-    depToIndex.set(func, funcIndex);
-  }
-  for (let type of dependencyByKind.type ?? []) {
-    let typeIndex = types.findIndex((t) => functionTypeEquals(t, type.type));
-    if (typeIndex === -1) {
-      typeIndex = types.length;
-      types.push(type.type);
-    }
-    depToIndex.set(type, typeIndex);
-  }
-  // globals
-  // TODO import globals first
-  let globals0: Dependency.Global[] = [];
-  for (let global of dependencyByKind.global ?? []) {
-    let globalIdx = globals0.length;
-    globals0.push(global);
+  let types: FunctionType[] = [];
+
+  dependencyByKind.importFunction.forEach((func, funcIdx) => {
+    let typeIdx = pushType(types, func.type);
+    let description = { kind: "function" as const, value: typeIdx };
+    depToIndex.set(func, funcIdx);
+    let imp = addImport(func, description, funcIdx, importMap);
+    imports.push(imp);
+  });
+  dependencyByKind.importGlobal.forEach((global, globalIdx) => {
     depToIndex.set(global, globalIdx);
+    let description = { kind: "global" as const, value: global.type };
+    let imp = addImport(global, description, globalIdx, importMap);
+    imports.push(imp);
+  });
+
+  // funcs + their types
+  let funcs0: (Dependency.Func & { typeIdx: number; funcIdx: number })[] = [];
+  let nImportFuncs = dependencyByKind.importFunction.length;
+  for (let func of dependencyByKind.function) {
+    let typeIdx = pushType(types, func.type);
+    let funcIdx = nImportFuncs + funcs0.length;
+    funcs0.push({ ...func, typeIdx, funcIdx });
+    depToIndex.set(func, funcIdx);
   }
+
+  // other types
+  for (let type of dependencyByKind.type) {
+    let typeIdx = pushType(types, type.type);
+    depToIndex.set(type, typeIdx);
+  }
+
+  // globals
+  let nImportGlobals = dependencyByKind.importGlobal.length;
+  dependencyByKind.global.forEach((global, globalIdx) =>
+    depToIndex.set(global, globalIdx + nImportGlobals)
+  );
+
   // finalize functions
-  let funcs: Func[] = funcs0.map(({ typeIndex, funcIndex, ...func }) => {
+  let funcs: Func[] = funcs0.map(({ typeIdx, funcIdx, ...func }) => {
     let body = func.body.map((instr) => resolveInstruction(instr, depToIndex));
     return {
       body,
-      functionIndex: funcIndex,
-      typeIndex,
+      functionIndex: funcIdx,
+      typeIndex: typeIdx,
       locals: func.locals,
       type: func.type,
     };
   });
   // finalize globals
-  let globals: Global[] = globals0.map(({ type, init }) => {
+  let globals: Global[] = dependencyByKind.global.map(({ type, init }) => {
     let init_ = [resolveInstruction(init, depToIndex)];
     return { type, init: init_ };
   });
+
   // exports
   let exports: Export[] = [];
   for (let name in inputExports) {
@@ -157,4 +148,37 @@ function pushDependency(
   for (let dep_ of dep.deps) {
     pushDependency(existing, dep_);
   }
+}
+
+function pushType(types: FunctionType[], type: FunctionType) {
+  let typeIndex = types.findIndex((t) => functionTypeEquals(t, type));
+  if (typeIndex === -1) {
+    typeIndex = types.length;
+    types.push(type);
+  }
+  return typeIndex;
+}
+
+function addImport(
+  { kind, module = "*", string, value }: Dependency.AnyImport,
+  description: Import["description"],
+  i: number,
+  importMap: WebAssembly.Imports
+): Import {
+  let prefix = {
+    importFunction: "f",
+    importGlobal: "g",
+    importMemory: "m",
+    importTable: "t",
+  }[kind];
+  string ??= `${prefix}${i}`;
+  let import_ = { module, name: string, description };
+  let importModule = (importMap[module] ??= {});
+  if (string in importModule && importModule[string] !== value) {
+    throw Error(
+      `Overwriting import "${module}" > "${string}" with different value. Use the same value twice instead.`
+    );
+  }
+  importModule[string] = value;
+  return import_;
 }

@@ -25,9 +25,10 @@ function baseInstruction<Immediate, Args extends any[]>(
       ctx: LocalContext,
       ...args: Args
     ): { in?: ValueType[]; out?: ValueType[]; deps?: Dependency.t[] };
-    resolve(deps: number[], ...args: Args): Immediate;
+    resolve?(deps: number[], ...args: Args): Immediate;
   }
 ) {
+  resolve ??= noResolve;
   function i(ctx: LocalContext, ...resolveArgs: Args) {
     let {
       in: args = [],
@@ -61,8 +62,8 @@ function simpleInstruction<
   let instr = { in: args ?? [], out: results ?? [] };
   return baseInstruction<Immediate, Args>(string, immediate, {
     create: () => instr,
-    resolve: (_, immediate) => immediate as Immediate,
   });
 }
 
+const noResolve = (_: number[], ...args: any) => args[0];
 type Tuple<T> = [T, ...T[]] | [];
