@@ -33,8 +33,6 @@ let exportedFunc = func(
   ctx,
   { in: { x: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x }, { y }) => {
-    global.get(ctx, importedGlobal);
-    ops.call(ctx, consoleLog64);
     global.get(ctx, funcGlobal);
     // ops.ref.func(ctx, myFunc); // TODO this fails, seems to be a spec bug
     ops.call(ctx, consoleLogFunc);
@@ -49,16 +47,17 @@ let exportedFunc = func(
   }
 );
 
-let module = Module({ exports: { exportedFunc } });
+let module = Module({ exports: { exportedFunc, importedGlobal } });
 
 console.dir(module.module, { depth: 10 });
 
 let wasmModule = await module.instantiate();
-console.log(wasmModule.instance.exports);
-let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports;
-let result = exportedFunc_(10);
+let { exports } = wasmModule.instance;
+console.log(exports);
+let result = exports.exportedFunc(10);
 assert(result === 15);
-console.log({ result });
+assert(exports.importedGlobal.value === 1000n);
+console.log({ result, importedGlobal: exports.importedGlobal.value });
 
 let wasmByteCode = Module.toBytes(module.module);
 console.log(`wasm size: ${wasmByteCode.length} byte`);

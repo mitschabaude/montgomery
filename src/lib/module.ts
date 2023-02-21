@@ -92,15 +92,9 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   let exports: Export[] = [];
   for (let name in inputExports) {
     let exp = inputExports[name];
-    if (exp.kind === "function" || exp.kind === "importFunction") {
-      let funcIndex = depToIndex.get(exp)!;
-      exports.push({
-        name,
-        description: { kind: "function", value: funcIndex },
-      });
-    } else {
-      throw Error("non-function exports unimplemented");
-    }
+    let kind = Dependency.kindToExportKind[exp.kind];
+    let value = depToIndex.get(exp)!;
+    exports.push({ name, description: { kind, value } });
   }
   let binableModule: BinableModule = {
     types,
@@ -136,7 +130,15 @@ type NiceExports<Exports extends Record<string, Dependency.Export>> = {
   [K in keyof Exports]: NiceExport<Exports[K]>;
 };
 type NiceExport<Export extends Dependency.Export> =
-  Export extends Dependency.AnyFunc ? JSFunctionType<Export["type"]> : unknown;
+  Export extends Dependency.AnyFunc
+    ? JSFunctionType<Export["type"]>
+    : Export extends Dependency.AnyGlobal
+    ? WebAssembly.Global
+    : Export extends Dependency.AnyMemory
+    ? WebAssembly.Memory
+    : Export extends Dependency.AnyTable
+    ? WebAssembly.Table
+    : unknown;
 
 const Module = Object.assign(ModuleConstructor, BinableModule);
 

@@ -45,7 +45,7 @@ export {
   Instruction,
   Const,
 };
-export { hasRefTo, dependencyKinds };
+export { hasRefTo, dependencyKinds, kindToExportKind };
 
 type anyDependency = { kind: string; deps: anyDependency[] };
 
@@ -163,6 +163,20 @@ const dependencyKinds = [
   "importTable",
   "importMemory",
 ] as const satisfies readonly t["kind"][];
+
+const kindToExportKind: Record<
+  (AnyFunc | AnyGlobal | AnyTable | AnyMemory)["kind"],
+  (Func | Global | Table | Memory)["kind"]
+> = {
+  function: "function",
+  importFunction: "function",
+  global: "global",
+  importGlobal: "global",
+  memory: "memory",
+  importMemory: "memory",
+  table: "table",
+  importTable: "table",
+};
 
 // general instruction
 
