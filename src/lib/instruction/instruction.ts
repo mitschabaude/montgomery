@@ -1,6 +1,6 @@
 import { Binable } from "../binable.js";
 import * as Dependency from "../dependency.js";
-import { local, global } from "./variable.js";
+import { local, global, ref } from "./variable.js";
 import { i32, i64 } from "./int.js";
 import { control } from "./control.js";
 import { opcodes, instructionToOpcode } from "./opcodes.js";
@@ -8,7 +8,7 @@ import { opcodes, instructionToOpcode } from "./opcodes.js";
 export { ops, i32, i64, local, global };
 export { Instruction, Expression, ConstExpression, resolveInstruction };
 
-const ops = { i32, local, ...control };
+const ops = { i32, local, ref, global, ...control };
 
 function resolveInstruction(
   { string, deps, resolveArgs }: Dependency.Instruction,
@@ -20,7 +20,11 @@ function resolveInstruction(
   let depIndices: number[] = [];
   for (let dep of deps) {
     let index = depToIndex.get(dep);
-    if (index === undefined) throw Error("bug: no index for dependency");
+    if (index === undefined) {
+      if (dep.kind === "hasRefTo") index = 0;
+      else if (dep.kind === "hasMemory") index = 0;
+      else throw Error("bug: no index for dependency");
+    }
     depIndices.push(index);
   }
   let immediate = instrObject.resolve(depIndices, ...resolveArgs);

@@ -67,7 +67,6 @@ const Import = record<Import>({
 });
 
 function importFunc<Args extends ValueType[], Results extends ValueType[]>(
-  name: string,
   {
     in: args_,
     out: results_,
@@ -82,8 +81,6 @@ function importFunc<Args extends ValueType[], Results extends ValueType[]>(
   let type = { args, results };
   return {
     kind: "importFunction",
-    module: "env",
-    string: name,
     type,
     deps: [],
     value: run,

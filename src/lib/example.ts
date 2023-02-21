@@ -4,17 +4,12 @@ import { Module, func } from "./index.js";
 import { importFunc } from "./export.js";
 import { emptyContext } from "./local-context.js";
 import { Const } from "./dependency.js";
-import { externref } from "./types.js";
+import { funcref } from "./types.js";
 
-let log = (x: any) => console.log("logging from wasm:", x);
-let consoleLog = importFunc("console.log", { in: [i32], out: [] }, log);
-let consoleLogExtern = importFunc(
-  "console.log",
-  { in: [externref], out: [] },
-  log
-);
+let log = (...args: any) => console.log("logging from wasm:", ...args);
 
-let nullGlobal = global(Const.refExternNull);
+let consoleLog = importFunc({ in: [i32], out: [] }, log);
+let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
 let ctx = emptyContext();
 let myFunc = func(
@@ -29,13 +24,16 @@ let myFunc = func(
   }
 );
 
+let funcGlobal = global(Const.refFunc(myFunc));
+
 ctx = emptyContext();
 let exportedFunc = func(
   ctx,
-  { in: { x: i32, z: i32 }, locals: { y: i32 }, out: [i32] },
-  ({ x, z }, { y }) => {
-    global.get(ctx, nullGlobal);
-    ops.call(ctx, consoleLogExtern);
+  { in: { x: i32 }, locals: { y: i32 }, out: [i32] },
+  ({ x }, { y }) => {
+    global.get(ctx, funcGlobal);
+    // ops.ref.func(ctx, myFunc); // TODO this fails, seems to be a spec bug
+    ops.call(ctx, consoleLogFunc);
     local.get(ctx, x);
     ops.call(ctx, consoleLog);
     local.get(ctx, x);
@@ -47,16 +45,14 @@ let exportedFunc = func(
   }
 );
 
-let module = Module({
-  exports: { exportedFunc },
-});
+let module = Module({ exports: { exportedFunc } });
 
 console.dir(module.module, { depth: 10 });
 
 let wasmModule = await module.instantiate();
 console.log(wasmModule.instance.exports);
 let { exportedFunc: exportedFunc_ } = wasmModule.instance.exports;
-let result = exportedFunc_(10, 1);
+let result = exportedFunc_(10);
 assert(result === 15);
 console.log({ result });
 

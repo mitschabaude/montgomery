@@ -37,7 +37,6 @@ function baseInstruction<Immediate, Args extends any[]>(
     pushInstruction(ctx, {
       string,
       deps,
-      immediate,
       type: { args, results },
       resolveArgs,
     });

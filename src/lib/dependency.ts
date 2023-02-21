@@ -120,7 +120,7 @@ type Elem = {
   deps: (AnyTable | AnyFunc | AnyGlobal)[];
 };
 
-type ImportPath = { module: string; string: string; deps: [] };
+type ImportPath = { module?: string; string?: string; deps: [] };
 type ImportFunc = ImportPath & {
   kind: "importFunction";
   type: FunctionType;

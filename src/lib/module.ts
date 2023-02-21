@@ -36,7 +36,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   let funcs0: (Dependency.Func & { typeIndex: number; funcIndex: number })[] =
     [];
   for (let importDep of dependencyByKind.importFunction ?? []) {
-    let { type, module, string, value } = importDep;
+    let { type, module = "*", string, value } = importDep;
     let typeIndex = types.findIndex((t) => functionTypeEquals(t, type));
     if (typeIndex === -1) {
       typeIndex = types.length;
@@ -44,6 +44,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     }
     let description = { kind: "function" as const, value: typeIndex };
     let funcIndex = nImportFuncs++;
+    string ??= `${funcIndex}`;
     imports.push({ module, name: string, description });
     depToIndex.set(importDep, funcIndex);
     let importModule = (importMap[module] ??= {});

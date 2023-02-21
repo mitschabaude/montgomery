@@ -7,36 +7,35 @@ import { funcref, i32t, RefType } from "../types.js";
 
 export { local, global, ref };
 
-type ConcreteLocal = { index: number };
-const ConcreteLocal = record({ index: U32 });
+type Local = { index: number };
 
 const local = {
-  get: baseInstruction("local.get", ConcreteLocal, {
-    create({ locals }, x: ConcreteLocal) {
+  get: baseInstruction("local.get", U32, {
+    create({ locals }, x: Local) {
       let local = locals[x.index];
       if (local === undefined)
         throw Error(`local with index ${x.index} not available`);
       return { out: [local] };
     },
-    resolve: (_, x: ConcreteLocal) => x,
+    resolve: (_, x: Local) => x.index,
   }),
-  set: baseInstruction("local.set", ConcreteLocal, {
-    create({ locals }, x: ConcreteLocal) {
+  set: baseInstruction("local.set", U32, {
+    create({ locals }, x: Local) {
       let local = locals[x.index];
       if (local === undefined)
         throw Error(`local with index ${x.index} not available`);
       return { in: [local] };
     },
-    resolve: (_, x: ConcreteLocal) => x,
+    resolve: (_, x: Local) => x.index,
   }),
-  tee: baseInstruction("local.tee", ConcreteLocal, {
-    create({ locals }, x: ConcreteLocal) {
+  tee: baseInstruction("local.tee", U32, {
+    create({ locals }, x: Local) {
       let type = locals[x.index];
       if (type === undefined)
         throw Error(`local with index ${x.index} not available`);
       return { in: [type], out: [type] };
     },
-    resolve: (_, x: ConcreteLocal) => x,
+    resolve: (_, x: Local) => x.index,
   }),
 };
 

@@ -114,8 +114,10 @@ type JSFunctionType<T extends FunctionType> = JSFunctionType_<
   T["results"]
 >;
 
+type Local<L extends ValueTypeLiteral> = { type?: { kind: L }; index: number };
+
 type ToLocal<T extends Record<string, ValueTypeLiteral>> = {
-  [K in keyof T]: { type?: T[K]; index: number };
+  [K in keyof T]: Local<T[K]>;
 };
 type ToTypeRecord<T extends Record<string, ValueTypeLiteral>> = {
   [K in keyof T]: { kind: T[K] };
@@ -148,9 +150,8 @@ type UnionToTuple<T> = UnionToIntersection<
   ? [...UnionToTuple<Exclude<T, W>>, W]
   : [];
 
-// TODO
-
 type Func = {
+  // TODO remove
   functionIndex: FunctionIndex;
   typeIndex: TypeIndex;
   type: FunctionType;
