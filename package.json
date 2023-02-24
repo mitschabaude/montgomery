@@ -6,6 +6,7 @@
   "type": "module",
   "types": "./build/types/index.d.ts",
   "exports": {
+    "types": "./build/types/index.d.ts",
     "default": "./src/index.js"
   },
   "repository": {
