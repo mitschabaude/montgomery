@@ -87,7 +87,14 @@ const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
 - Optional **build step** which takes as input a file that exports your `Module`, and compiles it to a file which hard-codes the Wasm bytecode as base64 string, correctly imports all dependencies (imports) for the instantiation like the original file did, instantiates the module (top-level await) and exports the module's exports.
 
 ```ts
-import { myFunction } from "./example.wasm.js"; // example.wasm.js does not depend on this lib at runtime; it just holds the compiled wasm code
+// example.ts
+let module = Module({ exports: { myFunction, memory } });
+
+export { module as default };
+```
+
+```ts
+import { myFunction } from "./example.wasm.js"; // example.wasm.js does not depend on this lib at runtime
 ```
 
 - Excellent composability and IO
