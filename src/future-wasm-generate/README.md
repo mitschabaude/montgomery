@@ -1,6 +1,6 @@
 # Future wasm-generate
 
-In this folder I'm currently working on creating a full-on Wasm DSL for TS. It is intended to replace `./lib/wasm-generate.js` which is stringly-typed, error-prone, annoying to use, awful to debug and impossible to read.
+In this folder I'm working on a fully-featured Wasm DSL for TS. It is intended to replace `../lib/wasm-generate.js` which is stringly-typed, error-prone, annoying to use, awful to debug and impossible to read.
 
 Goals:
 
@@ -22,7 +22,7 @@ const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
 });
 ```
 
-- Probably: A few optional conveniences to reduce boilerplate assembly like `local.get` and `i32.const`:
+- Probably: Optional conveniences to reduce boilerplate assembly like `local.get` and `i32.const`:
 
 ```ts
 const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
@@ -35,17 +35,25 @@ const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
 
 const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
   let z = i32.add(x, y);
-  let result = call(otherFunction, [i32.shl(z, 2)]);
+  call(otherFunction, [i32.shl(z, 2)]);
 });
 ```
 
-- DLS should make declaration of modules trivial -- just declare the exports and all necessary dependencies are collected for you:
+- DLS should make declaration of modules trivial -- just declare the exports and a bit of config; all necessary dependencies / imports are collected for you:
 
 ```ts
-let module = Module({ exports: { myFunction } });
-let instance = await module.instantiate();
+let memory = Memory({ initialMB: 1 });
 
+let module = Module({ exports: { myFunction, memory } });
+let instance = await module.instantiate();
+```
+
+- Excellent types. Example: Exported function types are inferred from the `func` definitions:
+
+```ts
 // inference of exported function type signatures:
-instance.exports.myFunc;
+instance.exports.myFunction;
 //                 ^ (arg_0: number, arg_1: number) => number
 ```
+
+- Probably: Automatic build step which takes as input a file that exports your `Module`, and compiles it to a file which hard-codes the Wasm bytecode as base64, correctly imports all dependencies for the instantiation (imports) like the original file did, instantiates the module and exports the module's exports.
