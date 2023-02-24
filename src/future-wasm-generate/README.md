@@ -22,19 +22,17 @@ const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
 });
 ```
 
-- Probably: Conveniences to reduce boilerplate assembly like `local.get` and `i32.const`:
-  - proved very useful in `../lib/wasm-generate.js`
-  - improves both readability & productivity
-  - but pure, unmodified assembly should always be possible to write - syntax sugar has to be optional
+- Syntax sugar to reduce boilerplate assembly like `local.get` and `i32.const`
+  - should remain optional; but in practice, this proved extremely useful in `../lib/wasm-generate.js`
 
 ```ts
 const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
-  i32.add(x, y);
-  i32.shl($, 2); // $ is the top of the stack
+  i32.add(x, y); // local.get(x), local.get(y) are filled in
+  i32.shl($, 2); // $ is the top of the stack; i32.const(2) is filled in
   call(otherFunction);
 });
 
-// or maybe
+// or maybe also
 
 const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
   let z = i32.add(x, y);
