@@ -4,6 +4,7 @@
   "description": "Fast implementation of multi-scalar multiplication in WebAssembly",
   "main": "./src/index.js",
   "type": "module",
+  "types": "./build/types/index.d.ts",
   "exports": {
     "default": "./src/index.js"
   },
@@ -13,6 +14,7 @@
   },
   "files": [
     "src",
+    "build/types",
     "README.md",
     "NOTICE"
   ],

@@ -41,7 +41,7 @@ const mulInputFactor = 8n;
  *
  * @param {bigint} p
  * @param {number} w
- * @param {import('./wasm/finite-field.wasm')} wasm
+ * @param {import('./wasm/finite-field.wasm.js')} wasm
  */
 function createFiniteField(p, w, wasm) {
   let {
@@ -55,7 +55,7 @@ function createFiniteField(p, w, wasm) {
     copy,
     isEqual,
     leftShift,
-    almostInverseMontgomery,
+    almostInverse,
   } = wasm;
   let helpers = jsHelpers(p, w, wasm);
   let { writeBigint, getPointers, getStablePointers } = helpers;
@@ -110,7 +110,7 @@ function createFiniteField(p, w, wasm) {
     }
     // reduce(a);
 
-    let k = almostInverseMontgomery(scratch[0], r, a);
+    let k = almostInverse(scratch[0], r, a);
     // TODO: negation -- special case which is simpler
     // don't have to reduce r here, because it's already < p
     subtractNoReduce(r, constants.p, r);
@@ -188,7 +188,7 @@ function createFiniteField(p, w, wasm) {
    *
    * @param {number[]} scratch
    * @param {number} x a^n
-   * @param {number} a
+   * @param {number} a0
    * @param {boolean[]} nBits bits of n
    */
   function pow([a], x, a0, nBits) {
@@ -301,6 +301,7 @@ async function createFiniteFieldWat(
 
 /**
  *
+ * @param {bigint} q
  * @param {bigint} lambda
  * @param {number} w
  */

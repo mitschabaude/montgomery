@@ -1,34 +1,46 @@
 export let memory: WebAssembly.Memory;
 
-export function multiply(out: number, x: number, y: number): void;
-export function square(out: number, x: number): void;
-export function leftShift(out: number, x: number, k: number): void;
+export declare function multiply(out: number, x: number, y: number): void;
+export declare function square(out: number, x: number): void;
+export declare function leftShift(out: number, x: number, k: number): void;
 /**
  * x*(y - z)
  */
-export function multiplyDifference(
+export declare function multiplyDifference(
   out: number,
   x: number,
   y: number,
   z: number
 ): void;
-export function barrett(x: number): void;
-export function multiplySchoolbook(xy: number, x: number, y: number): void;
-export function add(out: number, x: number, y: number): void;
-export function subtract(out: number, x: number, y: number): void;
-export function reduce(x: number): void;
-export function addNoReduce(out: number, x: number, y: number): void;
-export function subtractNoReduce(out: number, x: number, y: number): void;
-export function subtractPositive(out: number, x: number, y: number): void;
-export function makeOdd(u: number, s: number): number;
+export declare function barrett(x: number): void;
+export declare function multiplySchoolbook(
+  xy: number,
+  x: number,
+  y: number
+): void;
+export declare function add(out: number, x: number, y: number): void;
+export declare function subtract(out: number, x: number, y: number): void;
+export declare function reduce(x: number): void;
+export declare function addNoReduce(out: number, x: number, y: number): void;
+export declare function subtractNoReduce(
+  out: number,
+  x: number,
+  y: number
+): void;
+export declare function subtractPositive(
+  out: number,
+  x: number,
+  y: number
+): void;
+export declare function makeOdd(u: number, s: number): number;
 // helpers
-export function isEqual(x: number, y: number): boolean;
-export function isEqualNegative(x: number, y: number): boolean;
-export function isZero(x: number): boolean;
-export function isGreater(x: number, y: number): boolean;
-export function copy(x: number, y: number): void;
-export function toPackedBytes(bytes: number, x: number): void;
-export function fromPackedBytes(x: number, bytes: number): void;
+export declare function isEqual(x: number, y: number): boolean;
+export declare function isEqualNegative(x: number, y: number): boolean;
+export declare function isZero(x: number): boolean;
+export declare function isGreater(x: number, y: number): boolean;
+export declare function copy(x: number, y: number): void;
+export declare function toPackedBytes(bytes: number, x: number): void;
+export declare function fromPackedBytes(x: number, bytes: number): void;
 
 /**
  * affine EC addition, G3 = G1 + G2
@@ -43,7 +55,7 @@ export function fromPackedBytes(x: number, bytes: number): void;
  * @param G2 (x2, y2)
  * @param d 1/(x2 - x1)
  */
-export function addAffine(
+export declare function addAffine(
   scratch: number,
   G3: number,
   G1: number,
@@ -73,7 +85,7 @@ export function addAffine(
  * @param H
  * @param n
  */
-export function batchAddUnsafe(
+export declare function batchAddUnsafe(
   scratch: number,
   tmp: number,
   d: number,
@@ -83,7 +95,7 @@ export function batchAddUnsafe(
   n: number
 ): void;
 
-export function endomorphism(Gout: number, G: number): void;
+export declare function endomorphism(Gout: number, G: number): void;
 
 /**
  * compute r = a^(-1) * 2^k mod p, returns k
@@ -92,7 +104,11 @@ export function endomorphism(Gout: number, G: number): void;
  * @param r
  * @param a
  */
-export function almostInverse(scratch: number, r: number, a: number): number;
+export declare function almostInverse(
+  scratch: number,
+  r: number,
+  a: number
+): number;
 
 /**
  * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
@@ -101,7 +117,7 @@ export function almostInverse(scratch: number, r: number, a: number): number;
  * @param r
  * @param a
  */
-export function inverse(scratch: number, r: number, a: number): void;
+export declare function inverse(scratch: number, r: number, a: number): void;
 
 /**
  * montgomery batch inverse
@@ -111,14 +127,14 @@ export function inverse(scratch: number, r: number, a: number): void;
  * @param x field elements x0, ..., x(n-1)
  * @param n
  */
-export function batchInverse(
+export declare function batchInverse(
   scratch: number,
   z: number,
   x: number,
   n: number
 ): void;
 
-export const multiplyCount: number;
-export function resetMultiplyCount(): void;
-export const inverseCount: number;
-export function resetInverseCount(): void;
+export declare const multiplyCount: number;
+export declare function resetMultiplyCount(): void;
+export declare const inverseCount: number;
+export declare function resetInverseCount(): void;

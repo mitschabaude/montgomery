@@ -24,7 +24,7 @@ let scalar = {
   minusZ: 0xd201000000010000n,
   bits: 255,
   asBits: {
-    minusZ: bigintToBits(0xd201000000010000n),
+    minusZ: bigintToBits(0xd201000000010000n, 64),
   },
 };
 

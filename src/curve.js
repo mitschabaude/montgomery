@@ -138,7 +138,7 @@ function addAssignProjective(scratch, P1, P2) {
  * projective point doubling with assignment, P *= 2
  *
  * @param {number[]} scratch
- * @param {Point} P
+ * @param {number} P
  */
 function doubleInPlaceProjective(scratch, P) {
   if (isZeroProjective(P)) return;
