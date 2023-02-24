@@ -26,6 +26,7 @@ export {
   memory as memoryScalar,
   extractBitSlice,
   bitLength as scalarBitlength,
+  writeBigintScalar,
 };
 
 let p =
@@ -50,6 +51,8 @@ let beta2 =
 
 const lambda = lambda2;
 const w = 30;
+const wn = 30n;
+const wordMax = (1n << 30n) - 1n;
 
 let {
   fieldSizeBytes,
@@ -117,10 +120,23 @@ function writeBytesDouble(pointer, bytes) {
 }
 
 /**
- * @param {number} pointer
+ * @param {number} x
  */
-function readBigIntDouble(x) {
+function readBigintDouble(x) {
   let x0 = readBigInt(x);
   let x1 = readBigInt(x + fieldSizeBytes);
   return x0 + 2n ** BigInt(n * w) * x1;
+}
+
+/**
+ *
+ * @param {number} x
+ * @param {bigint} x0
+ */
+function writeBigintScalar(x, x0) {
+  let arr = new Uint32Array(memory.buffer, x, 2 * n);
+  for (let i = 0; i < 2 * n; i++) {
+    arr[i] = Number(x0 & wordMax);
+    x0 >>= wn;
+  }
 }

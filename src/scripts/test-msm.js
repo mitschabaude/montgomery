@@ -8,6 +8,7 @@ import { tic, toc } from "../extra/tictoc.js";
 import { webcrypto } from "node:crypto";
 import { mod, p } from "../finite-field.js";
 import { msmAffine } from "../msm.js";
+import { msmBigint } from "../msm-bigint.js";
 import { bigintFromBytes } from "../util.js";
 import { modInverse } from "../finite-field-js.js";
 import { msmDumbAffine } from "../extra/dumb-curve-affine.js";
@@ -64,6 +65,18 @@ let [xAffPacked, yAffPacked] = result;
 let xAff = bigintFromBytes(xAffPacked);
 let yAff = bigintFromBytes(yAffPacked);
 
+let pointsBigint = points.map((P) => {
+  let x = bigintFromBytes(P[0]);
+  let y = bigintFromBytes(P[1]);
+  let isInfinity = P[2];
+  return { x, y, isInfinity };
+});
+let scalarsBigint = scalars.map((s) => bigintFromBytes(s));
+tic("msm (bigint)");
+let { result: resultBigint } = msmBigint(scalarsBigint, pointsBigint);
+toc();
+let { x: xBig, y: yBig, isInfinity } = resultBigint;
+
 if (runSlowMsm) {
   console.log("big === ref", { x: xRef === xBigint, y: yRef === yBigint });
   console.log("big === proj", { x: xBigint === xProj, y: yBigint === yProj });
@@ -71,6 +84,7 @@ if (runSlowMsm) {
 }
 console.log("ref === proj", { x: xRef === xProj, y: yRef === yProj });
 console.log("ref === aff", { x: xRef === xAff, y: yRef === yAff });
+console.log("ref === big", { x: xRef === xBig, y: yRef === yBig });
 
 console.log("proj === aff", { x: xProj === xAff, y: yProj === yAff });
 

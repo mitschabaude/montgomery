@@ -83,12 +83,17 @@ function createFiniteField(p, w, wasm) {
   /**
    * @type {Record<keyof typeof constantsBigint, number>}
    */
-  let constants = Object.fromEntries(
-    constantsKeys.map((key, i) => {
-      let pointer = constantsPointers[i];
-      writeBigint(pointer, constantsBigint[key]);
-      return [key, pointer];
-    })
+  let constants = /** @type {any} */ (
+    Object.fromEntries(
+      constantsKeys.map((key, i) => {
+        let pointer = constantsPointers[i];
+        writeBigint(
+          pointer,
+          constantsBigint[/** @type {keyof typeof constantsBigint} */ (key)]
+        );
+        return [key, pointer];
+      })
+    )
   );
 
   let pPlus1Div4 = bigintToBits((p + 1n) / 4n, 381);
@@ -1368,8 +1373,6 @@ function glv(writer, q, lambda, w) {
 
   // needed for size condition on original scalar
   let lambdaShifted = bigintToLegs(lambda << BigInt(b - 1), w, 2 * n);
-  console.log(b - 1, lambdaShifted);
-  console.log(Q);
   let [flagNegateBoth, flagNegateFirst] = [
     "$flagNegateBoth",
     "$flagNegateFirst",
