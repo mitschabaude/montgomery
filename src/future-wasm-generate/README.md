@@ -2,6 +2,8 @@
 
 In this folder I'm working on a fully-featured Wasm DSL for TS. It is intended to replace `../lib/wasm-generate.js` which is stringly-typed, error-prone, annoying to use, awful to debug and impossible to read.
 
+> Check out the current progress [in this example](./main/src/future-wasm-generate/example.ts)
+
 Goals:
 
 - Write low-level Wasm from TS
