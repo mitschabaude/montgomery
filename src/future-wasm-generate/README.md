@@ -4,14 +4,12 @@ In this folder I'm working on a fully-featured Wasm DSL for TS. It is intended t
 
 > Check out the current progress [in this example](./example.ts)
 
-Goals:
+## Goals:
 
-- Write low-level Wasm from TS
+- **Write low-level Wasm from TS**
 - API directly corresponds to Wasm opcodes, like `i32.add` etc
-- Type-safe
-- Great debugging DX. Example: error messages point to the place in your code where the offending opcode is added
 
-- Readability. Wasm code should look imperative - like writing WAT by hand, just with better DX:
+- **Readability.** Wasm code should look imperative - like writing WAT by hand, just with better DX:
 
 ```ts
 const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
@@ -24,7 +22,10 @@ const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
 });
 ```
 
-- Probably: Optional conveniences to reduce boilerplate assembly like `local.get` and `i32.const`:
+- Probably: Conveniences to reduce boilerplate assembly like `local.get` and `i32.const`:
+  - proved very useful in `../lib/wasm-generate.js`
+  - improves both readability & productivity
+  - but pure, unmodified assembly should always be possible to write - syntax sugar has to be optional
 
 ```ts
 const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
@@ -41,7 +42,22 @@ const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
 });
 ```
 
-- DLS should make declaration of modules trivial -- just declare the exports and a bit of config; all necessary dependencies / imports are collected for you:
+- **Type-safe.** Example: Local variables are typed; instructions know their input types:
+
+```ts
+const myFunction = func({ in: { x: i64, y: i32 }, out: [i32] }, ({ x, y }) => {
+  i32.add(x, y); // type error: "Argument of type 'i64' is not assignable to parameter of type 'i32'."
+});
+```
+
+- **Great debugging DX.** Example: Stack traces point to the exact line in your code where the invalid opcode is called:
+
+```
+Error: i32.add: expected i32 on the stack for first argument, got i64
+    at file:///home/gregor/code/wasm-generate/example.ts:16:9
+```
+
+- **Trivial construction of modules.** Just declare exports; dependencies and imports are collected for you:
 
 ```ts
 let memory = Memory({ initialMB: 1 });
@@ -50,12 +66,41 @@ let module = Module({ exports: { myFunction, memory } });
 let instance = await module.instantiate();
 ```
 
-- Excellent types. Example: Exported function types are inferred from the `func` definitions:
+- **Excellent type inference.** Example: Exported function types are inferred from `func` definitions:
 
 ```ts
-// inference of exported function type signatures:
 instance.exports.myFunction;
 //                 ^ (arg_0: number, arg_1: number) => number
 ```
 
-- Probably: Automatic build step which takes as input a file that exports your `Module`, and compiles it to a file which hard-codes the Wasm bytecode as base64, correctly imports all dependencies for the instantiation (imports) like the original file did, instantiates the module and exports the module's exports.
+- **Atomic import declaration.** Imports are declared as types along with their JS values. Abstracts away the global "import object" that is separate from "import declaration".
+
+```ts
+const consoleLog = importFunc({ in: [i32], out: [] }, (x) =>
+  console.log("logging from wasm:", x)
+);
+
+const myFunction = func({ in: { x: i32, y: i32 }, out: [i32] }, ({ x, y }) => {
+  call(consoleLog, [x]);
+  i32.add(x, y);
+});
+```
+
+- Optional **build step** which takes as input a file that exports your `Module`, and compiles it to a file which hard-codes the Wasm bytecode as base64 string, correctly imports all dependencies (imports) for the instantiation like the original file did, instantiates the module (top-level await) and exports the module's exports.
+
+```ts
+import { myFunction } from "./example.wasm.js"; // example.wasm.js does not depend on this lib at runtime; it just holds the compiled wasm code
+```
+
+- Excellent composability and IO
+  - Internal representation of modules / funcs / etc is a readable JSON object
+    - close to [the spec's type layout](https://webassembly.github.io/spec/core/syntax/modules.html#modules) (but improves readability or JS ergonomics where necessary)
+  - Helpers like `module.toJSON`, `Module.fromJSON(json, imports)`
+  - `toBytes`, `fromBytes`, `toBase64`, `fromBase64`
+
+### Some ideas that are a bit further out:
+
+- **Decompiler**: take _any_ Wasm file and create TS DSL code from it, to modify it, debug it etc
+- **Source maps**, so you can look at the culprit JS code when Wasm throws an error
+- Optional JS interpreter which can take DSL code and execute it _in JS_
+  - could enable even more flexible debugging -- inspect the stack, global/local scope etc
