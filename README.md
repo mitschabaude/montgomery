@@ -394,13 +394,13 @@ node src/scripts/evaluate-msm.js
 The script that I ran most often just runs everything once, but also compares with the reference implementation, and another implementation of mine based on projective arithmetic; also runs some benchmarks of raw multiplication / inversion performance, and reports those numbers together with a breakdown of the multiplication count across parts of the algorithm:
 
 ```sh
-node index.js
+node src/scripts/run.js
 ```
 
 You can also vary the MSM input size by using the first CLI parameter:
 
 ```sh
-node index.js 16 # run msm with 2^16 inputs
+node src/scripts/run.js 16 # run msm with 2^16 inputs
 ```
 
 ## Contributing
