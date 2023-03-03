@@ -8,21 +8,19 @@ import {
   FunctionType,
   JSValue,
   TypeIndex,
-  valueType,
   ValueType,
-  ValueTypeLiteral,
-  valueTypes,
+  valueTypeLiterals,
 } from "./types.js";
 
 // external
 export { func };
 // internal
-export { Dependency, Func, Code, JSFunctionType };
+export { Dependency, Func, Code, JSFunctionType, ToTypeTuple };
 
 function func<
-  Args extends Record<string, ValueTypeLiteral>,
-  Locals extends Record<string, ValueTypeLiteral>,
-  Results extends Tuple<ValueTypeLiteral>
+  Args extends Record<string, ValueType>,
+  Locals extends Record<string, ValueType>,
+  Results extends Tuple<ValueType>
 >(
   ctx: LocalContext,
   {
@@ -43,9 +41,9 @@ function func<
   type: FullFunctionType<Args, Results>;
 } {
   ctx.stack = [];
-  let argsArray = valueTypes(Object.values(args));
-  let localsArray = valueTypes(Object.values(locals));
-  let resultsArray = valueTypes(results);
+  let argsArray = valueTypeLiterals(Object.values(args));
+  let localsArray = valueTypeLiterals(Object.values(locals));
+  let resultsArray = valueTypeLiterals(results);
   let type: FullFunctionType<Args, Results> & FunctionType = {
     args: argsArray as any,
     results: resultsArray as any,
@@ -71,7 +69,7 @@ function func<
     },
     () => {
       run(argsInput, localsInput);
-      popStack(ctx.stack, results as ValueType[]);
+      popStack(ctx.stack, resultsArray);
       // TODO nice error
       if (ctx.stack.length !== 0) throw Error("expected stack to be empty");
     }
@@ -93,17 +91,11 @@ function func<
 //       ^ (arg_0: bigint, arg_1: number) => number
 
 type FullFunctionType<
-  Args extends Record<string, ValueTypeLiteral>,
-  Results extends readonly ValueTypeLiteral[]
+  Args extends Record<string, ValueType>,
+  Results extends readonly ValueType[]
 > = {
-  args: [
-    ...ObjValueTuple<{
-      [K in keyof Args]: { kind: Args[K] };
-    }>
-  ];
-  results: {
-    [K in keyof Results]: { kind: Results[K] };
-  };
+  args: [...ObjValueTuple<Args>];
+  results: Results;
 };
 
 type JSValues<T extends readonly ValueType[]> = {
@@ -124,15 +116,15 @@ type JSFunctionType<T extends FunctionType> = JSFunctionType_<
   T["results"]
 >;
 
-type Local<L extends ValueTypeLiteral> = { type?: { kind: L }; index: number };
+type Local<L extends ValueType> = { type?: L; index: number };
 
-type ToLocal<T extends Record<string, ValueTypeLiteral>> = {
+type ToLocal<T extends Record<string, ValueType>> = {
   [K in keyof T]: Local<T[K]>;
 };
-type ToTypeRecord<T extends Record<string, ValueTypeLiteral>> = {
+type ToTypeRecord<T extends Record<string, ValueType>> = {
   [K in keyof T]: { kind: T[K] };
 };
-type ToTypeTuple<T extends readonly ValueTypeLiteral[]> = {
+type ToTypeTuple<T extends readonly ValueType[]> = {
   [K in keyof T]: { kind: T[K] };
 };
 
@@ -176,12 +168,12 @@ const Locals = iso<[number, ValueType][], ValueType[]>(CompressedLocals, {
   to(locals) {
     let count: Record<string, number> = {};
     for (let local of locals) {
-      count[local.kind] ??= 0;
-      count[local.kind]++;
+      count[local] ??= 0;
+      count[local]++;
     }
     return Object.entries(count).map(([kind, count]) => [
       count,
-      valueType(kind as ValueTypeLiteral),
+      kind as ValueType,
     ]);
   },
   from(compressed) {

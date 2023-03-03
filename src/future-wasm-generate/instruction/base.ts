@@ -5,7 +5,12 @@ import {
   pushInstruction,
   withContext,
 } from "../local-context.js";
-import { FunctionType, ValueType } from "../types.js";
+import {
+  FunctionType,
+  ValueType,
+  valueTypeLiterals,
+  ValueTypeObject,
+} from "../types.js";
 
 export {
   simpleInstruction,
@@ -33,7 +38,11 @@ function baseInstruction<Immediate, Args extends any[]>(
     create(
       ctx: LocalContext,
       ...args: Args
-    ): { in?: ValueType[]; out?: ValueType[]; deps?: Dependency.t[] };
+    ): {
+      in?: ValueType[];
+      out?: ValueType[];
+      deps?: Dependency.t[];
+    };
     resolve?(deps: number[], ...args: Args): Immediate;
   }
 ) {
@@ -58,8 +67,8 @@ function baseInstruction<Immediate, Args extends any[]>(
  * instructions of constant type without dependencies
  */
 function simpleInstruction<
-  Arguments extends Tuple<ValueType>,
-  Results extends Tuple<ValueType>,
+  Arguments extends Tuple<ValueTypeObject>,
+  Results extends Tuple<ValueTypeObject>,
   Immediate extends any
 >(
   string: string,
@@ -68,7 +77,10 @@ function simpleInstruction<
 ) {
   immediate = immediate === Undefined ? undefined : immediate;
   type Args = Immediate extends undefined ? [] : [immediate: Immediate];
-  let instr = { in: args ?? [], out: results ?? [] };
+  let instr = {
+    in: valueTypeLiterals(args ?? []),
+    out: valueTypeLiterals(results ?? []),
+  };
   return baseInstruction<Immediate, Args>(string, immediate, {
     create: () => instr,
   });

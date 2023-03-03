@@ -1,5 +1,5 @@
 import * as Dependency from "./dependency.js";
-import { ValueType, valueTypes } from "./types.js";
+import { ValueType } from "./types.js";
 
 export {
   LocalContext,
@@ -58,16 +58,14 @@ function popStack(stack: ValueType[], values: ValueType[]) {
   // TODO nicer errors, which display entire stack vs entire instruction signature
   for (let value of values) {
     let stackValue = stack.pop();
-    if (stackValue === undefined || value.kind !== stackValue.kind) {
+    if (stackValue === undefined || value !== stackValue) {
       throw Error(
-        `expected ${value.kind} on the stack, got ${
-          stackValue?.kind ?? "nothing"
-        }`
+        `expected ${value} on the stack, got ${stackValue ?? "nothing"}`
       );
     }
   }
 }
 
 function pushStack(stack: ValueType[], values: ValueType[]) {
-  stack.push(...valueTypes(values));
+  stack.push(...values);
 }

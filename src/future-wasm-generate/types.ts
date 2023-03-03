@@ -4,35 +4,40 @@ import { U32, vec } from "./immediate.js";
 export { i32t, i64t, f32t, f64t, v128t, funcref, externref };
 export { TypeIndex, FunctionIndex, MemoryIndex, TableIndex };
 export {
-  ValueType,
-  RefType,
+  ValueTypeObject,
+  RefTypeObject,
   FunctionType,
   MemoryType,
   GlobalType,
   TableType,
-  ValueTypeLiteral,
+  ValueType,
+  RefType,
   GenericValueType,
   invertRecord,
   valueType,
-  valueTypes,
+  valueTypeLiteral,
+  valueTypeLiterals,
   functionTypeEquals,
   JSValue,
 };
 
-type RefTypeLiteral = "funcref" | "externref";
-type ValueTypeLiteral = "i32" | "i64" | "f32" | "f64" | "v128" | RefTypeLiteral;
+type RefType = "funcref" | "externref";
+type ValueType = "i32" | "i64" | "f32" | "f64" | "v128" | RefType;
 
 type GenericValueType<L> = { kind: L };
-function valueType<L extends ValueTypeLiteral>(kind: L): GenericValueType<L> {
+function valueTypeLiteral<L extends ValueType>({ kind }: { kind: L }): L {
+  return kind;
+}
+function valueType<L extends ValueType>(kind: L): GenericValueType<L> {
   return { kind };
 }
-function valueTypes<L extends ValueTypeLiteral[]>(types: {
+function valueTypeLiterals<L extends ValueType[]>(types: {
   [i in keyof L]: GenericValueType<L[i]>;
 }): ValueType[] {
-  return types.map((t) => valueType(t.kind)) as any;
+  return types.map((t) => t.kind);
 }
 
-const valueTypeCodes: Record<ValueTypeLiteral, number> = {
+const valueTypeCodes: Record<ValueType, number> = {
   i32: 0x7f,
   i64: 0x7e,
   f32: 0x7d,
@@ -41,13 +46,13 @@ const valueTypeCodes: Record<ValueTypeLiteral, number> = {
   funcref: 0x70,
   externref: 0x6f,
 };
-type i32t = GenericValueType<"i32">;
-type i64t = GenericValueType<"i64">;
-type f32t = GenericValueType<"f32">;
-type f64t = GenericValueType<"f64">;
-type v128t = GenericValueType<"v128">;
-type funcref = GenericValueType<"funcref">;
-type externref = GenericValueType<"i64">;
+// type i32t = GenericValueType<"i32">;
+// type i64t = GenericValueType<"i64">;
+// type f32t = GenericValueType<"f32">;
+// type f64t = GenericValueType<"f64">;
+// type v128t = GenericValueType<"v128">;
+// type funcref = GenericValueType<"funcref">;
+// type externref = GenericValueType<"i64">;
 const i32t = valueType("i32");
 const i64t = valueType("i64");
 const f32t = valueType("f32");
@@ -58,34 +63,37 @@ const externref = valueType("externref");
 
 const codeToValueType = invertRecord(valueTypeCodes);
 
-type ValueType = { kind: ValueTypeLiteral };
-const ValueType: Binable<ValueType> = Binable({
+type ValueTypeObject = { kind: ValueType };
+const ValueType = Binable<ValueType>({
   toBytes(type) {
-    return [valueTypeCodes[type.kind]];
+    return [valueTypeCodes[type]];
   },
   readBytes(bytes, offset) {
     let code = bytes[offset++];
-    let literal = codeToValueType.get(code);
-    if (literal === undefined) throw Error("invalid value type");
-    return [{ kind: literal }, offset];
+    let type = codeToValueType.get(code);
+    if (type === undefined) throw Error("invalid value type");
+    return [type, offset];
   },
 });
 
-type RefType = { kind: RefTypeLiteral };
-const RefType: Binable<RefType> = Binable<RefType>({
+type RefTypeObject = { kind: RefType };
+const RefType = Binable<RefType>({
   toBytes(t) {
     return ValueType.toBytes(t);
   },
   readBytes(bytes, offset) {
-    let [{ kind }, end] = ValueType.readBytes(bytes, offset);
-    if (kind !== "funcref" && kind !== "externref")
+    let [type, end] = ValueType.readBytes(bytes, offset);
+    if (type !== "funcref" && type !== "externref")
       throw Error("invalid reftype");
-    return [{ kind }, end];
+    return [type, end];
   },
 });
 
 type GlobalType = { value: ValueType; mutable: boolean };
-const GlobalType = record<GlobalType>({ value: ValueType, mutable: Bool });
+const GlobalType = record<GlobalType>({
+  value: ValueType,
+  mutable: Bool,
+});
 
 type Limits = { min: number; max?: number };
 const Limits = Binable<Limits>({
@@ -110,13 +118,13 @@ const MemoryType = record<MemoryType>({ limits: Limits });
 type TableType = { type: RefType; limits: Limits };
 const TableType = record<TableType>({ type: RefType, limits: Limits });
 
-type FunctionType = {
-  args: ValueType[];
-  results: ValueType[];
-};
+type ResultType = ValueType[];
+const ResultType = vec(ValueType);
+
+type FunctionType = { args: ResultType; results: ResultType };
 const FunctionType = withByteCode(
   0x60,
-  record<FunctionType>({ args: vec(ValueType), results: vec(ValueType) })
+  record<FunctionType>({ args: ResultType, results: ResultType })
 );
 
 type TypeIndex = U32;
@@ -144,19 +152,17 @@ function functionTypeEquals(
   let nResults = fResults.length;
   if (gArgs.length !== nArgs || gResults.length !== nResults) return false;
   for (let i = 0; i < nArgs; i++) {
-    if (fArgs[i].kind !== gArgs[i].kind) return false;
+    if (fArgs[i] !== gArgs[i]) return false;
   }
   for (let i = 0; i < nResults; i++) {
-    if (fResults[i].kind !== gResults[i].kind) return false;
+    if (fResults[i] !== gResults[i]) return false;
   }
   return true;
 }
 
 // infer JS values
 
-type JSValue<T extends ValueType> = JSValueFromLiteral<T["kind"]>;
-
-type JSValueFromLiteral<T extends ValueTypeLiteral> = T extends "i32"
+type JSValue<T extends ValueType> = T extends "i32"
   ? number
   : T extends "f32"
   ? number

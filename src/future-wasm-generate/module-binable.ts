@@ -17,7 +17,7 @@ import {
   GlobalType,
   MemoryType,
   TableType,
-  ValueType,
+  ValueTypeObject,
 } from "./types.js";
 import { Export, Import } from "./export.js";
 import { Data, Elem, Global } from "./memory-binable.js";
@@ -255,8 +255,8 @@ type ValidationContext = {
   globals: GlobalType[];
   elems: Elem[];
   datas: Data[];
-  locals: ValueType[];
-  labels: ValueType[][];
-  return?: ValueType[];
+  locals: ValueTypeObject[];
+  labels: ValueTypeObject[][];
+  return?: ValueTypeObject[];
   refs: FunctionIndex[];
 };

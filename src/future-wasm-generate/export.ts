@@ -1,16 +1,19 @@
-import { Binable, byteEnum, record } from "./binable.js";
+import { Binable, byteEnum, record, Tuple } from "./binable.js";
 import { Name, U32 } from "./immediate.js";
 import {
   FunctionType,
+  GenericValueType,
   GlobalType,
   JSValue,
   MemoryType,
   TableType,
   TypeIndex,
-  valueType,
   ValueType,
+  valueTypeLiteral,
+  valueTypeLiterals,
+  ValueTypeObject,
 } from "./types.js";
-import { Dependency } from "./func.js";
+import { Dependency, ToTypeTuple } from "./func.js";
 
 export { Export, Import, ExternType, importFunc, importGlobal };
 
@@ -67,28 +70,31 @@ const Import = record<Import>({
   description: ImportDescription,
 });
 
-function importFunc<Args extends ValueType[], Results extends ValueType[]>(
+function importFunc<
+  Args extends Tuple<ValueType>,
+  Results extends Tuple<ValueType>
+>(
   {
     in: args_,
     out: results_,
   }: {
-    in: Args;
-    out: Results;
+    in: ToTypeTuple<Args>;
+    out: ToTypeTuple<Results>;
   },
   run: Function
 ): Dependency.ImportFunc {
-  let args = args_.map((a) => valueType(a.kind));
-  let results = results_.map((r) => valueType(r.kind));
+  let args = valueTypeLiterals(args_);
+  let results = valueTypeLiterals(results_);
   let type = { args, results };
   return { kind: "importFunction", type, deps: [], value: run };
 }
 
 function importGlobal<V extends ValueType>(
-  type: V,
+  type: GenericValueType<V>,
   value: JSValue<V>,
   { mutable = false } = {}
 ): Dependency.ImportGlobal {
-  let globalType = { value: type, mutable };
+  let globalType = { value: valueTypeLiteral(type), mutable };
   let valueType: WebAssembly.ValueType =
     type.kind === "funcref" ? "anyfunc" : type.kind;
   let value_ = new WebAssembly.Global({ value: valueType, mutable }, value);

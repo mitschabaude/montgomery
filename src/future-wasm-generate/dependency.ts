@@ -204,7 +204,7 @@ const Const = {
     return {
       string: "i32.const",
       immediate: Number(x), // TODO in resolve args?
-      type: { args: [], results: [i32t] },
+      type: { args: [], results: ["i32"] },
       deps: [],
       resolveArgs: [],
     };
@@ -213,27 +213,27 @@ const Const = {
     return {
       string: "i64.const",
       immediate: BigInt(x), // TODO in resolve args?
-      type: { args: [], results: [i64t] },
+      type: { args: [], results: ["i64"] },
       deps: [],
       resolveArgs: [],
     };
   },
   refFuncNull: {
     string: "ref.null",
-    type: { args: [], results: [funcref] },
+    type: { args: [], results: ["funcref"] },
     deps: [],
-    resolveArgs: [funcref],
+    resolveArgs: ["funcref"],
   } as Const.refNull,
   refExternNull: {
     string: "ref.null",
-    type: { args: [], results: [externref] },
+    type: { args: [], results: ["externref"] },
     deps: [],
-    resolveArgs: [externref],
+    resolveArgs: ["externref"],
   } as Const.refNull,
   refFunc(func: AnyFunc): Const.refFunc {
     return {
       string: "ref.func",
-      type: { args: [], results: [funcref] },
+      type: { args: [], results: ["funcref"] },
       deps: [func],
       resolveArgs: [],
     };

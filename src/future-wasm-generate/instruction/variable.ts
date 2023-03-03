@@ -3,7 +3,7 @@ import { Const } from "../dependency.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
 import { baseInstruction } from "./base.js";
-import { funcref, i32t, RefType } from "../types.js";
+import { RefType } from "../types.js";
 
 export { local, global, ref };
 
@@ -76,12 +76,12 @@ const ref = {
   }),
   is_null: baseInstruction("ref.is_null", Undefined, {
     create({ stack }) {
-      return { in: [stack[stack.length - 1]], out: [i32t] };
+      return { in: [stack[stack.length - 1]], out: ["i32"] };
     },
   }),
   func: baseInstruction("ref.func", U32, {
     create(_, func: Dependency.AnyFunc) {
-      return { out: [funcref], deps: [func, Dependency.hasRefTo(func)] };
+      return { out: ["funcref"], deps: [func, Dependency.hasRefTo(func)] };
     },
     resolve: ([funcIdx]) => funcIdx,
   }),

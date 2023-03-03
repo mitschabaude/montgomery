@@ -88,7 +88,7 @@ const Elem = Binable<Elem>({
   toBytes({ type, init, mode }) {
     // write code
     let isPassive = Number(typeof mode === "string");
-    let isExplicit = Number(!(type.kind === "funcref" && isFuncIdx(init)));
+    let isExplicit = Number(!(type === "funcref" && isFuncIdx(init)));
     let isBit1 = Number(
       typeof mode !== "string"
         ? mode.table !== 0 && !isExplicit
@@ -129,7 +129,7 @@ const Elem = Binable<Elem>({
       mode = { table, offset: tableOffset };
     }
     // parse type
-    let type: RefType = funcref;
+    let type: RefType = "funcref";
     if (isPassive | isBit1) {
       if (isExplicit) [type, offset] = RefType.readBytes(bytes, offset);
       else if (bytes[offset++] !== 0x00) throw Error("Elem: invalid elemkind");
