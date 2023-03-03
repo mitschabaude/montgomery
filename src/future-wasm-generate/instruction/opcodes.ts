@@ -1,14 +1,16 @@
 import { BaseInstruction } from "./base.js";
 import { global, local, ref } from "./variable.js";
 import { i32 } from "./int.js";
-import { call, unreachable } from "./control.js";
+import { control } from "./control.js";
 
 export { opcodes, instructionToOpcode };
 
 const opcodes: Record<number, BaseInstruction> = {
   // control
-  0x00: unreachable,
-  0x10: call,
+  0x00: control.unreachable,
+  0x01: control.nop,
+  0x02: control.block,
+  0x10: control.call,
 
   // numeric
   0x41: i32.const,

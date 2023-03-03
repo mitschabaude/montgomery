@@ -5,7 +5,6 @@ import { importFunc, importGlobal } from "./export.js";
 import { emptyContext, LocalContext } from "./local-context.js";
 import { Const } from "./dependency.js";
 import { funcref, i64t } from "./types.js";
-import { createExpression } from "./instruction/base.js";
 
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
@@ -25,13 +24,11 @@ let myFunc = func(
     i32.add(ctx);
     local.get(ctx, y);
     i32.add(ctx);
-
-    let expr = createExpression(ctx, () => {
+    ops.block(ctx, () => {
       local.tee(ctx, tmp);
       ops.call(ctx, consoleLog);
       local.get(ctx, tmp);
     });
-    console.dir({ expr }, { depth: Infinity });
   }
 );
 

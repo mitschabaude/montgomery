@@ -28,7 +28,11 @@ type BaseInstruction = {
 /**
  * most general function to create instructions
  */
-function baseInstruction<Immediate, Args extends any[]>(
+function baseInstruction<
+  Immediate,
+  Args extends any[],
+  ResolveArgs extends Tuple<any>
+>(
   string: string,
   immediate: Binable<Immediate> | undefined = undefined,
   {
@@ -42,17 +46,19 @@ function baseInstruction<Immediate, Args extends any[]>(
       in?: ValueType[];
       out?: ValueType[];
       deps?: Dependency.t[];
+      resolveArgs?: ResolveArgs;
     };
-    resolve?(deps: number[], ...args: Args): Immediate;
+    resolve?(deps: number[], ...args: ResolveArgs): Immediate;
   }
 ) {
   resolve ??= noResolve;
-  function i(ctx: LocalContext, ...resolveArgs: Args) {
+  function i(ctx: LocalContext, ...createArgs: Args) {
     let {
       in: args = [],
       out: results = [],
       deps = [],
-    } = create(ctx, ...resolveArgs);
+      resolveArgs = createArgs,
+    } = create(ctx, ...createArgs);
     pushInstruction(ctx, {
       string,
       deps,
@@ -81,7 +87,7 @@ function simpleInstruction<
     in: valueTypeLiterals(args ?? []),
     out: valueTypeLiterals(results ?? []),
   };
-  return baseInstruction<Immediate, Args>(string, immediate, {
+  return baseInstruction<Immediate, Args, Args>(string, immediate, {
     create: () => instr,
   });
 }
