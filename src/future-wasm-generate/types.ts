@@ -13,6 +13,7 @@ export {
   ValueType,
   RefType,
   GenericValueType,
+  ResultType,
   invertRecord,
   valueType,
   valueTypeLiteral,
@@ -162,7 +163,7 @@ function functionTypeEquals(
 }
 
 function printFunctionType({ args, results }: FunctionType) {
-  return `${JSON.stringify(args)} -> ${JSON.stringify(results)}`;
+  return `[${args}] -> [${results}]`;
 }
 
 // infer JS values

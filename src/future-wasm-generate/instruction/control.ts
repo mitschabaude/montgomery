@@ -1,7 +1,8 @@
 import { Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
-import { functionTypeEquals, printFunctionType } from "../types.js";
+import { popStack, pushStack } from "../local-context.js";
+import { functionTypeEquals, printFunctionType, ResultType } from "../types.js";
 import {
   baseInstruction,
   createExpression,
@@ -57,16 +58,20 @@ const loop = baseInstruction("loop", Block, {
 
 const if_ = baseInstruction("if", IfBlock, {
   create(ctx, runIf: () => void, runElse?: () => void) {
+    popStack(ctx.stack, ["i32"]);
     let { type, body, deps } = createExpression(ctx, runIf);
+    let ifArgs: ResultType = [...type.args, "i32"];
     if (runElse === undefined) {
+      pushStack(ctx.stack, ["i32"]);
       return {
-        in: type.args,
+        in: ifArgs,
         out: type.results,
         deps: [Dependency.type(type), ...deps],
-        resolveArgs: [body, []],
+        resolveArgs: [body, undefined],
       };
     }
     let elseExpr = createExpression(ctx, runElse);
+    pushStack(ctx.stack, ["i32"]);
     if (!functionTypeEquals(type, elseExpr.type)) {
       throw Error(
         `Type signature of else branch doesn't match if branch.\n` +
@@ -75,7 +80,7 @@ const if_ = baseInstruction("if", IfBlock, {
       );
     }
     return {
-      in: type.args,
+      in: ifArgs,
       out: type.results,
       deps: [Dependency.type(type), ...deps, ...elseExpr.deps],
       resolveArgs: [body, elseExpr.body],
@@ -84,11 +89,12 @@ const if_ = baseInstruction("if", IfBlock, {
   resolve(
     [blockType, ...deps],
     ifBody: Dependency.Instruction[],
-    elseBody: Dependency.Instruction[]
+    elseBody?: Dependency.Instruction[]
   ) {
     let ifDepsLength = ifBody.reduce((acc, i) => acc + i.deps.length, 0);
     let if_ = resolveExpression(deps.slice(0, ifDepsLength), ifBody);
-    let else_ = resolveExpression(deps.slice(ifDepsLength), elseBody);
+    let else_ =
+      elseBody && resolveExpression(deps.slice(ifDepsLength), elseBody);
     return { blockType, instructions: { if: if_, else: else_ } };
   },
 });
