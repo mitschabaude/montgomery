@@ -38,6 +38,22 @@ const block = baseInstruction("block", BlockArgs, {
   },
 });
 
+const loop = baseInstruction("loop", BlockArgs, {
+  create(ctx, run: () => void) {
+    let { type, body, deps } = createExpression(ctx, run);
+    return {
+      in: type.args,
+      out: type.results,
+      deps: [Dependency.type(type), ...deps],
+      resolveArgs: [body],
+    };
+  },
+  resolve([blockType, ...deps], body: Dependency.Instruction[]) {
+    let instructions = resolveExpression(deps, body);
+    return { blockType, instructions };
+  },
+});
+
 const call = baseInstruction("call", U32, {
   create(_, func: Dependency.AnyFunc) {
     return { in: func.type.args, out: func.type.results, deps: [func] };
