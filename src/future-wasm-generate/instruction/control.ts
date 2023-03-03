@@ -1,14 +1,13 @@
-import { constant, or, record, Undefined, withByteCode } from "../binable.js";
+import { Undefined } from "../binable.js";
 import { Dependency } from "../func.js";
-import { S33, U32 } from "../immediate.js";
-import { ValueType } from "../types.js";
+import { U32 } from "../immediate.js";
 import {
   baseInstruction,
   createExpression,
   lookupInstruction,
   simpleInstruction,
 } from "./base.js";
-import { Expression, Instruction } from "./expression.js";
+import { BlockArgs, Instruction } from "./binable.js";
 
 export { control };
 export { unreachable, call, nop, block };
@@ -22,15 +21,6 @@ const unreachable = baseInstruction("unreachable", Undefined, {
   },
   resolve: () => undefined,
 });
-
-const Empty = withByteCode(0x40, constant<"empty">("empty"));
-
-type BlockType = "empty" | ValueType | U32;
-const BlockType = or([Empty, S33, ValueType], (t) =>
-  t === "empty" ? Empty : typeof t === "number" ? S33 : ValueType
-);
-
-const BlockArgs = record({ blockType: BlockType, instructions: Expression });
 
 const block = baseInstruction("block", BlockArgs, {
   create(ctx, run: () => void) {

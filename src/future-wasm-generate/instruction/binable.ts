@@ -1,7 +1,9 @@
-import { Binable } from "../binable.js";
+import { Binable, constant, or, record, withByteCode } from "../binable.js";
+import { S33, U32 } from "../immediate.js";
+import { ValueType } from "../types.js";
 import { lookupInstruction, lookupOpcode } from "./base.js";
 
-export { Instruction, Expression, ConstExpression };
+export { Instruction, Expression, ConstExpression, BlockArgs };
 
 type Instruction = { string: string; immediate: any };
 
@@ -46,3 +48,12 @@ const Expression = Binable<Instruction[]>({
 
 type ConstExpression = Expression;
 const ConstExpression = Expression;
+
+const Empty = withByteCode(0x40, constant<"empty">("empty"));
+
+type BlockType = "empty" | ValueType | U32;
+const BlockType = or([Empty, S33, ValueType], (t) =>
+  t === "empty" ? Empty : typeof t === "number" ? S33 : ValueType
+);
+
+const BlockArgs = record({ blockType: BlockType, instructions: Expression });

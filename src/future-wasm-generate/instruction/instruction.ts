@@ -2,9 +2,9 @@ import * as Dependency from "../dependency.js";
 import { local, global, ref } from "./variable.js";
 import { i32, i64 } from "./int.js";
 import { control } from "./control.js";
-import { Instruction } from "./expression.js";
+import { Instruction } from "./binable.js";
 import { lookupInstruction } from "./base.js";
-export { Expression, ConstExpression } from "./expression.js";
+export { Expression, ConstExpression } from "./binable.js";
 
 export { ops, i32, i64, local, global };
 export { Instruction, resolveInstruction };
