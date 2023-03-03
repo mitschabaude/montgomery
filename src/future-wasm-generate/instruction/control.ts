@@ -1,11 +1,4 @@
-import {
-  Binable,
-  constant,
-  or,
-  record,
-  Undefined,
-  withByteCode,
-} from "../binable.js";
+import { constant, or, record, Undefined, withByteCode } from "../binable.js";
 import { Dependency } from "../func.js";
 import { S33, U32 } from "../immediate.js";
 import { ValueType } from "../types.js";
@@ -14,7 +7,7 @@ import {
   createExpression,
   simpleInstruction,
 } from "./base.js";
-import { Expression } from "./binable.js";
+import { Expression } from "./expression.js";
 import { getInstruction, Instruction } from "./instruction.js";
 
 export { control };

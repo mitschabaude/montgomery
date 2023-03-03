@@ -4,7 +4,7 @@ import { local, global, ref } from "./variable.js";
 import { i32, i64 } from "./int.js";
 import { control } from "./control.js";
 import { opcodes, instructionToOpcode } from "./opcodes.js";
-export { Expression, ConstExpression } from "./binable.js";
+export { Expression, ConstExpression } from "./expression.js";
 
 export { ops, i32, i64, local, global };
 export { Instruction, resolveInstruction, getInstruction };
