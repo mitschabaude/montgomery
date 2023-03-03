@@ -1,5 +1,5 @@
 import * as Dependency from "./dependency.js";
-import { ValueType } from "./types.js";
+import { ValueType, valueTypes } from "./types.js";
 
 export {
   LocalContext,
@@ -7,33 +7,37 @@ export {
   pushStack,
   pushInstruction,
   emptyContext,
-  initializeContext,
+  withContext,
 };
 
 type LocalContext = {
-  // func: Dependency.Func; // inline / simplify like in the validation spec
   locals: ValueType[];
   deps: Dependency.t[];
   body: Dependency.Instruction[];
   stack: ValueType[];
-  return: ValueType[]; // TODO
-  // TODO blocks
+  return: ValueType[] | null;
+  labels: (ValueType[] | null)[];
 };
 
 function emptyContext(): LocalContext {
-  return { locals: [], body: [], deps: [], return: [], stack: [] };
+  return { locals: [], body: [], deps: [], return: [], stack: [], labels: [] };
 }
 
-function initializeContext(
+function withContext(
   ctx: LocalContext,
-  locals: ValueType[],
-  results: ValueType[]
-) {
-  ctx.locals = locals;
-  ctx.return = results;
-  ctx.body = [];
-  ctx.deps = [];
-  ctx.stack = [];
+  override: Partial<LocalContext>,
+  run: (ctx: LocalContext) => void
+): LocalContext {
+  let oldCtx = { ...ctx };
+  Object.assign(ctx, override);
+  let resultCtx: LocalContext;
+  try {
+    run(ctx);
+    resultCtx = { ...ctx };
+  } finally {
+    Object.assign(ctx, oldCtx);
+  }
+  return resultCtx;
 }
 
 function pushInstruction(
@@ -65,5 +69,5 @@ function popStack(stack: ValueType[], values: ValueType[]) {
 }
 
 function pushStack(stack: ValueType[], values: ValueType[]) {
-  stack.push(...values);
+  stack.push(...valueTypes(values));
 }

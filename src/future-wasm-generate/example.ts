@@ -2,9 +2,10 @@ import { global, i32, local, ops } from "./instruction/instruction.js";
 import assert from "node:assert";
 import { Module, func } from "./index.js";
 import { importFunc, importGlobal } from "./export.js";
-import { emptyContext } from "./local-context.js";
+import { emptyContext, LocalContext } from "./local-context.js";
 import { Const } from "./dependency.js";
 import { funcref, i64t } from "./types.js";
+import { createExpression } from "./instruction/base.js";
 
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
@@ -12,16 +13,25 @@ let consoleLog = importFunc({ in: [i32], out: [] }, log);
 let consoleLog64 = importFunc({ in: [i64t], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
-let ctx = emptyContext();
+let ctx: LocalContext;
+
+ctx = emptyContext();
 let myFunc = func(
   ctx,
-  { in: { x: i32, y: i32 }, locals: {}, out: [i32] },
-  ({ x, y }) => {
+  { in: { x: i32, y: i32 }, locals: { tmp: i32 }, out: [i32] },
+  ({ x, y }, { tmp }) => {
     i32.const(ctx, 0);
     local.get(ctx, x);
     i32.add(ctx);
     local.get(ctx, y);
     i32.add(ctx);
+
+    let expr = createExpression(ctx, () => {
+      local.tee(ctx, tmp);
+      ops.call(ctx, consoleLog);
+      local.get(ctx, tmp);
+    });
+    console.dir({ expr }, { depth: Infinity });
   }
 );
 

@@ -1,9 +1,18 @@
 import { Binable, Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
-import { LocalContext, pushInstruction } from "../local-context.js";
-import { ValueType } from "../types.js";
+import {
+  LocalContext,
+  pushInstruction,
+  withContext,
+} from "../local-context.js";
+import { FunctionType, ValueType } from "../types.js";
 
-export { simpleInstruction, baseInstruction, BaseInstruction };
+export {
+  simpleInstruction,
+  baseInstruction,
+  BaseInstruction,
+  createExpression,
+};
 
 type BaseInstruction = {
   string: string;
@@ -67,3 +76,16 @@ function simpleInstruction<
 
 const noResolve = (_: number[], ...args: any) => args[0];
 type Tuple<T> = [T, ...T[]] | [];
+
+function createExpression(
+  ctx: LocalContext,
+  run: () => void
+): { body: Dependency.Instruction[]; type: FunctionType } {
+  let args = [...ctx.stack];
+  let { stack: results, body } = withContext(
+    ctx,
+    { body: [], stack: [...ctx.stack], labels: [null, ...ctx.labels] },
+    run
+  );
+  return { body, type: { args, results } };
+}

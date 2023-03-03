@@ -2,7 +2,7 @@ import { Binable, iso, record, tuple } from "./binable.js";
 import * as Dependency from "./dependency.js";
 import { U32, vec, withByteLength } from "./immediate.js";
 import { Expression, Instruction } from "./instruction/instruction.js";
-import { initializeContext, LocalContext, popStack } from "./local-context.js";
+import { LocalContext, popStack, withContext } from "./local-context.js";
 import {
   FunctionIndex,
   FunctionType,
@@ -11,6 +11,7 @@ import {
   valueType,
   ValueType,
   ValueTypeLiteral,
+  valueTypes,
 } from "./types.js";
 
 // external
@@ -42,14 +43,13 @@ function func<
   type: FullFunctionType<Args, Results>;
 } {
   ctx.stack = [];
-  let argsArray = Object.values(args).map((arg) => valueType(arg.kind));
-  let localsArray = Object.values(locals).map((arg) => valueType(arg.kind));
-  let resultsArray = (results as ValueType[]).map((arg) => valueType(arg.kind));
+  let argsArray = valueTypes(Object.values(args));
+  let localsArray = valueTypes(Object.values(locals));
+  let resultsArray = valueTypes(results);
   let type: FullFunctionType<Args, Results> & FunctionType = {
     args: argsArray as any,
     results: resultsArray as any,
   };
-  initializeContext(ctx, [...argsArray, ...localsArray], resultsArray);
   let nArgs = argsArray.length;
   let argsInput = Object.fromEntries(
     Object.entries(args).map(([key], index) => [key, { index }])
@@ -60,12 +60,22 @@ function func<
       { index: index + nArgs },
     ])
   ) as ToLocal<Locals>;
-  run(argsInput, localsInput);
-  popStack(ctx.stack, results as ValueType[]);
-  // TODO nice error
-  if (ctx.stack.length !== 0) throw Error("expected stack to be empty");
-  let { body, deps } = ctx;
-  initializeContext(ctx, [], []);
+  let { body, deps } = withContext(
+    ctx,
+    {
+      locals: [...argsArray, ...localsArray],
+      body: [],
+      deps: [],
+      return: resultsArray,
+      labels: [resultsArray],
+    },
+    () => {
+      run(argsInput, localsInput);
+      popStack(ctx.stack, results as ValueType[]);
+      // TODO nice error
+      if (ctx.stack.length !== 0) throw Error("expected stack to be empty");
+    }
+  );
   let func = {
     kind: "function",
     type,

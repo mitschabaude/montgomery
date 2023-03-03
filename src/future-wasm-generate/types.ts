@@ -26,8 +26,13 @@ type GenericValueType<L> = { kind: L };
 function valueType<L extends ValueTypeLiteral>(kind: L): GenericValueType<L> {
   return { kind };
 }
+function valueTypes<L extends ValueTypeLiteral[]>(types: {
+  [i in keyof L]: GenericValueType<L[i]>;
+}): ValueType[] {
+  return types.map((t) => valueType(t.kind)) as any;
+}
 
-const valueTypes: Record<ValueTypeLiteral, number> = {
+const valueTypeCodes: Record<ValueTypeLiteral, number> = {
   i32: 0x7f,
   i64: 0x7e,
   f32: 0x7d,
@@ -51,12 +56,12 @@ const v128t = valueType("v128");
 const funcref = valueType("funcref");
 const externref = valueType("externref");
 
-const codeToValueType = invertRecord(valueTypes);
+const codeToValueType = invertRecord(valueTypeCodes);
 
 type ValueType = { kind: ValueTypeLiteral };
 const ValueType: Binable<ValueType> = Binable({
   toBytes(type) {
-    return [valueTypes[type.kind]];
+    return [valueTypeCodes[type.kind]];
   },
   readBytes(bytes, offset) {
     let code = bytes[offset++];
