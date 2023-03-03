@@ -11,16 +11,23 @@ import {
   valueTypeLiterals,
   ValueTypeObject,
 } from "../types.js";
+import { InstructionName, nameToOpcode, opcodes } from "./opcodes.js";
 
 export {
   simpleInstruction,
   baseInstruction,
   BaseInstruction,
   createExpression,
+  lookupInstruction,
+  lookupOpcode,
 };
+
+const nameToInstruction: Record<string, BaseInstruction> = {};
+const opcodeToInstruction: Record<number, BaseInstruction> = {};
 
 type BaseInstruction = {
   string: string;
+  opcode: number;
   immediate: Binable<any> | undefined;
   resolve: (deps: number[], ...args: any) => any;
 };
@@ -33,7 +40,7 @@ function baseInstruction<
   Args extends any[],
   ResolveArgs extends Tuple<any>
 >(
-  string: string,
+  string: InstructionName,
   immediate: Binable<Immediate> | undefined = undefined,
   {
     create,
@@ -66,7 +73,11 @@ function baseInstruction<
       resolveArgs,
     });
   }
-  return Object.assign(i, { string, immediate, resolve });
+  let opcode = nameToOpcode[string];
+  let instruction = Object.assign(i, { string, opcode, immediate, resolve });
+  nameToInstruction[string] = instruction;
+  opcodeToInstruction[opcode] = instruction;
+  return instruction;
 }
 
 /**
@@ -77,7 +88,7 @@ function simpleInstruction<
   Results extends Tuple<ValueTypeObject>,
   Immediate extends any
 >(
-  string: string,
+  string: InstructionName,
   immediate: Binable<Immediate> | undefined,
   { in: args, out: results }: { in?: Arguments; out?: Results }
 ) {
@@ -106,4 +117,15 @@ function createExpression(
     run
   );
   return { body, type: { args, results } };
+}
+
+function lookupInstruction(name: string) {
+  let instr = nameToInstruction[name];
+  if (instr === undefined) throw Error(`invalid instruction name "${name}"`);
+  return instr;
+}
+function lookupOpcode(opcode: number) {
+  let instr = opcodeToInstruction[opcode];
+  if (instr === undefined) throw Error(`invalid opcode "${opcode}"`);
+  return instr;
 }

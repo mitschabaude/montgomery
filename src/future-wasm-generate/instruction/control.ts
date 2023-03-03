@@ -5,10 +5,10 @@ import { ValueType } from "../types.js";
 import {
   baseInstruction,
   createExpression,
+  lookupInstruction,
   simpleInstruction,
 } from "./base.js";
-import { Expression } from "./expression.js";
-import { getInstruction, Instruction } from "./instruction.js";
+import { Expression, Instruction } from "./expression.js";
 
 export { control };
 export { unreachable, call, nop, block };
@@ -48,7 +48,7 @@ const block = baseInstruction("block", BlockArgs, {
     for (let instr of body) {
       let n = instr.deps.length;
       let myDeps = deps.slice(offset, offset + n);
-      let instrObject = getInstruction(instr.string);
+      let instrObject = lookupInstruction(instr.string);
       let immediate = instrObject.resolve(myDeps, ...instr.resolveArgs);
       instructions.push({ string: instr.string, immediate });
       offset += n;

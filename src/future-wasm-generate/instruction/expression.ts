@@ -1,15 +1,29 @@
 import { Binable } from "../binable.js";
-import { Instruction } from "./instruction.js";
+import { lookupInstruction, lookupOpcode } from "./base.js";
 
-export { Expression, ConstExpression };
+export { Instruction, Expression, ConstExpression };
 
-/**
- * TODO: this file is pretty weird because it depends on ./instruction which depends on ./opcodes, but
- * Expression is actually used to define some opcodes in ./control
- *
- * It seems to break easily when moving stuff between files,
- * so should find a cleaner way w/o dependency cycles.
- */
+type Instruction = { string: string; immediate: any };
+
+const Instruction = Binable<Instruction>({
+  toBytes({ string, immediate }) {
+    let instr = lookupInstruction(string);
+    let imm: number[] = [];
+    if (instr.immediate !== undefined) {
+      imm = instr.immediate.toBytes(immediate);
+    }
+    return [instr.opcode, ...imm];
+  },
+  readBytes(bytes, offset) {
+    let opcode: number = bytes[offset++];
+    let instr = lookupOpcode(opcode);
+    if (instr === undefined) throw Error(`invalid opcode ${opcode}`);
+    if (instr.immediate === undefined)
+      return [{ string: instr.string, immediate: undefined }, offset];
+    let [immediate, end] = instr.immediate.readBytes(bytes, offset);
+    return [{ string: instr.string, immediate }, end];
+  },
+});
 
 const END = 0x0b;
 type Expression = Instruction[];
