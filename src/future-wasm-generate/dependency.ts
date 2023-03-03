@@ -25,6 +25,7 @@ export {
   Export,
   anyDependency,
   Type,
+  type,
   Func,
   HasRefTo,
   Global,
@@ -67,6 +68,9 @@ type t =
   | ImportMemory;
 
 type Type = { kind: "type"; type: FunctionType; deps: [] };
+function type(type: FunctionType): Type {
+  return { kind: "type", type, deps: [] };
+}
 
 type Func = {
   kind: "function";
