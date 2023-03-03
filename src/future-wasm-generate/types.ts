@@ -18,6 +18,7 @@ export {
   valueTypeLiteral,
   valueTypeLiterals,
   functionTypeEquals,
+  printFunctionType,
   JSValue,
 };
 
@@ -158,6 +159,10 @@ function functionTypeEquals(
     if (fResults[i] !== gResults[i]) return false;
   }
   return true;
+}
+
+function printFunctionType({ args, results }: FunctionType) {
+  return `${JSON.stringify(args)} -> ${JSON.stringify(results)}`;
 }
 
 // infer JS values

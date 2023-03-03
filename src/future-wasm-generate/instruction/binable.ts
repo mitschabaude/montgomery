@@ -3,7 +3,7 @@ import { S33, U32 } from "../immediate.js";
 import { ValueType } from "../types.js";
 import { lookupInstruction, lookupOpcode } from "./base.js";
 
-export { Instruction, Expression, ConstExpression, BlockArgs };
+export { Instruction, Expression, ConstExpression, Block, IfBlock };
 
 type Instruction = { string: string; immediate: any };
 
@@ -46,6 +46,37 @@ const Expression = Binable<Instruction[]>({
   },
 });
 
+const ELSE = 0x05;
+type IfExpression = { if: Instruction[]; else?: Instruction[] };
+const IfExpression = Binable<IfExpression>({
+  toBytes(t) {
+    let instructions = t.if.map(Instruction.toBytes).flat();
+    if (t.else !== undefined) {
+      instructions.push(ELSE, ...t.else.map(Instruction.toBytes).flat());
+    }
+    instructions.push(END);
+    return instructions;
+  },
+  readBytes(bytes, offset) {
+    let t: IfExpression = { if: [], else: undefined };
+    let instructions = t.if;
+    while (true) {
+      if (bytes[offset] === ELSE) {
+        instructions = t.else = [];
+        offset++;
+        continue;
+      } else if (bytes[offset] === END) {
+        offset++;
+        break;
+      }
+      let instr: Instruction;
+      [instr, offset] = Instruction.readBytes(bytes, offset);
+      instructions.push(instr);
+    }
+    return [t, offset];
+  },
+});
+
 type ConstExpression = Expression;
 const ConstExpression = Expression;
 
@@ -56,4 +87,5 @@ const BlockType = or([Empty, S33, ValueType], (t) =>
   t === "empty" ? Empty : typeof t === "number" ? S33 : ValueType
 );
 
-const BlockArgs = record({ blockType: BlockType, instructions: Expression });
+const Block = record({ blockType: BlockType, instructions: Expression });
+const IfBlock = record({ blockType: BlockType, instructions: IfExpression });
