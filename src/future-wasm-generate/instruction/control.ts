@@ -14,6 +14,7 @@ import {
   createExpression,
   simpleInstruction,
 } from "./base.js";
+import { Expression } from "./binable.js";
 import { getInstruction, Instruction } from "./instruction.js";
 
 export { control };
@@ -35,24 +36,6 @@ type BlockType = "empty" | ValueType | U32;
 const BlockType = or([Empty, S33, ValueType], (t) =>
   t === "empty" ? Empty : typeof t === "number" ? S33 : ValueType
 );
-
-const END = 0x0b;
-const Expression = Binable<Instruction[]>({
-  toBytes(t) {
-    let instructions = t.map(Instruction.toBytes).flat();
-    instructions.push(END);
-    return instructions;
-  },
-  readBytes(bytes, offset) {
-    let instructions: Instruction[] = [];
-    while (bytes[offset] !== END) {
-      let instr: Instruction;
-      [instr, offset] = Instruction.readBytes(bytes, offset);
-      instructions.push(instr);
-    }
-    return [instructions, offset + 1];
-  },
-});
 
 const BlockArgs = record({ blockType: BlockType, instructions: Expression });
 

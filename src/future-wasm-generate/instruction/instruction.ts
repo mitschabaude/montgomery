@@ -4,15 +4,10 @@ import { local, global, ref } from "./variable.js";
 import { i32, i64 } from "./int.js";
 import { control } from "./control.js";
 import { opcodes, instructionToOpcode } from "./opcodes.js";
+export { Expression, ConstExpression } from "./binable.js";
 
 export { ops, i32, i64, local, global };
-export {
-  Instruction,
-  Expression,
-  ConstExpression,
-  resolveInstruction,
-  getInstruction,
-};
+export { Instruction, resolveInstruction, getInstruction };
 
 const ops = { i32, local, ref, global, ...control };
 
@@ -65,26 +60,3 @@ const Instruction = Binable<Instruction>({
     return [{ string: instr.string, immediate }, end];
   },
 });
-
-type Expression = Instruction[];
-const END = 0x0b;
-const Expression = Binable<Expression>({
-  toBytes(t) {
-    let instructions = t.map(Instruction.toBytes).flat();
-    instructions.push(END);
-    return instructions;
-  },
-  readBytes(bytes, offset) {
-    let instructions: Instruction[] = [];
-    while (bytes[offset] !== END) {
-      let instr: Instruction;
-      [instr, offset] = Instruction.readBytes(bytes, offset);
-      instructions.push(instr);
-    }
-    return [instructions, offset + 1];
-  },
-});
-
-// TODO validation
-type ConstExpression = Expression;
-const ConstExpression = Expression;
