@@ -20,7 +20,7 @@ const nop = simpleInstruction("nop", Undefined, {});
 const unreachable = baseInstruction("unreachable", Undefined, {
   create(ctx) {
     setUnreachable(ctx);
-    return { in: [...ctx.stack], out: [] };
+    return {};
   },
   resolve: () => undefined,
 });

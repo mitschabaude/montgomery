@@ -15,6 +15,7 @@ let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 let ctx: LocalContext;
 
 ctx = emptyContext();
+
 let myFunc = func(
   ctx,
   { in: { x: i32, y: i32 }, locals: { tmp: i32 }, out: [i32] },
@@ -35,11 +36,19 @@ let myFunc = func(
 let importedGlobal = importGlobal(i64t, 1000n);
 let funcGlobal = global(Const.refFunc(myFunc));
 
+let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
+  control.unreachable(ctx);
+  // global.get(ctx, importedGlobal);
+  i32.add(ctx);
+  control.call(ctx, consoleLog);
+});
+
 ctx = emptyContext();
 let exportedFunc = func(
   ctx,
   { in: { x: i32, doLog: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x, doLog }, { y }) => {
+    // control.call(ctx, testUnreachable);
     global.get(ctx, funcGlobal);
     // ref.func(ctx, myFunc); // TODO this fails, seems to be a spec bug
     control.call(ctx, consoleLogFunc);
