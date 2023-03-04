@@ -6,6 +6,8 @@ export {
   LocalContext,
   popStack,
   pushStack,
+  setUnreachable,
+  labelTypes,
   pushInstruction,
   emptyContext,
   withContext,
@@ -41,6 +43,7 @@ function emptyContext(): LocalContext {
   };
 }
 
+// this should be replaced with simpler withFunc / withBlock for the two use cases
 function withContext(
   ctx: LocalContext,
   override: Partial<LocalContext>,
@@ -64,12 +67,10 @@ function withContext(
   return resultCtx;
 }
 
-function pushInstruction(
-  { stack, body, deps }: LocalContext,
-  instr: Dependency.Instruction
-) {
-  popStack(stack, instr.type.args);
-  pushStack(stack, instr.type.results);
+function pushInstruction(ctx: LocalContext, instr: Dependency.Instruction) {
+  let { body, deps } = ctx;
+  popStack(ctx, instr.type.args);
+  pushStack(ctx, instr.type.results);
   body.push(instr);
   for (let dep of instr.deps) {
     if (!deps.includes(dep)) {
@@ -78,18 +79,39 @@ function pushInstruction(
   }
 }
 
-function popStack(stack: ValueType[], values: ValueType[]) {
+function popStack(
+  { stack, frames }: LocalContext,
+  values: ValueType[]
+): (ValueType | Unknown)[] {
   // TODO nicer errors, which display entire stack vs entire instruction signature
-  for (let value of values) {
+  let popped: (ValueType | Unknown)[] = [];
+  let reversed = [...values].reverse();
+  for (let value of reversed) {
     let stackValue = stack.pop();
-    if (stackValue === undefined || value !== stackValue) {
+    if (stackValue === undefined && frames[0].unreachable) {
+      // implicitly returning 'unknown'
+      popped.unshift(value);
+    } else if (stackValue === undefined || value !== stackValue) {
       throw Error(
         `expected ${value} on the stack, got ${stackValue ?? "nothing"}`
       );
+    } else {
+      popped.unshift(value);
     }
   }
+  return popped;
 }
 
-function pushStack(stack: ValueType[], values: ValueType[]) {
+function pushStack({ stack }: LocalContext, values: ValueType[]) {
   stack.push(...values);
+}
+
+function setUnreachable(ctx: LocalContext) {
+  ctx.stack = [];
+  ctx.frames[0].stack = ctx.stack;
+  ctx.frames[0].unreachable = true;
+}
+
+function labelTypes(frame: ControlFrame) {
+  return frame.opcode === "loop" ? frame.startTypes : frame.endTypes;
 }

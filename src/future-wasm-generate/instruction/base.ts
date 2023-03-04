@@ -77,10 +77,10 @@ function baseInstruction<
     });
   }
   let opcode = nameToOpcode[string];
-  let instruction = Object.assign(i, { string, opcode, immediate, resolve });
+  let instruction = { string, opcode, immediate, resolve };
   nameToInstruction[string] = instruction;
   opcodeToInstruction[opcode] = instruction;
-  return instruction;
+  return i;
 }
 
 /**

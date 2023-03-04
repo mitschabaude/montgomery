@@ -79,7 +79,7 @@ function func<
     },
     () => {
       run(argsInput, localsInput);
-      popStack(ctx.stack, resultsArray);
+      popStack(ctx, resultsArray);
       // TODO nice error
       if (ctx.stack.length !== 0) throw Error("expected stack to be empty");
     }

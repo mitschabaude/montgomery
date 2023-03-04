@@ -1,7 +1,7 @@
 import { Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
-import { popStack, pushStack } from "../local-context.js";
+import { popStack, pushStack, setUnreachable } from "../local-context.js";
 import { functionTypeEquals, printFunctionType, ResultType } from "../types.js";
 import {
   baseInstruction,
@@ -18,8 +18,9 @@ const nop = simpleInstruction("nop", Undefined, {});
 
 // TODO
 const unreachable = baseInstruction("unreachable", Undefined, {
-  create({ stack }) {
-    return { in: [...stack], out: [] };
+  create(ctx) {
+    setUnreachable(ctx);
+    return { in: [...ctx.stack], out: [] };
   },
   resolve: () => undefined,
 });
@@ -58,11 +59,11 @@ const loop = baseInstruction("loop", Block, {
 
 const if_ = baseInstruction("if", IfBlock, {
   create(ctx, runIf: () => void, runElse?: () => void) {
-    popStack(ctx.stack, ["i32"]);
+    popStack(ctx, ["i32"]);
     let { type, body, deps } = createExpression("if", ctx, runIf);
     let ifArgs: ResultType = [...type.args, "i32"];
     if (runElse === undefined) {
-      pushStack(ctx.stack, ["i32"]);
+      pushStack(ctx, ["i32"]);
       return {
         in: ifArgs,
         out: type.results,
@@ -71,7 +72,7 @@ const if_ = baseInstruction("if", IfBlock, {
       };
     }
     let elseExpr = createExpression("else", ctx, runElse);
-    pushStack(ctx.stack, ["i32"]);
+    pushStack(ctx, ["i32"]);
     if (!functionTypeEquals(type, elseExpr.type)) {
       throw Error(
         `Type signature of else branch doesn't match if branch.\n` +
