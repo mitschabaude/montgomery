@@ -10,10 +10,11 @@ import {
   RandomLabel,
   setUnreachable,
 } from "../local-context.js";
-import { functionTypeEquals, printFunctionType, ResultType } from "../types.js";
+import { ResultType } from "../types.js";
 import {
   baseInstruction,
-  createExpression,
+  createExpressionWithType,
+  FunctionTypeInput,
   resolveExpression,
   simpleInstruction,
 } from "./base.js";
@@ -34,8 +35,9 @@ const unreachable = baseInstruction("unreachable", Undefined, {
 });
 
 const block = baseInstruction("block", Block, {
-  create(ctx, run: (label: RandomLabel) => void) {
-    let { type, body, deps } = createExpression("block", ctx, run);
+  create(ctx, t: FunctionTypeInput, run: (label: RandomLabel) => void) {
+    let { type, body, deps } = createExpressionWithType("block", ctx, t, run);
+    console.log({ type });
     return {
       in: type.args,
       out: type.results,
@@ -50,8 +52,8 @@ const block = baseInstruction("block", Block, {
 });
 
 const loop = baseInstruction("loop", Block, {
-  create(ctx, run: (label: RandomLabel) => void) {
-    let { type, body, deps } = createExpression("loop", ctx, run);
+  create(ctx, t: FunctionTypeInput, run: (label: RandomLabel) => void) {
+    let { type, body, deps } = createExpressionWithType("loop", ctx, t, run);
     return {
       in: type.args,
       out: type.results,
@@ -68,11 +70,12 @@ const loop = baseInstruction("loop", Block, {
 const if_ = baseInstruction("if", IfBlock, {
   create(
     ctx,
+    t: FunctionTypeInput,
     runIf: (label: RandomLabel) => void,
     runElse?: (label: RandomLabel) => void
   ) {
     popStack(ctx, ["i32"]);
-    let { type, body, deps } = createExpression("if", ctx, runIf);
+    let { type, body, deps } = createExpressionWithType("if", ctx, t, runIf);
     let ifArgs: ResultType = [...type.args, "i32"];
     if (runElse === undefined) {
       pushStack(ctx, ["i32"]);
@@ -83,15 +86,15 @@ const if_ = baseInstruction("if", IfBlock, {
         resolveArgs: [body, undefined],
       };
     }
-    let elseExpr = createExpression("else", ctx, runElse);
+    let elseExpr = createExpressionWithType("else", ctx, t, runElse);
     pushStack(ctx, ["i32"]);
-    if (!functionTypeEquals(type, elseExpr.type)) {
-      throw Error(
-        `Type signature of else branch doesn't match if branch.\n` +
-          `If branch: ${printFunctionType(type)}\n` +
-          `Else branch: ${printFunctionType(elseExpr.type)}`
-      );
-    }
+    // if (!functionTypeEquals(type, elseExpr.type)) {
+    //   throw Error(
+    //     `Type signature of else branch doesn't match if branch.\n` +
+    //       `If branch: ${printFunctionType(type)}\n` +
+    //       `Else branch: ${printFunctionType(elseExpr.type)}`
+    //   );
+    // }
     return {
       in: ifArgs,
       out: type.results,

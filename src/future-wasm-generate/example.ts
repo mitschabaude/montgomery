@@ -25,7 +25,7 @@ let myFunc = func(
     i32.add(ctx);
     local.get(ctx, y);
     i32.add(ctx);
-    control.block(ctx, () => {
+    control.block(ctx, { in: [i32], out: [i32] }, () => {
       local.tee(ctx, tmp);
       control.call(ctx, consoleLog);
       local.get(ctx, tmp);
@@ -54,7 +54,7 @@ let exportedFunc = func(
     control.call(ctx, consoleLogFunc);
     local.get(ctx, x);
     local.get(ctx, doLog);
-    control.if(ctx, () => {
+    control.if(ctx, null, () => {
       local.get(ctx, x);
       control.call(ctx, consoleLog);
       // console.log({ stack: ctx.stack });

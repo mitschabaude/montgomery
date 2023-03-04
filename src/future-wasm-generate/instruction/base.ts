@@ -2,6 +2,7 @@ import { Binable, Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
 import {
   LocalContext,
+  popStack,
   pushInstruction,
   RandomLabel,
   withContext,
@@ -21,6 +22,8 @@ export {
   resolveInstruction,
   resolveExpression,
   createExpression,
+  createExpressionWithType,
+  FunctionTypeInput,
   lookupInstruction,
   lookupOpcode,
 };
@@ -164,6 +167,54 @@ function createExpression(
   );
   return { body, type: { args, results }, deps: body.flatMap((i) => i.deps) };
 }
+
+type FunctionTypeInput = {
+  in?: ValueTypeObject[];
+  out?: ValueTypeObject[];
+} | null;
+
+function createExpressionWithType(
+  name: LocalContext["frames"][number]["opcode"],
+  ctx: LocalContext,
+  type: FunctionTypeInput,
+  run: (label: RandomLabel) => void
+): {
+  body: Dependency.Instruction[];
+  type: FunctionType;
+  deps: Dependency.t[];
+} {
+  let args = valueTypeLiterals(type?.in ?? []);
+  let results = valueTypeLiterals(type?.out ?? []);
+  let stack = [...args];
+  let label = String(Math.random()) as RandomLabel;
+  let subCtx = withContext(
+    ctx,
+    {
+      body: [],
+      stack,
+      frames: [
+        {
+          label,
+          opcode: name,
+          startTypes: args,
+          endTypes: results,
+          unreachable: false,
+          stack,
+        },
+        ...ctx.frames,
+      ],
+    },
+    () => run(label)
+  );
+  popStack(subCtx, results);
+  if (stack.length !== 0)
+    throw Error(
+      `expected stack to be empty at the end of block, got [${stack}]`
+    );
+  let { body } = subCtx;
+  return { body, type: { args, results }, deps: body.flatMap((i) => i.deps) };
+}
+
 function resolveExpression(deps: number[], body: Dependency.Instruction[]) {
   let instructions: ResolvedInstruction[] = [];
   let offset = 0;
