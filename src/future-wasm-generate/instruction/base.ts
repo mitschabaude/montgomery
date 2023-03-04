@@ -3,6 +3,7 @@ import * as Dependency from "../dependency.js";
 import {
   LocalContext,
   pushInstruction,
+  RandomLabel,
   withContext,
 } from "../local-context.js";
 import {
@@ -133,7 +134,7 @@ type Tuple<T> = [T, ...T[]] | [];
 function createExpression(
   name: LocalContext["frames"][number]["opcode"],
   ctx: LocalContext,
-  run: () => void
+  run: (label: RandomLabel) => void
 ): {
   body: Dependency.Instruction[];
   type: FunctionType;
@@ -141,6 +142,7 @@ function createExpression(
 } {
   let args = [...ctx.stack];
   let stack = [...ctx.stack];
+  let label = String(Math.random()) as RandomLabel;
   let { stack: results, body } = withContext(
     ctx,
     {
@@ -148,6 +150,7 @@ function createExpression(
       stack,
       frames: [
         {
+          label,
           opcode: name,
           startTypes: null,
           endTypes: null,
@@ -157,7 +160,7 @@ function createExpression(
         ...ctx.frames,
       ],
     },
-    run
+    () => run(label)
   );
   return { body, type: { args, results }, deps: body.flatMap((i) => i.deps) };
 }

@@ -1,7 +1,15 @@
 import { Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
-import { popStack, pushStack, setUnreachable } from "../local-context.js";
+import {
+  getFrameFromLabel,
+  Label,
+  labelTypes,
+  popStack,
+  pushStack,
+  RandomLabel,
+  setUnreachable,
+} from "../local-context.js";
 import { functionTypeEquals, printFunctionType, ResultType } from "../types.js";
 import {
   baseInstruction,
@@ -26,7 +34,7 @@ const unreachable = baseInstruction("unreachable", Undefined, {
 });
 
 const block = baseInstruction("block", Block, {
-  create(ctx, run: () => void) {
+  create(ctx, run: (label: RandomLabel) => void) {
     let { type, body, deps } = createExpression("block", ctx, run);
     return {
       in: type.args,
@@ -42,7 +50,7 @@ const block = baseInstruction("block", Block, {
 });
 
 const loop = baseInstruction("loop", Block, {
-  create(ctx, run: () => void) {
+  create(ctx, run: (label: RandomLabel) => void) {
     let { type, body, deps } = createExpression("loop", ctx, run);
     return {
       in: type.args,
@@ -58,7 +66,11 @@ const loop = baseInstruction("loop", Block, {
 });
 
 const if_ = baseInstruction("if", IfBlock, {
-  create(ctx, runIf: () => void, runElse?: () => void) {
+  create(
+    ctx,
+    runIf: (label: RandomLabel) => void,
+    runElse?: (label: RandomLabel) => void
+  ) {
     popStack(ctx, ["i32"]);
     let { type, body, deps } = createExpression("if", ctx, runIf);
     let ifArgs: ResultType = [...type.args, "i32"];
@@ -99,6 +111,14 @@ const if_ = baseInstruction("if", IfBlock, {
     return { blockType, instructions: { if: if_, else: else_ } };
   },
 });
+
+// const br = baseInstruction("br", U32, {
+//   create(ctx, label: Label | number) {
+//     let [i, frame] = getFrameFromLabel(ctx, label);
+//     let types = frame.startTypes;
+//     popStack(ctx, types);
+//   },
+// });
 
 const call = baseInstruction("call", U32, {
   create(_, func: Dependency.AnyFunc) {

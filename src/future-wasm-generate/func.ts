@@ -69,6 +69,7 @@ function func<
       return: resultsArray,
       frames: [
         {
+          label: "top",
           opcode: "function",
           stack,
           startTypes: argsArray,

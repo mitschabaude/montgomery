@@ -4,18 +4,24 @@ import { ValueType } from "./types.js";
 
 export {
   LocalContext,
+  Label,
+  RandomLabel,
   popStack,
   pushStack,
   setUnreachable,
   labelTypes,
+  getFrameFromLabel,
   pushInstruction,
   emptyContext,
   withContext,
 };
 
 type Unknown = "unknown";
+type RandomLabel = `0.${string}`;
+type Label = "top" | RandomLabel;
 
 type ControlFrame = {
+  label: Label; // unique id
   opcode: InstructionName | "function" | "else";
   startTypes: ValueType[] | null;
   endTypes: ValueType[] | null;
@@ -114,4 +120,19 @@ function setUnreachable(ctx: LocalContext) {
 
 function labelTypes(frame: ControlFrame) {
   return frame.opcode === "loop" ? frame.startTypes : frame.endTypes;
+}
+
+function getFrameFromLabel(
+  ctx: LocalContext,
+  label: Label | number
+): [number, ControlFrame] {
+  if (typeof label === "number") {
+    let frame = ctx.frames[label];
+    if (frame === undefined) throw Error(`no block found for label ${label}`);
+    return [label, frame];
+  } else {
+    let i = ctx.frames.findIndex((f) => f.label === label);
+    if (i === -1) throw Error(`no block found for label ${label}`);
+    return [i, ctx.frames[i]];
+  }
 }
