@@ -58,14 +58,24 @@ function func<
       { index: index + nArgs },
     ])
   ) as ToLocal<Locals>;
+  let stack: ValueType[] = [];
   let { body, deps } = withContext(
     ctx,
     {
       locals: [...argsArray, ...localsArray],
       body: [],
       deps: [],
+      stack,
       return: resultsArray,
-      labels: [resultsArray],
+      frames: [
+        {
+          opcode: "function",
+          stack,
+          startTypes: argsArray,
+          endTypes: resultsArray,
+          unreachable: false,
+        },
+      ],
     },
     () => {
       run(argsInput, localsInput);

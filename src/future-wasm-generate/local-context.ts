@@ -1,4 +1,5 @@
 import * as Dependency from "./dependency.js";
+import { InstructionName } from "./instruction/opcodes.js";
 import { ValueType } from "./types.js";
 
 export {
@@ -10,17 +11,34 @@ export {
   withContext,
 };
 
+type Unknown = "unknown";
+
+type ControlFrame = {
+  opcode: InstructionName | "function" | "else";
+  startTypes: ValueType[] | null;
+  endTypes: ValueType[] | null;
+  unreachable: boolean;
+  stack: ValueType[];
+};
+
 type LocalContext = {
   locals: ValueType[];
   deps: Dependency.t[];
   body: Dependency.Instruction[];
-  stack: ValueType[];
+  stack: ValueType[]; // === frames[0].stack
+  frames: ControlFrame[];
   return: ValueType[] | null;
-  labels: (ValueType[] | null)[];
 };
 
 function emptyContext(): LocalContext {
-  return { locals: [], body: [], deps: [], return: [], stack: [], labels: [] };
+  return {
+    locals: [],
+    body: [],
+    deps: [],
+    return: [],
+    stack: [],
+    frames: [],
+  };
 }
 
 function withContext(
@@ -30,6 +48,12 @@ function withContext(
 ): LocalContext {
   let oldCtx = { ...ctx };
   Object.assign(ctx, override);
+  if (ctx.frames.length === 0)
+    throw Error("invariant violation: frames must not be empty");
+  if (ctx.stack !== ctx.frames[0].stack)
+    throw Error(
+      "invariant violation: stack does not equal the stack on the current top frame"
+    );
   let resultCtx: LocalContext;
   try {
     run(ctx);

@@ -131,6 +131,7 @@ type Tuple<T> = [T, ...T[]] | [];
 // TODO: the input type is simply taken as the current stack, which could be much larger than the minimal needed input type
 // to compute the minimal type signature, local context needs to keep track of the minimum stack height
 function createExpression(
+  name: LocalContext["frames"][number]["opcode"],
   ctx: LocalContext,
   run: () => void
 ): {
@@ -139,9 +140,23 @@ function createExpression(
   deps: Dependency.t[];
 } {
   let args = [...ctx.stack];
+  let stack = [...ctx.stack];
   let { stack: results, body } = withContext(
     ctx,
-    { body: [], stack: [...ctx.stack], labels: [null, ...ctx.labels] },
+    {
+      body: [],
+      stack,
+      frames: [
+        {
+          opcode: name,
+          startTypes: null,
+          endTypes: null,
+          unreachable: false,
+          stack,
+        },
+        ...ctx.frames,
+      ],
+    },
     run
   );
   return { body, type: { args, results }, deps: body.flatMap((i) => i.deps) };

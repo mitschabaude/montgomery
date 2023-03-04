@@ -26,7 +26,7 @@ const unreachable = baseInstruction("unreachable", Undefined, {
 
 const block = baseInstruction("block", Block, {
   create(ctx, run: () => void) {
-    let { type, body, deps } = createExpression(ctx, run);
+    let { type, body, deps } = createExpression("block", ctx, run);
     return {
       in: type.args,
       out: type.results,
@@ -42,7 +42,7 @@ const block = baseInstruction("block", Block, {
 
 const loop = baseInstruction("loop", Block, {
   create(ctx, run: () => void) {
-    let { type, body, deps } = createExpression(ctx, run);
+    let { type, body, deps } = createExpression("loop", ctx, run);
     return {
       in: type.args,
       out: type.results,
@@ -59,7 +59,7 @@ const loop = baseInstruction("loop", Block, {
 const if_ = baseInstruction("if", IfBlock, {
   create(ctx, runIf: () => void, runElse?: () => void) {
     popStack(ctx.stack, ["i32"]);
-    let { type, body, deps } = createExpression(ctx, runIf);
+    let { type, body, deps } = createExpression("if", ctx, runIf);
     let ifArgs: ResultType = [...type.args, "i32"];
     if (runElse === undefined) {
       pushStack(ctx.stack, ["i32"]);
@@ -70,7 +70,7 @@ const if_ = baseInstruction("if", IfBlock, {
         resolveArgs: [body, undefined],
       };
     }
-    let elseExpr = createExpression(ctx, runElse);
+    let elseExpr = createExpression("else", ctx, runElse);
     pushStack(ctx.stack, ["i32"]);
     if (!functionTypeEquals(type, elseExpr.type)) {
       throw Error(
