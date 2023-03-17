@@ -1,6 +1,6 @@
-import { Undefined } from "../binable.js";
+import { record, Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
-import { U32 } from "../immediate.js";
+import { U32, vec } from "../immediate.js";
 import {
   getFrameFromLabel,
   Label,
@@ -21,7 +21,7 @@ import {
 import { Block, IfBlock } from "./binable.js";
 
 export { control };
-export { unreachable, call, nop, block, loop };
+export { unreachable, call, nop, block, loop, br, br_if, br_table };
 
 const nop = simpleInstruction("nop", Undefined, {});
 
@@ -37,7 +37,6 @@ const unreachable = baseInstruction("unreachable", Undefined, {
 const block = baseInstruction("block", Block, {
   create(ctx, t: FunctionTypeInput, run: (label: RandomLabel) => void) {
     let { type, body, deps } = createExpressionWithType("block", ctx, t, run);
-    console.log({ type });
     return {
       in: type.args,
       out: type.results,
@@ -115,13 +114,45 @@ const if_ = baseInstruction("if", IfBlock, {
   },
 });
 
-// const br = baseInstruction("br", U32, {
-//   create(ctx, label: Label | number) {
-//     let [i, frame] = getFrameFromLabel(ctx, label);
-//     let types = frame.startTypes;
-//     popStack(ctx, types);
-//   },
-// });
+const br = baseInstruction("br", U32, {
+  create(ctx, label: Label | number) {
+    let [i, frame] = getFrameFromLabel(ctx, label);
+    let types = labelTypes(frame);
+    popStack(ctx, types);
+    setUnreachable(ctx);
+    return { resolveArgs: [i] };
+  },
+});
+
+const br_if = baseInstruction("br_if", U32, {
+  create(ctx, label: Label | number) {
+    let [i, frame] = getFrameFromLabel(ctx, label);
+    let types = labelTypes(frame);
+    return { in: ["i32", ...types], out: types, resolveArgs: [i] };
+  },
+});
+
+const LabelTable = record({ indices: vec(U32), defaultIndex: U32 });
+const br_table = baseInstruction("br_table", LabelTable, {
+  create(ctx, labels: (Label | number)[], defaultLabel: Label | number) {
+    popStack(ctx, ["i32"]);
+    let [defaultIndex, defaultFrame] = getFrameFromLabel(ctx, defaultLabel);
+    let types = labelTypes(defaultFrame);
+    let arity = types.length;
+    let indices: number[] = [];
+    for (let label of labels) {
+      let [j, frame] = getFrameFromLabel(ctx, label);
+      indices.push(j);
+      let types = labelTypes(frame);
+      if (types.length !== arity)
+        throw Error("inconsistent length of block label types in br_table");
+      pushStack(ctx, popStack(ctx, types));
+    }
+    popStack(ctx, types);
+    setUnreachable(ctx);
+    return { resolveArgs: [{ indices, defaultIndex }] };
+  },
+});
 
 const call = baseInstruction("call", U32, {
   create(_, func: Dependency.AnyFunc) {
@@ -130,4 +161,14 @@ const call = baseInstruction("call", U32, {
   resolve: ([funcIndex]) => funcIndex,
 });
 
-const control = { nop, unreachable, block, loop, if: if_, call };
+const control = {
+  nop,
+  unreachable,
+  block,
+  loop,
+  if: if_,
+  br,
+  br_if,
+  br_table,
+  call,
+};

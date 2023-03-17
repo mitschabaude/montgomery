@@ -23,8 +23,8 @@ type Label = "top" | RandomLabel;
 type ControlFrame = {
   label: Label; // unique id
   opcode: InstructionName | "function" | "else";
-  startTypes: ValueType[] | null;
-  endTypes: ValueType[] | null;
+  startTypes: ValueType[];
+  endTypes: ValueType[];
   unreachable: boolean;
   stack: ValueType[];
 };
@@ -88,9 +88,9 @@ function pushInstruction(ctx: LocalContext, instr: Dependency.Instruction) {
 function popStack(
   { stack, frames }: LocalContext,
   values: ValueType[]
-): (ValueType | Unknown)[] {
+): ValueType[] {
   // TODO nicer errors, which display entire stack vs entire instruction signature
-  let popped: (ValueType | Unknown)[] = [];
+  let popped: ValueType[] = [];
   let reversed = [...values].reverse();
   for (let value of reversed) {
     let stackValue = stack.pop();
@@ -113,8 +113,7 @@ function pushStack({ stack }: LocalContext, values: ValueType[]) {
 }
 
 function setUnreachable(ctx: LocalContext) {
-  ctx.stack = [];
-  ctx.frames[0].stack = ctx.stack;
+  ctx.stack.splice(0, ctx.stack.length);
   ctx.frames[0].unreachable = true;
 }
 

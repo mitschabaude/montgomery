@@ -18,16 +18,38 @@ ctx = emptyContext();
 
 let myFunc = func(
   ctx,
-  { in: { x: i32, y: i32 }, locals: { tmp: i32 }, out: [i32] },
-  ({ x, y }, { tmp }) => {
+  { in: { x: i32, y: i32 }, locals: { tmp: i32, i: i32 }, out: [i32] },
+  ({ x, y }, { tmp, i }) => {
     i32.const(ctx, 0);
     local.get(ctx, x);
     i32.add(ctx);
     local.get(ctx, y);
     i32.add(ctx);
-    control.block(ctx, { in: [i32], out: [i32] }, () => {
+    control.block(ctx, { in: [i32], out: [i32] }, (block) => {
       local.tee(ctx, tmp);
       control.call(ctx, consoleLog);
+      control.loop(ctx, {}, () => {
+        local.get(ctx, i);
+        control.call(ctx, consoleLog);
+        local.get(ctx, i);
+        i32.const(ctx, 1);
+        i32.add(ctx);
+        local.set(ctx, i);
+
+        local.get(ctx, i);
+        i32.const(ctx, 5);
+        i32.eq(ctx);
+        control.if(ctx, {}, () => {
+          local.get(ctx, tmp);
+          control.br(ctx, block);
+        });
+        control.br(ctx, 0);
+        // unreachable
+        local.get(ctx, i);
+        i32.const(ctx, 10);
+        i32.ne(ctx);
+        control.br_if(ctx, 0);
+      });
       local.get(ctx, tmp);
     });
   }
@@ -70,7 +92,7 @@ let exportedFunc = func(
 
 let module = Module({ exports: { exportedFunc, importedGlobal } });
 
-console.dir(module.module, { depth: 10 });
+console.dir(module.module, { depth: Infinity });
 
 let wasmModule = await module.instantiate();
 let { exports } = wasmModule.instance;

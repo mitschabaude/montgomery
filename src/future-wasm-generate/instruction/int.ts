@@ -16,4 +16,6 @@ const i32 = Object.assign(i32t, {
     in: [i32t, i32t],
     out: [i32t],
   }),
+  eq: simpleInstruction("i32.eq", Undefined, { in: [i32t, i32t], out: [i32t] }),
+  ne: simpleInstruction("i32.ne", Undefined, { in: [i32t, i32t], out: [i32t] }),
 });

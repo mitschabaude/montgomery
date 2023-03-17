@@ -66,6 +66,8 @@ const opcodes = {
   0x43: "f32.const",
   0x44: "f64.const",
   0x45: "i32.eqz",
+  0x46: "i32.eq",
+  0x47: "i32.ne",
 
   0x6a: "i32.add",
 

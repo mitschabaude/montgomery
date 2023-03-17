@@ -21,7 +21,6 @@ export {
   BaseInstruction,
   resolveInstruction,
   resolveExpression,
-  createExpression,
   createExpressionWithType,
   FunctionTypeInput,
   lookupInstruction,
@@ -134,39 +133,39 @@ type Tuple<T> = [T, ...T[]] | [];
 
 // TODO: the input type is simply taken as the current stack, which could be much larger than the minimal needed input type
 // to compute the minimal type signature, local context needs to keep track of the minimum stack height
-function createExpression(
-  name: LocalContext["frames"][number]["opcode"],
-  ctx: LocalContext,
-  run: (label: RandomLabel) => void
-): {
-  body: Dependency.Instruction[];
-  type: FunctionType;
-  deps: Dependency.t[];
-} {
-  let args = [...ctx.stack];
-  let stack = [...ctx.stack];
-  let label = String(Math.random()) as RandomLabel;
-  let { stack: results, body } = withContext(
-    ctx,
-    {
-      body: [],
-      stack,
-      frames: [
-        {
-          label,
-          opcode: name,
-          startTypes: null,
-          endTypes: null,
-          unreachable: false,
-          stack,
-        },
-        ...ctx.frames,
-      ],
-    },
-    () => run(label)
-  );
-  return { body, type: { args, results }, deps: body.flatMap((i) => i.deps) };
-}
+// function createExpression(
+//   name: LocalContext["frames"][number]["opcode"],
+//   ctx: LocalContext,
+//   run: (label: RandomLabel) => void
+// ): {
+//   body: Dependency.Instruction[];
+//   type: FunctionType;
+//   deps: Dependency.t[];
+// } {
+//   let args = [...ctx.stack];
+//   let stack = [...ctx.stack];
+//   let label = String(Math.random()) as RandomLabel;
+//   let { stack: results, body } = withContext(
+//     ctx,
+//     {
+//       body: [],
+//       stack,
+//       frames: [
+//         {
+//           label,
+//           opcode: name,
+//           startTypes: null,
+//           endTypes: null,
+//           unreachable: false,
+//           stack,
+//         },
+//         ...ctx.frames,
+//       ],
+//     },
+//     () => run(label)
+//   );
+//   return { body, type: { args, results }, deps: body.flatMap((i) => i.deps) };
+// }
 
 type FunctionTypeInput = {
   in?: ValueTypeObject[];
