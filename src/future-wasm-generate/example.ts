@@ -1,4 +1,4 @@
-import { control, global, i32, local } from "./instruction/instruction.js";
+import { control, global, i32, i64, local } from "./instruction/instruction.js";
 import assert from "node:assert";
 import { Module, func } from "./index.js";
 import { importFunc, importGlobal } from "./export.js";
@@ -41,12 +41,14 @@ let myFunc = func(
         i32.eq(ctx);
         control.if(ctx, {}, () => {
           local.get(ctx, tmp);
-          control.br(ctx, block);
+          control.return(ctx);
+          // fine that this is missing input, because code path is unreachable
+          control.call(ctx, consoleLog);
         });
         control.br(ctx, 0);
         // unreachable
         local.get(ctx, i);
-        i32.const(ctx, 10);
+        // i64.const(ctx, 10n);
         i32.ne(ctx);
         control.br_if(ctx, 0);
       });

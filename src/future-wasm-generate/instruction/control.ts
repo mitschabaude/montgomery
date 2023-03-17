@@ -21,7 +21,7 @@ import {
 import { Block, IfBlock } from "./binable.js";
 
 export { control };
-export { unreachable, call, nop, block, loop, br, br_if, br_table };
+export { unreachable, call, nop, block, loop, br, br_if, br_table, return_ };
 
 const nop = simpleInstruction("nop", Undefined, {});
 
@@ -154,6 +154,18 @@ const br_table = baseInstruction("br_table", LabelTable, {
   },
 });
 
+const return_ = baseInstruction("return", Undefined, {
+  create(ctx) {
+    let type = ctx.return;
+    // TODO: do we need this for const expressions?
+    if (type === null) throw Error("bug: called return outside a function");
+    popStack(ctx, type);
+    setUnreachable(ctx);
+    return {};
+  },
+  resolve: () => undefined,
+});
+
 const call = baseInstruction("call", U32, {
   create(_, func: Dependency.AnyFunc) {
     return { in: func.type.args, out: func.type.results, deps: [func] };
@@ -170,5 +182,6 @@ const control = {
   br,
   br_if,
   br_table,
+  return: return_,
   call,
 };

@@ -1,5 +1,5 @@
 import { Undefined } from "../binable.js";
-import { I32 } from "../immediate.js";
+import { I32, I64 } from "../immediate.js";
 import { simpleInstruction } from "./base.js";
 import { i32t, i64t, f32t, f64t } from "../types.js";
 
@@ -18,4 +18,8 @@ const i32 = Object.assign(i32t, {
   }),
   eq: simpleInstruction("i32.eq", Undefined, { in: [i32t, i32t], out: [i32t] }),
   ne: simpleInstruction("i32.ne", Undefined, { in: [i32t, i32t], out: [i32t] }),
+});
+
+const i64 = Object.assign(i64t, {
+  const: simpleInstruction("i64.const", I64, { out: [i64t] }),
 });
