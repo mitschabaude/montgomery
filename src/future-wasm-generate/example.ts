@@ -72,21 +72,17 @@ let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
   control.call(ctx, consoleLog);
 });
 
-let funcTable = table({ type: funcref, min: 1 });
-elem(
-  {
-    type: funcref,
-    mode: { table: funcTable, offset: Const.i32(0) },
-  },
-  [Const.refFunc(consoleLogFunc)]
-);
+let funcTable = table({ type: funcref, min: 2 }, [
+  Const.refFunc(consoleLogFunc),
+  Const.refFunc(myFunc),
+]);
 
 let exportedFunc = func(
   ctx,
   { in: { x: i32, doLog: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x, doLog }, { y }) => {
     // control.call(ctx, testUnreachable);
-    ref.func(ctx, myFunc); // TODO this fails if there is no table, seems to be a V8 bug
+    ref.func(ctx, myFunc); // TODO this fails if there is no table but a global, seems to be a V8 bug
     control.call(ctx, consoleLogFunc);
     global.get(ctx, myFuncGlobal);
     i32.const(ctx, 0);

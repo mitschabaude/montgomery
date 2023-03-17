@@ -56,9 +56,9 @@
       end
       local.get 2
     end)
-  (table (;0;) 1 funcref)
+  (table (;0;) 2 funcref)
   (memory (;0;) 1)
   (global (;1;) funcref (ref.func 3))
   (export "exportedFunc" (func 2))
   (export "importedGlobal" (global 0))
-  (elem (;0;) (i32.const 0) func 1))
+  (elem (;0;) (i32.const 0) func 1 3))

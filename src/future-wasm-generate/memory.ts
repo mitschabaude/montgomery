@@ -4,20 +4,27 @@ import { Limits, RefTypeObject, valueTypeLiteral } from "./types.js";
 
 export { table, elem };
 
-function table({
-  type,
-  min,
-  max,
-}: {
-  type: RefTypeObject;
-  min: number;
-  max?: number;
-}): Dependency.Table {
-  return {
-    kind: "table",
+function table(
+  {
+    type,
+    min,
+    max,
+  }: {
+    type: RefTypeObject;
+    min: number;
+    max?: number;
+  },
+  content?: (Const.refFunc | Const.refNull)[]
+): Dependency.Table {
+  let table = {
+    kind: "table" as const,
     type: { type: valueTypeLiteral(type), limits: { min, max } },
     deps: [],
   };
+  if (content !== undefined) {
+    elem({ type, mode: { table, offset: Const.i32(0) } }, content);
+  }
+  return table;
 }
 
 function elem(
