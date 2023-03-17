@@ -159,6 +159,10 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
         module: WebAssembly.Module;
       };
     },
+    toBytes() {
+      let bytes = Module.toBytes(module.module);
+      return Uint8Array.from(bytes);
+    },
   };
   return module;
 }

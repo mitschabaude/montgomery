@@ -111,14 +111,14 @@ let module = Module({
 console.dir(module.module, { depth: Infinity });
 
 // create byte code and check roundtrip
-let wasmByteCode = Module.toBytes(module.module);
+let wasmByteCode = module.toBytes();
 console.log(`wasm size: ${wasmByteCode.length} byte`);
 let recoveredModule = Module.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module.module);
 
 // write wat file for comparison
 const wabt = await Wabt();
-let wabtModule = wabt.readWasm(Uint8Array.from(wasmByteCode), {
+let wabtModule = wabt.readWasm(wasmByteCode, {
   multi_value: true,
   reference_types: true,
   mutable_globals: true,

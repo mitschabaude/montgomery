@@ -24,7 +24,7 @@ export {
 type Binable<T> = {
   toBytes(value: T): number[];
   readBytes(bytes: number[], offset: number): [value: T, offset: number];
-  fromBytes(bytes: number[]): T;
+  fromBytes(bytes: number[] | Uint8Array): T;
 };
 
 function Binable<T>({
@@ -38,7 +38,7 @@ function Binable<T>({
     toBytes,
     readBytes,
     // spec: fromBytes throws if the input bytes are not all used
-    fromBytes(bytes) {
+    fromBytes([...bytes]) {
       let [value, offset] = readBytes(bytes, 0);
       if (offset < bytes.length)
         throw Error("fromBytes: input bytes left over");
@@ -152,7 +152,7 @@ function tuple<Types extends Tuple<any>>(binables: {
       return bytes;
     },
     readBytes(bytes, offset) {
-      let values = [];
+      let values: Types[number] = [];
       for (let i = 0; i < n; i++) {
         let [value, newOffset] = binables[i].readBytes(bytes, offset);
         offset = newOffset;
