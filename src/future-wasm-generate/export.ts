@@ -11,7 +11,6 @@ import {
   ValueType,
   valueTypeLiteral,
   valueTypeLiterals,
-  ValueTypeObject,
 } from "./types.js";
 import { Dependency, ToTypeTuple } from "./func.js";
 

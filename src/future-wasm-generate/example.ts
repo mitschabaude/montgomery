@@ -1,10 +1,15 @@
 import { control, global, i32, i64, local } from "./instruction/instruction.js";
 import assert from "node:assert";
+import fs from "node:fs";
 import { Module, func } from "./index.js";
 import { importFunc, importGlobal } from "./export.js";
 import { emptyContext, LocalContext } from "./local-context.js";
 import { Const } from "./dependency.js";
 import { funcref, i64t } from "./types.js";
+import { elem, table } from "./memory.js";
+import Wabt from "wabt";
+import { writeFile } from "../finite-field-compile.js";
+import { ref } from "./instruction/variable.js";
 
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
@@ -58,7 +63,7 @@ let myFunc = func(
 );
 
 let importedGlobal = importGlobal(i64t, 1000n);
-let funcGlobal = global(Const.refFunc(myFunc));
+let myFuncGlobal = global(Const.refFunc(myFunc));
 
 let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
   control.unreachable(ctx);
@@ -67,15 +72,25 @@ let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
   control.call(ctx, consoleLog);
 });
 
-ctx = emptyContext();
+let funcTable = table({ type: funcref, min: 1 });
+elem(
+  {
+    type: funcref,
+    mode: { table: funcTable, offset: Const.i32(0) },
+  },
+  [Const.refFunc(consoleLogFunc)]
+);
+
 let exportedFunc = func(
   ctx,
   { in: { x: i32, doLog: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x, doLog }, { y }) => {
     // control.call(ctx, testUnreachable);
-    global.get(ctx, funcGlobal);
-    // ref.func(ctx, myFunc); // TODO this fails, seems to be a spec bug
+    ref.func(ctx, myFunc); // TODO this fails if there is no table, seems to be a V8 bug
     control.call(ctx, consoleLogFunc);
+    global.get(ctx, myFuncGlobal);
+    i32.const(ctx, 0);
+    control.call_indirect(ctx, funcTable, { in: [funcref], out: [] });
     local.get(ctx, x);
     local.get(ctx, doLog);
     control.if(ctx, null, () => {
@@ -92,10 +107,31 @@ let exportedFunc = func(
   }
 );
 
-let module = Module({ exports: { exportedFunc, importedGlobal } });
+let module = Module({
+  exports: { exportedFunc, importedGlobal },
+  memory: { min: 1, max: undefined },
+});
 
 console.dir(module.module, { depth: Infinity });
 
+// create byte code and check roundtrip
+let wasmByteCode = Module.toBytes(module.module);
+console.log(`wasm size: ${wasmByteCode.length} byte`);
+let recoveredModule = Module.fromBytes(wasmByteCode);
+assert.deepStrictEqual(recoveredModule, module.module);
+
+// write wat file for comparison
+const wabt = await Wabt();
+let wabtModule = wabt.readWasm(Uint8Array.from(wasmByteCode), {
+  multi_value: true,
+  reference_types: true,
+  mutable_globals: true,
+  bulk_memory: true,
+});
+let wat = wabtModule.toText({});
+await writeFile("src/future-wasm-generate/example.wat", wat);
+
+// instantiate & run exported function
 let wasmModule = await module.instantiate();
 let { exports } = wasmModule.instance;
 console.log(exports);
@@ -103,8 +139,3 @@ let result = exports.exportedFunc(10, 0);
 assert(result === 15);
 assert(exports.importedGlobal.value === 1000n);
 console.log({ result, importedGlobal: exports.importedGlobal.value });
-
-let wasmByteCode = Module.toBytes(module.module);
-console.log(`wasm size: ${wasmByteCode.length} byte`);
-let recoveredModule = Module.fromBytes(wasmByteCode);
-assert.deepStrictEqual(recoveredModule, module.module);

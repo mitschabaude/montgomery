@@ -21,6 +21,7 @@ export {
   functionTypeEquals,
   printFunctionType,
   JSValue,
+  Limits,
 };
 
 type RefType = "funcref" | "externref";

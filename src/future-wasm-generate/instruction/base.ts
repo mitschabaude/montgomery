@@ -25,6 +25,7 @@ export {
   FunctionTypeInput,
   lookupInstruction,
   lookupOpcode,
+  typeFromInput,
 };
 
 const nameToInstruction: Record<string, BaseInstruction> = {};
@@ -171,6 +172,13 @@ type FunctionTypeInput = {
   in?: ValueTypeObject[];
   out?: ValueTypeObject[];
 } | null;
+
+function typeFromInput(type: FunctionTypeInput): FunctionType {
+  return {
+    args: valueTypeLiterals(type?.in ?? []),
+    results: valueTypeLiterals(type?.out ?? []),
+  };
+}
 
 function createExpressionWithType(
   name: LocalContext["frames"][number]["opcode"],

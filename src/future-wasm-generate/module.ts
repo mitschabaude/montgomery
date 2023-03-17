@@ -3,8 +3,13 @@ import { Export, Import } from "./export.js";
 import { Func, JSFunctionType } from "./func.js";
 import { resolveInstruction } from "./instruction/instruction.js";
 import { Module as BinableModule } from "./module-binable.js";
-import { Global } from "./memory-binable.js";
-import { FunctionType, functionTypeEquals } from "./types.js";
+import { Elem, Global } from "./memory-binable.js";
+import {
+  FunctionType,
+  functionTypeEquals,
+  Limits,
+  TableType,
+} from "./types.js";
 
 export { Module };
 
@@ -12,8 +17,10 @@ type Module = BinableModule;
 
 function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   exports: inputExports,
+  memory,
 }: {
   exports: Exports;
+  memory?: Limits;
 }) {
   // collect all dependencies (by kind)
   let dependencies = new Set<Dependency.t>();
@@ -48,8 +55,14 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     let imp = addImport(global, description, globalIdx, importMap);
     imports.push(imp);
   });
+  dependencyByKind.importTable.forEach((table, tableIdx) => {
+    depToIndex.set(table, tableIdx);
+    let description = { kind: "table" as const, value: table.type };
+    let imp = addImport(table, description, tableIdx, importMap);
+    imports.push(imp);
+  });
 
-  // funcs + their types
+  // index funcs + their types
   let funcs0: (Dependency.Func & { typeIdx: number; funcIdx: number })[] = [];
   let nImportFuncs = dependencyByKind.importFunction.length;
   for (let func of dependencyByKind.function) {
@@ -59,16 +72,24 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     depToIndex.set(func, funcIdx);
   }
 
-  // other types
+  // index other types
   for (let type of dependencyByKind.type) {
     let typeIdx = pushType(types, type.type);
     depToIndex.set(type, typeIdx);
   }
-
-  // globals
+  // index globals
   let nImportGlobals = dependencyByKind.importGlobal.length;
   dependencyByKind.global.forEach((global, globalIdx) =>
     depToIndex.set(global, globalIdx + nImportGlobals)
+  );
+  // index tables
+  let nImportTables = dependencyByKind.importTable.length;
+  dependencyByKind.table.forEach((table, tableIdx) =>
+    depToIndex.set(table, tableIdx + nImportTables)
+  );
+  // index elems
+  dependencyByKind.elem.forEach((elem, elemIdx) =>
+    depToIndex.set(elem, elemIdx)
   );
 
   // finalize functions
@@ -87,6 +108,20 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     let init_ = [resolveInstruction(init, depToIndex)];
     return { type, init: init_ };
   });
+  // finalize tables
+  let tables: TableType[] = dependencyByKind.table.map(({ type }) => type);
+  // finalize elems
+  let elems: Elem[] = dependencyByKind.elem.map(({ type, init, mode }) => {
+    let init_ = init.map((i) => [resolveInstruction(i, depToIndex)]);
+    let mode_: Elem["mode"] =
+      typeof mode === "object"
+        ? {
+            table: depToIndex.get(mode.table)!,
+            offset: [resolveInstruction(mode.offset, depToIndex)],
+          }
+        : mode;
+    return { type, init: init_, mode: mode_ };
+  });
 
   // exports
   let exports: Export[] = [];
@@ -103,10 +138,12 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     exports,
     // TODO
     datas: [],
-    elems: [],
-    tables: [],
+    elems,
+    tables,
     globals,
-    memory: undefined,
+    // TODO
+    memory: memory && { limits: memory },
+    // TODO
     start: undefined,
   };
   let module = {
@@ -146,6 +183,7 @@ function pushDependency(
   existing: Set<Dependency.anyDependency>,
   dep: Dependency.anyDependency
 ) {
+  if (existing.has(dep)) return;
   existing.add(dep);
   for (let dep_ of dep.deps) {
     pushDependency(existing, dep_);

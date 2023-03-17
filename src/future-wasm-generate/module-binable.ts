@@ -77,7 +77,7 @@ let StartSection = section<StartSection>(8, U32);
 
 // 9: ElementSection
 type ElemSection = Elem[];
-let ElemSection = section<ElemSection>(11, vec(Elem));
+let ElemSection = section<ElemSection>(9, vec(Elem));
 
 // 10: CodeSection
 type CodeSection = Code[];

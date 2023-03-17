@@ -1,4 +1,4 @@
-import { record, Undefined } from "../binable.js";
+import { record, tuple, Undefined } from "../binable.js";
 import * as Dependency from "../dependency.js";
 import { U32, vec } from "../immediate.js";
 import {
@@ -17,15 +17,26 @@ import {
   FunctionTypeInput,
   resolveExpression,
   simpleInstruction,
+  typeFromInput,
 } from "./base.js";
 import { Block, IfBlock } from "./binable.js";
 
 export { control };
-export { unreachable, call, nop, block, loop, br, br_if, br_table, return_ };
+export {
+  unreachable,
+  nop,
+  block,
+  loop,
+  br,
+  br_if,
+  br_table,
+  return_,
+  call,
+  call_indirect,
+};
 
 const nop = simpleInstruction("nop", Undefined, {});
 
-// TODO
 const unreachable = baseInstruction("unreachable", Undefined, {
   create(ctx) {
     setUnreachable(ctx);
@@ -87,13 +98,6 @@ const if_ = baseInstruction("if", IfBlock, {
     }
     let elseExpr = createExpressionWithType("else", ctx, t, runElse);
     pushStack(ctx, ["i32"]);
-    // if (!functionTypeEquals(type, elseExpr.type)) {
-    //   throw Error(
-    //     `Type signature of else branch doesn't match if branch.\n` +
-    //       `If branch: ${printFunctionType(type)}\n` +
-    //       `Else branch: ${printFunctionType(elseExpr.type)}`
-    //   );
-    // }
     return {
       in: ifArgs,
       out: type.results,
@@ -173,6 +177,18 @@ const call = baseInstruction("call", U32, {
   resolve: ([funcIndex]) => funcIndex,
 });
 
+const call_indirect = baseInstruction("call_indirect", tuple([U32, U32]), {
+  create(_, table: Dependency.AnyTable, type: FunctionTypeInput) {
+    let t = typeFromInput(type);
+    return {
+      in: [...t.args, "i32"],
+      out: t.results,
+      deps: [Dependency.type(t), table],
+    };
+  },
+  resolve: ([typeIdx, tableIdx]) => [typeIdx, tableIdx],
+});
+
 const control = {
   nop,
   unreachable,
@@ -184,4 +200,5 @@ const control = {
   br_table,
   return: return_,
   call,
+  call_indirect,
 };

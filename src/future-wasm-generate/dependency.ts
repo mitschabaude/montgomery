@@ -6,19 +6,15 @@
  */
 
 import {
-  externref,
-  funcref,
   FunctionType,
   GlobalType,
-  i32t,
-  i64t,
   MemoryType,
   RefType,
   TableType,
   ValueType,
 } from "./types.js";
 import { Byte } from "./binable.js";
-import { I32, I64 } from "./immediate.js";
+import { Dependency } from "./func.js";
 
 export {
   t,
@@ -94,12 +90,12 @@ type Global = {
 type Table = {
   kind: "table";
   type: TableType;
-  deps: [];
+  deps: Elem[];
 };
 type Memory = {
   kind: "memory";
   type: MemoryType;
-  deps: [];
+  deps: Data[];
 };
 type HasMemory = { kind: "hasMemory"; deps: [] };
 
@@ -118,32 +114,36 @@ type Elem = {
     | "passive"
     | "declarative"
     | {
-        table: TableType;
+        table: Dependency.AnyTable;
         offset: Const.i32 | Const.globalGet;
       };
   deps: (AnyTable | AnyFunc | AnyGlobal)[];
 };
 
-type ImportPath = { module?: string; string?: string; deps: [] };
+type ImportPath = { module?: string; string?: string };
 type ImportFunc = ImportPath & {
   kind: "importFunction";
   type: FunctionType;
   value: Function;
+  deps: [];
 };
 type ImportGlobal = ImportPath & {
   kind: "importGlobal";
   type: GlobalType;
   value: WebAssembly.Global;
+  deps: [];
 };
 type ImportTable = ImportPath & {
   kind: "importTable";
   type: TableType;
   value: WebAssembly.Table;
+  deps: Elem[];
 };
 type ImportMemory = ImportPath & {
   kind: "importMemory";
   type: MemoryType;
   value: WebAssembly.Memory;
+  deps: Data[];
 };
 
 type AnyFunc = Func | ImportFunc;
@@ -187,7 +187,6 @@ const kindToExportKind: Record<
 type Instruction = {
   string: string;
   type: FunctionType;
-  immediate?: any;
   deps: t[];
   resolveArgs: any[];
 };
@@ -195,8 +194,8 @@ type Instruction = {
 // constant instructions
 
 namespace Const {
-  export type i32 = Instruction & { string: "i32.const"; immediate: I32 };
-  export type i64 = Instruction & { string: "i64.const"; immediate: I64 };
+  export type i32 = Instruction & { string: "i32.const" };
+  export type i64 = Instruction & { string: "i64.const" };
   export type refNull = Instruction & { string: "ref.null" };
   export type refFunc = Instruction & { string: "ref.func" };
   export type globalGet = Instruction & { string: "global.get" };
@@ -207,19 +206,17 @@ const Const = {
   i32(x: number | bigint): Const.i32 {
     return {
       string: "i32.const",
-      immediate: Number(x), // TODO in resolve args?
       type: { args: [], results: ["i32"] },
       deps: [],
-      resolveArgs: [],
+      resolveArgs: [Number(x)],
     };
   },
   i64(x: number | bigint): Const.i64 {
     return {
       string: "i64.const",
-      immediate: BigInt(x), // TODO in resolve args?
       type: { args: [], results: ["i64"] },
       deps: [],
-      resolveArgs: [],
+      resolveArgs: [BigInt(x)],
     };
   },
   refFuncNull: {
