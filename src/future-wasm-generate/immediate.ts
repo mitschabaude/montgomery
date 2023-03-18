@@ -147,7 +147,7 @@ function fromSLEB128(bytes: number[], offset: number) {
     if ((byte & 0b1000_0000) === 0) break;
   }
   // on wikipedia, they say to check for (shift < bitSize) here (https://en.wikipedia.org/wiki/LEB128)
-  // but that gives wrong results for numbers close to 2**(bitSize)..
+  // but for bigints, this gives wrong results for numbers close to 2**(bitSize).
   // the bit arithmetic of negative bigints seems to work as if they are infinite two's complements
   // e.g. -2n = ...111110, 1n = ...000001 and so we get -2n | 1n == ...111111 == -1n
   // so you never have to consider 'bit size'
