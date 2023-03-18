@@ -16,7 +16,8 @@ import {
 import { InstructionName, nameToOpcode } from "./opcodes.js";
 
 export {
-  simpleInstruction,
+  instruction,
+  instructionWithArg,
   baseInstruction,
   BaseInstruction,
   resolveInstruction,
@@ -88,22 +89,40 @@ function baseInstruction<
 }
 
 /**
- * instructions of constant type without dependencies
+ * instruction that is completely fixed
  */
-function simpleInstruction<
+function instruction<
+  Arguments extends Tuple<ValueTypeObject>,
+  Results extends Tuple<ValueTypeObject>
+>(string: InstructionName, args: Arguments, results: Results) {
+  let instr = {
+    in: valueTypeLiterals(args as ValueTypeObject[]),
+    out: valueTypeLiterals(results as ValueTypeObject[]),
+  };
+  return baseInstruction<undefined, [], []>(string, Undefined, {
+    create: () => instr,
+  });
+}
+
+/**
+ * instruction of constant type without dependencies,
+ * but with an immediate argument
+ */
+function instructionWithArg<
   Arguments extends Tuple<ValueTypeObject>,
   Results extends Tuple<ValueTypeObject>,
   Immediate extends any
 >(
   string: InstructionName,
   immediate: Binable<Immediate> | undefined,
-  { in: args, out: results }: { in?: Arguments; out?: Results }
+  args: Arguments,
+  results: Results
 ) {
   immediate = immediate === Undefined ? undefined : immediate;
   type Args = Immediate extends undefined ? [] : [immediate: Immediate];
   let instr = {
-    in: valueTypeLiterals(args ?? []),
-    out: valueTypeLiterals(results ?? []),
+    in: valueTypeLiterals(args as ValueTypeObject[]),
+    out: valueTypeLiterals(results as ValueTypeObject[]),
   };
   return baseInstruction<Immediate, Args, Args>(string, immediate, {
     create: () => instr,

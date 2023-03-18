@@ -26,7 +26,7 @@ import {
   createExpressionWithType,
   FunctionTypeInput,
   resolveExpression,
-  simpleInstruction,
+  instructionWithArg,
   typeFromInput,
 } from "./base.js";
 import { Block, IfBlock } from "./binable.js";
@@ -46,7 +46,7 @@ export {
 };
 export { drop, select };
 
-const nop = simpleInstruction("nop", Undefined, {});
+const nop = instructionWithArg("nop", Undefined, [], []);
 
 const unreachable = baseInstruction("unreachable", Undefined, {
   create(ctx) {
