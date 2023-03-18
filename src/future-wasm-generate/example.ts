@@ -11,6 +11,14 @@ import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 import { ref } from "./instruction/variable.js";
 
+const wabt = await Wabt();
+const features = {
+  multi_value: true,
+  reference_types: true,
+  mutable_globals: true,
+  bulk_memory: true,
+};
+
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
@@ -77,9 +85,11 @@ let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
   control.call(ctx, consoleLog);
 });
 
-let table = Table({ type: funcref, min: 2 }, [
+let table = Table({ type: funcref, min: 4 }, [
   Const.refFunc(consoleLogFunc),
   Const.refFunc(myFunc),
+  Const.refFuncNull,
+  Const.refFuncNull,
 ]);
 
 let exportedFunc = func(
@@ -122,13 +132,7 @@ let recoveredModule = Module.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module.module);
 
 // write wat file for comparison
-const wabt = await Wabt();
-let wabtModule = wabt.readWasm(wasmByteCode, {
-  multi_value: true,
-  reference_types: true,
-  mutable_globals: true,
-  bulk_memory: true,
-});
+let wabtModule = wabt.readWasm(wasmByteCode, features);
 let wat = wabtModule.toText({});
 await writeFile("src/future-wasm-generate/example.wat", wat);
 

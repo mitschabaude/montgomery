@@ -97,7 +97,7 @@ const Elem = Binable<Elem>({
         : mode === "declarative"
     );
     let bytes = U32.toBytes(
-      (isPassive << 0) & (isBit1 << 1) & (isExplicit << 2)
+      (isPassive << 0) | (isBit1 << 1) | (isExplicit << 2)
     );
     // in active mode, write table and offset
     if (typeof mode !== "string") {

@@ -71,7 +71,7 @@ const global = Object.assign(globalConstructor, globalInstr);
 const ref = {
   null: baseInstruction("ref.null", RefType, {
     create(_, type: RefType) {
-      return { out: [type] };
+      return { out: [type], resolveArgs: [type] };
     },
   }),
   is_null: baseInstruction("ref.is_null", Undefined, {
