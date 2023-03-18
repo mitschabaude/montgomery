@@ -20,6 +20,11 @@
       local.get 0
       call 0
     end
+    i32.const -1
+    i32.const -2
+    local.get 1
+    select
+    call 0
     local.set 2
     local.get 2
     i32.const 5
@@ -55,6 +60,8 @@
         br_if 0 (;@2;)
       end
       local.get 2
+      local.get 2
+      drop
     end)
   (table (;0;) 4 funcref)
   (memory (;0;) 1 65536)

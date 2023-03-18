@@ -7,6 +7,7 @@ export {
   Label,
   RandomLabel,
   popStack,
+  popUnknown,
   pushStack,
   setUnreachable,
   labelTypes,
@@ -14,9 +15,13 @@ export {
   pushInstruction,
   emptyContext,
   withContext,
+  isNumberType,
+  isVectorType,
+  isSameType,
 };
 
 type Unknown = "unknown";
+const Unknown = "unknown";
 type RandomLabel = `0.${string}`;
 type Label = "top" | RandomLabel;
 
@@ -108,6 +113,17 @@ function popStack(
   return popped;
 }
 
+function popUnknown({ stack, frames }: LocalContext): ValueType | Unknown {
+  let stackValue = stack.pop();
+  if (stackValue === undefined && frames[0].unreachable) {
+    return Unknown;
+  }
+  if (stackValue === undefined) {
+    throw Error(`expected value on the stack, got nothing`);
+  }
+  return stackValue;
+}
+
 function pushStack({ stack }: LocalContext, values: ValueType[]) {
   stack.push(...values);
 }
@@ -134,4 +150,22 @@ function getFrameFromLabel(
     if (i === -1) throw Error(`no block found for label ${label}`);
     return [i, ctx.frames[i]];
   }
+}
+
+function isNumberType(type: ValueType | Unknown) {
+  return (
+    type === "i32" ||
+    type === "i64" ||
+    type === "f32" ||
+    type === "f64" ||
+    type === Unknown
+  );
+}
+
+function isVectorType(type: ValueType | Unknown) {
+  return type === "v128" || type === Unknown;
+}
+
+function isSameType(t1: ValueType | Unknown, t2: ValueType | Unknown) {
+  return t1 === t2 || t1 === Unknown || t2 === Unknown;
 }

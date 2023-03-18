@@ -10,6 +10,7 @@ import { Memory, Table } from "./memory.js";
 import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 import { ref } from "./instruction/variable.js";
+import { drop, select } from "./instruction/control.js";
 
 const wabt = await Wabt();
 const features = {
@@ -71,6 +72,10 @@ let myFunc = func(
         control.br_if(ctx, 0);
       });
       local.get(ctx, tmp);
+      local.get(ctx, tmp);
+      console.log(ctx.stack);
+      drop(ctx);
+      console.log(ctx.stack);
     });
   }
 );
@@ -109,6 +114,12 @@ let exportedFunc = func(
       control.call(ctx, consoleLog);
       // console.log({ stack: ctx.stack });
     });
+    i32.const(ctx, -1);
+    i32.const(ctx, -2);
+    local.get(ctx, doLog);
+    select(ctx);
+    control.call(ctx, consoleLog);
+    // drop(ctx);
     // local.get(ctx, x);
     local.set(ctx, y);
     local.get(ctx, y);

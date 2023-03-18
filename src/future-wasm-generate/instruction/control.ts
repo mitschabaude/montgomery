@@ -6,11 +6,16 @@ import {
   Label,
   labelTypes,
   popStack,
+  popUnknown,
   pushStack,
   RandomLabel,
   setUnreachable,
+  isNumberType,
+  isVectorType,
+  isSameType,
+  LocalContext,
 } from "../local-context.js";
-import { ResultType } from "../types.js";
+import { ResultType, ValueType } from "../types.js";
 import {
   baseInstruction,
   createExpressionWithType,
@@ -34,6 +39,7 @@ export {
   call,
   call_indirect,
 };
+export { drop, select };
 
 const nop = simpleInstruction("nop", Undefined, {});
 
@@ -188,6 +194,56 @@ const call_indirect = baseInstruction("call_indirect", tuple([U32, U32]), {
   },
   resolve: ([typeIdx, tableIdx]) => [typeIdx, tableIdx],
 });
+
+// parametric instructions
+
+const drop = baseInstruction("drop", Undefined, {
+  create(ctx: LocalContext) {
+    popUnknown(ctx);
+    return {};
+  },
+  resolve: () => undefined,
+});
+
+const select_poly = baseInstruction("select", Undefined, {
+  create(ctx: LocalContext) {
+    popStack(ctx, ["i32"]);
+    let t1 = popUnknown(ctx);
+    let t2 = popUnknown(ctx);
+    if (
+      !(
+        (isNumberType(t1) && isNumberType(t2)) ||
+        (isVectorType(t1) && isVectorType(t2))
+      )
+    ) {
+      throw Error(
+        `select: polymorphic select can only be applied to number or vector types, got ${t1} and ${t2}.`
+      );
+    }
+    if (!isSameType(t1, t2)) {
+      throw Error(`select: types must be equal, got ${t1} and ${t2}.`);
+    }
+    let t: ValueType;
+    if (t1 !== "unknown") t = t1;
+    else if (t2 !== "unknown") t = t2;
+    else
+      throw Error(
+        "polymorphic select with two unknown types is not implemented."
+      );
+    return { out: [t] };
+  },
+  resolve: () => undefined,
+});
+const select_t = baseInstruction("select_t", vec(ValueType), {
+  create(_: LocalContext, t: ValueType) {
+    return { in: ["i32", t, t], out: [t], resolveArgs: [[t]] };
+  },
+});
+
+function select(ctx: LocalContext, t?: ValueType) {
+  if (t === undefined) return select_poly(ctx);
+  else return select_t(ctx, t);
+}
 
 const control = {
   nop,

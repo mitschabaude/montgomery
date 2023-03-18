@@ -49,13 +49,6 @@ const valueTypeCodes: Record<ValueType, number> = {
   funcref: 0x70,
   externref: 0x6f,
 };
-// type i32t = GenericValueType<"i32">;
-// type i64t = GenericValueType<"i64">;
-// type f32t = GenericValueType<"f32">;
-// type f64t = GenericValueType<"f64">;
-// type v128t = GenericValueType<"v128">;
-// type funcref = GenericValueType<"funcref">;
-// type externref = GenericValueType<"i64">;
 const i32t = valueType("i32");
 const i64t = valueType("i64");
 const f32t = valueType("f32");
