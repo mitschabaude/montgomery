@@ -35,26 +35,28 @@ type ActiveData = {
   init: Byte[];
   mode: { memory: 0; offset: ConstExpression };
 };
-const ActiveData = record({ mode: Offset0, init: vec(Byte) });
+const ActiveData = withU32(0, record({ mode: Offset0, init: vec(Byte) }));
 
 type PassiveData = { init: Byte[]; mode: "passive" };
-const PassiveData = record({
-  mode: constant("passive" as const),
-  init: vec(Byte),
-});
+const PassiveData = withU32(
+  1,
+  record({
+    mode: constant("passive" as const),
+    init: vec(Byte),
+  })
+);
 
 type ActiveDataMultiMemory = {
   init: Byte[];
   mode: { memory: U32; offset: ConstExpression };
 };
-const ActiveDataMultiMemory = record({ mode: Offset, init: vec(Byte) });
+const ActiveDataMultiMemory = withU32(
+  2,
+  record({ mode: Offset, init: vec(Byte) })
+);
 
 const Data: Binable<Data> = or(
-  [
-    withU32(0, ActiveData),
-    withU32(1, PassiveData),
-    withU32(2, ActiveDataMultiMemory),
-  ],
+  [ActiveData, PassiveData, ActiveDataMultiMemory],
   (t: Data) =>
     t.mode === "passive"
       ? PassiveData

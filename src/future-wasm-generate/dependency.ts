@@ -42,7 +42,7 @@ export {
   Instruction,
   Const,
 };
-export { hasRefTo, dependencyKinds, kindToExportKind };
+export { hasRefTo, hasMemory, dependencyKinds, kindToExportKind };
 
 type anyDependency = { kind: string; deps: anyDependency[] };
 
@@ -98,12 +98,13 @@ type Memory = {
   deps: Data[];
 };
 type HasMemory = { kind: "hasMemory"; deps: [] };
+const hasMemory: HasMemory = { kind: "hasMemory", deps: [] };
 
 type Data = {
   kind: "data";
   init: Byte[];
   mode: "passive" | { memory: 0; offset: Const.i32 | Const.globalGet };
-  deps: (HasMemory | AnyGlobal)[];
+  deps: (HasMemory | AnyGlobal | AnyMemory)[];
 };
 
 type Elem = {

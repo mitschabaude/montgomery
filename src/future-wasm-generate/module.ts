@@ -3,13 +3,15 @@ import { Export, Import } from "./export.js";
 import { Func, JSFunctionType } from "./func.js";
 import { resolveInstruction } from "./instruction/instruction.js";
 import { Module as BinableModule } from "./module-binable.js";
-import { Elem, Global } from "./memory-binable.js";
+import { Data, Elem, Global } from "./memory-binable.js";
 import {
   FunctionType,
   functionTypeEquals,
   Limits,
+  MemoryType,
   TableType,
 } from "./types.js";
+import { Memory } from "./memory.js";
 
 export { Module };
 
@@ -17,15 +19,21 @@ type Module = BinableModule;
 
 function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   exports: inputExports,
-  memory,
+  memory: inputMemory,
 }: {
   exports: Exports;
-  memory?: Limits;
+  memory?: Limits | Dependency.AnyMemory;
 }) {
   // collect all dependencies (by kind)
   let dependencies = new Set<Dependency.t>();
   for (let name in inputExports) {
     pushDependency(dependencies, inputExports[name]);
+  }
+  let memory: MemoryType | undefined;
+  if (inputMemory !== undefined) {
+    let memory_ = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
+    if (memory_.kind === "memory") memory = memory_.type;
+    pushDependency(dependencies, memory_);
   }
   let dependencyByKind: {
     [K in Dependency.t["kind"]]: (Dependency.t & { kind: K })[];
@@ -61,6 +69,12 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     let imp = addImport(table, description, tableIdx, importMap);
     imports.push(imp);
   });
+  dependencyByKind.importMemory.forEach((memory, memoryIdx) => {
+    depToIndex.set(memory, memoryIdx);
+    let description = { kind: "memory" as const, value: memory.type };
+    let imp = addImport(memory, description, memoryIdx, importMap);
+    imports.push(imp);
+  });
 
   // index funcs + their types
   let funcs0: (Dependency.Func & { typeIdx: number; funcIdx: number })[] = [];
@@ -90,6 +104,15 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   // index elems
   dependencyByKind.elem.forEach((elem, elemIdx) =>
     depToIndex.set(elem, elemIdx)
+  );
+  // index memories
+  let nImportMemories = dependencyByKind.importMemory.length;
+  dependencyByKind.memory.forEach((memory, memoryIdx) =>
+    depToIndex.set(memory, memoryIdx + nImportMemories)
+  );
+  // index datas
+  dependencyByKind.data.forEach((data, dataIdx) =>
+    depToIndex.set(data, dataIdx)
   );
 
   // finalize functions
@@ -122,6 +145,19 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
         : mode;
     return { type, init: init_, mode: mode_ };
   });
+  // finalize memory
+  checkMemory(dependencyByKind);
+  // finalize datas
+  let datas: Data[] = dependencyByKind.data.map(({ init, mode }) => {
+    let mode_: Data["mode"] =
+      mode !== "passive"
+        ? {
+            memory: mode.memory,
+            offset: [resolveInstruction(mode.offset, depToIndex)],
+          }
+        : mode;
+    return { init, mode: mode_ };
+  });
 
   // exports
   let exports: Export[] = [];
@@ -136,13 +172,11 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     funcs,
     imports,
     exports,
-    // TODO
-    datas: [],
+    datas,
     elems,
     tables,
     globals,
-    // TODO
-    memory: memory && { limits: memory },
+    memory,
     // TODO
     start: undefined,
   };
@@ -225,4 +259,23 @@ function addImport(
   }
   importModule[string] = value;
   return import_;
+}
+
+function checkMemory(dependencyByKind: {
+  importMemory: Dependency.ImportMemory[];
+  memory: Dependency.Memory[];
+  hasMemory: Dependency.HasMemory[];
+}) {
+  let nMemoriesTotal =
+    dependencyByKind.importMemory.length + dependencyByKind.memory.length;
+  if (nMemoriesTotal === 0) {
+    if (dependencyByKind.hasMemory.length > 0) {
+      throw Error(`Module depends on existence of a memory, but no memory was found. You can add a memory like this:
+let module = Module({
+  //...
+  memory: { min: 1 }
+})
+`);
+    }
+  }
 }

@@ -57,8 +57,9 @@
       local.get 2
     end)
   (table (;0;) 2 funcref)
-  (memory (;0;) 1)
+  (memory (;0;) 1 65536)
   (global (;1;) funcref (ref.func 3))
   (export "exportedFunc" (func 2))
   (export "importedGlobal" (global 0))
-  (elem (;0;) (i32.const 0) func 1 3))
+  (elem (;0;) (i32.const 0) func 1 3)
+  (data (;0;) (i32.const 0) "\01\02\03\04\05\06\07\08\09\0a\0b"))

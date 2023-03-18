@@ -15,7 +15,7 @@ function vec<T>(Element: Binable<T>) {
     },
     readBytes(bytes, start) {
       let [length, offset] = U32.readBytes(bytes, start);
-      let elements = [];
+      let elements: T[] = [];
       for (let i = 0; i < length; i++) {
         let element: T;
         [element, offset] = Element.readBytes(bytes, offset);
@@ -97,7 +97,7 @@ const S33 = Binable<U32>({
 
 function toULEB128(x0: bigint | number) {
   let x = BigInt(x0);
-  let bytes = [];
+  let bytes: number[] = [];
   while (true) {
     let byte = Number(x & 0b0111_1111n); // low 7 bits
     x >>= 7n;
@@ -121,7 +121,7 @@ function fromULEB128(bytes: number[], offset: number) {
 
 function toSLEB128(x0: bigint | number): number[] {
   let x = BigInt(x0);
-  let bytes = [];
+  let bytes: number[] = [];
   while (true) {
     let byte = Number(x & 0b0111_1111n);
     x >>= 7n;

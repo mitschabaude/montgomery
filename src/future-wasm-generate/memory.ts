@@ -1,10 +1,62 @@
 import { Const } from "./dependency.js";
 import * as Dependency from "./dependency.js";
-import { Limits, RefTypeObject, valueTypeLiteral } from "./types.js";
+import { RefTypeObject, valueTypeLiteral } from "./types.js";
 
-export { table, elem };
+export { Memory, Data, Table, Elem };
 
-function table(
+function Memory(
+  {
+    min,
+    max,
+  }: {
+    min: number;
+    max?: number;
+  },
+  ...content: (number[] | Uint8Array)[]
+): Dependency.Memory {
+  let memory: Dependency.Memory = {
+    kind: "memory",
+    type: { limits: { min, max } },
+    deps: [],
+  };
+  let offset = 0;
+  for (let init of content) {
+    Data({ memory, offset: Const.i32(offset) }, init);
+    offset += init.length;
+  }
+  return memory;
+}
+
+function Data(
+  mode:
+    | {
+        memory?: Dependency.AnyMemory;
+        offset: Const.i32 | Const.globalGet;
+      }
+    | "passive",
+  [...init]: number[] | Uint8Array
+): Dependency.Data {
+  if (mode === "passive") {
+    return { kind: "data", init, mode, deps: [] };
+  }
+  let { memory, offset } = mode;
+  let deps = [...offset.deps] as Dependency.AnyGlobal[];
+  let result: Dependency.Data = {
+    kind: "data",
+    init,
+    mode: { memory: 0, offset },
+    deps,
+  };
+  if (memory !== undefined) {
+    result.deps.push(memory);
+    memory.deps.push(result);
+  } else {
+    result.deps.push(Dependency.hasMemory);
+  }
+  return result;
+}
+
+function Table(
   {
     type,
     min,
@@ -22,12 +74,12 @@ function table(
     deps: [],
   };
   if (content !== undefined) {
-    elem({ type, mode: { table, offset: Const.i32(0) } }, content);
+    Elem({ type, mode: { table, offset: Const.i32(0) } }, content);
   }
   return table;
 }
 
-function elem(
+function Elem(
   {
     type,
     mode,

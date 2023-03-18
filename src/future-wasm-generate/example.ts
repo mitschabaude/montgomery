@@ -6,7 +6,7 @@ import { importFunc, importGlobal } from "./export.js";
 import { emptyContext, LocalContext } from "./local-context.js";
 import { Const } from "./dependency.js";
 import { funcref, i64t } from "./types.js";
-import { elem, table } from "./memory.js";
+import { Memory, Table } from "./memory.js";
 import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 import { ref } from "./instruction/variable.js";
@@ -16,6 +16,11 @@ let log = (...args: any) => console.log("logging from wasm:", ...args);
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
 let consoleLog64 = importFunc({ in: [i64t], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
+
+let memory = Memory(
+  { min: 1, max: 2 ** 16 },
+  Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+);
 
 let ctx: LocalContext;
 
@@ -72,7 +77,7 @@ let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
   control.call(ctx, consoleLog);
 });
 
-let funcTable = table({ type: funcref, min: 2 }, [
+let table = Table({ type: funcref, min: 2 }, [
   Const.refFunc(consoleLogFunc),
   Const.refFunc(myFunc),
 ]);
@@ -86,7 +91,7 @@ let exportedFunc = func(
     control.call(ctx, consoleLogFunc);
     global.get(ctx, myFuncGlobal);
     i32.const(ctx, 0);
-    control.call_indirect(ctx, funcTable, { in: [funcref], out: [] });
+    control.call_indirect(ctx, table, { in: [funcref], out: [] });
     local.get(ctx, x);
     local.get(ctx, doLog);
     control.if(ctx, null, () => {
@@ -105,7 +110,7 @@ let exportedFunc = func(
 
 let module = Module({
   exports: { exportedFunc, importedGlobal },
-  memory: { min: 1, max: undefined },
+  memory,
 });
 
 console.dir(module.module, { depth: Infinity });
