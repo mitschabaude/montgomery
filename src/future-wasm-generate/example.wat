@@ -20,8 +20,8 @@
       local.get 0
       call 0
     end
-    i32.const -1
-    i32.const -2
+    i32.const 2147483647
+    i32.const -2147483648
     local.get 1
     select
     call 0

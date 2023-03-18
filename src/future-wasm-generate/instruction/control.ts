@@ -15,7 +15,12 @@ import {
   isSameType,
   LocalContext,
 } from "../local-context.js";
-import { ResultType, ValueType } from "../types.js";
+import {
+  ResultType,
+  ValueType,
+  valueTypeLiteral,
+  ValueTypeObject,
+} from "../types.js";
 import {
   baseInstruction,
   createExpressionWithType,
@@ -240,9 +245,9 @@ const select_t = baseInstruction("select_t", vec(ValueType), {
   },
 });
 
-function select(ctx: LocalContext, t?: ValueType) {
+function select(ctx: LocalContext, t?: ValueTypeObject) {
   if (t === undefined) return select_poly(ctx);
-  else return select_t(ctx, t);
+  else return select_t(ctx, valueTypeLiteral(t));
 }
 
 const control = {

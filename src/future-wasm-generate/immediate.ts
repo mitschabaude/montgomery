@@ -69,7 +69,7 @@ const I32 = Binable<I32>({
     return toSLEB128(x);
   },
   readBytes(bytes, offset): [I32, number] {
-    let [x, end] = fromSLEB128(32, bytes, offset);
+    let [x, end] = fromSLEB128(bytes, offset);
     return [Number(x), end];
   },
 });
@@ -79,7 +79,7 @@ const I64 = Binable<I64>({
     return toSLEB128(x);
   },
   readBytes(bytes, offset): [I64, number] {
-    return fromSLEB128(64, bytes, offset);
+    return fromSLEB128(bytes, offset);
   },
 });
 
@@ -88,7 +88,7 @@ const S33 = Binable<U32>({
     return toSLEB128(x);
   },
   readBytes(bytes, offset): [U32, number] {
-    let [x, end] = fromSLEB128(33, bytes, offset);
+    let [x, end] = fromSLEB128(bytes, offset);
     return [Number(x), end];
   },
 });
@@ -136,7 +136,7 @@ function toSLEB128(x0: bigint | number): number[] {
   }
 }
 
-function fromSLEB128(bitSize: number, bytes: number[], offset: number) {
+function fromSLEB128(bytes: number[], offset: number) {
   let x = 0n;
   let shift = 0n;
   let byte: number;
@@ -146,8 +146,13 @@ function fromSLEB128(bitSize: number, bytes: number[], offset: number) {
     shift += 7n;
     if ((byte & 0b1000_0000) === 0) break;
   }
-  if (shift < bitSize && byte & 0b0100_0000) {
-    x |= -1n << shift;
+  // on wikipedia, they say to check for (shift < bitSize) here (https://en.wikipedia.org/wiki/LEB128)
+  // but that gives wrong results for numbers close to 2**(bitSize)..
+  // the bit arithmetic of negative bigints seems to work as if they are infinite two's complements
+  // e.g. -2n = ...111110, 1n = ...000001 and so we get -2n | 1n == ...111111 == -1n
+  // so you never have to consider 'bit size'
+  if (byte & 0b0100_0000) {
+    x |= -1n << shift; // if negative, we OR with ...11110..0 to make the result a negative bigint
   }
   return [x, offset] as [bigint, number];
 }
