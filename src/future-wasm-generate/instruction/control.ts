@@ -243,14 +243,10 @@ const select_poly = baseInstruction("select", Undefined, {
   resolve: () => undefined,
 });
 const select_t = baseInstruction("select_t", vec(ValueType), {
-  create(_: LocalContext, t: ValueType) {
-    return { in: ["i32", t, t], out: [t], resolveArgs: [[t]] };
+  create(_: LocalContext, t: ValueTypeObject) {
+    let t_ = valueTypeLiteral(t);
+    return { in: ["i32", t_, t_], out: [t_], resolveArgs: [[t_]] };
   },
 });
 
-function select(ctx: LocalContext, t?: ValueTypeObject) {
-  if (t === undefined) return select_poly(ctx);
-  else return select_t(ctx, valueTypeLiteral(t));
-}
-
-const parametric = { drop, select };
+const parametric = { drop, select_t, select_poly };

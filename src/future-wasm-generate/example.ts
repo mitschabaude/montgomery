@@ -6,12 +6,12 @@ import {
   local,
   drop,
   select,
+  ctx,
 } from "./instruction/instruction.js";
 import assert from "node:assert";
 import fs from "node:fs";
 import { Module, func } from "./index.js";
 import { importFunc, importGlobal } from "./export.js";
-import { emptyContext, LocalContext } from "./local-context.js";
 import { Const } from "./dependency.js";
 import { funcref, i64t } from "./types.js";
 import { Memory, Table } from "./memory.js";
@@ -38,19 +38,15 @@ let memory = Memory(
   Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 );
 
-let ctx: LocalContext;
-
-ctx = emptyContext();
-
 let myFunc = func(
   ctx,
   { in: { x: i32, y: i32 }, locals: { tmp: i32, i: i32 }, out: [i32] },
   ({ x, y }, { tmp, i }) => {
-    i32.const(ctx, 0);
+    i32.const(0);
     local.get(ctx, x);
-    i32.add(ctx);
+    i32.add();
     local.get(ctx, y);
-    i32.add(ctx);
+    i32.add();
     control.block(ctx, { in: [i32], out: [i32] }, (block) => {
       local.tee(ctx, tmp);
       control.call(ctx, consoleLog);
@@ -58,13 +54,13 @@ let myFunc = func(
         local.get(ctx, i);
         control.call(ctx, consoleLog);
         local.get(ctx, i);
-        i32.const(ctx, 1);
-        i32.add(ctx);
+        i32.const(1);
+        i32.add();
         local.set(ctx, i);
 
         local.get(ctx, i);
-        i32.const(ctx, 5);
-        i32.eq(ctx);
+        i32.const(5);
+        i32.eq();
         control.if(ctx, {}, () => {
           local.get(ctx, tmp);
           control.return(ctx);
@@ -75,13 +71,13 @@ let myFunc = func(
         // unreachable
         local.get(ctx, i);
         // i64.const(ctx, 10n);
-        i32.ne(ctx);
+        i32.ne();
         control.br_if(ctx, 0);
       });
       local.get(ctx, tmp);
       local.get(ctx, tmp);
       console.log(ctx.stack);
-      drop(ctx);
+      drop();
       console.log(ctx.stack);
     });
   }
@@ -93,7 +89,7 @@ let myFuncGlobal = global(Const.refFunc(myFunc));
 let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
   control.unreachable(ctx);
   // global.get(ctx, importedGlobal);
-  i32.add(ctx);
+  i32.add();
   control.call(ctx, consoleLog);
 });
 
@@ -112,7 +108,7 @@ let exportedFunc = func(
     ref.func(ctx, myFunc); // TODO this fails if there is no table but a global, seems to be a V8 bug
     control.call(ctx, consoleLogFunc);
     global.get(ctx, myFuncGlobal);
-    i32.const(ctx, 0);
+    i32.const(0);
     control.call_indirect(ctx, table, { in: [funcref], out: [] });
     local.get(ctx, x);
     local.get(ctx, doLog);
@@ -121,16 +117,16 @@ let exportedFunc = func(
       control.call(ctx, consoleLog);
       // console.log({ stack: ctx.stack });
     });
-    i32.const(ctx, 2 ** 31 - 1);
-    i32.const(ctx, -(2 ** 31));
+    i32.const(2 ** 31 - 1);
+    i32.const(-(2 ** 31));
     local.get(ctx, doLog);
-    select(ctx);
+    select();
     control.call(ctx, consoleLog);
     // drop(ctx);
     // local.get(ctx, x);
     local.set(ctx, y);
     local.get(ctx, y);
-    i32.const(ctx, 5);
+    i32.const(5);
     control.call(ctx, myFunc);
     // control.unreachable(ctx);
   }
