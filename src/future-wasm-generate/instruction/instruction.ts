@@ -9,12 +9,14 @@ import { i32t, i64t, ValueTypeObject } from "../types.js";
 import { func as originalFunc } from "../func.js";
 export { Expression, ConstExpression } from "./binable.js";
 
-export { i32, i64, f32, f64, local, global, ref, control };
-export { Instruction, resolveInstruction };
+// instruction API
+export { i32, i64, f32, f64, local, global, ref, control, drop, select };
 
-export { func };
-export { drop, select };
-export { defaultCtx as ctx };
+// other public API
+export { func, defaultCtx };
+
+// internal API
+export { Instruction, resolveInstruction };
 
 type i32 = "i32";
 type i64 = "i64";

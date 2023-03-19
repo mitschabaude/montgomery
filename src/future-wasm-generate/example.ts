@@ -8,7 +8,6 @@ import {
   ref,
   drop,
   select,
-  ctx,
 } from "./instruction/instruction.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -41,7 +40,7 @@ let memory = Memory(
 
 let myFunc = func(
   { in: { x: i32, y: i32 }, locals: { tmp: i32, i: i32 }, out: [i32] },
-  ({ x, y }, { tmp, i }) => {
+  ({ x, y }, { tmp, i }, ctx) => {
     i32.const(0);
     local.get(x);
     i32.add();

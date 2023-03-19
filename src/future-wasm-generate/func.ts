@@ -33,7 +33,7 @@ function func<
     locals: ToTypeRecord<Locals>;
     out: ToTypeTuple<Results>;
   },
-  run: (args: ToLocal<Args>, locals: ToLocal<Locals>) => void
+  run: (args: ToLocal<Args>, locals: ToLocal<Locals>, ctx: LocalContext) => void
 ): {
   kind: "function";
   locals: ValueType[];
@@ -80,7 +80,7 @@ function func<
       ],
     },
     () => {
-      run(argsInput, localsInput);
+      run(argsInput, localsInput, ctx);
       popStack(ctx, resultsArray);
       // TODO nice error
       if (ctx.stack.length !== 0)
