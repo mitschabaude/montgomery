@@ -56,7 +56,7 @@ function removeContexts<
     [K in keyof T]: RemoveContext<T[K]>;
   } = {} as any;
   for (let k in instructions) {
-    result[k] = removeContext(ctx, instructions[k]) as any;
+    result[k] = ((...args: any) => instructions[k](ctx, ...args)) as any;
   }
   return result;
 }
