@@ -9,6 +9,8 @@ import { i32t, i64t, ValueTypeObject } from "../types.js";
 import { func as originalFunc } from "../func.js";
 export { Expression, ConstExpression } from "./binable.js";
 
+// TODO: move all this to index.ts
+
 // instruction API
 export { i32, i64, f32, f64, local, global, ref, control, drop, select };
 
