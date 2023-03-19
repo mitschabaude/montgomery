@@ -5,11 +5,11 @@ import { U32 } from "../immediate.js";
 import { baseInstruction } from "./base.js";
 import { RefType } from "../types.js";
 
-export { local, global, ref };
+export { localOps, globalOps, globalConstructor, refOps };
 
 type Local = { index: number };
 
-const local = {
+const localOps = {
   get: baseInstruction("local.get", U32, {
     create({ locals }, x: Local) {
       let local = locals[x.index];
@@ -39,7 +39,7 @@ const local = {
   }),
 };
 
-const globalInstr = {
+const globalOps = {
   get: baseInstruction("global.get", U32, {
     create(_, global: Dependency.AnyGlobal) {
       return { out: [global.type.value], deps: [global] };
@@ -66,9 +66,7 @@ function globalConstructor(
   return { kind: "global", type: { value: type, mutable }, init, deps };
 }
 
-const global = Object.assign(globalConstructor, globalInstr);
-
-const ref = {
+const refOps = {
   null: baseInstruction("ref.null", RefType, {
     create(_, type: RefType) {
       return { out: [type], resolveArgs: [type] };

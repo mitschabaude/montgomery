@@ -1,23 +1,24 @@
 import {
+  func,
   control,
-  global,
   i32,
   i64,
   local,
+  global,
+  ref,
   drop,
   select,
   ctx,
 } from "./instruction/instruction.js";
 import assert from "node:assert";
 import fs from "node:fs";
-import { Module, func } from "./index.js";
+import { Module } from "./index.js";
 import { importFunc, importGlobal } from "./export.js";
 import { Const } from "./dependency.js";
-import { funcref, i64t } from "./types.js";
+import { funcref } from "./types.js";
 import { Memory, Table } from "./memory.js";
 import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
-import { ref } from "./instruction/variable.js";
 
 const wabt = await Wabt();
 const features = {
@@ -30,7 +31,7 @@ const features = {
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
-let consoleLog64 = importFunc({ in: [i64t], out: [] }, log);
+let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
 let memory = Memory(
@@ -39,43 +40,42 @@ let memory = Memory(
 );
 
 let myFunc = func(
-  ctx,
   { in: { x: i32, y: i32 }, locals: { tmp: i32, i: i32 }, out: [i32] },
   ({ x, y }, { tmp, i }) => {
     i32.const(0);
-    local.get(ctx, x);
+    local.get(x);
     i32.add();
-    local.get(ctx, y);
+    local.get(y);
     i32.add();
-    control.block(ctx, { in: [i32], out: [i32] }, (block) => {
-      local.tee(ctx, tmp);
-      control.call(ctx, consoleLog);
-      control.loop(ctx, {}, () => {
-        local.get(ctx, i);
-        control.call(ctx, consoleLog);
-        local.get(ctx, i);
+    control.block({ in: [i32], out: [i32] }, (block) => {
+      local.tee(tmp);
+      control.call(consoleLog);
+      control.loop({}, () => {
+        local.get(i);
+        control.call(consoleLog);
+        local.get(i);
         i32.const(1);
         i32.add();
-        local.set(ctx, i);
+        local.set(i);
 
-        local.get(ctx, i);
+        local.get(i);
         i32.const(5);
         i32.eq();
-        control.if(ctx, {}, () => {
-          local.get(ctx, tmp);
-          control.return(ctx);
+        control.if({}, () => {
+          local.get(tmp);
+          control.return();
           // fine that this is missing input, because code path is unreachable
-          control.call(ctx, consoleLog);
+          control.call(consoleLog);
         });
-        control.br(ctx, 0);
+        control.br(0);
         // unreachable
-        local.get(ctx, i);
-        // i64.const(ctx, 10n);
+        local.get(i);
+        // i64.const(10n);
         i32.ne();
-        control.br_if(ctx, 0);
+        control.br_if(0);
       });
-      local.get(ctx, tmp);
-      local.get(ctx, tmp);
+      local.get(tmp);
+      local.get(tmp);
       console.log(ctx.stack);
       drop();
       console.log(ctx.stack);
@@ -83,14 +83,14 @@ let myFunc = func(
   }
 );
 
-let importedGlobal = importGlobal(i64t, 1000n);
+let importedGlobal = importGlobal(i64, 1000n);
 let myFuncGlobal = global(Const.refFunc(myFunc));
 
-let testUnreachable = func(ctx, { in: {}, locals: {}, out: [] }, () => {
-  control.unreachable(ctx);
-  // global.get(ctx, importedGlobal);
+let testUnreachable = func({ in: {}, locals: {}, out: [] }, () => {
+  control.unreachable();
+  // global.get(importedGlobal);
   i32.add();
-  control.call(ctx, consoleLog);
+  control.call(consoleLog);
 });
 
 let table = Table({ type: funcref, min: 4 }, [
@@ -101,34 +101,33 @@ let table = Table({ type: funcref, min: 4 }, [
 ]);
 
 let exportedFunc = func(
-  ctx,
   { in: { x: i32, doLog: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x, doLog }, { y }) => {
-    // control.call(ctx, testUnreachable);
-    ref.func(ctx, myFunc); // TODO this fails if there is no table but a global, seems to be a V8 bug
-    control.call(ctx, consoleLogFunc);
-    global.get(ctx, myFuncGlobal);
+    // control.call(testUnreachable);
+    ref.func(myFunc); // TODO this fails if there is no table but a global, seems to be a V8 bug
+    control.call(consoleLogFunc);
+    global.get(myFuncGlobal);
     i32.const(0);
-    control.call_indirect(ctx, table, { in: [funcref], out: [] });
-    local.get(ctx, x);
-    local.get(ctx, doLog);
-    control.if(ctx, null, () => {
-      local.get(ctx, x);
-      control.call(ctx, consoleLog);
+    control.call_indirect(table, { in: [funcref], out: [] });
+    local.get(x);
+    local.get(doLog);
+    control.if(null, () => {
+      local.get(x);
+      control.call(consoleLog);
       // console.log({ stack: ctx.stack });
     });
     i32.const(2 ** 31 - 1);
     i32.const(-(2 ** 31));
-    local.get(ctx, doLog);
+    local.get(doLog);
     select();
-    control.call(ctx, consoleLog);
-    // drop(ctx);
-    // local.get(ctx, x);
-    local.set(ctx, y);
-    local.get(ctx, y);
+    control.call(consoleLog);
+    // drop();
+    // local.get(x);
+    local.set(y);
+    local.get(y);
     i32.const(5);
-    control.call(ctx, myFunc);
-    // control.unreachable(ctx);
+    control.call(myFunc);
+    // control.unreachable();
   }
 );
 

@@ -1,6 +1,6 @@
-import { local, global, ref } from "./variable.js";
+import { localOps, globalOps, globalConstructor, refOps } from "./variable.js";
 import { i32Ops, i64Ops } from "./int.js";
-import { control, parametric } from "./control.js";
+import { control as controlOps, parametric } from "./control.js";
 import { Instruction } from "./binable.js";
 import { resolveInstruction } from "./base.js";
 import { emptyContext, LocalContext } from "../local-context.js";
@@ -9,7 +9,7 @@ import { i32t, i64t, ValueTypeObject } from "../types.js";
 import { func as originalFunc } from "../func.js";
 export { Expression, ConstExpression } from "./binable.js";
 
-export { i32, i64, f32, f64, local, global, control };
+export { i32, i64, f32, f64, local, global, ref, control };
 export { Instruction, resolveInstruction };
 
 export { func };
@@ -23,12 +23,20 @@ type f64 = "f64";
 
 const defaultCtx = emptyContext();
 
-let { func, i32, i64, drop, select } = createInstructions(defaultCtx);
+const { func, i32, i64, local, global, ref, control, drop, select } =
+  createInstructions(defaultCtx);
 
 function createInstructions(ctx: LocalContext) {
   const func = removeContext(ctx, originalFunc);
   const i32 = Object.assign(i32t, removeContexts(ctx, i32Ops));
   const i64 = Object.assign(i64t, removeContexts(ctx, i64Ops));
+  const local = removeContexts(ctx, localOps);
+  const global = Object.assign(
+    globalConstructor,
+    removeContexts(ctx, globalOps)
+  );
+  const ref = removeContexts(ctx, refOps);
+  const control = removeContexts(ctx, controlOps);
   const { drop, select_poly, select_t } = removeContexts(ctx, parametric);
 
   // wrappers for instructions that take optional arguments
@@ -36,7 +44,7 @@ function createInstructions(ctx: LocalContext) {
     return t === undefined ? select_poly() : select_t(t);
   }
 
-  return { func, i32, i64, drop, select };
+  return { func, i32, i64, local, global, ref, control, drop, select };
 }
 
 function removeContexts<
