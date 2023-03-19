@@ -31,20 +31,9 @@ import {
 } from "./base.js";
 import { Block, IfBlock } from "./binable.js";
 
-export { control };
-export {
-  unreachable,
-  nop,
-  block,
-  loop,
-  br,
-  br_if,
-  br_table,
-  return_,
-  call,
-  call_indirect,
-};
-export { drop, select };
+export { control, parametric };
+
+// control instructions
 
 const nop = instructionWithArg("nop", Undefined, [], []);
 
@@ -200,6 +189,20 @@ const call_indirect = baseInstruction("call_indirect", tuple([U32, U32]), {
   resolve: ([typeIdx, tableIdx]) => [typeIdx, tableIdx],
 });
 
+const control = {
+  nop,
+  unreachable,
+  block,
+  loop,
+  if: if_,
+  br,
+  br_if,
+  br_table,
+  return: return_,
+  call,
+  call_indirect,
+};
+
 // parametric instructions
 
 const drop = baseInstruction("drop", Undefined, {
@@ -250,16 +253,4 @@ function select(ctx: LocalContext, t?: ValueTypeObject) {
   else return select_t(ctx, valueTypeLiteral(t));
 }
 
-const control = {
-  nop,
-  unreachable,
-  block,
-  loop,
-  if: if_,
-  br,
-  br_if,
-  br_table,
-  return: return_,
-  call,
-  call_indirect,
-};
+const parametric = { drop, select };

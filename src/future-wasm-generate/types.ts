@@ -12,7 +12,7 @@ export {
   TableType,
   ValueType,
   RefType,
-  GenericValueType,
+  Type,
   ResultType,
   invertRecord,
   valueType,
@@ -27,15 +27,15 @@ export {
 type RefType = "funcref" | "externref";
 type ValueType = "i32" | "i64" | "f32" | "f64" | "v128" | RefType;
 
-type GenericValueType<L> = { kind: L };
+type Type<L> = { kind: L };
 function valueTypeLiteral<L extends ValueType>({ kind }: { kind: L }): L {
   return kind;
 }
-function valueType<L extends ValueType>(kind: L): GenericValueType<L> {
+function valueType<L extends ValueType>(kind: L): Type<L> {
   return { kind };
 }
 function valueTypeLiterals<L extends ValueType[]>(types: {
-  [i in keyof L]: GenericValueType<L[i]>;
+  [i in keyof L]: Type<L[i]>;
 }): ValueType[] {
   return types.map((t) => t.kind);
 }

@@ -2,7 +2,7 @@ import { Binable, byteEnum, record, Tuple } from "./binable.js";
 import { Name, U32 } from "./immediate.js";
 import {
   FunctionType,
-  GenericValueType,
+  Type,
   GlobalType,
   JSValue,
   MemoryType,
@@ -89,7 +89,7 @@ function importFunc<
 }
 
 function importGlobal<V extends ValueType>(
-  type: GenericValueType<V>,
+  type: Type<V>,
   value: JSValue<V>,
   { mutable = false } = {}
 ): Dependency.ImportGlobal {

@@ -1,4 +1,12 @@
-import { control, global, i32, i64, local } from "./instruction/instruction.js";
+import {
+  control,
+  global,
+  i32,
+  i64,
+  local,
+  drop,
+  select,
+} from "./instruction/instruction.js";
 import assert from "node:assert";
 import fs from "node:fs";
 import { Module, func } from "./index.js";
@@ -10,7 +18,6 @@ import { Memory, Table } from "./memory.js";
 import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 import { ref } from "./instruction/variable.js";
-import { drop, select } from "./instruction/control.js";
 
 const wabt = await Wabt();
 const features = {
@@ -139,13 +146,13 @@ console.dir(module.module, { depth: Infinity });
 // create byte code and check roundtrip
 let wasmByteCode = module.toBytes();
 console.log(`wasm size: ${wasmByteCode.length} byte`);
-// let recoveredModule = Module.fromBytes(wasmByteCode);
-// assert.deepStrictEqual(recoveredModule, module.module);
+let recoveredModule = Module.fromBytes(wasmByteCode);
+assert.deepStrictEqual(recoveredModule, module.module);
 
 // write wat file for comparison
 let wabtModule = wabt.readWasm(wasmByteCode, features);
 let wat = wabtModule.toText({});
-await writeFile("src/future-wasm-generate/example.wat", wat);
+await writeFile(import.meta.url.slice(7).replace(".ts", ".wat"), wat);
 
 // instantiate & run exported function
 let wasmModule = await module.instantiate();
