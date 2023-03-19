@@ -11,6 +11,7 @@ import {
   ValueType,
   valueTypeLiterals,
 } from "./types.js";
+import { Tuple } from "./util.js";
 
 // external
 export { func };
@@ -139,8 +140,6 @@ type ToTypeRecord<T extends Record<string, ValueType>> = {
 type ToTypeTuple<T extends readonly ValueType[]> = {
   [K in keyof T]: { kind: T[K] };
 };
-
-type Tuple<T> = [] | [T, ...T[]];
 
 type ObjValueTuple<
   T,

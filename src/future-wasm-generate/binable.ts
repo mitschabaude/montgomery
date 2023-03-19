@@ -1,3 +1,5 @@
+import { Tuple } from "./util.js";
+
 export {
   Binable,
   tuple,
@@ -9,7 +11,6 @@ export {
   withValidation,
   Byte,
   Bool,
-  Tuple,
   One,
   Zero,
   Undefined,
@@ -112,8 +113,6 @@ function withValidation<T>(binable: Binable<T>, validate: (t: T) => void) {
     },
   });
 }
-
-type Tuple<T> = [T, ...T[]] | [];
 
 type Union<T extends Tuple<any>> = T[number];
 

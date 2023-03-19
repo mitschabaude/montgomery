@@ -13,6 +13,7 @@ import {
   valueTypeLiterals,
   ValueTypeObject,
 } from "../types.js";
+import { Tuple } from "../util.js";
 import { InstructionName, nameToOpcode } from "./opcodes.js";
 
 export {
@@ -45,7 +46,7 @@ type ResolvedInstruction = { string: string; immediate: any };
  */
 function baseInstruction<
   Immediate,
-  Args extends any[],
+  Args extends Tuple<any>,
   ResolveArgs extends Tuple<any>
 >(
   string: InstructionName,
@@ -149,7 +150,6 @@ function resolveInstruction(
 }
 
 const noResolve = (_: number[], ...args: any) => args[0];
-type Tuple<T> = [T, ...T[]] | [];
 
 // TODO: the input type is simply taken as the current stack, which could be much larger than the minimal needed input type
 // to compute the minimal type signature, local context needs to keep track of the minimum stack height

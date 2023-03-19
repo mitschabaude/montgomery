@@ -1,4 +1,4 @@
-import { Binable, byteEnum, record, Tuple } from "./binable.js";
+import { Binable, byteEnum, record } from "./binable.js";
 import { Name, U32 } from "./immediate.js";
 import {
   FunctionType,
@@ -13,6 +13,7 @@ import {
   valueTypeLiterals,
 } from "./types.js";
 import { Dependency, ToTypeTuple } from "./func.js";
+import { Tuple } from "./util.js";
 
 export { Export, Import, ExternType, importFunc, importGlobal };
 
