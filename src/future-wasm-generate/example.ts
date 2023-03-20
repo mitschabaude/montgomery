@@ -15,10 +15,10 @@ import {
   Memory,
   Table,
   memory,
+  Const,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
-import { Const } from "./dependency.js";
 import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 

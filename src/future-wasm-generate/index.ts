@@ -35,6 +35,7 @@ export { func, defaultCtx };
 export { funcref, externref, Type } from "./types.js";
 export { importFunc, importGlobal } from "./export.js";
 export { Memory, Data, Table, Elem } from "./memory.js";
+export { Const } from "./dependency.js";
 
 type i32 = "i32";
 type i64 = "i64";
