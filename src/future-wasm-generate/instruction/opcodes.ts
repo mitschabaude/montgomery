@@ -176,6 +176,42 @@ const opcodes = {
   0xa5: "f64.max",
   0xa6: "f64.copysign",
 
+  0xa7: "i32.wrap_i64",
+  0xa8: "i32.trunc_f32_s",
+  0xa9: "i32.trunc_f32_u",
+  0xaa: "i32.trunc_f64_s",
+  0xab: "i32.trunc_f64_u",
+
+  0xac: "i64.extend_i32_s",
+  0xad: "i64.extend_i32_u",
+  0xae: "i64.trunc_f32_s",
+  0xaf: "i64.trunc_f32_u",
+  0xb0: "i64.trunc_f64_s",
+  0xb1: "i64.trunc_f64_u",
+
+  0xb2: "f32.convert_i32_s",
+  0xb3: "f32.convert_i32_u",
+  0xb4: "f32.convert_i64_s",
+  0xb5: "f32.convert_i64_u",
+  0xb6: "f32.demote_f64",
+
+  0xb7: "f64.convert_i32_s",
+  0xb8: "f64.convert_i32_u",
+  0xb9: "f64.convert_i64_s",
+  0xba: "f64.convert_i64_u",
+  0xbb: "f64.promote_f32",
+
+  0xbc: "i32.reinterprete_f32",
+  0xbd: "i64.reinterprete_f64",
+  0xbe: "f32.reinterprete_i32",
+  0xbf: "f64.reinterprete_i64",
+
+  0xc0: "i32.extend8_s",
+  0xc1: "i32.extend16_s",
+  0xc2: "i64.extend8_s",
+  0xc3: "i64.extend16_s",
+  0xc4: "i64.extend32_s",
+
   // reference
   0xd0: "ref.null",
   0xd1: "ref.is_null",
