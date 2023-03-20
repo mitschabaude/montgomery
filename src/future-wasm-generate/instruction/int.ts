@@ -127,12 +127,64 @@ const f32Ops = {
   // memory
   load: memoryInstruction("f32.load", 32, [i32t], [f32t]),
   store: memoryInstruction("f32.store", 32, [i32t, f32t], []),
+
+  // comparison
+  eq: instruction("f32.eq", [f32t, f32t], [i32t]),
+  ne: instruction("f32.ne", [f32t, f32t], [i32t]),
+  lt: instruction("f32.lt", [f32t, f32t], [i32t]),
+  gt: instruction("f32.gt", [f32t, f32t], [i32t]),
+  le: instruction("f32.le", [f32t, f32t], [i32t]),
+  ge: instruction("f32.ge", [f32t, f32t], [i32t]),
+
+  // unary
+  abs: instruction("f32.abs", [f32t], [f32t]),
+  neg: instruction("f32.neg", [f32t], [f32t]),
+  ceil: instruction("f32.ceil", [f32t], [f32t]),
+  floor: instruction("f32.floor", [f32t], [f32t]),
+  trunc: instruction("f32.trunc", [f32t], [f32t]),
+  nearest: instruction("f32.nearest", [f32t], [f32t]),
+  sqrt: instruction("f32.sqrt", [f32t], [f32t]),
+
+  // binary
+  add: instruction("f32.add", [f32t, f32t], [f32t]),
+  sub: instruction("f32.sub", [f32t, f32t], [f32t]),
+  mul: instruction("f32.mul", [f32t, f32t], [f32t]),
+  div: instruction("f32.div", [f32t, f32t], [f32t]),
+  min: instruction("f32.min", [f32t, f32t], [f32t]),
+  max: instruction("f32.max", [f32t, f32t], [f32t]),
+  copysign: instruction("f32.copysign", [f32t, f32t], [f32t]),
 };
 
 const f64Ops = {
   // memory
   load: memoryInstruction("f64.load", 64, [i32t], [f64t]),
   store: memoryInstruction("f64.store", 64, [i32t, f64t], []),
+
+  // comparison
+  eq: instruction("f64.eq", [f64t, f64t], [i32t]),
+  ne: instruction("f64.ne", [f64t, f64t], [i32t]),
+  lt: instruction("f64.lt", [f64t, f64t], [i32t]),
+  gt: instruction("f64.gt", [f64t, f64t], [i32t]),
+  le: instruction("f64.le", [f64t, f64t], [i32t]),
+  ge: instruction("f64.ge", [f64t, f64t], [i32t]),
+
+  // unary
+  abs: instruction("f64.abs", [f64t], [f64t]),
+  neg: instruction("f64.neg", [f64t], [f64t]),
+  ceil: instruction("f64.ceil", [f64t], [f64t]),
+  floor: instruction("f64.floor", [f64t], [f64t]),
+  trunc: instruction("f64.trunc", [f64t], [f64t]),
+  nearest: instruction("f64.nearest", [f64t], [f64t]),
+  sqrt: instruction("f64.sqrt", [f64t], [f64t]),
+
+  // binary
+  add: instruction("f64.add", [f64t, f64t], [f64t]),
+  sub: instruction("f64.sub", [f64t, f64t], [f64t]),
+  mul: instruction("f64.mul", [f64t, f64t], [f64t]),
+  div: instruction("f64.div", [f64t, f64t], [f64t]),
+  min: instruction("f64.min", [f64t, f64t], [f64t]),
+  max: instruction("f64.max", [f64t, f64t], [f64t]),
+  copysign: instruction("f64.copysign", [f64t, f64t], [f64t]),
 };
 
 function memoryInstruction<

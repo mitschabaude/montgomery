@@ -107,6 +107,7 @@ const opcodes = {
   0x67: "i32.clz",
   0x68: "i32.ctz",
   0x69: "i32.popcnt",
+
   0x6a: "i32.add",
   0x6b: "i32.sub",
   0x6c: "i32.mul",
@@ -126,6 +127,7 @@ const opcodes = {
   0x79: "i64.clz",
   0x7a: "i64.ctz",
   0x7b: "i64.popcnt",
+
   0x7c: "i64.add",
   0x7d: "i64.sub",
   0x7e: "i64.mul",
@@ -141,6 +143,38 @@ const opcodes = {
   0x88: "i64.shr_u",
   0x89: "i64.rotl",
   0x8a: "i64.rotr",
+
+  0x8b: "f32.abs",
+  0x8c: "f32.neg",
+  0x8d: "f32.ceil",
+  0x8e: "f32.floor",
+  0x8f: "f32.trunc",
+  0x90: "f32.nearest",
+  0x91: "f32.sqrt",
+
+  0x92: "f32.add",
+  0x93: "f32.sub",
+  0x94: "f32.mul",
+  0x95: "f32.div",
+  0x96: "f32.min",
+  0x97: "f32.max",
+  0x98: "f32.copysign",
+
+  0x99: "f64.abs",
+  0x9a: "f64.neg",
+  0x9b: "f64.ceil",
+  0x9c: "f64.floor",
+  0x9d: "f64.trunc",
+  0x9e: "f64.nearest",
+  0x9f: "f64.sqrt",
+
+  0xa0: "f64.add",
+  0xa1: "f64.sub",
+  0xa2: "f64.mul",
+  0xa3: "f64.div",
+  0xa4: "f64.min",
+  0xa5: "f64.max",
+  0xa6: "f64.copysign",
 
   // reference
   0xd0: "ref.null",
