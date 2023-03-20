@@ -21,19 +21,19 @@ import {
 } from "./types.js";
 import { Export, Import } from "./export.js";
 import { Data, Elem, Global } from "./memory-binable.js";
-import { Code, Func } from "./func.js";
+import { Code, FinalizedFunc } from "./func.js";
 
 export { Module };
 
 type Module = {
   types: FunctionType[];
-  funcs: Func[];
+  funcs: FinalizedFunc[];
   tables: TableType[];
   memory?: MemoryType;
   globals: Global[];
   elems: Elem[];
   datas: Data[];
-  start?: Func;
+  start?: FinalizedFunc;
   imports: Import[];
   exports: Export[];
 };
@@ -177,7 +177,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     datas,
     elems,
   }) {
-    let funcSection = funcs.map((f) => f.typeIndex);
+    let funcSection = funcs.map((f) => f.typeIdx);
     let memorySection = memory ? [memory] : [];
     let startSection = start && funcs.indexOf(start);
     if (startSection === -1) {
@@ -217,12 +217,12 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
     let importedFunctionsLength = importSection.filter(
       (i) => i.description.kind === "function"
     ).length;
-    let funcs = funcSection.map((typeIndex, funcIdx) => {
-      let type = typeSection[typeIndex];
+    let funcs = funcSection.map((typeIdx, funcIdx) => {
+      let type = typeSection[typeIdx];
       let { locals, body } = codeSection[funcIdx];
       return {
-        functionIndex: importedFunctionsLength + funcIdx,
-        typeIndex,
+        funcIdx: importedFunctionsLength + funcIdx,
+        typeIdx,
         type,
         locals,
         body,

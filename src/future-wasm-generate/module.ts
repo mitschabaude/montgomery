@@ -1,6 +1,6 @@
 import * as Dependency from "./dependency.js";
 import { Export, Import } from "./export.js";
-import { Func, JSFunctionType } from "./func.js";
+import { FinalizedFunc, JSFunctionType } from "./func.js";
 import { resolveInstruction } from "./instruction/instruction.js";
 import { Module as BinableModule } from "./module-binable.js";
 import { Data, Elem, Global } from "./memory-binable.js";
@@ -116,14 +116,14 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   );
 
   // finalize functions
-  let funcs: Func[] = funcs0.map(({ typeIdx, funcIdx, ...func }) => {
+  let funcs: FinalizedFunc[] = funcs0.map(({ typeIdx, funcIdx, ...func }) => {
     let body = func.body.map((instr) => resolveInstruction(instr, depToIndex));
     return {
-      body,
-      functionIndex: funcIdx,
-      typeIndex: typeIdx,
-      locals: func.locals,
+      funcIdx: funcIdx,
+      typeIdx: typeIdx,
       type: func.type,
+      locals: func.locals,
+      body,
     };
   });
   // finalize globals

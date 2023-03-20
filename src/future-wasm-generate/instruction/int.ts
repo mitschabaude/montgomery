@@ -12,7 +12,7 @@ import { record } from "../binable.js";
 import { LocalContext } from "../local-context.js";
 import { InstructionName } from "./opcodes.js";
 
-export { i32Ops, i64Ops };
+export { i32Ops, i64Ops, f32Ops, f64Ops };
 
 type MemArg = { offset: U32; align: U32 };
 const MemArg = record({ offset: U32, align: U32 });
@@ -28,6 +28,7 @@ const i32Ops = {
   store16: memoryInstruction("i32.store16", 16, [i32t, i32t], []),
   store8: memoryInstruction("i32.store8", 8, [i32t, i32t], []),
 
+  // numeric
   const: instructionWithArg("i32.const", I32, [], [i32t]),
   add: instruction("i32.add", [i32t, i32t], [i32t]),
   eq: instruction("i32.eq", [i32t, i32t], [i32t]),
@@ -35,7 +36,33 @@ const i32Ops = {
 };
 
 const i64Ops = {
+  // memory
+  load: memoryInstruction("i64.load", 64, [i32t], [i64t]),
+  load32_s: memoryInstruction("i64.load32_s", 32, [i32t], [i64t]),
+  load32_u: memoryInstruction("i64.load32_u", 32, [i32t], [i64t]),
+  load16_s: memoryInstruction("i64.load16_s", 16, [i32t], [i64t]),
+  load16_u: memoryInstruction("i64.load16_u", 16, [i32t], [i64t]),
+  load8_s: memoryInstruction("i64.load8_s", 8, [i32t], [i64t]),
+  load8_u: memoryInstruction("i64.load8_u", 8, [i32t], [i64t]),
+  store: memoryInstruction("i64.store", 64, [i32t, i64t], []),
+  store32: memoryInstruction("i64.store32", 32, [i32t, i64t], []),
+  store16: memoryInstruction("i64.store16", 16, [i32t, i64t], []),
+  store8: memoryInstruction("i64.store8", 8, [i32t, i64t], []),
+
+  // numeric
   const: instructionWithArg("i64.const", I64, [], [i64t]),
+};
+
+const f32Ops = {
+  // memory
+  load: memoryInstruction("f32.load", 32, [i32t], [f32t]),
+  store: memoryInstruction("f32.store", 32, [i32t, f32t], []),
+};
+
+const f64Ops = {
+  // memory
+  load: memoryInstruction("f64.load", 64, [i32t], [f64t]),
+  store: memoryInstruction("f64.store", 64, [i32t, f64t], []),
 };
 
 function memoryInstruction(
