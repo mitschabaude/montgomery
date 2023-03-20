@@ -1,4 +1,5 @@
 import {
+  Module,
   func,
   control,
   i32,
@@ -8,14 +9,15 @@ import {
   ref,
   drop,
   select,
-} from "./instruction/instruction.js";
+  funcref,
+  importFunc,
+  importGlobal,
+  Memory,
+  Table,
+} from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
-import { Module } from "./index.js";
-import { importFunc, importGlobal } from "./export.js";
 import { Const } from "./dependency.js";
-import { funcref } from "./types.js";
-import { Memory, Table } from "./memory.js";
 import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 
