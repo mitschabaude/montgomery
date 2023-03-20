@@ -6,14 +6,29 @@ import {
   refOps,
 } from "./instruction/variable.js";
 import { i32Ops, i64Ops } from "./instruction/int.js";
+import { memoryOps } from "./instruction/memory.js";
 import { control as controlOps, parametric } from "./instruction/control.js";
 import { emptyContext, LocalContext } from "./local-context.js";
 import { Tuple } from "./util.js";
 import { i32t, i64t, v128t, ValueTypeObject } from "./types.js";
 import { func as originalFunc } from "./func.js";
+import { Instruction } from "./instruction/base.js";
 
 // instruction API
-export { i32, i64, f32, f64, v128, local, global, ref, control, drop, select };
+export {
+  i32,
+  i64,
+  f32,
+  f64,
+  v128,
+  local,
+  global,
+  ref,
+  control,
+  drop,
+  select,
+  memory,
+};
 
 // other public API
 export { func, defaultCtx };
@@ -30,7 +45,7 @@ const v128 = v128t;
 
 const defaultCtx = emptyContext();
 
-const { func, i32, i64, local, global, ref, control, drop, select } =
+const { func, i32, i64, local, global, ref, control, drop, select, memory } =
   createInstructions(defaultCtx);
 
 function createInstructions(ctx: LocalContext) {
@@ -46,17 +61,26 @@ function createInstructions(ctx: LocalContext) {
   const control = removeContexts(ctx, controlOps);
   const { drop, select_poly, select_t } = removeContexts(ctx, parametric);
 
+  const memory = removeContexts(ctx, memoryOps);
+
   // wrappers for instructions that take optional arguments
   function select(t?: ValueTypeObject) {
     return t === undefined ? select_poly() : select_t(t);
   }
 
-  return { func, i32, i64, local, global, ref, control, drop, select };
+  return { func, i32, i64, local, global, ref, control, drop, select, memory };
 }
 
 function removeContexts<
-  T extends { [K in any]: (ctx: LocalContext, ...args: any) => any }
->(ctx: LocalContext, instructions: T): { [K in keyof T]: RemoveContext<T[K]> } {
+  T extends {
+    [K in any]: (ctx: LocalContext, ...args: any) => Instruction<any, any>;
+  }
+>(
+  ctx: LocalContext,
+  instructions: T
+): {
+  [K in keyof T]: RemoveContext<T[K]>;
+} {
   let result: {
     [K in keyof T]: RemoveContext<T[K]>;
   } = {} as any;
@@ -67,8 +91,8 @@ function removeContexts<
 }
 
 type RemoveContext<F extends (ctx: LocalContext, ...args: any) => any> =
-  F extends (ctx: LocalContext, ...args: infer Args) => infer Return
-    ? (...args: Args) => Return
+  F extends (ctx: LocalContext, ...args: infer CreateArgs) => infer Return
+    ? (...args: CreateArgs) => Return
     : never;
 
 function removeContext<Args extends Tuple<any>, Return extends any>(
