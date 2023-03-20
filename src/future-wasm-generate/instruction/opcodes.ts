@@ -201,10 +201,10 @@ const opcodes = {
   0xba: "f64.convert_i64_u",
   0xbb: "f64.promote_f32",
 
-  0xbc: "i32.reinterprete_f32",
-  0xbd: "i64.reinterprete_f64",
-  0xbe: "f32.reinterprete_i32",
-  0xbf: "f64.reinterprete_i64",
+  0xbc: "i32.reinterpret_f32",
+  0xbd: "i64.reinterpret_f64",
+  0xbe: "f32.reinterpret_i32",
+  0xbf: "f64.reinterpret_i64",
 
   0xc0: "i32.extend8_s",
   0xc1: "i32.extend16_s",

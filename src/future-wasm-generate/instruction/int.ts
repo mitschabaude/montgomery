@@ -68,6 +68,16 @@ const i32Ops = {
   shr_u: instruction("i32.shr_u", [i32t, i32t], [i32t]),
   rotl: instruction("i32.rotl", [i32t, i32t], [i32t]),
   rotr: instruction("i32.rotr", [i32t, i32t], [i32t]),
+
+  // conversion
+  wrap_i64: instruction("i32.wrap_i64", [i64t], [i32t]),
+  trunc_f32_s: instruction("i32.trunc_f32_s", [f32t], [i32t]),
+  trunc_f32_u: instruction("i32.trunc_f32_u", [f32t], [i32t]),
+  trunc_f64_s: instruction("i32.trunc_f64_s", [f64t], [i32t]),
+  trunc_f64_u: instruction("i32.trunc_f64_u", [f64t], [i32t]),
+  reinterpret_f32: instruction("i32.reinterpret_f32", [f32t], [i32t]),
+  extend8_s: instruction("i32.extend8_s", [i32t], [i32t]),
+  extend16_s: instruction("i32.extend16_s", [i32t], [i32t]),
 };
 
 const i64Ops = {
@@ -121,6 +131,18 @@ const i64Ops = {
   shr_u: instruction("i64.shr_u", [i64t, i64t], [i64t]),
   rotl: instruction("i64.rotl", [i64t, i64t], [i64t]),
   rotr: instruction("i64.rotr", [i64t, i64t], [i64t]),
+
+  // conversion
+  extend_i32_s: instruction("i64.extend_i32_s", [i32t], [i64t]),
+  extend_i32_u: instruction("i64.extend_i32_u", [i32t], [i64t]),
+  trunc_f32_s: instruction("i64.trunc_f32_s", [f32t], [i64t]),
+  trunc_f32_u: instruction("i64.trunc_f32_u", [f32t], [i64t]),
+  trunc_f64_s: instruction("i64.trunc_f64_s", [f64t], [i64t]),
+  trunc_f64_u: instruction("i64.trunc_f64_u", [f64t], [i64t]),
+  reinterpret_f32: instruction("i64.reinterpret_f64", [f64t], [i64t]),
+  extend8_s: instruction("i64.extend8_s", [i64t], [i64t]),
+  extend16_s: instruction("i64.extend16_s", [i64t], [i64t]),
+  extend32_s: instruction("i64.extend32_s", [i64t], [i64t]),
 };
 
 const f32Ops = {
@@ -153,6 +175,14 @@ const f32Ops = {
   min: instruction("f32.min", [f32t, f32t], [f32t]),
   max: instruction("f32.max", [f32t, f32t], [f32t]),
   copysign: instruction("f32.copysign", [f32t, f32t], [f32t]),
+
+  // conversion
+  convert_i32_s: instruction("f32.convert_i32_s", [i32t], [f32t]),
+  convert_i32_u: instruction("f32.convert_i32_u", [i32t], [f32t]),
+  convert_i64_s: instruction("f32.convert_i64_s", [i64t], [f32t]),
+  convert_i64_u: instruction("f32.convert_i64_u", [i64t], [f32t]),
+  demote_f64: instruction("f32.demote_f64", [f64t], [f32t]),
+  reinterpret_i32: instruction("f32.reinterpret_i32", [i32t], [f32t]),
 };
 
 const f64Ops = {
@@ -185,6 +215,14 @@ const f64Ops = {
   min: instruction("f64.min", [f64t, f64t], [f64t]),
   max: instruction("f64.max", [f64t, f64t], [f64t]),
   copysign: instruction("f64.copysign", [f64t, f64t], [f64t]),
+
+  // conversion
+  convert_i32_s: instruction("f64.convert_i32_s", [i32t], [f64t]),
+  convert_i32_u: instruction("f64.convert_i32_u", [i32t], [f64t]),
+  convert_i64_s: instruction("f64.convert_i64_s", [i64t], [f64t]),
+  convert_i64_u: instruction("f64.convert_i64_u", [i64t], [f64t]),
+  promote_f32: instruction("f64.promote_f32", [f32t], [f64t]),
+  reinterpret_i64: instruction("f64.reinterpret_i64", [i64t], [f64t]),
 };
 
 function memoryInstruction<
