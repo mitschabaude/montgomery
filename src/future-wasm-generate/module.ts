@@ -29,11 +29,9 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   for (let name in inputExports) {
     pushDependency(dependencies, inputExports[name]);
   }
-  let memory: MemoryType | undefined;
   if (inputMemory !== undefined) {
-    let memory_ = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
-    if (memory_.kind === "memory") memory = memory_.type;
-    pushDependency(dependencies, memory_);
+    let memory = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
+    pushDependency(dependencies, memory);
   }
   let dependencyByKind: {
     [K in Dependency.t["kind"]]: (Dependency.t & { kind: K })[];
@@ -146,7 +144,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     return { type, init: init_, mode: mode_ };
   });
   // finalize memory
-  checkMemory(dependencyByKind);
+  let memory = checkMemory(dependencyByKind);
   // finalize datas
   let datas: Data[] = dependencyByKind.data.map(({ init, mode }) => {
     let mode_: Data["mode"] =
@@ -265,7 +263,7 @@ function checkMemory(dependencyByKind: {
   importMemory: Dependency.ImportMemory[];
   memory: Dependency.Memory[];
   hasMemory: Dependency.HasMemory[];
-}) {
+}): MemoryType | undefined {
   let nMemoriesTotal =
     dependencyByKind.importMemory.length + dependencyByKind.memory.length;
   if (nMemoriesTotal === 0) {
@@ -278,4 +276,5 @@ let module = Module({
 `);
     }
   }
+  return dependencyByKind.memory[0]?.type;
 }

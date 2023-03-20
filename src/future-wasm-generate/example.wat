@@ -28,7 +28,11 @@
     local.set 2
     local.get 2
     i32.const 5
-    call 3)
+    call 3
+    i32.const 0
+    i32.const 0
+    i32.load offset=4
+    i32.store)
   (func (;3;) (type 2) (param i32 i32) (result i32)
     (local i32 i32)
     i32.const 0
@@ -68,5 +72,6 @@
   (global (;1;) funcref (ref.func 3))
   (export "exportedFunc" (func 2))
   (export "importedGlobal" (global 0))
+  (export "memory" (memory 0))
   (elem (;0;) (i32.const 0) funcref (ref.func 1) (ref.func 3) (ref.null func) (ref.null func))
-  (data (;0;) (i32.const 0) "\01\02\03\04\05\06\07\08\09\0a\0b"))
+  (data (;0;) (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a\0b"))

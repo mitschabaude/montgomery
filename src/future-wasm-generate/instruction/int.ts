@@ -14,8 +14,8 @@ import { InstructionName } from "./opcodes.js";
 
 export { i32Ops, i64Ops, f32Ops, f64Ops };
 
-type MemArg = { offset: U32; align: U32 };
-const MemArg = record({ offset: U32, align: U32 });
+type MemArg = { align: U32; offset: U32 };
+const MemArg = record({ align: U32, offset: U32 });
 
 const i32Ops = {
   // memory
@@ -80,10 +80,14 @@ function memoryInstruction(
       _: LocalContext,
       { offset = 0, align = bits / 8 }: { offset?: number; align?: number }
     ) {
+      let alignExponent = Math.log2(align);
+      if (!Number.isInteger(alignExponent)) {
+        throw Error(`${name}: \`align\` must be power of 2, got ${align}`);
+      }
       return {
         in: valueTypeLiterals(args),
         out: valueTypeLiterals(results),
-        resolveArgs: [{ offset, align }],
+        resolveArgs: [{ offset, align: alignExponent }],
       };
     },
   });
