@@ -1,5 +1,6 @@
 import { Binable, Bool, record, withByteCode } from "./binable.js";
 import { U32, vec } from "./immediate.js";
+import { Tuple } from "./util.js";
 
 export { i32t, i64t, f32t, f64t, v128t, funcref, externref };
 export { TypeIndex, FunctionIndex, MemoryIndex, TableIndex };
@@ -16,8 +17,10 @@ export {
   ResultType,
   invertRecord,
   valueType,
+  ValueTypeObjects,
   valueTypeLiteral,
   valueTypeLiterals,
+  ValueTypeLiterals,
   functionTypeEquals,
   printFunctionType,
   JSValue,
@@ -31,13 +34,19 @@ type Type<L> = { kind: L };
 function valueTypeLiteral<L extends ValueType>({ kind }: { kind: L }): L {
   return kind;
 }
+type ValueTypeObjects<T extends Tuple<ValueType>> = {
+  [i in keyof T]: { kind: T[i] };
+};
 function valueType<L extends ValueType>(kind: L): Type<L> {
   return { kind };
 }
+type ValueTypeLiterals<T extends Tuple<ValueTypeObject>> = {
+  [i in keyof T]: T[i] extends { kind: infer L } ? L : never;
+};
 function valueTypeLiterals<L extends ValueType[]>(types: {
   [i in keyof L]: Type<L[i]>;
-}): ValueType[] {
-  return types.map((t) => t.kind);
+}): L & ValueType[] {
+  return types.map((t) => t.kind) as L;
 }
 
 const valueTypeCodes: Record<ValueType, number> = {
@@ -114,10 +123,9 @@ const MemoryType = record<MemoryType>({ limits: Limits });
 type TableType = { type: RefType; limits: Limits };
 const TableType = record<TableType>({ type: RefType, limits: Limits });
 
-type ResultType = ValueType[];
 const ResultType = vec(ValueType);
 
-type FunctionType = { args: ResultType; results: ResultType };
+type FunctionType = { args: ValueType[]; results: ValueType[] };
 const FunctionType = withByteCode(
   0x60,
   record<FunctionType>({ args: ResultType, results: ResultType })

@@ -3,7 +3,8 @@ import { Const } from "../dependency.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
 import { baseInstruction } from "./base.js";
-import { RefType } from "../types.js";
+import { RefType, ValueType } from "../types.js";
+import { LocalContext } from "../local-context.js";
 
 export { localOps, globalOps, globalConstructor, refOps };
 
@@ -15,7 +16,7 @@ const localOps = {
       let local = locals[x.index];
       if (local === undefined)
         throw Error(`local with index ${x.index} not available`);
-      return { out: [local] };
+      return { in: [], out: [local] };
     },
     resolve: (_, x: Local) => x.index,
   }),
@@ -24,7 +25,7 @@ const localOps = {
       let local = locals[x.index];
       if (local === undefined)
         throw Error(`local with index ${x.index} not available`);
-      return { in: [local] };
+      return { in: [local], out: [] };
     },
     resolve: (_, x: Local) => x.index,
   }),
@@ -42,7 +43,11 @@ const localOps = {
 const globalOps = {
   get: baseInstruction("global.get", U32, {
     create(_, global: Dependency.AnyGlobal) {
-      return { out: [global.type.value], deps: [global] };
+      return {
+        in: [],
+        out: [global.type.value],
+        deps: [global],
+      };
     },
     resolve: ([globalIdx]) => globalIdx,
   }),
@@ -51,7 +56,11 @@ const globalOps = {
       if (!global.type.mutable) {
         throw Error("global.set used on immutable global");
       }
-      return { in: [global.type.value], deps: [global] };
+      return {
+        in: [global.type.value],
+        out: [],
+        deps: [global],
+      };
     },
     resolve: ([globalIdx]) => globalIdx,
   }),
@@ -69,17 +78,22 @@ function globalConstructor(
 const refOps = {
   null: baseInstruction("ref.null", RefType, {
     create(_, type: RefType) {
-      return { out: [type], resolveArgs: [type] };
+      return { in: [], out: [type] as [ValueType], resolveArgs: [type] };
     },
   }),
   is_null: baseInstruction("ref.is_null", Undefined, {
-    create({ stack }) {
+    create({ stack }: LocalContext) {
       return { in: [stack[stack.length - 1]], out: ["i32"] };
     },
+    resolve: () => undefined,
   }),
   func: baseInstruction("ref.func", U32, {
     create(_, func: Dependency.AnyFunc) {
-      return { out: ["funcref"], deps: [func, Dependency.hasRefTo(func)] };
+      return {
+        in: [],
+        out: ["funcref"],
+        deps: [func, Dependency.hasRefTo(func)],
+      };
     },
     resolve: ([funcIdx]) => funcIdx,
   }),

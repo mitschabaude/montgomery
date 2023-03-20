@@ -15,12 +15,7 @@ import {
   isSameType,
   LocalContext,
 } from "../local-context.js";
-import {
-  ResultType,
-  ValueType,
-  valueTypeLiteral,
-  ValueTypeObject,
-} from "../types.js";
+import { ValueType, valueTypeLiteral, ValueTypeObject } from "../types.js";
 import {
   baseInstruction,
   createExpressionWithType,
@@ -40,7 +35,7 @@ const nop = instructionWithArg("nop", Undefined, [], []);
 const unreachable = baseInstruction("unreachable", Undefined, {
   create(ctx) {
     setUnreachable(ctx);
-    return {};
+    return { in: [], out: [] };
   },
   resolve: () => undefined,
 });
@@ -86,7 +81,7 @@ const if_ = baseInstruction("if", IfBlock, {
   ) {
     popStack(ctx, ["i32"]);
     let { type, body, deps } = createExpressionWithType("if", ctx, t, runIf);
-    let ifArgs: ResultType = [...type.args, "i32"];
+    let ifArgs = [...type.args, "i32"] as [...ValueType[], "i32"];
     if (runElse === undefined) {
       pushStack(ctx, ["i32"]);
       return {
@@ -124,7 +119,7 @@ const br = baseInstruction("br", U32, {
     let types = labelTypes(frame);
     popStack(ctx, types);
     setUnreachable(ctx);
-    return { resolveArgs: [i] };
+    return { in: [], out: [], resolveArgs: [i] };
   },
 });
 
@@ -154,7 +149,8 @@ const br_table = baseInstruction("br_table", LabelTable, {
     }
     popStack(ctx, types);
     setUnreachable(ctx);
-    return { resolveArgs: [{ indices, defaultIndex }] };
+    pushStack(ctx, ["i32"]);
+    return { in: ["i32"], out: [], resolveArgs: [{ indices, defaultIndex }] };
   },
 });
 
@@ -165,7 +161,7 @@ const return_ = baseInstruction("return", Undefined, {
     if (type === null) throw Error("bug: called return outside a function");
     popStack(ctx, type);
     setUnreachable(ctx);
-    return {};
+    return { in: [], out: [] };
   },
   resolve: () => undefined,
 });
@@ -208,7 +204,8 @@ const control = {
 const drop = baseInstruction("drop", Undefined, {
   create(ctx: LocalContext) {
     popUnknown(ctx);
-    return {};
+    // TODO represent "unknown" in possible input types and remove this hack
+    return { in: [] as any as [ValueType], out: [] };
   },
   resolve: () => undefined,
 });
@@ -238,7 +235,8 @@ const select_poly = baseInstruction("select", Undefined, {
       throw Error(
         "polymorphic select with two unknown types is not implemented."
       );
-    return { out: [t] };
+    // TODO represent "unknown" in possible input types and remove this hack
+    return { in: [] as any as ["i32", ValueType], out: [t] };
   },
   resolve: () => undefined,
 });

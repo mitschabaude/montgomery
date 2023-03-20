@@ -8,6 +8,7 @@ import {
   ref,
   drop,
   select,
+  memory,
 } from "./instruction/instruction.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -33,7 +34,7 @@ let consoleLog = importFunc({ in: [i32], out: [] }, log);
 let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
-let memory = Memory(
+let mem = Memory(
   { min: 1, max: 2 ** 16 },
   Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 );
@@ -128,6 +129,10 @@ let exportedFunc = func(
     control.call(myFunc);
     // control.unreachable();
 
+    i32.const(10);
+    memory.grow();
+    drop();
+
     // move int32 at location 4 to location 0
     i32.const(0);
     i32.const(0);
@@ -137,7 +142,7 @@ let exportedFunc = func(
 );
 
 let module = Module({
-  exports: { exportedFunc, importedGlobal, memory },
+  exports: { exportedFunc, importedGlobal, memory: mem },
 });
 
 console.dir(module.module, { depth: Infinity });

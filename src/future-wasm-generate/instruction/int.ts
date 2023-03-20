@@ -5,13 +5,15 @@ import {
   i64t,
   f32t,
   f64t,
-  ValueTypeObject,
   valueTypeLiterals,
+  ValueType,
+  ValueTypeObjects,
 } from "../types.js";
 import { record } from "../binable.js";
 import { LocalContext } from "../local-context.js";
 import { InstructionName } from "./opcodes.js";
 import * as Dependency from "../dependency.js";
+import { Tuple } from "../util.js";
 
 export { i32Ops, i64Ops, f32Ops, f64Ops };
 
@@ -66,16 +68,21 @@ const f64Ops = {
   store: memoryInstruction("f64.store", 64, [i32t, f64t], []),
 };
 
-function memoryInstruction(
+function memoryInstruction<
+  Args extends Tuple<ValueType>,
+  Results extends Tuple<ValueType>
+>(
   name: InstructionName,
   bits: number,
-  args: ValueTypeObject[],
-  results: ValueTypeObject[]
+  args: ValueTypeObjects<Args>,
+  results: ValueTypeObjects<Results>
 ) {
   return baseInstruction<
     MemArg,
     [memArg: { offset?: number; align?: number }],
-    [memArg: MemArg]
+    [memArg: MemArg],
+    Args,
+    Results
   >(name, MemArg, {
     create(
       _: LocalContext,

@@ -29,6 +29,9 @@
     local.get 2
     i32.const 5
     call 3
+    i32.const 10
+    memory.grow
+    drop
     i32.const 0
     i32.const 0
     i32.load offset=4

@@ -3,11 +3,11 @@ import { S33, U32 } from "../immediate.js";
 import { ValueType } from "../types.js";
 import { lookupInstruction, lookupOpcode } from "./base.js";
 
-export { Instruction, Expression, ConstExpression, Block, IfBlock };
+export { FinalizedInstruction, Expression, ConstExpression, Block, IfBlock };
 
-type Instruction = { string: string; immediate: any };
+type FinalizedInstruction = { string: string; immediate: any };
 
-const Instruction = Binable<Instruction>({
+const Instruction = Binable<FinalizedInstruction>({
   toBytes({ string, immediate }) {
     let instr = lookupInstruction(string);
     let imm: number[] = [];
@@ -28,17 +28,17 @@ const Instruction = Binable<Instruction>({
 });
 
 const END = 0x0b;
-type Expression = Instruction[];
-const Expression = Binable<Instruction[]>({
+type Expression = FinalizedInstruction[];
+const Expression = Binable<FinalizedInstruction[]>({
   toBytes(t) {
     let instructions = t.map(Instruction.toBytes).flat();
     instructions.push(END);
     return instructions;
   },
   readBytes(bytes, offset) {
-    let instructions: Instruction[] = [];
+    let instructions: FinalizedInstruction[] = [];
     while (bytes[offset] !== END) {
-      let instr: Instruction;
+      let instr: FinalizedInstruction;
       [instr, offset] = Instruction.readBytes(bytes, offset);
       instructions.push(instr);
     }
@@ -47,7 +47,10 @@ const Expression = Binable<Instruction[]>({
 });
 
 const ELSE = 0x05;
-type IfExpression = { if: Instruction[]; else?: Instruction[] };
+type IfExpression = {
+  if: FinalizedInstruction[];
+  else?: FinalizedInstruction[];
+};
 const IfExpression = Binable<IfExpression>({
   toBytes(t) {
     let instructions = t.if.map(Instruction.toBytes).flat();
@@ -69,7 +72,7 @@ const IfExpression = Binable<IfExpression>({
         offset++;
         break;
       }
-      let instr: Instruction;
+      let instr: FinalizedInstruction;
       [instr, offset] = Instruction.readBytes(bytes, offset);
       instructions.push(instr);
     }
