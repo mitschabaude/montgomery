@@ -12,8 +12,9 @@ import {
   valueTypeLiteral,
   valueTypeLiterals,
 } from "./types.js";
-import { Dependency, ToTypeTuple } from "./func.js";
+import { ToTypeTuple } from "./func.js";
 import { Tuple } from "./util.js";
+import * as Dependency from "./dependency.js";
 
 export { Export, Import, ExternType, importFunc, importGlobal };
 

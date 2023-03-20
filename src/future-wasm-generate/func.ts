@@ -1,7 +1,7 @@
 import { Binable, iso, record, tuple } from "./binable.js";
 import * as Dependency from "./dependency.js";
 import { U32, vec, withByteLength } from "./immediate.js";
-import { Expression, Instruction } from "./instruction/binable.js";
+import { Expression, FinalizedInstruction } from "./instruction/binable.js";
 import { LocalContext, popStack, withContext } from "./local-context.js";
 import {
   FunctionIndex,
@@ -16,7 +16,18 @@ import { Tuple } from "./util.js";
 // external
 export { func };
 // internal
-export { Dependency, Func, Code, JSFunctionType, ToTypeTuple };
+export { FinalizedFunc, Code, JSFunctionType, ToTypeTuple };
+
+type Func<
+  Args extends Record<string, ValueType>,
+  Results extends readonly ValueType[]
+> = {
+  kind: "function";
+  locals: ValueType[];
+  body: Dependency.Instruction[];
+  deps: Dependency.t[];
+  type: FullFunctionType<Args, Results>;
+};
 
 function func<
   Args extends Record<string, ValueType>,
@@ -34,13 +45,7 @@ function func<
     out: ToTypeTuple<Results>;
   },
   run: (args: ToLocal<Args>, locals: ToLocal<Locals>, ctx: LocalContext) => void
-): {
-  kind: "function";
-  locals: ValueType[];
-  body: Dependency.Instruction[];
-  deps: Dependency.t[];
-  type: FullFunctionType<Args, Results>;
-} {
+): Func<Args, Results> {
   ctx.stack = [];
   let argsArray = valueTypeLiterals(Object.values(args));
   let localsArray = valueTypeLiterals(Object.values(locals));
@@ -163,13 +168,12 @@ type UnionToTuple<T> = UnionToIntersection<
   ? [...UnionToTuple<Exclude<T, W>>, W]
   : [];
 
-type Func = {
-  // TODO remove
-  functionIndex: FunctionIndex;
-  typeIndex: TypeIndex;
+type FinalizedFunc = {
+  funcIdx: FunctionIndex;
+  typeIdx: TypeIndex;
   type: FunctionType;
   locals: ValueType[];
-  body: Instruction[];
+  body: FinalizedInstruction[];
 };
 
 // binable

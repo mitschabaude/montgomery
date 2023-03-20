@@ -14,6 +14,7 @@ import {
   importGlobal,
   Memory,
   Table,
+  memory,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -35,9 +36,9 @@ let consoleLog = importFunc({ in: [i32], out: [] }, log);
 let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
-let memory = Memory(
+let mem = Memory(
   { min: 1, max: 2 ** 16 },
-  Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+  Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 );
 
 let myFunc = func(
@@ -129,12 +130,21 @@ let exportedFunc = func(
     i32.const(5);
     control.call(myFunc);
     // control.unreachable();
+
+    i32.const(10);
+    memory.grow();
+    drop();
+
+    // move int32 at location 4 to location 0
+    i32.const(0);
+    i32.const(0);
+    i32.load({ offset: 4 });
+    i32.store({});
   }
 );
 
 let module = Module({
-  exports: { exportedFunc, importedGlobal },
-  memory,
+  exports: { exportedFunc, importedGlobal, memory: mem },
 });
 
 console.dir(module.module, { depth: Infinity });
@@ -157,4 +167,8 @@ console.log(exports);
 let result = exports.exportedFunc(10, 0);
 assert(result === 15);
 assert(exports.importedGlobal.value === 1000n);
-console.log({ result, importedGlobal: exports.importedGlobal.value });
+console.log({
+  result,
+  importedGlobal: exports.importedGlobal.value,
+  memory: new Uint8Array(exports.memory.buffer, 0, 8),
+});

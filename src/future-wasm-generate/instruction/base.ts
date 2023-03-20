@@ -12,6 +12,7 @@ import {
   ValueType,
   valueTypeLiterals,
   ValueTypeObject,
+  ValueTypeObjects,
 } from "../types.js";
 import { Tuple } from "../util.js";
 import { InstructionName, nameToOpcode } from "./opcodes.js";
@@ -28,6 +29,7 @@ export {
   lookupInstruction,
   lookupOpcode,
   typeFromInput,
+  Instruction,
 };
 
 const nameToInstruction: Record<string, BaseInstruction> = {};
@@ -46,8 +48,10 @@ type ResolvedInstruction = { string: string; immediate: any };
  */
 function baseInstruction<
   Immediate,
-  Args extends Tuple<any>,
-  ResolveArgs extends Tuple<any>
+  CreateArgs extends Tuple<any>,
+  ResolveArgs extends Tuple<any>,
+  Args extends Tuple<ValueType> | ValueType[],
+  Results extends Tuple<ValueType> | ValueType[]
 >(
   string: InstructionName,
   immediate: Binable<Immediate> | undefined = undefined,
@@ -57,21 +61,29 @@ function baseInstruction<
   }: {
     create(
       ctx: LocalContext,
-      ...args: Args
+      ...args: CreateArgs
     ): {
-      in?: ValueType[];
-      out?: ValueType[];
+      in: Args;
+      out: Results;
       deps?: Dependency.t[];
       resolveArgs?: ResolveArgs;
     };
     resolve?(deps: number[], ...args: ResolveArgs): Immediate;
   }
-) {
+): (
+  ctx: LocalContext,
+  ...createArgs: CreateArgs
+) => Instruction<Args, Results> {
   resolve ??= noResolve;
-  function i(ctx: LocalContext, ...createArgs: Args) {
+  let opcode = nameToOpcode[string];
+  let instruction = { string, opcode, immediate, resolve };
+  nameToInstruction[string] = instruction;
+  opcodeToInstruction[opcode] = instruction;
+
+  return function instruction(ctx: LocalContext, ...createArgs: CreateArgs) {
     let {
-      in: args = [],
-      out: results = [],
+      in: args,
+      out: results,
       deps = [],
       resolveArgs = createArgs,
     } = create(ctx, ...createArgs);
@@ -81,26 +93,25 @@ function baseInstruction<
       type: { args, results },
       resolveArgs,
     });
-  }
-  let opcode = nameToOpcode[string];
-  let instruction = { string, opcode, immediate, resolve };
-  nameToInstruction[string] = instruction;
-  opcodeToInstruction[opcode] = instruction;
-  return i;
+    return { in: args, out: results };
+  };
 }
+
+type Instruction<Args, Results> = { in: Args; out: Results };
 
 /**
  * instruction that is completely fixed
  */
 function instruction<
-  Arguments extends Tuple<ValueTypeObject>,
-  Results extends Tuple<ValueTypeObject>
->(string: InstructionName, args: Arguments, results: Results) {
-  let instr = {
-    in: valueTypeLiterals(args as ValueTypeObject[]),
-    out: valueTypeLiterals(results as ValueTypeObject[]),
-  };
-  return baseInstruction<undefined, [], []>(string, Undefined, {
+  Args extends Tuple<ValueType>,
+  Results extends Tuple<ValueType>
+>(
+  string: InstructionName,
+  args: ValueTypeObjects<Args>,
+  results: ValueTypeObjects<Results>
+) {
+  let instr = { in: valueTypeLiterals(args), out: valueTypeLiterals(results) };
+  return baseInstruction<undefined, [], [], Args, Results>(string, Undefined, {
     create: () => instr,
   });
 }
@@ -110,24 +121,26 @@ function instruction<
  * but with an immediate argument
  */
 function instructionWithArg<
-  Arguments extends Tuple<ValueTypeObject>,
-  Results extends Tuple<ValueTypeObject>,
+  Args extends Tuple<ValueType>,
+  Results extends Tuple<ValueType>,
   Immediate extends any
 >(
   string: InstructionName,
   immediate: Binable<Immediate> | undefined,
-  args: Arguments,
-  results: Results
+  args: ValueTypeObjects<Args>,
+  results: ValueTypeObjects<Results>
 ) {
   immediate = immediate === Undefined ? undefined : immediate;
-  type Args = Immediate extends undefined ? [] : [immediate: Immediate];
+  type CreateArgs = Immediate extends undefined ? [] : [immediate: Immediate];
   let instr = {
-    in: valueTypeLiterals(args as ValueTypeObject[]),
-    out: valueTypeLiterals(results as ValueTypeObject[]),
+    in: valueTypeLiterals(args),
+    out: valueTypeLiterals(results),
   };
-  return baseInstruction<Immediate, Args, Args>(string, immediate, {
-    create: () => instr,
-  });
+  return baseInstruction<Immediate, CreateArgs, CreateArgs, Args, Results>(
+    string,
+    immediate,
+    { create: () => instr }
+  );
 }
 
 function resolveInstruction(

@@ -1,6 +1,6 @@
 import * as Dependency from "./dependency.js";
 import { Export, Import } from "./export.js";
-import { Func, JSFunctionType } from "./func.js";
+import { FinalizedFunc, JSFunctionType } from "./func.js";
 import { resolveInstruction } from "./instruction/base.js";
 import { Module as BinableModule } from "./module-binable.js";
 import { Data, Elem, Global } from "./memory-binable.js";
@@ -29,11 +29,9 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   for (let name in inputExports) {
     pushDependency(dependencies, inputExports[name]);
   }
-  let memory: MemoryType | undefined;
   if (inputMemory !== undefined) {
-    let memory_ = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
-    if (memory_.kind === "memory") memory = memory_.type;
-    pushDependency(dependencies, memory_);
+    let memory = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
+    pushDependency(dependencies, memory);
   }
   let dependencyByKind: {
     [K in Dependency.t["kind"]]: (Dependency.t & { kind: K })[];
@@ -116,14 +114,14 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   );
 
   // finalize functions
-  let funcs: Func[] = funcs0.map(({ typeIdx, funcIdx, ...func }) => {
+  let funcs: FinalizedFunc[] = funcs0.map(({ typeIdx, funcIdx, ...func }) => {
     let body = func.body.map((instr) => resolveInstruction(instr, depToIndex));
     return {
-      body,
-      functionIndex: funcIdx,
-      typeIndex: typeIdx,
-      locals: func.locals,
+      funcIdx: funcIdx,
+      typeIdx: typeIdx,
       type: func.type,
+      locals: func.locals,
+      body,
     };
   });
   // finalize globals
@@ -146,7 +144,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     return { type, init: init_, mode: mode_ };
   });
   // finalize memory
-  checkMemory(dependencyByKind);
+  let memory = checkMemory(dependencyByKind);
   // finalize datas
   let datas: Data[] = dependencyByKind.data.map(({ init, mode }) => {
     let mode_: Data["mode"] =
@@ -265,17 +263,19 @@ function checkMemory(dependencyByKind: {
   importMemory: Dependency.ImportMemory[];
   memory: Dependency.Memory[];
   hasMemory: Dependency.HasMemory[];
-}) {
+}): MemoryType | undefined {
   let nMemoriesTotal =
     dependencyByKind.importMemory.length + dependencyByKind.memory.length;
   if (nMemoriesTotal === 0) {
     if (dependencyByKind.hasMemory.length > 0) {
-      throw Error(`Module depends on existence of a memory, but no memory was found. You can add a memory like this:
+      throw Error(`Module(): The module depends on the existence of a memory, but no memory was found. You can add a memory like this:
+
 let module = Module({
   //...
-  memory: { min: 1 }
-})
+  memory: Memory({ min: 1 })
+});
 `);
     }
   }
+  return dependencyByKind.memory[0]?.type;
 }
