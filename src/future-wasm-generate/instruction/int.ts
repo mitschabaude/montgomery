@@ -11,6 +11,7 @@ import {
 import { record } from "../binable.js";
 import { LocalContext } from "../local-context.js";
 import { InstructionName } from "./opcodes.js";
+import * as Dependency from "../dependency.js";
 
 export { i32Ops, i64Ops, f32Ops, f64Ops };
 
@@ -88,6 +89,7 @@ function memoryInstruction(
         in: valueTypeLiterals(args),
         out: valueTypeLiterals(results),
         resolveArgs: [{ offset, align: alignExponent }],
+        deps: [Dependency.hasMemory],
       };
     },
   });

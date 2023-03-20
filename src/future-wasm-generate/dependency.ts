@@ -14,7 +14,6 @@ import {
   ValueType,
 } from "./types.js";
 import { Byte } from "./binable.js";
-import { Dependency } from "./func.js";
 
 export {
   t,
@@ -115,7 +114,7 @@ type Elem = {
     | "passive"
     | "declarative"
     | {
-        table: Dependency.AnyTable;
+        table: AnyTable;
         offset: Const.i32 | Const.globalGet;
       };
   deps: (AnyTable | AnyFunc | AnyGlobal)[];

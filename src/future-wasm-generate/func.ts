@@ -16,7 +16,7 @@ import { Tuple } from "./util.js";
 // external
 export { func };
 // internal
-export { Dependency, FinalizedFunc, Code, JSFunctionType, ToTypeTuple };
+export { FinalizedFunc, Code, JSFunctionType, ToTypeTuple };
 
 type Func<
   Args extends Record<string, ValueType>,

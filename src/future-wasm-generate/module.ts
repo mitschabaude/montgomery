@@ -268,11 +268,12 @@ function checkMemory(dependencyByKind: {
     dependencyByKind.importMemory.length + dependencyByKind.memory.length;
   if (nMemoriesTotal === 0) {
     if (dependencyByKind.hasMemory.length > 0) {
-      throw Error(`Module depends on existence of a memory, but no memory was found. You can add a memory like this:
+      throw Error(`Module(): The module depends on the existence of a memory, but no memory was found. You can add a memory like this:
+
 let module = Module({
   //...
-  memory: { min: 1 }
-})
+  memory: Memory({ min: 1 })
+});
 `);
     }
   }
