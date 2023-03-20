@@ -127,7 +127,7 @@ const br_if = baseInstruction("br_if", U32, {
   create(ctx, label: Label | number) {
     let [i, frame] = getFrameFromLabel(ctx, label);
     let types = labelTypes(frame);
-    return { in: ["i32", ...types], out: types, resolveArgs: [i] };
+    return { in: [...types, "i32"], out: types, resolveArgs: [i] };
   },
 });
 
