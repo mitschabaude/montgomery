@@ -1,7 +1,13 @@
 import { Binable, constant, or, record, withByteCode } from "../binable.js";
 import { S33, U32 } from "../immediate.js";
 import { ValueType } from "../types.js";
-import { lookupInstruction, lookupOpcode } from "./base.js";
+import {
+  BaseInstruction,
+  isInstruction,
+  lookupInstruction,
+  lookupOpcode,
+  lookupSubcode,
+} from "./base.js";
 
 export { FinalizedInstruction, Expression, ConstExpression, Block, IfBlock };
 
@@ -14,12 +20,19 @@ const Instruction = Binable<FinalizedInstruction>({
     if (instr.immediate !== undefined) {
       imm = instr.immediate.toBytes(immediate);
     }
-    return [instr.opcode, ...imm];
+    if (typeof instr.opcode === "number") return [instr.opcode, ...imm];
+    return [instr.opcode[0], ...U32.toBytes(instr.opcode[1]), ...imm];
   },
   readBytes(bytes, offset) {
-    let opcode: number = bytes[offset++];
-    let instr = lookupOpcode(opcode);
-    if (instr === undefined) throw Error(`invalid opcode ${opcode}`);
+    let opcode = bytes[offset++];
+    let instr_ = lookupOpcode(opcode);
+    let instr: BaseInstruction;
+    if (isInstruction(instr_)) instr = instr_;
+    else {
+      let subcode: number;
+      [subcode, offset] = U32.readBytes(bytes, offset);
+      instr = lookupSubcode(opcode, subcode, instr_);
+    }
     if (instr.immediate === undefined)
       return [{ string: instr.string, immediate: undefined }, offset];
     let [immediate, end] = instr.immediate.readBytes(bytes, offset);

@@ -78,6 +78,12 @@ const i32Ops = {
   reinterpret_f32: instruction("i32.reinterpret_f32", [f32t], [i32t]),
   extend8_s: instruction("i32.extend8_s", [i32t], [i32t]),
   extend16_s: instruction("i32.extend16_s", [i32t], [i32t]),
+
+  // non-trapping conversion
+  trunc_sat_f32_s: instruction("i32.trunc_sat_f32_s", [f32t], [i32t]),
+  trunc_sat_f32_u: instruction("i32.trunc_sat_f32_u", [f32t], [i32t]),
+  trunc_sat_f64_s: instruction("i32.trunc_sat_f64_s", [f64t], [i32t]),
+  trunc_sat_f64_u: instruction("i32.trunc_sat_f64_u", [f64t], [i32t]),
 };
 
 const i64Ops = {
@@ -143,12 +149,21 @@ const i64Ops = {
   extend8_s: instruction("i64.extend8_s", [i64t], [i64t]),
   extend16_s: instruction("i64.extend16_s", [i64t], [i64t]),
   extend32_s: instruction("i64.extend32_s", [i64t], [i64t]),
+
+  // non-trapping conversion
+  trunc_sat_f32_s: instruction("i64.trunc_sat_f32_s", [f32t], [i64t]),
+  trunc_sat_f32_u: instruction("i64.trunc_sat_f32_u", [f32t], [i64t]),
+  trunc_sat_f64_s: instruction("i64.trunc_sat_f64_s", [f64t], [i64t]),
+  trunc_sat_f64_u: instruction("i64.trunc_sat_f64_u", [f64t], [i64t]),
 };
 
 const f32Ops = {
   // memory
   load: memoryInstruction("f32.load", 32, [i32t], [f32t]),
   store: memoryInstruction("f32.store", 32, [i32t, f32t], []),
+
+  // const TODO
+  // const: instructionWithArg("f32.const", I64, [], [i64t]),
 
   // comparison
   eq: instruction("f32.eq", [f32t, f32t], [i32t]),

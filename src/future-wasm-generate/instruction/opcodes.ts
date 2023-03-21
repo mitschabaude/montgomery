@@ -1,7 +1,10 @@
 export { opcodes, nameToOpcode, InstructionName };
 
 type Opcodes = typeof opcodes;
-type InstructionName = Opcodes[keyof Opcodes];
+type NestedValue<T> = {
+  [k in keyof T]: T[k] extends string ? T[k] : NestedValue<T[k]>;
+}[keyof T];
+type InstructionName = NestedValue<Opcodes>;
 
 const opcodes = {
   // control
@@ -216,10 +219,28 @@ const opcodes = {
   0xd0: "ref.null",
   0xd1: "ref.is_null",
   0xd2: "ref.func",
-} as const satisfies Record<number, string>;
+
+  0xfc: {
+    0: "i32.trunc_sat_f32_s",
+    1: "i32.trunc_sat_f32_u",
+    2: "i32.trunc_sat_f64_s",
+    3: "i32.trunc_sat_f64_u",
+    4: "i64.trunc_sat_f32_s",
+    5: "i64.trunc_sat_f32_u",
+    6: "i64.trunc_sat_f64_s",
+    7: "i64.trunc_sat_f64_u",
+  },
+} as const satisfies Record<number, string | Record<number, string>>;
 
 // inverted map
-const nameToOpcode: Record<string, number> = {};
+const nameToOpcode: Record<string, number | [number, number]> = {};
 for (let code in opcodes) {
-  nameToOpcode[opcodes[Number(code) as keyof Opcodes]] = Number(code);
+  let value = opcodes[Number(code) as keyof Opcodes];
+  if (typeof value === "string") nameToOpcode[value] = Number(code);
+  else {
+    for (let code_ in value) {
+      let value_ = value[Number(code_) as keyof typeof value];
+      nameToOpcode[value_] = [Number(code), Number(code_)];
+    }
+  }
 }

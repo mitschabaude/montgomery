@@ -28,16 +28,21 @@ export {
   FunctionTypeInput,
   lookupInstruction,
   lookupOpcode,
+  lookupSubcode,
   typeFromInput,
   Instruction,
+  isInstruction,
 };
 
 const nameToInstruction: Record<string, BaseInstruction> = {};
-const opcodeToInstruction: Record<number, BaseInstruction> = {};
+const opcodeToInstruction: Record<
+  number,
+  BaseInstruction | Record<number, BaseInstruction>
+> = {};
 
 type BaseInstruction = {
   string: string;
-  opcode: number;
+  opcode: number | [number, number];
   immediate: Binable<any> | undefined;
   resolve: (deps: number[], ...args: any) => any;
 };
@@ -78,7 +83,14 @@ function baseInstruction<
   let opcode = nameToOpcode[string];
   let instruction = { string, opcode, immediate, resolve };
   nameToInstruction[string] = instruction;
-  opcodeToInstruction[opcode] = instruction;
+  if (typeof opcode === "number") {
+    opcodeToInstruction[opcode] = instruction;
+  } else {
+    opcodeToInstruction[opcode[0]] ??= {} as Record<number, BaseInstruction>;
+    (opcodeToInstruction[opcode[0]] as Record<number, BaseInstruction>)[
+      opcode[1]
+    ] = instruction;
+  }
 
   return function instruction(ctx: LocalContext, ...createArgs: CreateArgs) {
     let {
@@ -95,6 +107,12 @@ function baseInstruction<
     });
     return { in: args, out: results };
   };
+}
+
+function isInstruction(
+  value: BaseInstruction | Record<number, BaseInstruction>
+): value is BaseInstruction {
+  return "opcode" in value;
 }
 
 type Instruction<Args, Results> = { in: Args; out: Results };
@@ -276,5 +294,16 @@ function lookupInstruction(name: string) {
 function lookupOpcode(opcode: number) {
   let instr = opcodeToInstruction[opcode];
   if (instr === undefined) throw Error(`invalid opcode "${opcode}"`);
+  return instr;
+}
+
+function lookupSubcode(
+  opcode: number,
+  subcode: number,
+  codes: Record<number, BaseInstruction>
+) {
+  let instr = codes[subcode];
+  if (instr === undefined)
+    throw Error(`invalid opcode (${opcode}, ${subcode})`);
   return instr;
 }
