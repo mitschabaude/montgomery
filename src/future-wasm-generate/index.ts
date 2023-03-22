@@ -5,7 +5,7 @@ import {
   globalConstructor,
   refOps,
 } from "./instruction/variable.js";
-import { f32Ops, f64Ops, i32Ops, i64Ops } from "./instruction/int.js";
+import { f32Ops, f64Ops, i32Ops, i64Ops } from "./instruction/numeric.js";
 import { memoryOps } from "./instruction/memory.js";
 import { control as controlOps, parametric } from "./instruction/control.js";
 import { emptyContext, LocalContext } from "./local-context.js";
