@@ -1,5 +1,5 @@
 (module
-  (type (;0;) (func (param f64)))
+  (type (;0;) (func (param i64)))
   (type (;1;) (func (param i32)))
   (type (;2;) (func (param funcref)))
   (type (;3;) (func (param i32 i32) (result i32)))
@@ -40,7 +40,8 @@
     i32.store)
   (func (;4;) (type 3) (param i32 i32) (result i32)
     (local i32 i32)
-    f64.const 0x1p-3 (;=0.125;)
+    f64.const 0x1.2p+0 (;=1.125;)
+    i64.trunc_sat_f64_s
     call 0
     i32.const 0
     local.get 0

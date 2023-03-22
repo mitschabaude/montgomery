@@ -24,17 +24,11 @@ import Wabt from "wabt";
 import { writeFile } from "../finite-field-compile.js";
 
 const wabt = await Wabt();
-const features = {
-  multi_value: true,
-  reference_types: true,
-  mutable_globals: true,
-  bulk_memory: true,
-};
 
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
-let consoleLogF64 = importFunc({ in: [f64], out: [] }, log);
+let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
 let mem = Memory(
@@ -45,8 +39,9 @@ let mem = Memory(
 let myFunc = func(
   { in: { x: i32, y: i32 }, locals: { tmp: i32, i: i32 }, out: [i32] },
   ({ x, y }, { tmp, i }, ctx) => {
-    f64.const(0.125);
-    control.call(consoleLogF64);
+    f64.const(1.125);
+    i64.trunc_sat_f64_s();
+    control.call(consoleLog64);
     i32.const(0);
     local.get(x);
     i32.add();
@@ -159,7 +154,7 @@ let recoveredModule = Module.fromBytes(wasmByteCode);
 assert.deepStrictEqual(recoveredModule, module.module);
 
 // write wat file for comparison
-let wabtModule = wabt.readWasm(wasmByteCode, features);
+let wabtModule = wabt.readWasm(wasmByteCode, wabtFeatures());
 let wat = wabtModule.toText({});
 await writeFile(import.meta.url.slice(7).replace(".ts", ".wat"), wat);
 
@@ -175,3 +170,30 @@ console.log({
   importedGlobal: exports.importedGlobal.value,
   memory: new Uint8Array(exports.memory.buffer, 0, 8),
 });
+
+// wabt features
+
+function wabtFeatures() {
+  return {
+    /** Experimental exception handling. */
+    exceptions: true,
+    /** Import/export mutable globals. */
+    mutable_globals: true,
+    /** Saturating float-to-int operators. */
+    sat_float_to_int: true,
+    /** Sign-extension operators. */
+    sign_extension: true,
+    /** SIMD support. */
+    simd: true,
+    /** Threading support. */
+    threads: true,
+    /** Multi-value. */
+    multi_value: true,
+    /** Tail-call support. */
+    tail_call: true,
+    /** Bulk-memory operations. */
+    bulk_memory: true,
+    /** Reference types (externref). */
+    reference_types: true,
+  };
+}
