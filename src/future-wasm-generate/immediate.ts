@@ -1,10 +1,13 @@
+import { write, read } from "ieee754";
 import { Binable } from "./binable.js";
 
-export { vec, withByteLength, Name, U32, I32, I64, S33 };
+export { vec, withByteLength, Name, U32, I32, I64, S33, F32, F64 };
 
 type U32 = number;
 type I32 = number;
 type I64 = bigint;
+type F32 = number;
+type F64 = number;
 
 function vec<T>(Element: Binable<T>) {
   return Binable<T[]>({
@@ -156,3 +159,36 @@ function fromSLEB128(bytes: number[], offset: number) {
   }
   return [x, offset] as [bigint, number];
 }
+
+// float
+
+const f32Mantissa = 23;
+const f64Mantissa = 52;
+
+const F32 = Binable<F32>({
+  toBytes(t) {
+    let bytes = new Uint8Array(4);
+    write(bytes, t, 0, true, f32Mantissa, 4);
+    return [...bytes];
+  },
+  readBytes(bytes, offset) {
+    let size = 4;
+    let f32Bytes = Uint8Array.from(bytes.slice(offset, offset + size));
+    let value = read(f32Bytes, 0, true, f32Mantissa, size);
+    return [value, offset + size];
+  },
+});
+
+const F64 = Binable<F64>({
+  toBytes(t) {
+    let bytes = new Uint8Array(8);
+    write(bytes, t, 0, true, f64Mantissa, 8);
+    return [...bytes];
+  },
+  readBytes(bytes, offset) {
+    let size = 8;
+    let f32Bytes = Uint8Array.from(bytes.slice(offset, offset + size));
+    let value = read(f32Bytes, 0, true, f64Mantissa, size);
+    return [value, offset + size];
+  },
+});

@@ -1,4 +1,4 @@
-import { I32, I64, U32 } from "../immediate.js";
+import { F32, F64, I32, I64, U32 } from "../immediate.js";
 import { baseInstruction, instruction, instructionWithArg } from "./base.js";
 import {
   i32t,
@@ -162,8 +162,8 @@ const f32Ops = {
   load: memoryInstruction("f32.load", 32, [i32t], [f32t]),
   store: memoryInstruction("f32.store", 32, [i32t, f32t], []),
 
-  // const TODO
-  // const: instructionWithArg("f32.const", I64, [], [i64t]),
+  // const
+  const: instructionWithArg("f32.const", F32, [], [f32t]),
 
   // comparison
   eq: instruction("f32.eq", [f32t, f32t], [i32t]),
@@ -204,6 +204,9 @@ const f64Ops = {
   // memory
   load: memoryInstruction("f64.load", 64, [i32t], [f64t]),
   store: memoryInstruction("f64.store", 64, [i32t, f64t], []),
+
+  // const
+  const: instructionWithArg("f64.const", F64, [], [f64t]),
 
   // comparison
   eq: instruction("f64.eq", [f64t, f64t], [i32t]),

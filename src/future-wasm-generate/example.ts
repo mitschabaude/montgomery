@@ -16,6 +16,7 @@ import {
   Table,
   memory,
   Const,
+  f64,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -33,7 +34,7 @@ const features = {
 let log = (...args: any) => console.log("logging from wasm:", ...args);
 
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
-let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
+let consoleLogF64 = importFunc({ in: [f64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
 let mem = Memory(
@@ -44,6 +45,8 @@ let mem = Memory(
 let myFunc = func(
   { in: { x: i32, y: i32 }, locals: { tmp: i32, i: i32 }, out: [i32] },
   ({ x, y }, { tmp, i }, ctx) => {
+    f64.const(0.125);
+    control.call(consoleLogF64);
     i32.const(0);
     local.get(x);
     i32.add();

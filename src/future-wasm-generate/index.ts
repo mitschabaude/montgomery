@@ -5,12 +5,12 @@ import {
   globalConstructor,
   refOps,
 } from "./instruction/variable.js";
-import { i32Ops, i64Ops } from "./instruction/int.js";
+import { f32Ops, f64Ops, i32Ops, i64Ops } from "./instruction/int.js";
 import { memoryOps } from "./instruction/memory.js";
 import { control as controlOps, parametric } from "./instruction/control.js";
 import { emptyContext, LocalContext } from "./local-context.js";
 import { Tuple } from "./util.js";
-import { i32t, i64t, v128t, ValueTypeObject } from "./types.js";
+import { f32t, f64t, i32t, i64t, v128t, ValueTypeObject } from "./types.js";
 import { func as originalFunc } from "./func.js";
 import { Instruction } from "./instruction/base.js";
 
@@ -46,13 +46,27 @@ const v128 = v128t;
 
 const defaultCtx = emptyContext();
 
-const { func, i32, i64, local, global, ref, control, drop, select, memory } =
-  createInstructions(defaultCtx);
+const {
+  func,
+  i32,
+  i64,
+  f32,
+  f64,
+  local,
+  global,
+  ref,
+  control,
+  drop,
+  select,
+  memory,
+} = createInstructions(defaultCtx);
 
 function createInstructions(ctx: LocalContext) {
   const func = removeContext(ctx, originalFunc);
   const i32 = Object.assign(i32t, removeContexts(ctx, i32Ops));
   const i64 = Object.assign(i64t, removeContexts(ctx, i64Ops));
+  const f32 = Object.assign(f32t, removeContexts(ctx, f32Ops));
+  const f64 = Object.assign(f64t, removeContexts(ctx, f64Ops));
   const local = removeContexts(ctx, localOps);
   const global = Object.assign(
     globalConstructor,
@@ -69,7 +83,20 @@ function createInstructions(ctx: LocalContext) {
     return t === undefined ? select_poly() : select_t(t);
   }
 
-  return { func, i32, i64, local, global, ref, control, drop, select, memory };
+  return {
+    func,
+    i32,
+    i64,
+    f32,
+    f64,
+    local,
+    global,
+    ref,
+    control,
+    drop,
+    select,
+    memory,
+  };
 }
 
 function removeContexts<
