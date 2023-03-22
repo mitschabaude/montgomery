@@ -1,24 +1,9 @@
-import { F32, F64, I32, I64, U32 } from "../immediate.js";
-import { baseInstruction, instruction, instructionWithArg } from "./base.js";
-import {
-  i32t,
-  i64t,
-  f32t,
-  f64t,
-  valueTypeLiterals,
-  ValueType,
-  ValueTypeObjects,
-} from "../types.js";
-import { record } from "../binable.js";
-import { LocalContext } from "../local-context.js";
-import { InstructionName } from "./opcodes.js";
-import * as Dependency from "../dependency.js";
-import { Tuple } from "../util.js";
+import { F32, F64, I32, I64 } from "../immediate.js";
+import { instruction, instructionWithArg } from "./base.js";
+import { i32t, i64t, f32t, f64t } from "../types.js";
+import { memoryInstruction } from "./memory.js";
 
 export { i32Ops, i64Ops, f32Ops, f64Ops };
-
-type MemArg = { align: U32; offset: U32 };
-const MemArg = record({ align: U32, offset: U32 });
 
 const i32Ops = {
   // memory
@@ -242,37 +227,3 @@ const f64Ops = {
   promote_f32: instruction("f64.promote_f32", [f32t], [f64t]),
   reinterpret_i64: instruction("f64.reinterpret_i64", [i64t], [f64t]),
 };
-
-function memoryInstruction<
-  Args extends Tuple<ValueType>,
-  Results extends Tuple<ValueType>
->(
-  name: InstructionName,
-  bits: number,
-  args: ValueTypeObjects<Args>,
-  results: ValueTypeObjects<Results>
-) {
-  return baseInstruction<
-    MemArg,
-    [memArg: { offset?: number; align?: number }],
-    [memArg: MemArg],
-    Args,
-    Results
-  >(name, MemArg, {
-    create(
-      _: LocalContext,
-      { offset = 0, align = bits / 8 }: { offset?: number; align?: number }
-    ) {
-      let alignExponent = Math.log2(align);
-      if (!Number.isInteger(alignExponent)) {
-        throw Error(`${name}: \`align\` must be power of 2, got ${align}`);
-      }
-      return {
-        in: valueTypeLiterals(args),
-        out: valueTypeLiterals(results),
-        resolveArgs: [{ offset, align: alignExponent }],
-        deps: [Dependency.hasMemory],
-      };
-    },
-  });
-}

@@ -4,6 +4,7 @@ export {
   Binable,
   tuple,
   record,
+  array,
   iso,
   constant,
   withByteCode,
@@ -158,6 +159,29 @@ function tuple<Types extends Tuple<any>>(binables: {
         values.push(value);
       }
       return [values as Types, offset];
+    },
+  });
+}
+
+function array<T>(binable: Binable<T>, size: number): Binable<T[]> {
+  return Binable({
+    toBytes(ts) {
+      if (ts.length !== size) throw Error("array length mismatch");
+      let bytes: number[] = [];
+      for (let i = 0; i < size; i++) {
+        let subBytes = binable.toBytes(ts[i]);
+        bytes.push(...subBytes);
+      }
+      return bytes;
+    },
+    readBytes(bytes, offset) {
+      let values: T[] = [];
+      for (let i = 0; i < size; i++) {
+        let [value, newOffset] = binable.readBytes(bytes, offset);
+        offset = newOffset;
+        values.push(value);
+      }
+      return [values, offset];
     },
   });
 }

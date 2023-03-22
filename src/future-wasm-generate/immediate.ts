@@ -1,8 +1,9 @@
 import { write, read } from "ieee754";
 import { Binable } from "./binable.js";
 
-export { vec, withByteLength, Name, U32, I32, I64, S33, F32, F64 };
+export { vec, withByteLength, Name, U8, U32, I32, I64, S33, F32, F64 };
 
+type U8 = number;
 type U32 = number;
 type I32 = number;
 type I64 = bigint;
@@ -56,6 +57,16 @@ function withByteLength<T>(binable: Binable<T>): Binable<T> {
     },
   });
 }
+
+const U8 = Binable<U8>({
+  toBytes(x: U8) {
+    return toULEB128(x);
+  },
+  readBytes(bytes, offset): [U8, number] {
+    let [x, end] = fromULEB128(bytes, offset);
+    return [Number(x), end];
+  },
+});
 
 const U32 = Binable<U32>({
   toBytes(x: U32) {
