@@ -29,6 +29,19 @@ export {
   select,
   memory,
 };
+export {
+  nop,
+  unreachable,
+  block,
+  loop,
+  if_,
+  br,
+  br_if,
+  br_table,
+  return_,
+  call,
+  call_indirect,
+};
 
 // other public API
 export { func, defaultCtx };
@@ -60,6 +73,20 @@ const {
   select,
   memory,
 } = createInstructions(defaultCtx);
+
+let {
+  nop,
+  unreachable,
+  block,
+  loop,
+  if: if_,
+  br,
+  br_if,
+  br_table,
+  return: return_,
+  call,
+  call_indirect,
+} = control;
 
 function createInstructions(ctx: LocalContext) {
   const func = removeContext(ctx, originalFunc);

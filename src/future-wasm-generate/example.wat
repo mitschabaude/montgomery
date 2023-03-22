@@ -57,8 +57,7 @@
         local.get 3
         i32.const 1
         i32.add
-        local.set 3
-        local.get 3
+        local.tee 3
         i32.const 5
         i32.eq
         if  ;; label = @3

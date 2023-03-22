@@ -17,6 +17,13 @@ import {
   memory,
   Const,
   f64,
+  call,
+  block,
+  loop,
+  br,
+  br_if,
+  unreachable,
+  call_indirect,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -41,38 +48,36 @@ let myFunc = func(
   ({ x, y }, { tmp, i }, ctx) => {
     f64.const(1.125);
     i64.trunc_sat_f64_s();
-    control.call(consoleLog64);
+    call(consoleLog64);
     i32.const(0);
     local.get(x);
     i32.add();
     local.get(y);
     i32.add();
-    control.block({ in: [i32], out: [i32] }, (block) => {
+    block({ in: [i32], out: [i32] }, (block) => {
       local.tee(tmp);
-      control.call(consoleLog);
-      control.loop({}, () => {
+      call(consoleLog);
+      loop({}, (loop) => {
         local.get(i);
-        control.call(consoleLog);
+        call(consoleLog);
         local.get(i);
         i32.const(1);
         i32.add();
-        local.set(i);
-
-        local.get(i);
+        local.tee(i);
         i32.const(5);
         i32.eq();
         control.if({}, () => {
           local.get(tmp);
           control.return();
           // fine that this is missing input, because code path is unreachable
-          control.call(consoleLog);
+          call(consoleLog);
         });
-        control.br(0);
+        br(loop);
         // unreachable
         local.get(i);
         // i64.const(10n);
         i32.ne();
-        control.br_if(0);
+        br_if(0);
       });
       local.get(tmp);
       local.get(tmp);
@@ -87,10 +92,10 @@ let importedGlobal = importGlobal(i64, 1000n);
 let myFuncGlobal = global(Const.refFunc(myFunc));
 
 let testUnreachable = func({ in: {}, locals: {}, out: [] }, () => {
-  control.unreachable();
+  unreachable();
   // global.get(importedGlobal);
   i32.add();
-  control.call(consoleLog);
+  call(consoleLog);
 });
 
 let table = Table({ type: funcref, min: 4 }, [
@@ -103,31 +108,31 @@ let table = Table({ type: funcref, min: 4 }, [
 let exportedFunc = func(
   { in: { x: i32, doLog: i32 }, locals: { y: i32 }, out: [i32] },
   ({ x, doLog }, { y }) => {
-    // control.call(testUnreachable);
+    // call(testUnreachable);
     ref.func(myFunc); // TODO this fails if there is no table but a global, seems to be a V8 bug
-    control.call(consoleLogFunc);
+    call(consoleLogFunc);
     global.get(myFuncGlobal);
     i32.const(0);
-    control.call_indirect(table, { in: [funcref], out: [] });
+    call_indirect(table, { in: [funcref], out: [] });
     local.get(x);
     local.get(doLog);
     control.if(null, () => {
       local.get(x);
-      control.call(consoleLog);
+      call(consoleLog);
       // console.log({ stack: ctx.stack });
     });
     i32.const(2 ** 31 - 1);
     i32.const(-(2 ** 31));
     local.get(doLog);
     select();
-    control.call(consoleLog);
+    call(consoleLog);
     // drop();
     // local.get(x);
     local.set(y);
     local.get(y);
     i32.const(5);
-    control.call(myFunc);
-    // control.unreachable();
+    call(myFunc);
+    // unreachable();
 
     i32.const(10);
     memory.grow();
