@@ -1,7 +1,8 @@
 import { Binable, iso, record, tuple } from "./binable.js";
 import * as Dependency from "./dependency.js";
 import { U32, vec, withByteLength } from "./immediate.js";
-import { Expression, FinalizedInstruction } from "./instruction/binable.js";
+import { ResolvedInstruction } from "./instruction/base.js";
+import { Expression } from "./instruction/binable.js";
 import { LocalContext, popStack, withContext } from "./local-context.js";
 import {
   FunctionIndex,
@@ -173,7 +174,7 @@ type FinalizedFunc = {
   typeIdx: TypeIndex;
   type: FunctionType;
   locals: ValueType[];
-  body: FinalizedInstruction[];
+  body: ResolvedInstruction[];
 };
 
 // binable

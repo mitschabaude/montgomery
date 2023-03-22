@@ -7,15 +7,14 @@ import {
   lookupInstruction,
   lookupOpcode,
   lookupSubcode,
+  ResolvedInstruction,
 } from "./base.js";
 
-export { FinalizedInstruction, Expression, ConstExpression, Block, IfBlock };
+export { Expression, ConstExpression, Block, IfBlock };
 
-type FinalizedInstruction = { string: string; immediate: any };
-
-const Instruction = Binable<FinalizedInstruction>({
-  toBytes({ string, immediate }) {
-    let instr = lookupInstruction(string);
+const Instruction = Binable<ResolvedInstruction>({
+  toBytes({ name, immediate }) {
+    let instr = lookupInstruction(name);
     let imm: number[] = [];
     if (instr.immediate !== undefined) {
       imm = instr.immediate.toBytes(immediate);
@@ -34,24 +33,24 @@ const Instruction = Binable<FinalizedInstruction>({
       instr = lookupSubcode(opcode, subcode, instr_);
     }
     if (instr.immediate === undefined)
-      return [{ string: instr.string, immediate: undefined }, offset];
+      return [{ name: instr.string, immediate: undefined }, offset];
     let [immediate, end] = instr.immediate.readBytes(bytes, offset);
-    return [{ string: instr.string, immediate }, end];
+    return [{ name: instr.string, immediate }, end];
   },
 });
 
 const END = 0x0b;
-type Expression = FinalizedInstruction[];
-const Expression = Binable<FinalizedInstruction[]>({
+type Expression = ResolvedInstruction[];
+const Expression = Binable<ResolvedInstruction[]>({
   toBytes(t) {
     let instructions = t.map(Instruction.toBytes).flat();
     instructions.push(END);
     return instructions;
   },
   readBytes(bytes, offset) {
-    let instructions: FinalizedInstruction[] = [];
+    let instructions: ResolvedInstruction[] = [];
     while (bytes[offset] !== END) {
-      let instr: FinalizedInstruction;
+      let instr: ResolvedInstruction;
       [instr, offset] = Instruction.readBytes(bytes, offset);
       instructions.push(instr);
     }
@@ -61,8 +60,8 @@ const Expression = Binable<FinalizedInstruction[]>({
 
 const ELSE = 0x05;
 type IfExpression = {
-  if: FinalizedInstruction[];
-  else?: FinalizedInstruction[];
+  if: ResolvedInstruction[];
+  else?: ResolvedInstruction[];
 };
 const IfExpression = Binable<IfExpression>({
   toBytes(t) {
@@ -85,7 +84,7 @@ const IfExpression = Binable<IfExpression>({
         offset++;
         break;
       }
-      let instr: FinalizedInstruction;
+      let instr: ResolvedInstruction;
       [instr, offset] = Instruction.readBytes(bytes, offset);
       instructions.push(instr);
     }

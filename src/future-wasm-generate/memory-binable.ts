@@ -77,13 +77,13 @@ type Expressions = Expression[];
 const Expressions = vec(Expression);
 
 function fromFuncIdx(funcIdx: FunctionIndices): Expressions {
-  return funcIdx.map((i) => [{ string: "ref.func", immediate: i }]);
+  return funcIdx.map((i) => [{ name: "ref.func", immediate: i }]);
 }
 function toFuncIdx(expr: Expressions) {
   return expr.map((e) => e[0].immediate as FunctionIndex);
 }
 function isFuncIdx(expr: Expressions) {
-  return expr.every((e) => e.length === 1 && e[0].string === "ref.func");
+  return expr.every((e) => e.length === 1 && e[0].name === "ref.func");
 }
 
 const Elem = Binable<Elem>({

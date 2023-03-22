@@ -22,6 +22,7 @@ export {
   instructionWithArg,
   baseInstruction,
   BaseInstruction,
+  ResolvedInstruction,
   resolveInstruction,
   resolveExpression,
   createExpressionWithType,
@@ -46,7 +47,7 @@ type BaseInstruction = {
   immediate: Binable<any> | undefined;
   resolve: (deps: number[], ...args: any) => any;
 };
-type ResolvedInstruction = { string: string; immediate: any };
+type ResolvedInstruction = { name: string; immediate: any };
 
 /**
  * most general function to create instructions
@@ -177,7 +178,7 @@ function resolveInstruction(
     depIndices.push(index);
   }
   let immediate = instr.resolve(depIndices, ...resolveArgs);
-  return { string, immediate };
+  return { name: string, immediate };
 }
 
 const noResolve = (_: number[], ...args: any) => args[0];
@@ -280,7 +281,7 @@ function resolveExpression(deps: number[], body: Dependency.Instruction[]) {
     let myDeps = deps.slice(offset, offset + n);
     let instrObject = lookupInstruction(instr.string);
     let immediate = instrObject.resolve(myDeps, ...instr.resolveArgs);
-    instructions.push({ string: instr.string, immediate });
+    instructions.push({ name: instr.string, immediate });
     offset += n;
   }
   return instructions;
