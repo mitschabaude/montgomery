@@ -224,7 +224,41 @@ const i16x8Ops = {
     [v128t],
     [v128t]
   ),
-  // TODO
+  shl: instruction("i16x8.shl", [v128t, i32t], [v128t]),
+  shr_s: instruction("i16x8.shr_s", [v128t, i32t], [v128t]),
+  shr_u: instruction("i16x8.shr_u", [v128t, i32t], [v128t]),
+  add: instruction("i16x8.add", [v128t, v128t], [v128t]),
+  add_sat_s: instruction("i16x8.add_sat_s", [v128t, v128t], [v128t]),
+  add_sat_u: instruction("i16x8.add_sat_u", [v128t, v128t], [v128t]),
+  sub: instruction("i16x8.sub", [v128t, v128t], [v128t]),
+  sub_sat_s: instruction("i16x8.sub_sat_s", [v128t, v128t], [v128t]),
+  sub_sat_u: instruction("i16x8.sub_sat_u", [v128t, v128t], [v128t]),
+  mul: instruction("i16x8.mul", [v128t, v128t], [v128t]),
+  min_s: instruction("i16x8.min_s", [v128t, v128t], [v128t]),
+  min_u: instruction("i16x8.min_u", [v128t, v128t], [v128t]),
+  max_s: instruction("i16x8.max_s", [v128t, v128t], [v128t]),
+  max_u: instruction("i16x8.max_u", [v128t, v128t], [v128t]),
+  avgr_u: instruction("i16x8.avgr_u", [v128t, v128t], [v128t]),
+  extmul_low_i8x16_s: instruction(
+    "i16x8.extmul_low_i8x16_s",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_high_i8x16_s: instruction(
+    "i16x8.extmul_high_i8x16_s",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_low_i8x16_u: instruction(
+    "i16x8.extmul_low_i8x16_u",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_high_i8x16_u: instruction(
+    "i16x8.extmul_high_i8x16_u",
+    [v128t, v128t],
+    [v128t]
+  ),
 };
 
 const i32x4Ops = {
@@ -251,6 +285,9 @@ const i32x4Ops = {
   le_u: instruction("i32x4.le_u", [v128t, v128t], [v128t]),
   ge_s: instruction("i32x4.ge_s", [v128t, v128t], [v128t]),
   ge_u: instruction("i32x4.ge_u", [v128t, v128t], [v128t]),
+
+  // logic & arithmetic
+  // TODO
 };
 
 const i64x2Ops = {
