@@ -287,7 +287,77 @@ const i32x4Ops = {
   ge_u: instruction("i32x4.ge_u", [v128t, v128t], [v128t]),
 
   // logic & arithmetic
-  // TODO
+  extadd_pairwise_i16x8_s: instruction(
+    "i32x4.extadd_pairwise_i16x8_s",
+    [v128t],
+    [v128t]
+  ),
+  extadd_pairwise_i16x8_u: instruction(
+    "i32x4.extadd_pairwise_i16x8_u",
+    [v128t],
+    [v128t]
+  ),
+  abs: instruction("i32x4.abs", [v128t], [v128t]),
+  neg: instruction("i32x4.neg", [v128t], [v128t]),
+  all_true: instruction("i32x4.all_true", [v128t], [i32t]),
+  bitmask: instruction("i32x4.bitmask", [v128t], [i32t]),
+  extend_low_i16x8_s: instruction("i32x4.extend_low_i16x8_s", [v128t], [v128t]),
+  extend_high_i16x8_s: instruction(
+    "i32x4.extend_high_i16x8_s",
+    [v128t],
+    [v128t]
+  ),
+  extend_low_i16x8_u: instruction("i32x4.extend_low_i16x8_u", [v128t], [v128t]),
+  extend_high_i16x8_u: instruction(
+    "i32x4.extend_high_i16x8_u",
+    [v128t],
+    [v128t]
+  ),
+  shl: instruction("i32x4.shl", [v128t, i32t], [v128t]),
+  shr_s: instruction("i32x4.shr_s", [v128t, i32t], [v128t]),
+  shr_u: instruction("i32x4.shr_u", [v128t, i32t], [v128t]),
+  add: instruction("i32x4.add", [v128t, v128t], [v128t]),
+  sub: instruction("i32x4.sub", [v128t, v128t], [v128t]),
+  mul: instruction("i32x4.mul", [v128t, v128t], [v128t]),
+  min_s: instruction("i32x4.min_s", [v128t, v128t], [v128t]),
+  min_u: instruction("i32x4.min_u", [v128t, v128t], [v128t]),
+  max_s: instruction("i32x4.max_s", [v128t, v128t], [v128t]),
+  max_u: instruction("i32x4.max_u", [v128t, v128t], [v128t]),
+  dot_i16x8_s: instruction("i32x4.dot_i16x8_s", [v128t, v128t], [v128t]),
+  extmul_low_i16x8_s: instruction(
+    "i32x4.extmul_low_i16x8_s",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_high_i16x8_s: instruction(
+    "i32x4.extmul_high_i16x8_s",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_low_i16x8_u: instruction(
+    "i32x4.extmul_low_i16x8_u",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_high_i16x8_u: instruction(
+    "i32x4.extmul_high_i16x8_u",
+    [v128t, v128t],
+    [v128t]
+  ),
+
+  // non-trapping conversion
+  trunc_sat_f32x4_s: instruction("i32x4.trunc_sat_f32x4_s", [v128t], [v128t]),
+  trunc_sat_f32x4_u: instruction("i32x4.trunc_sat_f32x4_u", [v128t], [v128t]),
+  trunc_sat_f64x2_s_zero: instruction(
+    "i32x4.trunc_sat_f64x2_s_zero",
+    [v128t],
+    [v128t]
+  ),
+  trunc_sat_f64x2_u_zero: instruction(
+    "i32x4.trunc_sat_f64x2_u_zero",
+    [v128t],
+    [v128t]
+  ),
 };
 
 const i64x2Ops = {
@@ -310,6 +380,50 @@ const i64x2Ops = {
   gt_s: instruction("i64x2.gt_s", [v128t, v128t], [v128t]),
   le_s: instruction("i64x2.le_s", [v128t, v128t], [v128t]),
   ge_s: instruction("i64x2.ge_s", [v128t, v128t], [v128t]),
+
+  // logic & arithmetic
+  abs: instruction("i64x2.abs", [v128t], [v128t]),
+  neg: instruction("i64x2.neg", [v128t], [v128t]),
+  all_true: instruction("i64x2.all_true", [v128t], [i32t]),
+  bitmask: instruction("i64x2.bitmask", [v128t], [i64t]),
+  extend_low_i32x4_s: instruction("i64x2.extend_low_i32x4_s", [v128t], [v128t]),
+  extend_high_i32x4_s: instruction(
+    "i64x2.extend_high_i32x4_s",
+    [v128t],
+    [v128t]
+  ),
+  extend_low_i32x4_u: instruction("i64x2.extend_low_i32x4_u", [v128t], [v128t]),
+  extend_high_i32x4_u: instruction(
+    "i64x2.extend_high_i32x4_u",
+    [v128t],
+    [v128t]
+  ),
+  shl: instruction("i64x2.shl", [v128t, i64t], [v128t]),
+  shr_s: instruction("i64x2.shr_s", [v128t, i64t], [v128t]),
+  shr_u: instruction("i64x2.shr_u", [v128t, i64t], [v128t]),
+  add: instruction("i64x2.add", [v128t, v128t], [v128t]),
+  sub: instruction("i64x2.sub", [v128t, v128t], [v128t]),
+  mul: instruction("i64x2.mul", [v128t, v128t], [v128t]),
+  extmul_low_i32x4_s: instruction(
+    "i64x2.extmul_low_i32x4_s",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_high_i32x4_s: instruction(
+    "i64x2.extmul_high_i32x4_s",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_low_i32x4_u: instruction(
+    "i64x2.extmul_low_i32x4_u",
+    [v128t, v128t],
+    [v128t]
+  ),
+  extmul_high_i32x4_u: instruction(
+    "i64x2.extmul_high_i32x4_u",
+    [v128t, v128t],
+    [v128t]
+  ),
 };
 
 const f32x4Ops = {
@@ -332,6 +446,28 @@ const f32x4Ops = {
   gt: instruction("f32x4.gt", [v128t, v128t], [v128t]),
   le: instruction("f32x4.le", [v128t, v128t], [v128t]),
   ge: instruction("f32x4.ge", [v128t, v128t], [v128t]),
+
+  // logic & arithmetic
+  ceil: instruction("f32x4.ceil", [v128t], [v128t]),
+  floor: instruction("f32x4.floor", [v128t], [v128t]),
+  trunc: instruction("f32x4.trunc", [v128t], [v128t]),
+  nearest: instruction("f32x4.nearest", [v128t], [v128t]),
+  abs: instruction("f32x4.abs", [v128t], [v128t]),
+  neg: instruction("f32x4.neg", [v128t], [v128t]),
+  sqrt: instruction("f32x4.sqrt", [v128t], [v128t]),
+  add: instruction("f32x4.add", [v128t, v128t], [v128t]),
+  sub: instruction("f32x4.sub", [v128t, v128t], [v128t]),
+  mul: instruction("f32x4.mul", [v128t, v128t], [v128t]),
+  div: instruction("f32x4.div", [v128t, v128t], [v128t]),
+  min: instruction("f32x4.min", [v128t, v128t], [v128t]),
+  max: instruction("f32x4.max", [v128t, v128t], [v128t]),
+  pmin: instruction("f32x4.pmin", [v128t, v128t], [v128t]),
+  pmax: instruction("f32x4.pmax", [v128t, v128t], [v128t]),
+
+  // non-trapping conversion
+  convert_i32x4_s: instruction("f32x4.convert_i32x4_s", [v128t], [v128t]),
+  convert_i32x4_u: instruction("f32x4.convert_i32x4_u", [v128t], [v128t]),
+  demote_f64x2_zero: instruction("f32x4.demote_f64x2_zero", [v128t], [v128t]),
 };
 
 const f64x2Ops = {
@@ -354,4 +490,34 @@ const f64x2Ops = {
   gt: instruction("f64x2.gt", [v128t, v128t], [v128t]),
   le: instruction("f64x2.le", [v128t, v128t], [v128t]),
   ge: instruction("f64x2.ge", [v128t, v128t], [v128t]),
+
+  // logic & arithmetic
+  ceil: instruction("f64x2.ceil", [v128t], [v128t]),
+  floor: instruction("f64x2.floor", [v128t], [v128t]),
+  trunc: instruction("f64x2.trunc", [v128t], [v128t]),
+  nearest: instruction("f64x2.nearest", [v128t], [v128t]),
+  abs: instruction("f64x2.abs", [v128t], [v128t]),
+  neg: instruction("f64x2.neg", [v128t], [v128t]),
+  sqrt: instruction("f64x2.sqrt", [v128t], [v128t]),
+  add: instruction("f64x2.add", [v128t, v128t], [v128t]),
+  sub: instruction("f64x2.sub", [v128t, v128t], [v128t]),
+  mul: instruction("f64x2.mul", [v128t, v128t], [v128t]),
+  div: instruction("f64x2.div", [v128t, v128t], [v128t]),
+  min: instruction("f64x2.min", [v128t, v128t], [v128t]),
+  max: instruction("f64x2.max", [v128t, v128t], [v128t]),
+  pmin: instruction("f64x2.pmin", [v128t, v128t], [v128t]),
+  pmax: instruction("f64x2.pmax", [v128t, v128t], [v128t]),
+
+  // non-trapping conversion
+  convert_low_i32x4_s: instruction(
+    "f64x2.convert_low_i32x4_s",
+    [v128t],
+    [v128t]
+  ),
+  convert_low_i32x4_u: instruction(
+    "f64x2.convert_low_i32x4_u",
+    [v128t],
+    [v128t]
+  ),
+  promote_low_f32x4: instruction("f64x2.promote_low_f32x4", [v128t], [v128t]),
 };
