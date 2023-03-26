@@ -37,7 +37,11 @@
     i32.const 0
     i32.const 0
     i32.load offset=4
-    i32.store)
+    i32.store
+    v128.const i32x4 0x00010000 0x00020000 0x00030000 0x00040000
+    v128.const i32x4 0x00000005 0x00000006 0x00000007 0x00000008
+    i32x4.add
+    drop)
   (func (;4;) (type 3) (param i32 i32) (result i32)
     (local i32 i32)
     f64.const 0x1.2p+0 (;=1.125;)

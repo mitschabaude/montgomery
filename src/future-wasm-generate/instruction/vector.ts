@@ -7,6 +7,8 @@ import { bigintToBytes } from "../../util.js";
 import { TupleN } from "../util.js";
 import { LocalContext } from "../local-context.js";
 
+export { v128Ops, i8x16Ops, i16x8Ops, i32x4Ops, i64x2Ops, f32x4Ops, f64x2Ops };
+
 type VectorShape = "i8x16" | "i16x8" | "i32x4" | "i64x2" | "f32x4" | "f64x2";
 
 const shapeLength = {
@@ -41,6 +43,7 @@ type V128 =
 // | V128Generic<"f32x4">
 // | V128Generic<"f64x2">;
 
+// TODO handle float shapes
 function toV128Bytes<T extends V128>({ shape, value }: T): TupleN<number, 16> {
   type Bytes = TupleN<number, 16>;
   switch (shape) {

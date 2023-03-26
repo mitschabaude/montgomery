@@ -13,6 +13,15 @@ import { Tuple } from "./util.js";
 import { f32t, f64t, i32t, i64t, v128t, ValueTypeObject } from "./types.js";
 import { func as originalFunc } from "./func.js";
 import { Instruction } from "./instruction/base.js";
+import {
+  f32x4Ops,
+  f64x2Ops,
+  i16x8Ops,
+  i32x4Ops,
+  i64x2Ops,
+  i8x16Ops,
+  v128Ops,
+} from "./instruction/vector.js";
 
 // instruction API
 export {
@@ -20,7 +29,6 @@ export {
   i64,
   f32,
   f64,
-  v128,
   local,
   global,
   ref,
@@ -28,6 +36,13 @@ export {
   drop,
   select,
   memory,
+  v128,
+  i8x16,
+  i16x8,
+  i32x4,
+  i64x2,
+  f32x4,
+  f64x2,
 };
 export {
   nop,
@@ -55,7 +70,6 @@ type i64 = "i64";
 type f32 = "f32";
 type f64 = "f64";
 type v128 = "v128";
-const v128 = v128t;
 
 const defaultCtx = emptyContext();
 
@@ -72,6 +86,13 @@ const {
   drop,
   select,
   memory,
+  v128,
+  i8x16,
+  i16x8,
+  i32x4,
+  i64x2,
+  f32x4,
+  f64x2,
 } = createInstructions(defaultCtx);
 
 let {
@@ -105,6 +126,14 @@ function createInstructions(ctx: LocalContext) {
 
   const memory = removeContexts(ctx, memoryOps);
 
+  const v128 = Object.assign(v128t, removeContexts(ctx, v128Ops));
+  const i8x16 = removeContexts(ctx, i8x16Ops);
+  const i16x8 = removeContexts(ctx, i16x8Ops);
+  const i32x4 = removeContexts(ctx, i32x4Ops);
+  const i64x2 = removeContexts(ctx, i64x2Ops);
+  const f32x4 = removeContexts(ctx, f32x4Ops);
+  const f64x2 = removeContexts(ctx, f64x2Ops);
+
   // wrappers for instructions that take optional arguments
   function select(t?: ValueTypeObject) {
     return t === undefined ? select_poly() : select_t(t);
@@ -123,6 +152,13 @@ function createInstructions(ctx: LocalContext) {
     drop,
     select,
     memory,
+    v128,
+    i8x16,
+    i16x8,
+    i32x4,
+    i64x2,
+    f32x4,
+    f64x2,
   };
 }
 

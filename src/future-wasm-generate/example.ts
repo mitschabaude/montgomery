@@ -24,6 +24,8 @@ import {
   br_if,
   unreachable,
   call_indirect,
+  v128,
+  i32x4,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -143,6 +145,12 @@ let exportedFunc = func(
     i32.const(0);
     i32.load({ offset: 4 });
     i32.store({});
+
+    // test vector instr
+    v128.const({ shape: "i16x8", value: [0, 1, 0, 2, 0, 3, 0, 4] });
+    v128.const({ shape: "i32x4", value: [5, 6, 7, 8] });
+    i32x4.add();
+    drop();
   }
 );
 
