@@ -1,21 +1,73 @@
 import { F32, F64, I32, I64, U8 } from "../immediate.js";
-import { instruction, instructionWithArg } from "./base.js";
+import { baseInstruction, instruction, instructionWithArg } from "./base.js";
 import { i32t, i64t, f32t, f64t, v128t } from "../types.js";
 import { memoryLaneInstruction, memoryInstruction } from "./memory.js";
-import { array, Byte, iso, tuple } from "../binable.js";
-import { bigintFromBytes, bigintToBytes } from "../../util.js";
+import { array, Byte } from "../binable.js";
+import { bigintToBytes } from "../../util.js";
+import { TupleN } from "../util.js";
+import { LocalContext } from "../local-context.js";
 
-type V128 = bigint;
-const V128 = iso<Byte[], V128>(array(Byte, 16), {
-  to(s) {
-    return [...bigintToBytes(s, 16)];
-  },
-  from(t) {
-    return bigintFromBytes(Uint8Array.from(t));
-  },
-});
+type VectorShape = "i8x16" | "i16x8" | "i32x4" | "i64x2" | "f32x4" | "f64x2";
+
+const shapeLength = {
+  i8x16: 16,
+  i16x8: 8,
+  i32x4: 4,
+  i64x2: 2,
+  f32x4: 4,
+  f64x2: 2,
+} as const satisfies Record<VectorShape, number>;
+type ShapeLength = typeof shapeLength;
+
+type ShapeType = {
+  i8x16: number;
+  i16x8: number;
+  i32x4: number;
+  i64x2: bigint;
+  f32x4: number;
+  f64x2: number;
+};
+
+type V128Generic<Shape extends VectorShape> = {
+  shape: Shape;
+  value: TupleN<ShapeType[Shape], ShapeLength[Shape]>;
+};
+
+type V128 =
+  | V128Generic<"i8x16">
+  | V128Generic<"i16x8">
+  | V128Generic<"i32x4">
+  | V128Generic<"i64x2">;
+// | V128Generic<"f32x4">
+// | V128Generic<"f64x2">;
+
+function toV128Bytes<T extends V128>({ shape, value }: T): TupleN<number, 16> {
+  type Bytes = TupleN<number, 16>;
+  switch (shape) {
+    case "i8x16":
+      return value;
+    case "i16x8":
+      return value.flatMap((v) => [...bigintToBytes(BigInt(v), 2)]) as Bytes;
+    case "i32x4":
+      return value.flatMap((v) => [...bigintToBytes(BigInt(v), 4)]) as Bytes;
+    case "i64x2":
+      return value.flatMap((v) => [...bigintToBytes(v, 8)]) as Bytes;
+    default:
+      throw Error("unreachable");
+  }
+}
+
+const V128 = array(Byte, 16);
 
 const v128Ops = {
+  // const
+  const: baseInstruction("v128.const", V128, {
+    create(_: LocalContext, value: V128) {
+      let v128Bytes = toV128Bytes(value);
+      return { in: [], out: ["v128"], resolveArgs: [v128Bytes] };
+    },
+  }),
+
   // memory
   load: memoryInstruction("v128.load", 128, [i32t], [v128t]),
   load8x8_s: memoryInstruction("v128.load8x8_s", 8, [i32t], [v128t]),
@@ -75,9 +127,6 @@ const v128Ops = {
     [i32t, v128t],
     []
   ),
-
-  // const
-  const: instructionWithArg("v128.const", V128, [v128t], [v128t]),
 
   // logical
   not: instruction("v128.not", [v128t], [v128t]),
