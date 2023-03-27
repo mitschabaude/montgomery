@@ -1,13 +1,21 @@
-import { F32, F64, I32, I64, U8 } from "../immediate.js";
+import { F32, F64, U8 } from "../immediate.js";
 import { baseInstruction, instruction, instructionWithArg } from "./base.js";
 import { i32t, i64t, f32t, f64t, v128t } from "../types.js";
 import { memoryLaneInstruction, memoryInstruction } from "./memory.js";
 import { array, Byte } from "../binable.js";
-import { bigintToBytes } from "../../util.js";
 import { TupleN } from "../util.js";
 import { LocalContext } from "../local-context.js";
 
-export { v128Ops, i8x16Ops, i16x8Ops, i32x4Ops, i64x2Ops, f32x4Ops, f64x2Ops };
+export {
+  v128Ops,
+  i8x16Ops,
+  i16x8Ops,
+  i32x4Ops,
+  i64x2Ops,
+  f32x4Ops,
+  f64x2Ops,
+  wrapConst,
+};
 
 type VectorShape = "i8x16" | "i16x8" | "i32x4" | "i64x2" | "f32x4" | "f64x2";
 
@@ -30,31 +38,38 @@ type ShapeType = {
   f64x2: number;
 };
 
-type V128Generic<Shape extends VectorShape> = {
-  shape: Shape;
-  value: TupleN<ShapeType[Shape], ShapeLength[Shape]>;
-};
+type V128Generic<Shape extends VectorShape> = [
+  shape: Shape,
+  value: TupleN<ShapeType[Shape], ShapeLength[Shape]>
+];
 
 type V128 =
   | V128Generic<"i8x16">
   | V128Generic<"i16x8">
   | V128Generic<"i32x4">
-  | V128Generic<"i64x2">;
-// | V128Generic<"f32x4">
-// | V128Generic<"f64x2">;
+  | V128Generic<"i64x2">
+  | V128Generic<"f32x4">
+  | V128Generic<"f64x2">;
 
-// TODO handle float shapes
-function toV128Bytes<T extends V128>({ shape, value }: T): TupleN<number, 16> {
-  type Bytes = TupleN<number, 16>;
+function toV128Bytes<T extends V128>(...[shape, value]: T): TupleN<number, 16> {
+  type Bytes16 = TupleN<number, 16>;
+  if (value.length !== shapeLength[shape])
+    throw Error(
+      `v128.const: got input of length ${value.length}, but expected length ${shapeLength[shape]} for shape ${shape}.`
+    );
   switch (shape) {
     case "i8x16":
       return value;
     case "i16x8":
-      return value.flatMap((v) => [...bigintToBytes(BigInt(v), 2)]) as Bytes;
+      return value.flatMap((v) => numberToBytes(v, 2)) as Bytes16;
     case "i32x4":
-      return value.flatMap((v) => [...bigintToBytes(BigInt(v), 4)]) as Bytes;
+      return value.flatMap((v) => numberToBytes(v, 4)) as Bytes16;
     case "i64x2":
-      return value.flatMap((v) => [...bigintToBytes(v, 8)]) as Bytes;
+      return value.flatMap((v) => bigintToBytes(v, 8)) as Bytes16;
+    case "f32x4":
+      return value.flatMap((v) => F32.toBytes(v)) as Bytes16;
+    case "f64x2":
+      return value.flatMap((v) => F64.toBytes(v)) as Bytes16;
     default:
       throw Error("unreachable");
   }
@@ -62,11 +77,20 @@ function toV128Bytes<T extends V128>({ shape, value }: T): TupleN<number, 16> {
 
 const V128 = array(Byte, 16);
 
+function wrapConst<R>(const_: (...createArgs: V128) => R) {
+  return function <Shape extends VectorShape>(
+    shape: Shape,
+    value: TupleN<ShapeType[Shape], ShapeLength[Shape]>
+  ) {
+    return const_(...([shape, value] as V128));
+  };
+}
+
 const v128Ops = {
   // const
   const: baseInstruction("v128.const", V128, {
-    create(_: LocalContext, value: V128) {
-      let v128Bytes = toV128Bytes(value);
+    create(_: LocalContext, ...v: V128) {
+      let v128Bytes = toV128Bytes(...v);
       return { in: [], out: ["v128"], resolveArgs: [v128Bytes] };
     },
   }),
@@ -573,3 +597,24 @@ const f64x2Ops = {
   ),
   promote_low_f32x4: instruction("f64x2.promote_low_f32x4", [v128t], [v128t]),
 };
+
+// helper
+
+function numberToBytes<N extends number>(x: number, length: N) {
+  let bytes = Array(length).fill(0) as TupleN<number, N>;
+  for (let i = 0; i < length; i++) {
+    bytes[i] = x & 0xff;
+    x >>= 8;
+  }
+  if (x !== 0) throw Error(`${x} doesn't fit into ${length} bytes.`);
+  return bytes;
+}
+function bigintToBytes<N extends number>(x: bigint, length: N) {
+  let bytes = Array(length).fill(0) as TupleN<number, N>;
+  for (let i = 0; i < length; i++) {
+    bytes[i] = Number(x & 0xffn);
+    x >>= 8n;
+  }
+  if (x !== 0n) throw Error(`${x} doesn't fit into ${length} bytes.`);
+  return bytes;
+}

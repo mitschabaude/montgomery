@@ -21,6 +21,7 @@ import {
   i64x2Ops,
   i8x16Ops,
   v128Ops,
+  wrapConst,
 } from "./instruction/vector.js";
 
 // instruction API
@@ -126,7 +127,12 @@ function createInstructions(ctx: LocalContext) {
 
   const memory = removeContexts(ctx, memoryOps);
 
-  const v128 = Object.assign(v128t, removeContexts(ctx, v128Ops));
+  const v128_ = removeContexts(ctx, v128Ops);
+  const v128 = Object.assign(v128t, {
+    ...v128_,
+    const: wrapConst(v128_.const),
+  });
+
   const i8x16 = removeContexts(ctx, i8x16Ops);
   const i16x8 = removeContexts(ctx, i16x8Ops);
   const i32x4 = removeContexts(ctx, i32x4Ops);

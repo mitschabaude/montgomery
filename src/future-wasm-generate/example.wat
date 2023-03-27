@@ -10,7 +10,7 @@
   (import "*" "f2" (func (;2;) (type 2)))
   (import "*" "g0" (global (;0;) i64))
   (func (;3;) (type 3) (param i32 i32) (result i32)
-    (local i32)
+    (local i32 v128)
     ref.func 4
     call 2
     global.get 1
@@ -38,9 +38,14 @@
     i32.const 0
     i32.load offset=4
     i32.store
-    v128.const i32x4 0x00010000 0x00020000 0x00030000 0x00040000
-    v128.const i32x4 0x00000005 0x00000006 0x00000007 0x00000008
+    v128.const i32x4 0x00000001 0x00000000 0x00000002 0x00000000
+    v128.const i32x4 0x00000003 0x00000004 0x00000005 0x00000006
     i32x4.add
+    local.set 3
+    v128.const i32x4 0x9999999a 0x3fb99999 0x9999999a 0x3fc99999
+    f64.const 0x1.0624dd2f1a9fcp-10 (;=0.001;)
+    f64x2.splat
+    f64x2.mul
     drop)
   (func (;4;) (type 3) (param i32 i32) (result i32)
     (local i32 i32)

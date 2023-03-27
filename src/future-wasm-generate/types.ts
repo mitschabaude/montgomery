@@ -179,7 +179,7 @@ type JSValue<T extends ValueType> = T extends "i32"
   : T extends "i64"
   ? bigint
   : T extends "v128"
-  ? bigint
+  ? never
   : T extends "funcref"
   ? Function | null
   : T extends "externref"

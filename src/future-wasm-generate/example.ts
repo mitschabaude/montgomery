@@ -26,6 +26,7 @@ import {
   call_indirect,
   v128,
   i32x4,
+  f64x2,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -108,8 +109,12 @@ let table = Table({ type: funcref, min: 4 }, [
 ]);
 
 let exportedFunc = func(
-  { in: { x: i32, doLog: i32 }, locals: { y: i32 }, out: [i32] },
-  ({ x, doLog }, { y }) => {
+  {
+    in: { x: i32, doLog: i32 },
+    locals: { y: i32, v: v128 },
+    out: [i32],
+  },
+  ({ x, doLog }, { y, v }) => {
     // call(testUnreachable);
     ref.func(myFunc); // TODO this fails if there is no table but a global, seems to be a V8 bug
     call(consoleLogFunc);
@@ -147,9 +152,14 @@ let exportedFunc = func(
     i32.store({});
 
     // test vector instr
-    v128.const({ shape: "i16x8", value: [0, 1, 0, 2, 0, 3, 0, 4] });
-    v128.const({ shape: "i32x4", value: [5, 6, 7, 8] });
+    v128.const("i64x2", [1n, 2n]);
+    v128.const("i32x4", [3, 4, 5, 6]);
     i32x4.add();
+    local.set(v);
+    v128.const("f64x2", [0.1, 0.2]);
+    f64.const(0.001);
+    f64x2.splat();
+    f64x2.mul();
     drop();
   }
 );
