@@ -2,16 +2,18 @@
   (type (;0;) (func (param i64)))
   (type (;1;) (func (param i32)))
   (type (;2;) (func (param funcref)))
-  (type (;3;) (func (param i32 i32) (result i32)))
-  (type (;4;) (func))
-  (type (;5;) (func (param i32) (result i32)))
+  (type (;3;) (func (param f64)))
+  (type (;4;) (func (param i32 i32) (result i32)))
+  (type (;5;) (func))
+  (type (;6;) (func (param i32) (result i32)))
   (import "" "f0" (func (;0;) (type 0)))
   (import "" "f1" (func (;1;) (type 1)))
   (import "" "f2" (func (;2;) (type 2)))
+  (import "" "f3" (func (;3;) (type 3)))
   (import "" "g0" (global (;0;) i64))
-  (func (;3;) (type 3) (param i32 i32) (result i32)
+  (func (;4;) (type 4) (param i32 i32) (result i32)
     (local i32 v128)
-    ref.func 4
+    ref.func 5
     call 2
     global.get 1
     i32.const 0
@@ -30,7 +32,7 @@
     local.set 2
     local.get 2
     i32.const 5
-    call 4
+    call 5
     i32.const 10
     memory.grow
     drop
@@ -43,11 +45,12 @@
     i32x4.add
     local.set 3
     v128.const i32x4 0x9999999a 0x3fb99999 0x9999999a 0x3fc99999
-    f64.const 0x1.0624dd2f1a9fcp-10 (;=0.001;)
+    f64.const 0x1.9p+2 (;=6.25;)
     f64x2.splat
     f64x2.mul
-    drop)
-  (func (;4;) (type 3) (param i32 i32) (result i32)
+    f64x2.extract_lane 1
+    call 3)
+  (func (;5;) (type 4) (param i32 i32) (result i32)
     (local i32 i32)
     f64.const 0x1.2p+0 (;=1.125;)
     i64.trunc_sat_f64_s
@@ -85,9 +88,9 @@
     end)
   (table (;0;) 4 funcref)
   (memory (;0;) 1 65536)
-  (global (;1;) funcref (ref.func 4))
-  (export "exportedFunc" (func 3))
+  (global (;1;) funcref (ref.func 5))
+  (export "exportedFunc" (func 4))
   (export "importedGlobal" (global 0))
   (export "memory" (memory 0))
-  (elem (;0;) (i32.const 0) funcref (ref.func 2) (ref.func 4) (ref.null func) (ref.null func))
+  (elem (;0;) (i32.const 0) funcref (ref.func 2) (ref.func 5) (ref.null func) (ref.null func))
   (data (;0;) (i32.const 0) "\00\01\02\03\04\05\06\07\08\09\0a\0b"))

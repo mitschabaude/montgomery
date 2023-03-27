@@ -39,6 +39,7 @@ let log = (...args: any) => console.log("logging from wasm:", ...args);
 
 let consoleLog = importFunc({ in: [i32], out: [] }, log);
 let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
+let consoleLogF64 = importFunc({ in: [f64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
 let mem = Memory(
@@ -157,10 +158,11 @@ let exportedFunc = func(
     i32x4.add();
     local.set(v);
     v128.const("f64x2", [0.1, 0.2]);
-    f64.const(0.001);
+    f64.const(6.25);
     f64x2.splat();
     f64x2.mul();
-    drop();
+    f64x2.extract_lane(1);
+    call(consoleLogF64); // should log 1.25
   }
 );
 
