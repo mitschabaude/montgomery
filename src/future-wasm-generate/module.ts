@@ -236,7 +236,7 @@ function pushType(types: FunctionType[], type: FunctionType) {
 }
 
 function addImport(
-  { kind, module = "*", string, value }: Dependency.AnyImport,
+  { kind, module = "", string, value }: Dependency.AnyImport,
   description: Import["description"],
   i: number,
   importMap: WebAssembly.Imports
