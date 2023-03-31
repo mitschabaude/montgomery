@@ -23,6 +23,12 @@ import {
   v128Ops,
   wrapConst,
 } from "./instruction/vector.js";
+import {
+  dataConstructor,
+  elemConstructor,
+  memoryConstructor,
+  tableConstructor,
+} from "./memory.js";
 
 // instruction API
 export {
@@ -66,7 +72,12 @@ export {
 export { func, defaultCtx };
 export { funcref, externref, Type } from "./types.js";
 export { importFunc, importGlobal } from "./export.js";
-export { Memory, Data, Table, Elem } from "./memory.js";
+export {
+  memoryConstructor,
+  dataConstructor,
+  tableConstructor,
+  elemConstructor,
+} from "./memory.js";
 export { Const } from "./dependency.js";
 
 type i32 = "i32";
@@ -131,10 +142,13 @@ function createInstructions(ctx: LocalContext) {
   const control = removeContexts(ctx, controlOps);
   const { drop, select_poly, select_t } = removeContexts(ctx, parametric);
 
-  const memory = removeContexts(ctx, memoryOps);
-  const data = removeContexts(ctx, dataOps);
-  const table = removeContexts(ctx, tableOps);
-  const elem = removeContexts(ctx, elemOps);
+  const memory = Object.assign(
+    memoryConstructor,
+    removeContexts(ctx, memoryOps)
+  );
+  const data = Object.assign(dataConstructor, removeContexts(ctx, dataOps));
+  const table = Object.assign(tableConstructor, removeContexts(ctx, tableOps));
+  const elem = Object.assign(elemConstructor, removeContexts(ctx, elemOps));
 
   const v128_ = removeContexts(ctx, v128Ops);
   const v128 = Object.assign(v128t, {

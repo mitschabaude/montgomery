@@ -11,7 +11,7 @@ import {
   MemoryType,
   TableType,
 } from "./types.js";
-import { Memory } from "./memory.js";
+import { memoryConstructor } from "./memory.js";
 
 export { Module };
 
@@ -32,7 +32,8 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     pushDependency(dependencies, inputExports[name]);
   }
   if (inputMemory !== undefined) {
-    let memory = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
+    let memory =
+      "kind" in inputMemory ? inputMemory : memoryConstructor(inputMemory);
     pushDependency(dependencies, memory);
   }
   if (inputStart !== undefined) {

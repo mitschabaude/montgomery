@@ -2,9 +2,14 @@ import { Const } from "./dependency.js";
 import * as Dependency from "./dependency.js";
 import { RefTypeObject, valueTypeLiteral } from "./types.js";
 
-export { Memory, Data, Table, Elem };
+export {
+  memoryConstructor,
+  dataConstructor,
+  tableConstructor,
+  elemConstructor,
+};
 
-function Memory(
+function memoryConstructor(
   {
     min,
     max,
@@ -21,13 +26,13 @@ function Memory(
   };
   let offset = 0;
   for (let init of content) {
-    Data({ memory, offset: Const.i32(offset) }, init);
+    dataConstructor({ memory, offset: Const.i32(offset) }, init);
     offset += init.length;
   }
   return memory;
 }
 
-function Data(
+function dataConstructor(
   mode:
     | {
         memory?: Dependency.AnyMemory;
@@ -56,7 +61,7 @@ function Data(
   return result;
 }
 
-function Table(
+function tableConstructor(
   {
     type,
     min,
@@ -74,12 +79,12 @@ function Table(
     deps: [],
   };
   if (content !== undefined) {
-    Elem({ type, mode: { table, offset: Const.i32(0) } }, content);
+    elemConstructor({ type, mode: { table, offset: Const.i32(0) } }, content);
   }
   return table;
 }
 
-function Elem(
+function elemConstructor(
   {
     type,
     mode,

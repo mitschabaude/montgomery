@@ -12,8 +12,6 @@ import {
   funcref,
   importFunc,
   importGlobal,
-  Memory,
-  Table,
   memory,
   Const,
   f64,
@@ -43,7 +41,7 @@ let consoleLog64 = importFunc({ in: [i64], out: [] }, log);
 let consoleLogF64 = importFunc({ in: [f64], out: [] }, log);
 let consoleLogFunc = importFunc({ in: [funcref], out: [] }, log);
 
-let mem = Memory(
+let mem = memory(
   { min: 1, max: 2 ** 16 },
   Uint8Array.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 );
@@ -103,7 +101,7 @@ let testUnreachable = func({ in: {}, locals: {}, out: [] }, () => {
   call(consoleLog);
 });
 
-let funcTable = Table({ type: funcref, min: 4 }, [
+let funcTable = table({ type: funcref, min: 4 }, [
   Const.refFunc(consoleLogFunc),
   Const.refFunc(myFunc),
   Const.refFuncNull,
