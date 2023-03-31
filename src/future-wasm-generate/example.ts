@@ -27,6 +27,7 @@ import {
   v128,
   i32x4,
   f64x2,
+  table,
 } from "./index.js";
 import assert from "node:assert";
 import fs from "node:fs";
@@ -102,7 +103,7 @@ let testUnreachable = func({ in: {}, locals: {}, out: [] }, () => {
   call(consoleLog);
 });
 
-let table = Table({ type: funcref, min: 4 }, [
+let funcTable = Table({ type: funcref, min: 4 }, [
   Const.refFunc(consoleLogFunc),
   Const.refFunc(myFunc),
   Const.refFuncNull,
@@ -121,7 +122,7 @@ let exportedFunc = func(
     call(consoleLogFunc);
     global.get(myFuncGlobal);
     i32.const(0);
-    call_indirect(table, { in: [funcref], out: [] });
+    call_indirect(funcTable, { in: [funcref], out: [] });
     local.get(x);
     local.get(doLog);
     control.if(null, () => {
@@ -163,6 +164,12 @@ let exportedFunc = func(
     f64x2.mul();
     f64x2.extract_lane(1);
     call(consoleLogF64); // should log 1.25
+
+    // test table
+    ref.null(funcref);
+    i32.const(10);
+    table.grow(funcTable);
+    drop();
   }
 );
 

@@ -49,7 +49,11 @@
     f64x2.splat
     f64x2.mul
     f64x2.extract_lane 1
-    call 3)
+    call 3
+    ref.null func
+    i32.const 10
+    table.grow 0
+    drop)
   (func (;5;) (type 4) (param i32 i32) (result i32)
     (local i32 i32)
     f64.const 0x1.2p+0 (;=1.125;)
