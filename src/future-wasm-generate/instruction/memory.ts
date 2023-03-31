@@ -3,19 +3,29 @@ import * as Dependency from "../dependency.js";
 import { LocalContext } from "../local-context.js";
 import { U32, U8 } from "../immediate.js";
 import { record, tuple } from "../binable.js";
-import { ValueType, valueTypeLiterals, ValueTypeObjects } from "../types.js";
+import {
+  DataIndex,
+  ElemIndex,
+  MemoryIndex,
+  TableIndex,
+  ValueType,
+  valueTypeLiterals,
+  ValueTypeObjects,
+} from "../types.js";
 import { Tuple } from "../util.js";
 import { InstructionName } from "./opcodes.js";
 
 export {
   memoryOps,
   dataOps,
+  tableOps,
+  elemOps,
   memoryInstruction,
   memoryAndLaneInstruction as memoryLaneInstruction,
 };
 
 const memoryOps = {
-  size: baseInstruction("memory.size", U32, {
+  size: baseInstruction("memory.size", MemoryIndex, {
     create(_: LocalContext) {
       return {
         in: [],
@@ -25,7 +35,7 @@ const memoryOps = {
       };
     },
   }),
-  grow: baseInstruction("memory.grow", U32, {
+  grow: baseInstruction("memory.grow", MemoryIndex, {
     create(_: LocalContext) {
       return {
         in: ["i32"],
@@ -35,7 +45,7 @@ const memoryOps = {
       };
     },
   }),
-  init: baseInstruction("memory.init", tuple([U32, U32]), {
+  init: baseInstruction("memory.init", tuple([DataIndex, MemoryIndex]), {
     create(_: LocalContext, data: Dependency.Data) {
       return {
         in: ["i32", "i32", "i32"],
@@ -47,7 +57,7 @@ const memoryOps = {
       return [dataIdx, 0];
     },
   }),
-  copy: baseInstruction("memory.copy", tuple([U32, U32]), {
+  copy: baseInstruction("memory.copy", tuple([MemoryIndex, MemoryIndex]), {
     create(_: LocalContext) {
       return {
         in: ["i32", "i32", "i32"],
@@ -57,7 +67,7 @@ const memoryOps = {
       };
     },
   }),
-  fill: baseInstruction("memory.fill", U32, {
+  fill: baseInstruction("memory.fill", MemoryIndex, {
     create(_: LocalContext) {
       return {
         in: ["i32", "i32", "i32"],
@@ -70,17 +80,105 @@ const memoryOps = {
 };
 
 const dataOps = {
-  drop: baseInstruction("data.drop", U32, {
+  drop: baseInstruction("data.drop", DataIndex, {
     create(_: LocalContext, data: Dependency.Data) {
       return {
-        in: ["i32", "i32", "i32"],
+        in: [],
         out: [],
         deps: [data],
       };
     },
-    resolve([dataIdx]: number[]) {
-      return dataIdx;
+    resolve: ([dataIdx]) => dataIdx,
+  }),
+};
+
+const tableOps = {
+  get: baseInstruction("table.get", TableIndex, {
+    create(_: LocalContext, table: Dependency.Table) {
+      return {
+        in: ["i32"],
+        out: [table.type.type],
+        deps: [table],
+      };
     },
+    resolve: ([tableIdx]) => tableIdx,
+  }),
+  set: baseInstruction("table.set", TableIndex, {
+    create(_: LocalContext, table: Dependency.Table) {
+      return {
+        in: ["i32", table.type.type],
+        out: [],
+        deps: [table],
+      };
+    },
+    resolve: ([tableIdx]) => tableIdx,
+  }),
+  init: baseInstruction("table.init", tuple([ElemIndex, TableIndex]), {
+    create(_: LocalContext, table: Dependency.Table, elem: Dependency.Elem) {
+      return {
+        in: ["i32", "i32", "i32"],
+        out: [],
+        deps: [elem, table],
+      };
+    },
+    resolve: ([elemIdx, tableIdx]) => [elemIdx, tableIdx],
+  }),
+  copy: baseInstruction("table.init", tuple([TableIndex, TableIndex]), {
+    create(
+      _: LocalContext,
+      table1: Dependency.Table,
+      table2: Dependency.Table
+    ) {
+      return {
+        in: ["i32", "i32", "i32"],
+        out: [],
+        deps: [table1, table2],
+      };
+    },
+    resolve: ([tableIdx1, tableIdx2]) => [tableIdx1, tableIdx2],
+  }),
+  grow: baseInstruction("table.grow", TableIndex, {
+    create(_: LocalContext, table: Dependency.Table) {
+      return {
+        in: [table.type.type, "i32"],
+        out: ["i32"],
+        deps: [table],
+      };
+    },
+    resolve: ([tableIdx]) => tableIdx,
+  }),
+  size: baseInstruction("table.size", TableIndex, {
+    create(_: LocalContext, table: Dependency.Table) {
+      return {
+        in: [],
+        out: ["i32"],
+        deps: [table],
+      };
+    },
+    resolve: ([tableIdx]) => tableIdx,
+  }),
+  fill: baseInstruction("table.fill", TableIndex, {
+    create(_: LocalContext, table: Dependency.Table) {
+      return {
+        in: ["i32", table.type.type, "i32"],
+        out: [],
+        deps: [table],
+      };
+    },
+    resolve: ([tableIdx]) => tableIdx,
+  }),
+};
+
+const elemOps = {
+  drop: baseInstruction("elem.drop", ElemIndex, {
+    create(_: LocalContext, elem: Dependency.Elem) {
+      return {
+        in: [],
+        out: [],
+        deps: [elem],
+      };
+    },
+    resolve: ([elemIdx]) => elemIdx,
   }),
 };
 

@@ -3,7 +3,7 @@ import { Const } from "../dependency.js";
 import * as Dependency from "../dependency.js";
 import { U32 } from "../immediate.js";
 import { baseInstruction } from "./base.js";
-import { RefType, ValueType } from "../types.js";
+import { RefType, RefTypeObject, valueTypeLiteral } from "../types.js";
 import { LocalContext } from "../local-context.js";
 
 export { localOps, globalOps, globalConstructor, refOps };
@@ -77,8 +77,12 @@ function globalConstructor(
 
 const refOps = {
   null: baseInstruction("ref.null", RefType, {
-    create(_, type: RefType) {
-      return { in: [], out: [type] as [ValueType], resolveArgs: [type] };
+    create(_, type: RefTypeObject) {
+      return {
+        in: [],
+        out: [valueTypeLiteral(type)],
+        resolveArgs: [valueTypeLiteral(type)],
+      };
     },
   }),
   is_null: baseInstruction("ref.is_null", Undefined, {

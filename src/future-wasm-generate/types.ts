@@ -3,7 +3,14 @@ import { U32, vec } from "./immediate.js";
 import { Tuple } from "./util.js";
 
 export { i32t, i64t, f32t, f64t, v128t, funcref, externref };
-export { TypeIndex, FunctionIndex, MemoryIndex, TableIndex };
+export {
+  TypeIndex,
+  FunctionIndex,
+  MemoryIndex,
+  TableIndex,
+  ElemIndex,
+  DataIndex,
+};
 export {
   ValueTypeObject,
   RefTypeObject,
@@ -71,12 +78,14 @@ const codeToValueType = invertRecord(valueTypeCodes);
 type ValueTypeObject = { kind: ValueType };
 const ValueType = Binable<ValueType>({
   toBytes(type) {
-    return [valueTypeCodes[type]];
+    let code = valueTypeCodes[type];
+    if (code === undefined) throw Error(`Invalid value type ${type}`);
+    return [code];
   },
   readBytes(bytes, offset) {
     let code = bytes[offset++];
     let type = codeToValueType.get(code);
-    if (type === undefined) throw Error("invalid value type");
+    if (type === undefined) throw Error(`Invalid value type ${type}.`);
     return [type, offset];
   },
 });
@@ -139,6 +148,10 @@ type TableIndex = U32;
 const TableIndex = U32;
 type MemoryIndex = U32;
 const MemoryIndex = U32;
+type ElemIndex = U32;
+const ElemIndex = U32;
+type DataIndex = U32;
+const DataIndex = U32;
 
 function invertRecord<K extends string, V>(record: Record<K, V>): Map<V, K> {
   let map = new Map<V, K>();

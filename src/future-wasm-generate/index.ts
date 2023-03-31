@@ -6,7 +6,7 @@ import {
   refOps,
 } from "./instruction/variable.js";
 import { f32Ops, f64Ops, i32Ops, i64Ops } from "./instruction/numeric.js";
-import { memoryOps, dataOps } from "./instruction/memory.js";
+import { memoryOps, dataOps, tableOps, elemOps } from "./instruction/memory.js";
 import { control as controlOps, parametric } from "./instruction/control.js";
 import { emptyContext, LocalContext } from "./local-context.js";
 import { Tuple } from "./util.js";
@@ -38,6 +38,8 @@ export {
   select,
   memory,
   data,
+  table,
+  elem,
   v128,
   i8x16,
   i16x8,
@@ -89,6 +91,8 @@ const {
   select,
   memory,
   data,
+  table,
+  elem,
   v128,
   i8x16,
   i16x8,
@@ -129,6 +133,8 @@ function createInstructions(ctx: LocalContext) {
 
   const memory = removeContexts(ctx, memoryOps);
   const data = removeContexts(ctx, dataOps);
+  const table = removeContexts(ctx, tableOps);
+  const elem = removeContexts(ctx, elemOps);
 
   const v128_ = removeContexts(ctx, v128Ops);
   const v128 = Object.assign(v128t, {
@@ -162,6 +168,8 @@ function createInstructions(ctx: LocalContext) {
     select,
     memory,
     data,
+    table,
+    elem,
     v128,
     i8x16,
     i16x8,
