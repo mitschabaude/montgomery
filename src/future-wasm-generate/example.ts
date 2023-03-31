@@ -173,8 +173,13 @@ let exportedFunc = func(
   }
 );
 
+let startFunc = importFunc({ in: [], out: [] }, () =>
+  console.log("starting wasm")
+);
+
 let module = Module({
   exports: { exportedFunc, importedGlobal, memory: mem },
+  start: startFunc,
 });
 
 console.dir(module.module, { depth: Infinity });

@@ -20,9 +20,11 @@ type Module = BinableModule;
 function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   exports: inputExports,
   memory: inputMemory,
+  start: inputStart,
 }: {
   exports: Exports;
   memory?: Limits | Dependency.AnyMemory;
+  start?: Dependency.AnyFunc;
 }) {
   // collect all dependencies (by kind)
   let dependencies = new Set<Dependency.t>();
@@ -32,6 +34,9 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
   if (inputMemory !== undefined) {
     let memory = "kind" in inputMemory ? inputMemory : Memory(inputMemory);
     pushDependency(dependencies, memory);
+  }
+  if (inputStart !== undefined) {
+    pushDependency(dependencies, inputStart);
   }
   let dependencyByKind: {
     [K in Dependency.t["kind"]]: (Dependency.t & { kind: K })[];
@@ -157,6 +162,9 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     return { init, mode: mode_ };
   });
 
+  // start
+  let start = inputStart === undefined ? undefined : depToIndex.get(inputStart);
+
   // exports
   let exports: Export[] = [];
   for (let name in inputExports) {
@@ -175,8 +183,7 @@ function ModuleConstructor<Exports extends Record<string, Dependency.Export>>({
     tables,
     globals,
     memory,
-    // TODO
-    start: undefined,
+    start,
   };
   let module = {
     module: binableModule,

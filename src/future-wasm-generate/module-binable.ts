@@ -33,7 +33,7 @@ type Module = {
   globals: Global[];
   elems: Elem[];
   datas: Data[];
-  start?: FinalizedFunc;
+  start?: FunctionIndex;
   imports: Import[];
   exports: Export[];
 };
@@ -144,7 +144,6 @@ ParsedModule = withValidation(
     version,
     funcSection,
     codeSection,
-    startSection,
     memorySection,
     dataSection,
     dataCountSection,
@@ -155,9 +154,6 @@ ParsedModule = withValidation(
     }
     if (memorySection.length > 1) {
       throw Error("multiple memories are not allowed");
-    }
-    if (startSection !== undefined && !funcSection.includes(startSection)) {
-      throw Error("start function index must be included in function section");
     }
     if (dataSection.length !== (dataCountSection ?? 0))
       throw Error("data section length does not match data count section");
@@ -179,10 +175,6 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
   }) {
     let funcSection = funcs.map((f) => f.typeIdx);
     let memorySection = memory ? [memory] : [];
-    let startSection = start && funcs.indexOf(start);
-    if (startSection === -1) {
-      throw Error("start function is not included in functions");
-    }
     let codeSection = funcs.map(({ locals, body }) => ({ locals, body }));
     let exportSection: Export[] = exports;
     return {
@@ -194,7 +186,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       memorySection,
       globalSection: globals,
       exportSection,
-      startSection,
+      startSection: start,
       codeSection,
       dataSection: datas,
       dataCountSection: datas.length,
@@ -228,7 +220,6 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
         body,
       };
     });
-    let start = startSection === undefined ? undefined : funcs[startSection];
     let [memory] = memorySection;
     let exports: Export[] = exportSection;
     return {
@@ -239,7 +230,7 @@ const Module = iso<ParsedModule, Module>(ParsedModule, {
       memory,
       globals: globalSection,
       exports,
-      start,
+      start: startSection,
       datas: dataSection,
       elems: elemSection,
     };
