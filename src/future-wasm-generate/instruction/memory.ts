@@ -2,13 +2,14 @@ import { baseInstruction } from "./base.js";
 import * as Dependency from "../dependency.js";
 import { LocalContext } from "../local-context.js";
 import { U32, U8 } from "../immediate.js";
-import { record } from "../binable.js";
+import { record, tuple } from "../binable.js";
 import { ValueType, valueTypeLiterals, ValueTypeObjects } from "../types.js";
 import { Tuple } from "../util.js";
 import { InstructionName } from "./opcodes.js";
 
 export {
   memoryOps,
+  dataOps,
   memoryInstruction,
   memoryAndLaneInstruction as memoryLaneInstruction,
 };
@@ -34,8 +35,53 @@ const memoryOps = {
       };
     },
   }),
-  // TODO instructions with nested opcodes
-  // init, copy, fill
+  init: baseInstruction("memory.init", tuple([U32, U32]), {
+    create(_: LocalContext, data: Dependency.Data) {
+      return {
+        in: ["i32", "i32", "i32"],
+        out: [],
+        deps: [data, Dependency.hasMemory],
+      };
+    },
+    resolve([dataIdx]: number[]): [number, number] {
+      return [dataIdx, 0];
+    },
+  }),
+  copy: baseInstruction("memory.copy", tuple([U32, U32]), {
+    create(_: LocalContext) {
+      return {
+        in: ["i32", "i32", "i32"],
+        out: [],
+        deps: [Dependency.hasMemory],
+        resolveArgs: [[0, 0]],
+      };
+    },
+  }),
+  fill: baseInstruction("memory.fill", U32, {
+    create(_: LocalContext) {
+      return {
+        in: ["i32", "i32", "i32"],
+        out: [],
+        deps: [Dependency.hasMemory],
+        resolveArgs: [0],
+      };
+    },
+  }),
+};
+
+const dataOps = {
+  drop: baseInstruction("data.drop", U32, {
+    create(_: LocalContext, data: Dependency.Data) {
+      return {
+        in: ["i32", "i32", "i32"],
+        out: [],
+        deps: [data],
+      };
+    },
+    resolve([dataIdx]: number[]) {
+      return dataIdx;
+    },
+  }),
 };
 
 type MemArg = { align: U32; offset: U32 };
