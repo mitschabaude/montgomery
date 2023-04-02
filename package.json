@@ -25,7 +25,8 @@
     "start": "node src/scripts/run.js",
     "test": "node src/scripts/test.js",
     "test-msm": "node src/scripts/test-msm.js",
-    "prepublishOnly": "npm run build && npx tsc"
+    "prepublishOnly": "npm run build && npx tsc",
+    "clean": "rm -rf build types"
   },
   "keywords": [],
   "author": "Gregor Mitscha-Baude",
@@ -38,6 +39,7 @@
     "chrode": "^0.3.4",
     "eslint": "^8.20.0",
     "typescript": "^4.9.4",
-    "wabt": "^1.0.29"
+    "wabt": "^1.0.29",
+    "wasmati": "^0.1.0"
   }
 }
