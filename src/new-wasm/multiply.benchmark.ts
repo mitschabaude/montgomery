@@ -3,6 +3,7 @@ import { tic, toc } from "../extra/tictoc.js";
 import { p, randomBaseFieldx2, mod, beta } from "../finite-field-js.js";
 import { multiplyMontgomery } from "./multiply-montgomery.js";
 import { jsHelpers } from "./helpers.js";
+// import { writeWat } from "./wat-helpers.js";
 
 let N = 1e7;
 
@@ -16,6 +17,11 @@ for (let w of [30]) {
   let module = Module({
     exports: { benchMultiply, mem },
   });
+  // await writeWat(
+  //   import.meta.url.slice(7).replace(".ts", ".wat"),
+  //   module.toBytes()
+  // );
+
   let wasm = (await module.instantiate()).instance.exports;
 
   let helpers = jsHelpers(p, w, wasm.mem);
