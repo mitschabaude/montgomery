@@ -32,7 +32,7 @@ for (let w of [30]) {
   writeBigint(x, x0);
 
   tic(`multiply (w=${w}, unrolled=${false}) x ${N}`);
-  wasm.benchMultiply(0, N);
+  wasm.benchMultiply(x, N);
   let timeMul = toc();
   console.log(`${(N / timeMul / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
   console.log(`montgomery mul\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
