@@ -221,9 +221,7 @@ function forLoop(
   loop({}, () => {
     callback();
     // i += incr
-    local.get(i);
-    i32.const(incr);
-    i32.add();
+    i32.add(i, incr);
     local.tee(i);
     // (...) !== end
     if (typeof end === "number") {
@@ -232,9 +230,7 @@ function forLoop(
       if (incr === 1) {
         local.get(end);
       } else {
-        i32.const(incr);
-        local.get(end);
-        i32.mul();
+        i32.mul(incr, end);
       }
     }
     i32.ne();
