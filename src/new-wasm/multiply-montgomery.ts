@@ -1,4 +1,5 @@
 import {
+  $,
   Const,
   Local,
   Type,
@@ -51,8 +52,7 @@ function multiplyMontgomery(
 
       if (countMultiplications) {
         global.get(multiplyCount);
-        i32.const(1);
-        i32.add();
+        i32.add($, 1);
         global.set(multiplyCount);
       }
 
@@ -66,9 +66,7 @@ function multiplyMontgomery(
 
       forLoop4(i, 0, n, () => {
         // load x[i] into local
-        local.get(x);
-        local.get(i);
-        i32.add();
+        i32.add(x, i);
         i32.load({});
         i64.extend_i32_u();
         local.set(xi);
@@ -79,24 +77,16 @@ function multiplyMontgomery(
 
         // S[0] + x[i]*y[0]
         local.get(S[0]);
-        local.get(xi);
-        local.get(Y[0]);
-        i64.mul();
+        i64.mul(xi, Y[0]);
         i64.add();
         // qi = (($ & wordMax) * mu) & wordMax
-        local.tee(tmp);
-        i64.const(wordMax);
-        i64.and();
-        i64.const(mu);
-        i64.mul();
-        i64.const(wordMax);
-        i64.and();
+        i64.and(local.tee(tmp), wordMax);
+        i64.mul($, mu);
+        i64.and($, wordMax);
         local.set(qi);
         local.get(tmp);
         // (stack, _) = $ + qi*p[0]
-        local.get(qi);
-        i64.const(P[0]);
-        i64.mul();
+        i64.mul(qi, P[0]);
         i64.add();
 
         for (let j = 1; j < n - 1; j++) {
@@ -107,23 +97,16 @@ function multiplyMontgomery(
           doCarry = j % nSafeSteps === 0;
           local.get(S[j]);
           if (didCarry) i64.add(); // add carry from stack
-          local.get(xi);
-          local.get(Y[j]);
-          i64.mul();
+          i64.mul(xi, Y[j]);
           i64.add();
-          local.get(qi);
-          i64.const(P[j]);
-          i64.mul();
+          i64.mul(qi, P[j]);
           i64.add();
           if (doCarry) {
             // put carry on the stack
             local.tee(tmp);
-            i64.const(wn);
-            i64.shr_u();
+            i64.shr_u($, wn);
             // mod 2^w the current result
-            local.get(tmp);
-            i64.const(wordMax);
-            i64.and();
+            i64.and(tmp, wordMax);
           }
           local.set(S[j - 1]);
         }
@@ -134,37 +117,24 @@ function multiplyMontgomery(
         if (doCarry) {
           local.get(S[j]);
           if (didCarry) i64.add(); // add carry from stack
-          local.get(xi);
-          local.get(Y[j]);
-          i64.mul();
+          i64.mul(xi, Y[j]);
           i64.add();
-          local.get(qi);
-          i64.const(P[j]);
-          i64.mul();
-
+          i64.mul(qi, P[j]);
           i64.add();
           // put carry on the stack
           local.tee(tmp);
-          i64.const(wn);
-          i64.shr_u();
+          i64.shr_u($, wn);
           // mod 2^w the current result
-          local.get(tmp);
-          i64.const(wordMax);
-          i64.and();
+          i64.and(tmp, wordMax);
           local.set(S[j - 1]);
           // if the last iteration does a carry, S[n-1] is set to it
           local.set(S[j]);
         } else {
           // if the last iteration doesn't do a carry, then S[n-1] is never set,
           // so we also don't have to get it & can save 1 addition
-          local.get(xi);
-          local.get(Y[j]);
-          i64.mul();
+          i64.mul(xi, Y[j]);
           if (didCarry) i64.add(); // add carry from stack
-          local.get(qi);
-          i64.const(P[j]);
-          i64.mul();
-
+          i64.mul(qi, P[j]);
           i64.add();
           local.set(S[j - 1]);
         }
@@ -172,22 +142,15 @@ function multiplyMontgomery(
       // outside i loop: final pass of collecting carries
       for (let j = 1; j < n; j++) {
         local.get(xy);
-        local.get(S[j - 1]);
-        i64.const(wordMax);
-        i64.and();
-        i32.wrap_i64();
+        i32.wrap_i64(i64.and(S[j - 1], wordMax));
         i32.store({ offset: 4 * (j - 1) });
-
         local.get(S[j]);
-        local.get(S[j - 1]);
-        i64.const(wn);
-        i64.shr_u();
+        i64.shr_u(S[j - 1], wn);
         i64.add();
         local.set(S[j]);
       }
       local.get(xy);
-      local.get(S[n - 1]);
-      i32.wrap_i64();
+      i32.wrap_i64(S[n - 1]);
       i32.store({ offset: 4 * (n - 1) });
     }
   );
