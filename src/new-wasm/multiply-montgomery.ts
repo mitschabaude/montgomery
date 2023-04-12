@@ -1,20 +1,8 @@
-import {
-  $,
-  Const,
-  Local,
-  Type,
-  br_if,
-  call,
-  func,
-  global,
-  i32,
-  i64,
-  local,
-  loop,
-} from "wasmati";
+import { $, Const, Type, call, func, global, i32, i64, local } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
 import { modInverse } from "../finite-field-js.js";
 import { bigintToLegs } from "../util.js";
+import { forLoop1, forLoop4 } from "./wasm-util.js";
 
 export { multiplyMontgomery };
 
@@ -48,7 +36,7 @@ function multiplyMontgomery(
     },
     ([xy, x, y], [tmp, qi, xi, i, ...rest]) => {
       let Y = rest.slice(0, n);
-      let S = rest.slice(n, 2 * n);
+      let XY = rest.slice(n, 2 * n);
 
       if (countMultiplications) {
         global.set(multiplyCount, i32.add(multiplyCount, 1));
@@ -71,8 +59,8 @@ function multiplyMontgomery(
         let didCarry = false;
         let doCarry = 0 % nSafeSteps === 0;
 
-        // S[0] + x[i]*y[0]
-        local.get(S[0]);
+        // XY[0] + x[i]*y[0]
+        local.get(XY[0]);
         i64.mul(xi, Y[0]);
         i64.add();
         // qi = (($ & wordMax) * mu) & wordMax
@@ -87,12 +75,12 @@ function multiplyMontgomery(
         i64.add();
 
         for (let j = 1; j < n - 1; j++) {
-          // S[j] + x[i]*y[j] + qi*p[j], or
-          // stack + S[j] + x[i]*y[j] + qi*p[j]
-          // ... = S[j-1], or  = (stack, S[j-1])
+          // XY[j] + x[i]*y[j] + qi*p[j], or
+          // stack + XY[j] + x[i]*y[j] + qi*p[j]
+          // ... = XY[j-1], or  = (stack, XY[j-1])
           didCarry = doCarry;
           doCarry = j % nSafeSteps === 0;
-          local.get(S[j]);
+          local.get(XY[j]);
           if (didCarry) i64.add(); // add carry from stack
           i64.mul(xi, Y[j]);
           i64.add();
@@ -105,14 +93,14 @@ function multiplyMontgomery(
             // mod 2^w the current result
             i64.and(tmp, wordMax);
           }
-          local.set(S[j - 1]);
+          local.set(XY[j - 1]);
         }
 
         let j = n - 1;
         didCarry = doCarry;
         doCarry = j % nSafeSteps === 0;
         if (doCarry) {
-          local.get(S[j]);
+          local.get(XY[j]);
           if (didCarry) i64.add(); // add carry from stack
           i64.mul(xi, Y[j]);
           i64.add();
@@ -123,29 +111,29 @@ function multiplyMontgomery(
           i64.shr_u($, wn);
           // mod 2^w the current result
           i64.and(tmp, wordMax);
-          local.set(S[j - 1]);
-          // if the last iteration does a carry, S[n-1] is set to it
-          local.set(S[j]);
+          local.set(XY[j - 1]);
+          // if the last iteration does a carry, XY[n-1] is set to it
+          local.set(XY[j]);
         } else {
-          // if the last iteration doesn't do a carry, then S[n-1] is never set,
+          // if the last iteration doesn't do a carry, then XY[n-1] is never set,
           // so we also don't have to get it & can save 1 addition
           i64.mul(xi, Y[j]);
           if (didCarry) i64.add(); // add carry from stack
           i64.mul(qi, P[j]);
           i64.add();
-          local.set(S[j - 1]);
+          local.set(XY[j - 1]);
         }
       });
       // outside i loop: final pass of collecting carries
       for (let j = 1; j < n; j++) {
         local.get(xy);
-        i32.wrap_i64(i64.and(S[j - 1], wordMax));
+        i32.wrap_i64(i64.and(XY[j - 1], wordMax));
         i32.store({ offset: 4 * (j - 1) });
-        i64.shr_u(S[j - 1], wn);
-        local.set(S[j], i64.add($, S[j]));
+        i64.shr_u(XY[j - 1], wn);
+        local.set(XY[j], i64.add($, XY[j]));
       }
       local.get(xy);
-      i32.wrap_i64(S[n - 1]);
+      i32.wrap_i64(XY[n - 1]);
       i32.store({ offset: 4 * (n - 1) });
     }
   );
@@ -163,53 +151,4 @@ function multiplyMontgomery(
   );
 
   return { multiply, benchMultiply, multiplyCount, resetMultiplyCount };
-}
-
-// helper
-function forLoop(
-  incr: number,
-  i: Local<i32>,
-  start: number | Local<i32>,
-  end: number | Local<i32>,
-  callback: () => void
-) {
-  if (typeof start === "number") i32.const(start);
-  else local.get(start);
-  local.set(i);
-  loop({}, () => {
-    callback();
-    // i += incr
-    i32.add(i, incr);
-    local.tee(i);
-    // (...) !== end
-    if (typeof end === "number") {
-      i32.const(incr * end);
-    } else {
-      if (incr === 1) {
-        local.get(end);
-      } else {
-        i32.mul(incr, end);
-      }
-    }
-    i32.ne();
-    // if (...) continue
-    br_if(0);
-  });
-}
-
-function forLoop4(
-  i: Local<i32>,
-  start: number | Local<i32>,
-  end: number | Local<i32>,
-  callback: () => void
-) {
-  forLoop(4, i, start, end, callback);
-}
-function forLoop1(
-  i: Local<i32>,
-  start: number | Local<i32>,
-  end: number | Local<i32>,
-  callback: () => void
-) {
-  forLoop(1, i, start, end, callback);
 }
