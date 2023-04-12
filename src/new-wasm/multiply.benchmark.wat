@@ -244,10 +244,10 @@
     i64.and
     i32.wrap_i64
     i32.store
-    local.get 20
     local.get 19
     i64.const 30
     i64.shr_u
+    local.get 20
     i64.add
     local.set 20
     local.get 0
@@ -256,10 +256,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=4
-    local.get 21
     local.get 20
     i64.const 30
     i64.shr_u
+    local.get 21
     i64.add
     local.set 21
     local.get 0
@@ -268,10 +268,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=8
-    local.get 22
     local.get 21
     i64.const 30
     i64.shr_u
+    local.get 22
     i64.add
     local.set 22
     local.get 0
@@ -280,10 +280,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=12
-    local.get 23
     local.get 22
     i64.const 30
     i64.shr_u
+    local.get 23
     i64.add
     local.set 23
     local.get 0
@@ -292,10 +292,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=16
-    local.get 24
     local.get 23
     i64.const 30
     i64.shr_u
+    local.get 24
     i64.add
     local.set 24
     local.get 0
@@ -304,10 +304,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=20
-    local.get 25
     local.get 24
     i64.const 30
     i64.shr_u
+    local.get 25
     i64.add
     local.set 25
     local.get 0
@@ -316,10 +316,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=24
-    local.get 26
     local.get 25
     i64.const 30
     i64.shr_u
+    local.get 26
     i64.add
     local.set 26
     local.get 0
@@ -328,10 +328,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=28
-    local.get 27
     local.get 26
     i64.const 30
     i64.shr_u
+    local.get 27
     i64.add
     local.set 27
     local.get 0
@@ -340,10 +340,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=32
-    local.get 28
     local.get 27
     i64.const 30
     i64.shr_u
+    local.get 28
     i64.add
     local.set 28
     local.get 0
@@ -352,10 +352,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=36
-    local.get 29
     local.get 28
     i64.const 30
     i64.shr_u
+    local.get 29
     i64.add
     local.set 29
     local.get 0
@@ -364,10 +364,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=40
-    local.get 30
     local.get 29
     i64.const 30
     i64.shr_u
+    local.get 30
     i64.add
     local.set 30
     local.get 0
@@ -376,10 +376,10 @@
     i64.and
     i32.wrap_i64
     i32.store offset=44
-    local.get 31
     local.get 30
     i64.const 30
     i64.shr_u
+    local.get 31
     i64.add
     local.set 31
     local.get 0

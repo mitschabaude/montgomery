@@ -33,9 +33,9 @@ function multiplyMontgomery(
   let nSafeSteps = 2 ** (64 - 2 * w - 1);
 
   const multiplyCount = global(Const.i32(0), { mutable: true });
+
   const resetMultiplyCount = func({ in: [], locals: [], out: [] }, () => {
-    i32.const(0);
-    global.set(multiplyCount);
+    global.set(multiplyCount, 0);
   });
 
   let nLocals = Array<Type<i64>>(n).fill(i64);
@@ -51,23 +51,19 @@ function multiplyMontgomery(
       let S = rest.slice(n, 2 * n);
 
       if (countMultiplications) {
-        global.get(multiplyCount);
-        i32.add($, 1);
-        global.set(multiplyCount);
+        global.set(multiplyCount, i32.add(multiplyCount, 1));
       }
 
-      // load y
+      // load y into locals
       for (let i = 0; i < n; i++) {
-        local.get(y);
-        i32.load({ offset: i * 4 });
+        i32.load({ offset: i * 4 }, y);
         i64.extend_i32_u();
         local.set(Y[i]);
       }
 
       forLoop4(i, 0, n, () => {
         // load x[i] into local
-        i32.add(x, i);
-        i32.load({});
+        i32.load({}, i32.add(x, i));
         i64.extend_i32_u();
         local.set(xi);
 
@@ -80,7 +76,8 @@ function multiplyMontgomery(
         i64.mul(xi, Y[0]);
         i64.add();
         // qi = (($ & wordMax) * mu) & wordMax
-        i64.and(local.tee(tmp), wordMax);
+        local.tee(tmp);
+        i64.and($, wordMax);
         i64.mul($, mu);
         i64.and($, wordMax);
         local.set(qi);
@@ -144,10 +141,8 @@ function multiplyMontgomery(
         local.get(xy);
         i32.wrap_i64(i64.and(S[j - 1], wordMax));
         i32.store({ offset: 4 * (j - 1) });
-        local.get(S[j]);
         i64.shr_u(S[j - 1], wn);
-        i64.add();
-        local.set(S[j]);
+        local.set(S[j], i64.add($, S[j]));
       }
       local.get(xy);
       i32.wrap_i64(S[n - 1]);
