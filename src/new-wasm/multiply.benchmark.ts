@@ -1,10 +1,10 @@
 import { Module, memory } from "wasmati";
 import { tic, toc } from "../extra/tictoc.js";
-import { p, randomBaseFieldx2, mod, beta } from "../finite-field-js.js";
+import { p, randomBaseFieldx2 } from "../finite-field/pasta.js";
 import { multiplyMontgomery } from "./multiply-montgomery.js";
 import { jsHelpers } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
-import { multiplySchoolbook } from "./multiply-schoolbook-simd.js";
+import { multiplySchoolbook } from "./multiply-schoolbook.js";
 
 let N = 1e7;
 
