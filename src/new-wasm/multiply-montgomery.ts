@@ -1,4 +1,15 @@
-import { $, Const, Type, call, func, global, i32, i64, local } from "wasmati";
+import {
+  $,
+  Const,
+  Local,
+  Type,
+  call,
+  func,
+  global,
+  i32,
+  i64,
+  local,
+} from "wasmati";
 import { montgomeryParams } from "./helpers.js";
 import { modInverse } from "../finite-field-js.js";
 import { bigintToLegs } from "../util.js";
@@ -13,12 +24,16 @@ function multiplyMontgomery(
 ) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
   // constants
+  console.log({ p, n, wn, wordMax }, p > 1n << wn);
   let mu = modInverse(-p, 1n << wn);
+  console.log({ mu, wordMax, x: p % (1n << wn) });
+
   let P = bigintToLegs(p, w, n);
   // how much terms we can add before a carry
   let nSafeTerms = 2 ** (64 - 2 * w);
   // how much j steps we can do before a carry:
   let nSafeSteps = 2 ** (64 - 2 * w - 1);
+  console.log({ nSafeTerms, nSafeSteps });
 
   const multiplyCount = global(Const.i32(0), { mutable: true });
 
@@ -71,8 +86,7 @@ function multiplyMontgomery(
         local.set(qi);
         local.get(tmp);
         // (stack, _) = $ + qi*p[0]
-        i64.mul(qi, P[0]);
-        i64.add();
+        addMul(qi, P[0]);
 
         for (let j = 1; j < n - 1; j++) {
           // XY[j] + x[i]*y[j] + qi*p[j], or
@@ -84,8 +98,7 @@ function multiplyMontgomery(
           if (didCarry) i64.add(); // add carry from stack
           i64.mul(xi, Y[j]);
           i64.add();
-          i64.mul(qi, P[j]);
-          i64.add();
+          addMul(qi, P[j]);
           if (doCarry) {
             // put carry on the stack
             local.tee(tmp);
@@ -104,8 +117,7 @@ function multiplyMontgomery(
           if (didCarry) i64.add(); // add carry from stack
           i64.mul(xi, Y[j]);
           i64.add();
-          i64.mul(qi, P[j]);
-          i64.add();
+          addMul(qi, P[j]);
           // put carry on the stack
           local.tee(tmp);
           i64.shr_u($, wn);
@@ -119,8 +131,7 @@ function multiplyMontgomery(
           // so we also don't have to get it & can save 1 addition
           i64.mul(xi, Y[j]);
           if (didCarry) i64.add(); // add carry from stack
-          i64.mul(qi, P[j]);
-          i64.add();
+          addMul(qi, P[j]);
           local.set(XY[j - 1]);
         }
       });
@@ -151,4 +162,14 @@ function multiplyMontgomery(
   );
 
   return { multiply, benchMultiply, multiplyCount, resetMultiplyCount };
+}
+
+function addMul(l: Local<i64>, c: bigint) {
+  if (c === 0n) return;
+  if (c === 1n) {
+    i64.add($, l);
+    return;
+  }
+  i64.mul(l, c);
+  i64.add();
 }

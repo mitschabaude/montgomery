@@ -81,8 +81,6 @@
       local.set 4
       local.get 3
       local.get 4
-      i64.const 1
-      i64.mul
       i64.add
       local.get 16
       i64.add
@@ -130,28 +128,16 @@
       local.get 11
       i64.mul
       i64.add
-      local.get 4
-      i64.const 0
-      i64.mul
-      i64.add
       local.set 19
       local.get 21
       local.get 5
       local.get 12
       i64.mul
       i64.add
-      local.get 4
-      i64.const 0
-      i64.mul
-      i64.add
       local.set 20
       local.get 22
       local.get 5
       local.get 13
-      i64.mul
-      i64.add
-      local.get 4
-      i64.const 0
       i64.mul
       i64.add
       local.set 21
