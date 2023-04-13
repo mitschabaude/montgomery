@@ -19,10 +19,10 @@ for (let w of [29]) {
   let module = Module({
     exports: { benchMultiply, benchSchoolbook, mem },
   });
-  // await writeWat(
-  //   import.meta.url.slice(7).replace(".ts", ".wat"),
-  //   module.toBytes()
-  // );
+  await writeWat(
+    import.meta.url.slice(7).replace(".ts", ".wat"),
+    module.toBytes()
+  );
 
   let wasm = (await module.instantiate()).instance.exports;
 

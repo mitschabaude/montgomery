@@ -21,10 +21,6 @@
     end)
   (func (;1;) (type 1) (param i32 i32 i32)
     (local i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i32)
-    global.get 0
-    i32.const 1
-    i32.add
-    global.set 0
     local.get 2
     i32.load
     i64.extend_i32_u
@@ -76,11 +72,11 @@
       i64.mul
       i64.add
       local.tee 3
-      i64.const 1073741823
+      i64.const 536870911
       i64.and
-      i64.const 1073741823
+      i64.const 536870911
       i64.mul
-      i64.const 1073741823
+      i64.const 536870911
       i64.and
       local.set 4
       local.get 3
@@ -95,7 +91,7 @@
       i64.mul
       i64.add
       local.get 4
-      i64.const 615826356
+      i64.const 157910888
       i64.mul
       i64.add
       local.set 15
@@ -105,7 +101,7 @@
       i64.mul
       i64.add
       local.get 4
-      i64.const 349147577
+      i64.const 322848486
       i64.mul
       i64.add
       local.set 16
@@ -115,7 +111,7 @@
       i64.mul
       i64.add
       local.get 4
-      i64.const 296107778
+      i64.const 221378578
       i64.mul
       i64.add
       local.set 17
@@ -125,7 +121,7 @@
       i64.mul
       i64.add
       local.get 4
-      i64.const 34
+      i64.const 548
       i64.mul
       i64.add
       local.set 18
@@ -159,23 +155,14 @@
       i64.mul
       i64.add
       local.set 21
-      local.get 23
       local.get 5
       local.get 14
       i64.mul
-      i64.add
       local.get 4
-      i64.const 16384
+      i64.const 4194304
       i64.mul
       i64.add
-      local.tee 3
-      i64.const 30
-      i64.shr_u
-      local.get 3
-      i64.const 1073741823
-      i64.and
       local.set 22
-      local.set 23
       local.get 24
       i32.const 4
       i32.add
@@ -186,96 +173,96 @@
     end
     local.get 0
     local.get 15
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store
     local.get 15
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 16
     i64.add
     local.set 16
     local.get 0
     local.get 16
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=4
     local.get 16
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 17
     i64.add
     local.set 17
     local.get 0
     local.get 17
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=8
     local.get 17
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 18
     i64.add
     local.set 18
     local.get 0
     local.get 18
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=12
     local.get 18
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 19
     i64.add
     local.set 19
     local.get 0
     local.get 19
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=16
     local.get 19
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 20
     i64.add
     local.set 20
     local.get 0
     local.get 20
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=20
     local.get 20
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 21
     i64.add
     local.set 21
     local.get 0
     local.get 21
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=24
     local.get 21
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 22
     i64.add
     local.set 22
     local.get 0
     local.get 22
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=28
     local.get 22
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 23
     i64.add
@@ -358,12 +345,12 @@
       local.get 23
       i32.add
       local.get 3
-      i64.const 1073741823
+      i64.const 536870911
       i64.and
       i32.wrap_i64
       i32.store
       local.get 3
-      i64.const 30
+      i64.const 29
       i64.shr_u
       local.get 15
       i64.add
@@ -420,12 +407,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=36
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 15
     i64.add
@@ -434,12 +421,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=40
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 16
     i64.add
@@ -448,12 +435,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=44
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 17
     i64.add
@@ -462,12 +449,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=48
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 18
     i64.add
@@ -476,12 +463,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=52
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 19
     i64.add
@@ -490,12 +477,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=56
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 20
     i64.add
@@ -504,12 +491,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=60
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 21
     i64.add
@@ -518,12 +505,12 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=64
     local.get 3
-    i64.const 30
+    i64.const 29
     i64.shr_u
     local.get 22
     i64.add
@@ -532,12 +519,11 @@
     local.set 3
     local.get 0
     local.get 3
-    i64.const 1073741823
+    i64.const 536870911
     i64.and
     i32.wrap_i64
     i32.store offset=68)
   (memory (;0;) 100)
-  (global (;0;) (mut i32) (i32.const 0))
   (export "benchMultiply" (func 0))
   (export "benchSchoolbook" (func 2))
   (export "mem" (memory 0)))
