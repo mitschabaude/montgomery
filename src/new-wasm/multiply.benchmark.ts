@@ -4,7 +4,7 @@ import { p, randomBaseFieldx2, mod, beta } from "../finite-field-js.js";
 import { multiplyMontgomery } from "./multiply-montgomery.js";
 import { jsHelpers } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
-import { multiplySchoolbook } from "./multiply-schoolbook.js";
+import { multiplySchoolbook } from "./multiply-schoolbook-simd.js";
 
 let N = 1e7;
 
