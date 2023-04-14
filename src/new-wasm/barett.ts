@@ -82,8 +82,8 @@ function barrettReduction(
   w: number,
   multiply: Func<[i32, i32, i32], []>
 ) {
-  let { n, lengthP: b, wordMax, wn } = montgomeryParams(p, w);
-  let k = b - 1;
+  let { n, lengthP, wordMax, wn } = montgomeryParams(p, w);
+  let k = lengthP - 1;
   let N = n * w;
   let { n0, e0 } = findMsbCutoff(p, w);
   let m = 2n ** BigInt(k + N) / p;
@@ -93,8 +93,8 @@ function barrettReduction(
   let nLocals = Array<Type<i64>>(n).fill(i64);
 
   const barrett = func(
-    { in: [i32], locals: [i64, i64, ...nLocals, ...nLocals], out: [] },
-    ([x], [tmp, carry, ...rest]) => {
+    { in: [i32], locals: [i64, ...nLocals, ...nLocals], out: [] },
+    ([x], [tmp, ...rest]) => {
       let L = rest.splice(0, n);
       let LP = rest.splice(0, n);
 

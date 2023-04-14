@@ -51,7 +51,7 @@ function bench(
   tic();
   compute(x, N);
   let time = toc();
-  console.log(`${name} \t ${(N / time / 1e6).toFixed(2).padStart(5)}M ops / s`);
-  console.log(`${name} \t ${((time / N) * 1e9).toFixed(0)} ns`);
+  console.log(`${name} \t ${(N / time / 1e6).toFixed(1).padStart(4)}M ops/s`);
+  console.log(`${name} \t ${((time / N) * 1e9).toFixed(0)}ns`);
   console.log();
 }
