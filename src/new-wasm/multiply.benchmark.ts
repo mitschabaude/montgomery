@@ -5,7 +5,7 @@ import { multiplyMontgomery } from "./multiply-montgomery.js";
 import { jsHelpers, montgomeryParams } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
-import { barrettReduction } from "./barett.js";
+import { barrettReduction } from "./barrett.js";
 
 let N = 1e7;
 

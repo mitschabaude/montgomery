@@ -3,7 +3,7 @@ import { bigintFromLegs, bigintToLegs } from "../util.js";
 import { montgomeryParams } from "./helpers.js";
 import { forLoop1 } from "./wasm-util.js";
 
-export { barrettReduction };
+export { barrettReduction, barrettError };
 
 /**
  * barrett reduction modulo p (may be non-prime)
@@ -195,6 +195,32 @@ function barrettReduction(
 }
 
 // helpers
+
+// compute max error of l in barrett reduction
+// TODO document
+function barrettError({
+  k,
+  lambda,
+  dSquare,
+  N,
+  m,
+}: {
+  k: number;
+  lambda: bigint;
+  dSquare: bigint;
+  N: number;
+  m: bigint;
+}) {
+  let errNumerator =
+    m * 2n ** BigInt(k) * lambda +
+    BigInt(dSquare) * lambda ** 2n * (2n ** BigInt(k + N) - m * lambda);
+  let errDenominator = lambda * 2n ** BigInt(k + N);
+  let lengthErr = BigInt(errDenominator.toString().length);
+  let err =
+    Number(errNumerator / 10n ** (lengthErr - 5n)) /
+    Number(errDenominator / 10n ** (lengthErr - 5n));
+  return err;
+}
 
 function findMsbCutoff(p: bigint, w: number) {
   let { n, lengthP: b } = montgomeryParams(p, w);
