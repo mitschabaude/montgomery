@@ -71,13 +71,12 @@
       local.get 6
       i64.mul
       i64.add
-      local.tee 3
+      local.set 3
+      i64.const 536870912
+      local.get 3
       i64.const 536870911
       i64.and
-      i64.const 536870911
-      i64.mul
-      i64.const 536870911
-      i64.and
+      i64.sub
       local.set 4
       local.get 3
       local.get 4

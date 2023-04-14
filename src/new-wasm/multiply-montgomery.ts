@@ -24,16 +24,22 @@ function multiplyMontgomery(
 ) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
   // constants
-  console.log({ p, n, wn, wordMax }, p > 1n << wn);
   let mu = modInverse(-p, 1n << wn);
-  console.log({ mu, wordMax, x: p % (1n << wn) });
-
   let P = bigintToLegs(p, w, n);
   // how much terms we can add before a carry
   let nSafeTerms = 2 ** (64 - 2 * w);
   // how much j steps we can do before a carry:
   let nSafeSteps = 2 ** (64 - 2 * w - 1);
-  console.log({ nSafeTerms, nSafeSteps });
+
+  console.log("multiplyMontgomery", {
+    n,
+    wn,
+    wordMax,
+    mu,
+    x: p % (1n << wn),
+    nSafeTerms,
+    nSafeSteps,
+  });
 
   const multiplyCount = global(Const.i32(0), { mutable: true });
 
@@ -79,10 +85,16 @@ function multiplyMontgomery(
         i64.mul(xi, Y[0]);
         i64.add();
         // qi = (($ & wordMax) * mu) & wordMax
-        local.tee(tmp);
-        i64.and($, wordMax);
-        i64.mul($, mu);
-        i64.and($, wordMax);
+        if (mu === wordMax) {
+          // special case relevant for high 2-adicity curves
+          local.set(tmp);
+          i64.sub(i64.const(wordMax + 1n), i64.and(tmp, wordMax));
+        } else {
+          local.tee(tmp);
+          i64.and($, wordMax);
+          i64.mul($, mu);
+          i64.and($, wordMax);
+        }
         local.set(qi);
         local.get(tmp);
         // (stack, _) = $ + qi*p[0]
