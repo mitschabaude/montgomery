@@ -178,6 +178,10 @@ function extractBitSlice(bytes, startBit, bitLength) {
   return slice;
 }
 
+/**
+ *
+ * @param {number} n
+ */
 function randomBytes(n) {
   let arr = new Uint8Array(n);
   for (let i = 0; i < n; i += 65536) {

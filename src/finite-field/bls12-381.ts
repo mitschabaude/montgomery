@@ -22,9 +22,7 @@ let scalar = {
     minusZ: bigintToBits(0xd201000000010000n, 64),
   },
 };
-/**
- * @returns {bigint}
- */
+
 function randomBaseField() {
   while (true) {
     let bytes = randomBytes(48);
@@ -34,9 +32,6 @@ function randomBaseField() {
   }
 }
 
-/**
- * @returns {bigint}
- */
 function randomBaseFieldx2() {
   while (true) {
     let bytes = randomBytes(48);
@@ -46,9 +41,6 @@ function randomBaseFieldx2() {
   }
 }
 
-/**
- * @returns {bigint}
- */
 function randomBaseFieldx4() {
   while (true) {
     let bytes = randomBytes(48);

@@ -34,18 +34,14 @@ for (let w of [29]) {
   let x0 = randomBaseFieldx2();
   writeBigint(x, x0);
 
-  tic(
-    `multiply montgomery (w=${w}, n=${n}, nw=${
-      n * w
-    }, unrolled=${false}) x ${N}`
-  );
+  tic(`multiply montgomery (w=${w}, n=${n}, nw=${n * w}) x ${N}`);
   wasm.benchMultiply(x, N);
   let timeMul = toc();
   console.log(`${(N / timeMul / 1e6).toFixed(2).padStart(5)} mio. mul / s`);
   console.log(`multiply montgomery\t ${((timeMul / N) * 1e9).toFixed(0)} ns`);
   console.log();
 
-  tic(`multiply schoolbook (w=${w}, unrolled=${false}) x ${N}`);
+  tic(`multiply schoolbook (w=${w}) x ${N}`);
   wasm.benchSchoolbook(x, N);
   let timeSch = toc();
   console.log(`${(N / timeSch / 1e6).toFixed(2).padStart(5)} mio. mul / s`);

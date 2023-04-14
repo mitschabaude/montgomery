@@ -3,6 +3,11 @@ import { montgomeryParams } from "./helpers.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 import { Local } from "wasmati";
 
+/**
+ * this is a failed experiment of using simd for i64x2 mults
+ * need to structure the data layout in a mire simd friendly way
+ */
+
 export { multiplySchoolbook };
 
 function multiplySchoolbook(p: bigint, w: number) {
