@@ -2102,7 +2102,7 @@ function montgomeryParams(p, w) {
  *
  * @param {bigint} p modulus
  * @param {number} w word size
- * @param {import('./wasm/finite-field.wasm')} wasm
+ * @param {import('./wasm/finite-field.wasm.js')} wasm
  */
 function jsHelpers(
   p,

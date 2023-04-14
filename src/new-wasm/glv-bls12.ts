@@ -3,6 +3,8 @@ import { barrettReduction } from "./barrett.js";
 import { glv } from "./glv.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
 
+export { glvWasm as glv };
+
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
 let q = 0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001n;
@@ -36,6 +38,5 @@ let { decompose } = glv(q, lambda, w, barrett);
 let mem = memory({ min: 1 << 10 });
 let module = Module({ exports: { decompose, mem } });
 
-let { instance } = await module.instantiate();
-let { decompose: decompose_ } = instance.exports;
-export { decompose_ as decompose };
+let m = await module.instantiate();
+const glvWasm = m.instance.exports;
