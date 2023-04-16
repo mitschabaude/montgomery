@@ -1,4 +1,4 @@
-import { Type, call, func, i32, i64, local } from "wasmati";
+import { $, Type, call, func, i32, i64, local } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 
@@ -60,10 +60,9 @@ function multiplySchoolbook(p: bigint, w: number) {
       // outside i loop: final pass of carries
       for (let i = n; i < 2 * n; i++) {
         local.set(tmp, local.get(XY[i - n]));
-        local.get(xy);
         i64.and(tmp, wordMax);
         i32.wrap_i64();
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, xy, $);
         if (i < 2 * n - 1) {
           local.set(XY[i - n + 1], i64.add(i64.shr_u(tmp, wn), XY[i - n + 1]));
         }

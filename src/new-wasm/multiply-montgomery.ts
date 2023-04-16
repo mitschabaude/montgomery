@@ -149,15 +149,13 @@ function multiplyMontgomery(
       });
       // outside i loop: final pass of collecting carries
       for (let j = 1; j < n; j++) {
-        local.get(xy);
         i32.wrap_i64(i64.and(XY[j - 1], wordMax));
-        i32.store({ offset: 4 * (j - 1) });
+        i32.store({ offset: 4 * (j - 1) }, xy, $);
         i64.shr_u(XY[j - 1], wn);
         local.set(XY[j], i64.add($, XY[j]));
       }
-      local.get(xy);
       i32.wrap_i64(XY[n - 1]);
-      i32.store({ offset: 4 * (n - 1) });
+      i32.store({ offset: 4 * (n - 1) }, xy, $);
     }
   );
 

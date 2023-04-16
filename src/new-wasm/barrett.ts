@@ -152,16 +152,14 @@ function barrettReduction(
         local.get(LP[i]);
         i64.sub();
         local.set(tmp);
-        local.get(x);
         i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, x, $);
         if (i !== n - 1) i64.shr_s(tmp, wn);
       }
       // overwrite the high n limbs with l
       for (let i = n; i < 2 * n; i++) {
-        local.get(x);
         i32.wrap_i64(local.get(L[i - n]));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, x, $);
       }
     }
   );
