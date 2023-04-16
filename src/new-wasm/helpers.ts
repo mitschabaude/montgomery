@@ -22,7 +22,15 @@ function montgomeryParams(p: bigint, w: number) {
   let K = n * w;
   let R = 1n << BigInt(K);
   let wn = BigInt(w);
-  return { n, K, R, wn, wordMax: (1n << wn) - 1n, lengthP };
+  return {
+    n,
+    K,
+    R,
+    wn,
+    wordMax: (1n << wn) - 1n,
+    lengthP,
+    nPackedBytes: Math.ceil(lengthP / 8),
+  };
 }
 
 /**
@@ -31,12 +39,25 @@ function montgomeryParams(p: bigint, w: number) {
  * @param w word size
  * @param memory
  */
-function jsHelpers(p: bigint, w: number, memory: WebAssembly.Memory) {
+function jsHelpers(
+  p: bigint,
+  w: number,
+  {
+    memory,
+    toPackedBytes,
+    fromPackedBytes,
+    dataOffset,
+  }: {
+    memory: WebAssembly.Memory;
+    toPackedBytes: (bytes: number, x: number) => void;
+    fromPackedBytes: (x: number, bytes: number) => void;
+    dataOffset?: WebAssembly.Global;
+  }
+) {
   let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
   let nPackedBytes = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
-  // TODO: pass data offset
-  let initialOffset = 0;
+  let initialOffset = dataOffset?.valueOf() ?? 0;
   let obj = {
     n,
     R,
@@ -168,30 +189,24 @@ function jsHelpers(p: bigint, w: number, memory: WebAssembly.Memory) {
       return obj.offset;
     },
 
-    // TODO
-    // /**
-    //  * @param {number[]} scratch
-    //  * @param {number} pointer
-    //  * @param {Uint8Array} bytes
-    //  */
-    // writeBytes([bytesPtr], pointer, bytes) {
-    //   let arr = new Uint8Array(memory.buffer, bytesPtr, 4 * n);
-    //   arr.fill(0);
-    //   arr.set(bytes);
-    //   fromPackedBytes(pointer, bytesPtr);
-    // },
-    // /**
-    //  * read field element into packed bytes representation
-    //  *
-    //  * @param {number[]} scratch
-    //  * @param {number} pointer
-    //  */
-    // readBytes([bytesPtr], pointer) {
-    //   toPackedBytes(bytesPtr, pointer);
-    //   return new Uint8Array(
-    //     memory.buffer.slice(bytesPtr, bytesPtr + nPackedBytes)
-    //   );
-    // },
+    /**
+     * write field element from packed bytes representation
+     */
+    writeBytes([bytesPtr]: number[], pointer: number, bytes: Uint8Array) {
+      let arr = new Uint8Array(memory.buffer, bytesPtr, 4 * n);
+      arr.fill(0);
+      arr.set(bytes);
+      fromPackedBytes(pointer, bytesPtr);
+    },
+    /**
+     * read field element into packed bytes representation
+     */
+    readBytes([bytesPtr]: number[], pointer: number) {
+      toPackedBytes(bytesPtr, pointer);
+      return new Uint8Array(
+        memory.buffer.slice(bytesPtr, bytesPtr + nPackedBytes)
+      );
+    },
   };
   return obj;
 }

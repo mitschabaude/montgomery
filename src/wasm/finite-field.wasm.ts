@@ -34,10 +34,10 @@ export declare function subtractPositive(
 ): void;
 export declare function makeOdd(u: number, s: number): number;
 // helpers
-export declare function isEqual(x: number, y: number): boolean;
-export declare function isEqualNegative(x: number, y: number): boolean;
-export declare function isZero(x: number): boolean;
-export declare function isGreater(x: number, y: number): boolean;
+export declare function isEqual(x: number, y: number): number;
+export declare function isEqualNegative(x: number, y: number): number;
+export declare function isZero(x: number): number;
+export declare function isGreater(x: number, y: number): number;
 export declare function copy(x: number, y: number): void;
 export declare function toPackedBytes(bytes: number, x: number): void;
 export declare function fromPackedBytes(x: number, bytes: number): void;

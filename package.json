@@ -23,7 +23,7 @@
     "build": "node src/finite-field-compile.js && node src/scripts/test.js",
     "build:gen": "npx tsc -b tsconfig.wasm-generate.json",
     "start": "node src/scripts/run.js",
-    "test": "node src/scripts/test.js",
+    "test": "ts-node-esm src/scripts/test.ts",
     "test-msm": "node src/scripts/test-msm.js",
     "prepublishOnly": "npm run build && npx tsc",
     "clean": "rm -rf build types"

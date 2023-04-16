@@ -62,9 +62,8 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
         i64.const(LAMBDA[i]);
         i64.sub();
         local.set(tmp);
-        local.get(r);
         i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, r, $);
         local.set(carry, i64.shr_s(tmp, wn));
       }
       local.set(carry, 1n);
@@ -72,9 +71,8 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
         // (carry, l[i]) = l[i] + carry;
         i64.add(i64.extend_i32_u(i32.load({ offset: 4 * i }, l)), carry);
         local.set(tmp);
-        local.get(l);
         i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, l, $);
         local.set(carry, i64.shr_s(tmp, wn));
       }
     }
@@ -100,9 +98,8 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
         i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
         i64.sub();
         local.set(tmp);
-        local.get(x);
         i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, x, $);
         local.set(carry, i64.shr_s(tmp, wn));
       }
     }
@@ -119,9 +116,8 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
         i64.extend_i32_u(i32.load({ offset: 4 * i }, s0));
         i64.sub();
         local.set(tmp);
-        local.get(s0);
         i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, s0, $);
         local.set(carry, i64.shr_s(tmp, wn));
       }
       // s1 = s1 + 1
@@ -132,9 +128,8 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
         local.get(carry);
         i64.add();
         local.set(tmp);
-        local.get(s1);
         i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i });
+        i32.store({ offset: 4 * i }, s1, $);
         local.set(carry, i64.shr_s(tmp, wn));
       }
     }
