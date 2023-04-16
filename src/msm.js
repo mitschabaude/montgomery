@@ -52,7 +52,6 @@ import {
   scalarBitlength,
 } from "./new-wasm/glv-bls12.js";
 import { log2 } from "./util.js";
-import { decompose, decomposeNoMsb } from "./wasm/scalar-glv.wasm.js";
 
 export { msmAffine, batchAdd };
 
@@ -273,9 +272,9 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
      * there'd be a final carry bit that's not accounted for.
      */
     if (dividesEvenly) {
-      negateFlags = decomposeNoMsb(scalar);
+      negateFlags = glv.decomposeNoMsb(scalar);
     } else {
-      decompose(scalar);
+      glv.decompose(scalar);
     }
     let negateFirst = negateFlags & 1;
     let negateSecond = negateFlags >> 1;
