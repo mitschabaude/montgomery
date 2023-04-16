@@ -1,7 +1,6 @@
 import {
   $,
   Func,
-  Type,
   block,
   br_if,
   call,
@@ -11,9 +10,8 @@ import {
   i64,
   local,
 } from "wasmati";
-import { bigintFromLegs, bigintToLegs } from "../util.js";
+import { bigintToLegs } from "../util.js";
 import { montgomeryParams } from "./helpers.js";
-import { forLoop1 } from "./wasm-util.js";
 import { barrettError } from "./barrett.js";
 
 export { glv };

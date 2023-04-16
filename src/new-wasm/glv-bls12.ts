@@ -1,4 +1,4 @@
-import { Const, Module, global, memory, Func } from "wasmati";
+import { Const, Module, global, memory, Func, JSFunction } from "wasmati";
 import { barrettReduction } from "./barrett.js";
 import { glv } from "./glv.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";

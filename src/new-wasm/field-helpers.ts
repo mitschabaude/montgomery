@@ -1,4 +1,4 @@
-import { $, control, func, i32, i64, local } from "wasmati";
+import { $, control, func, i32, i64, local, Func } from "wasmati";
 
 // convert between internal format and I/O-friendly, packed byte format
 // method: just pack all the n*w bits into memory contiguously
