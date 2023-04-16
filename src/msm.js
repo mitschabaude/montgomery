@@ -44,13 +44,13 @@ import {
   batchAddUnsafe,
 } from "./wasm/finite-field.wasm.js";
 import {
+  glv,
   writeBytesScalar,
   scalarSize,
   getPointerScalar,
   resetPointersScalar,
-  extractBitSlice,
   scalarBitlength,
-} from "./scalar-glv.js";
+} from "./new-wasm/glv-bls12.js";
 import { log2 } from "./util.js";
 import { decompose, decomposeNoMsb } from "./wasm/scalar-glv.wasm.js";
 
@@ -179,7 +179,7 @@ let cTable = {
  *
  * @param {Uint8Array[]} inputScalars `s_0, ..., s_(N-1)`
  * @param {InputPoint[]} inputPoints `G_0, ..., G_(N-1)`
- * @param {{c: number, c0: number}?} options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
+ * @param {{c?: number, c0?: number} | undefined} options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
@@ -328,7 +328,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
       // compute kth slice from first half scalar
-      let l = extractBitSlice(scalar, k * c, c) + carry0;
+      let l = glv.extractBitSlice(scalar, k * c, c) + carry0;
 
       if (l > L) {
         l = doubleL - l;
@@ -346,7 +346,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
       // creating such throw-away objects has a garbage collection cost
-      l = extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
+      l = glv.extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
 
       if (l > L) {
         l = doubleL - l;
@@ -460,7 +460,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
      */
     for (let k = 0; k < K; k++) {
-      let l = extractBitSlice(scalar, k * c, c) + carry;
+      let l = glv.extractBitSlice(scalar, k * c, c) + carry;
       if (l > L) {
         l = doubleL - l;
         carry = 1;
@@ -546,8 +546,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
  *
  * @param {number[]} scratch
  * @param {number[][]} oldBuckets
- * @param {{c: number, K: number, L: number}}
- * @param {number} depth
+ * @param {{c: number, c0: number, K: number, L: number}} options
  */
 function reduceBucketsAffine(scratch, oldBuckets, { c, c0, K, L }) {
   // D = 1 is the standard algorithm, just batch-added over the K partitions

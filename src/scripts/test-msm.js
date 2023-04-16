@@ -73,7 +73,7 @@ let pointsBigint = points.map((P) => {
 });
 let scalarsBigint = scalars.map((s) => bigintFromBytes(s));
 tic("msm (bigint)");
-let { result: resultBigint } = msmBigint(scalarsBigint, pointsBigint);
+let resultBigint = msmBigint(scalarsBigint, pointsBigint);
 toc();
 let { x: xBig, y: yBig, isInfinity } = resultBigint;
 

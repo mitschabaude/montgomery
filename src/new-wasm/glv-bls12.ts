@@ -1,4 +1,4 @@
-import { Const, Module, global, memory } from "wasmati";
+import { Const, Module, global, memory, Func } from "wasmati";
 import { barrettReduction } from "./barrett.js";
 import { glv } from "./glv.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
@@ -15,7 +15,11 @@ export {
   glvWasm as glv,
   testDecomposeRandomScalar,
   getPointer as getPointerScalar,
+  resetPointers as resetPointersScalar,
   writeBytesDouble as writeBytesScalar,
+  fieldSizeBytes as scalarSize,
+  packedSizeBytes as packedScalarSize,
+  bitLength as scalarBitlength,
 };
 
 let p =
@@ -68,7 +72,6 @@ const glvWasm = m.instance.exports;
 let {
   fieldSizeBytes,
   packedSizeBytes,
-  readBigInt,
   getStablePointers,
   getPointer,
   resetPointers,
