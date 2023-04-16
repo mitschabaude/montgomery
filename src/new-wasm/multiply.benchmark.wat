@@ -1288,4 +1288,4 @@
   (export "benchMontgomery" (func 0))
   (export "benchSchoolbook" (func 2))
   (export "benchBarrett" (func 4))
-  (export "mem" (memory 0)))
+  (export "memory" (memory 0)))

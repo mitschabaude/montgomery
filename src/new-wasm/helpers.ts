@@ -49,8 +49,8 @@ function jsHelpers(
     dataOffset,
   }: {
     memory: WebAssembly.Memory;
-    toPackedBytes: (bytes: number, x: number) => void;
-    fromPackedBytes: (x: number, bytes: number) => void;
+    toPackedBytes?: (bytes: number, x: number) => void;
+    fromPackedBytes?: (x: number, bytes: number) => void;
     dataOffset?: WebAssembly.Global;
   }
 ) {
@@ -196,17 +196,25 @@ function jsHelpers(
       let arr = new Uint8Array(memory.buffer, bytesPtr, 4 * n);
       arr.fill(0);
       arr.set(bytes);
-      fromPackedBytes(pointer, bytesPtr);
+      fromPackedBytes!(pointer, bytesPtr);
     },
     /**
      * read field element into packed bytes representation
      */
     readBytes([bytesPtr]: number[], pointer: number) {
-      toPackedBytes(bytesPtr, pointer);
+      toPackedBytes!(bytesPtr, pointer);
       return new Uint8Array(
         memory.buffer.slice(bytesPtr, bytesPtr + nPackedBytes)
       );
     },
   };
+  if (fromPackedBytes === undefined)
+    obj.writeBytes = () => {
+      throw Error("missing fromPackedBytes");
+    };
+  if (toPackedBytes === undefined)
+    obj.readBytes = () => {
+      throw Error("missing toPackedBytes");
+    };
   return obj;
 }

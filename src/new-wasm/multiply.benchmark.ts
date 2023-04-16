@@ -2,7 +2,7 @@ import { Module, memory } from "wasmati";
 import { tic, toc } from "../extra/tictoc.js";
 import { p, randomBaseFieldx2 } from "../finite-field/pasta.js";
 import { multiplyMontgomery } from "./multiply-montgomery.js";
-import { jsHelpers, montgomeryParams } from "./helpers.js";
+import { jsHelpers } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
 import { barrettReduction } from "./barrett.js";
@@ -16,10 +16,13 @@ for (let w of [29]) {
   let { benchMultiply: benchSchoolbook, multiply } = multiplySchoolbook(p, w);
   let { benchMultiply: benchBarrett } = barrettReduction(p, w, multiply);
 
-  let mem = memory({ min: 100 });
-
   let module = Module({
-    exports: { benchMontgomery, benchSchoolbook, benchBarrett, mem },
+    exports: {
+      benchMontgomery,
+      benchSchoolbook,
+      benchBarrett,
+      memory: memory({ min: 100 }),
+    },
   });
   await writeWat(
     import.meta.url.slice(7).replace(".ts", ".wat"),
@@ -27,10 +30,7 @@ for (let w of [29]) {
   );
 
   let wasm = (await module.instantiate()).instance.exports;
-
-  let { n } = montgomeryParams(p, w);
-  let helpers = jsHelpers(p, w, wasm.mem);
-  let { writeBigint, getPointer } = helpers;
+  let { writeBigint, getPointer, n } = jsHelpers(p, w, wasm);
 
   let x = getPointer();
   let x0 = randomBaseFieldx2();
