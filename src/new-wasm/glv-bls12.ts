@@ -84,25 +84,17 @@ let [scratchPtr, , bytesPtr, bytesPtr2] = getStablePointers(5);
 function testDecomposeRandomScalar() {
   let [scalar] = randomScalars(1);
   let scalar0 = bigintFromBytes(scalar);
-  let [r, l] = decomposeScalar(scalar);
-  let r0 = bigintFromBytes(r);
-  let l0 = bigintFromBytes(l);
-  let isCorrect = r0 + l0 * lambda === scalar0;
-  return isCorrect;
-}
 
-/**
- * decompose scalar s = s0 + lambda*s1, where lambda is a cube root of 1
- *
- * WARNING: scalars are always decomposed into the same
- * bytes positions in wasm memory, so one decomposition overwrites the previous one
- */
-function decomposeScalar(scalar: Uint8Array): [Uint8Array, Uint8Array] {
   writeBytesDouble(scratchPtr, scalar);
   glvWasm.decompose(scratchPtr);
-  let s0 = readBytes([bytesPtr], scratchPtr);
-  let s1 = readBytes([bytesPtr2], scratchPtr + fieldSizeBytes);
-  return [s0, s1];
+
+  let r = readBytes([bytesPtr], scratchPtr);
+  let l = readBytes([bytesPtr2], scratchPtr + fieldSizeBytes);
+  let r0 = bigintFromBytes(r);
+  let l0 = bigintFromBytes(l);
+
+  let isCorrect = r0 + l0 * lambda === scalar0;
+  return isCorrect;
 }
 
 function writeBytesDouble(pointer: number, bytes: Uint8Array) {
