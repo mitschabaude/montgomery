@@ -561,7 +561,7 @@ function multiply(writer, p, w, { countMultiplications = false } = {}) {
       }
       j = n - 1;
       didCarry = doCarry;
-      doCarry = j % nSafeSteps === 0;
+      doCarry = j % nSafeStepsSquare === 0;
       comment(`j = ${j}${doCarry ? ", do carry" : ""}`);
       if (doCarry) {
         lines(

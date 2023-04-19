@@ -20,8 +20,8 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "node src/finite-field-compile.js && node src/scripts/test.js",
-    "build:gen": "npx tsc -b tsconfig.wasm-generate.json",
+    "build": "node src/finite-field-compile.js && ts-node-esm src/scripts/test.ts",
+    "build:new": "npx tsc -b tsconfig.new.json",
     "start": "node src/scripts/run.js",
     "test": "ts-node-esm src/scripts/test.ts",
     "test-msm": "ts-node-esm src/scripts/test-msm.js",

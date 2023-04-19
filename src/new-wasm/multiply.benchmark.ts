@@ -10,9 +10,11 @@ import { barrettReduction } from "./barrett.js";
 let N = 1e7;
 
 for (let w of [29]) {
-  let { benchMultiply: benchMontgomery } = multiplyMontgomery(p, w, {
-    countMultiplications: false,
-  });
+  let { benchMultiply: benchMontgomery, benchSquare } = multiplyMontgomery(
+    p,
+    w,
+    { countMultiplications: false }
+  );
   let { benchMultiply: benchSchoolbook, multiply } = multiplySchoolbook(p, w);
   let { benchMultiply: benchBarrett } = barrettReduction(p, w, multiply);
 
@@ -21,6 +23,7 @@ for (let w of [29]) {
       benchMontgomery,
       benchSchoolbook,
       benchBarrett,
+      benchSquare,
       memory: memory({ min: 100 }),
     },
   });
@@ -41,6 +44,7 @@ for (let w of [29]) {
   bench("multiply montgomery", wasm.benchMontgomery, { x, N });
   bench("multiply barrett", wasm.benchBarrett, { x, N });
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
+  bench("multiply square", wasm.benchSquare, { x, N });
 }
 
 function bench(
