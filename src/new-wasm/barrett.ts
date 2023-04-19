@@ -167,13 +167,8 @@ function barrettReduction(
   const multiplyBarrett = func(
     { in: [i32, i32, i32], locals: [], out: [] },
     ([xy, x, y]) => {
-      local.get(xy);
-      local.get(x);
-      local.get(y);
-      call(multiply);
-
-      local.get(xy);
-      call(barrett);
+      call(multiply, [xy, x, y]);
+      call(barrett, [xy]);
     }
   );
 
@@ -181,10 +176,7 @@ function barrettReduction(
     { in: [i32, i32], locals: [i32], out: [] },
     ([x, N], [i]) => {
       forLoop1(i, 0, N, () => {
-        local.get(x);
-        local.get(x);
-        local.get(x);
-        call(multiplyBarrett);
+        call(multiplyBarrett, [x, x, x]);
       });
     }
   );

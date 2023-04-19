@@ -77,11 +77,9 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
   );
 
   const decompose = func({ in: [i32], locals: [], out: [] }, ([x]) => {
-    local.get(x);
-    call(barrett);
+    call(barrett, [x]);
     for (let i = 0; i < e; i++) {
-      local.get(x);
-      call(reduceByOne);
+      call(reduceByOne, [x]);
     }
   });
 
@@ -146,16 +144,13 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
       );
       local.tee(flagNegateBoth);
       control.if({}, () => {
-        local.get(s);
-        call(negateNoReduceDouble);
+        call(negateNoReduceDouble, [s]);
       });
 
       // split s = s0 + s1*lambda, where s0 < lambda
-      local.get(s);
-      call(barrett);
+      call(barrett, [s]);
       for (let i = 0; i < e; i++) {
-        local.get(s);
-        call(reduceByOne);
+        call(reduceByOne, [s]);
       }
 
       // if s0 >= 2^(b-1), do s0 = lambda - s0, s1++, flag first point for negation
@@ -166,8 +161,7 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
       i32.shr_u(i32.load({ offset: 4 * (n - 1) }, s), msbInHighestLimb);
       local.tee(flagNegateFirst);
       control.if({}, () => {
-        local.get(s);
-        call(negateFirstHalfNoReduce);
+        call(negateFirstHalfNoReduce, [s]);
       });
 
       // return an integer containing flags to negate first / second point

@@ -74,10 +74,7 @@ function multiplySchoolbook(p: bigint, w: number) {
     { in: [i32, i32], locals: [i32], out: [] },
     ([x, N], [i]) => {
       forLoop1(i, 0, N, () => {
-        local.get(x);
-        local.get(x);
-        local.get(x);
-        call(multiply);
+        call(multiply, [x, x, x]);
       });
     }
   );
