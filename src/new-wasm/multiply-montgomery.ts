@@ -2,6 +2,7 @@ import {
   $,
   Const,
   Local,
+  StackVar,
   Type,
   call,
   func,
@@ -78,12 +79,10 @@ function multiplyMontgomery(
         local.set(xi);
 
         // j=0, compute q_i
-        let didCarry = false;
-        let doCarry = 0 % nSafeSteps === 0;
-
+        let j = 0;
         // XY[0] + x[i]*y[0]
-        local.get(XY[0]);
-        i64.mul(xi, Y[0]);
+        local.get(XY[j]);
+        i64.mul(xi, Y[j]);
         i64.add();
         // qi = (($ & wordMax) * mu) & wordMax
         if (mu === wordMax) {
@@ -99,43 +98,34 @@ function multiplyMontgomery(
         local.set(qi);
         local.get(tmp);
         // (stack, _) = $ + qi*p[0]
-        addMul(qi, P[0]);
+        addMul(qi, P[j]);
+        i64.shr_u($, wn); // we just put carry on the stack, use it later
 
-        for (let j = 1; j < n - 1; j++) {
+        for (j = 1; j < n - 1; j++) {
           // XY[j] + x[i]*y[j] + qi*p[j], or
           // stack + XY[j] + x[i]*y[j] + qi*p[j]
           // ... = XY[j-1], or  = (stack, XY[j-1])
-          didCarry = doCarry;
-          doCarry = j % nSafeSteps === 0;
+          let didCarry = (j - 1) % nSafeSteps === 0;
+          let doCarry = j % nSafeSteps === 0;
           local.get(XY[j]);
-          if (didCarry) i64.add(); // add carry from stack
+          optionalCarryAdd(didCarry);
           i64.mul(xi, Y[j]);
           i64.add();
           addMul(qi, P[j]);
-          if (doCarry) {
-            // put carry on the stack
-            local.tee(tmp);
-            i64.shr_u($, wn);
-            // mod 2^w the current result
-            i64.and(tmp, wordMax);
-          }
+          optionalCarry(doCarry, $, tmp);
           local.set(XY[j - 1]);
         }
 
-        let j = n - 1;
-        didCarry = doCarry;
-        doCarry = j % nSafeSteps === 0;
+        j = n - 1;
+        let didCarry = (j - 1) % nSafeSteps === 0;
+        let doCarry = j % nSafeSteps === 0;
         if (doCarry) {
           local.get(XY[j]);
-          if (didCarry) i64.add(); // add carry from stack
+          optionalCarryAdd(didCarry);
           i64.mul(xi, Y[j]);
           i64.add();
           addMul(qi, P[j]);
-          // put carry on the stack
-          local.tee(tmp);
-          i64.shr_u($, wn);
-          // mod 2^w the current result
-          i64.and(tmp, wordMax);
+          optionalCarry(doCarry, $, tmp);
           local.set(XY[j - 1]);
           // if the last iteration does a carry, XY[n-1] is set to it
           local.set(XY[j]);
@@ -143,7 +133,7 @@ function multiplyMontgomery(
           // if the last iteration doesn't do a carry, then XY[n-1] is never set,
           // so we also don't have to get it & can save 1 addition
           i64.mul(xi, Y[j]);
-          if (didCarry) i64.add(); // add carry from stack
+          optionalCarryAdd(didCarry);
           addMul(qi, P[j]);
           local.set(XY[j - 1]);
         }
@@ -285,6 +275,32 @@ function multiplyMontgomery(
       });
     }
   );
+
+  // helpers
+
+  function optionalCarry(
+    shouldCarry: boolean,
+    input: StackVar<i64> | Local<i64>,
+    tmp: Local<i64>
+  ) {
+    if (!shouldCarry) return;
+    if ("kind" in input && input.kind === "stack-var") {
+      // put carry on the stack
+      local.tee(tmp, input);
+      i64.shr_u($, wn);
+      // mod 2^w the current result
+      i64.and(tmp, wordMax);
+    } else {
+      // put carry on the stack
+      i64.shr_u(input, wn);
+      // mod 2^w the current result
+      i64.and(input, wordMax);
+    }
+  }
+  function optionalCarryAdd(didCarry: boolean) {
+    // add carry from stack
+    if (didCarry) i64.add();
+  }
 
   return {
     multiply,

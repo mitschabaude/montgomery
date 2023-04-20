@@ -82,6 +82,8 @@
       local.get 3
       local.get 4
       i64.add
+      i64.const 29
+      i64.shr_u
       local.get 16
       i64.add
       local.get 5
