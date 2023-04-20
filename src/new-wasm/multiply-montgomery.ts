@@ -1,6 +1,7 @@
 import {
   $,
   Const,
+  Input,
   Local,
   StackVar,
   Type,
@@ -15,6 +16,7 @@ import { montgomeryParams } from "./helpers.js";
 import { modInverse } from "../finite-field-js.js";
 import { bigintToLegs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
+import { createField } from "./field-helpers.js";
 
 export { multiplyMontgomery };
 
@@ -24,6 +26,8 @@ function multiplyMontgomery(
   { countMultiplications = false }
 ) {
   let { n, wn, wordMax } = montgomeryParams(p, w);
+  const Field = createField(p, w);
+
   // constants
   let mu = modInverse(-p, 1n << wn);
   let P = bigintToLegs(p, w, n);
@@ -65,12 +69,8 @@ function multiplyMontgomery(
         global.set(multiplyCount, i32.add(multiplyCount, 1));
       }
 
-      // load y into locals
-      for (let i = 0; i < n; i++) {
-        i32.load({ offset: i * 4 }, y);
-        i64.extend_i32_u();
-        local.set(Y[i]);
-      }
+      // load y from memory into locals
+      Field.load(y, Y);
 
       forLoop4(i, 0, n, () => {
         // load x[i] into local
@@ -81,20 +81,11 @@ function multiplyMontgomery(
         // j=0, compute q_i
         let j = 0;
         // XY[0] + x[i]*y[0]
-        local.get(XY[j]);
         i64.mul(xi, Y[j]);
-        i64.add();
+        i64.add($, XY[j]);
         // qi = (($ & wordMax) * mu) & wordMax
-        local.tee(tmp);
-        i64.and($, wordMax);
-        if (mu === wordMax) {
-          // special case relevant for high 2-adicity curves: mu = 2^w - 1
-          // (mu * x) % 2^w = -x % 2^w  = 2^w - x
-          i64.sub(wordMax + 1n, $);
-        } else {
-          i64.and(i64.mul($, mu), wordMax);
-        }
-        local.set(qi);
+        local.set(tmp);
+        local.set(qi, computeQ(tmp));
         local.get(tmp);
         // (stack, _) = $ + qi*p[0]
         addMul(qi, P[j]);
@@ -107,11 +98,11 @@ function multiplyMontgomery(
           let didCarry = (j - 1) % nSafeSteps === 0;
           let doCarry = j % nSafeSteps === 0;
           local.get(XY[j]);
-          optionalCarryAdd(didCarry);
+          Field.optionalCarryAdd(didCarry);
           i64.mul(xi, Y[j]);
           i64.add();
           addMul(qi, P[j]);
-          optionalCarry(doCarry, $, tmp);
+          Field.optionalCarry(doCarry, $, tmp);
           local.set(XY[j - 1]);
         }
 
@@ -120,11 +111,11 @@ function multiplyMontgomery(
         let doCarry = j % nSafeSteps === 0;
         if (doCarry) {
           local.get(XY[j]);
-          optionalCarryAdd(didCarry);
+          Field.optionalCarryAdd(didCarry);
           i64.mul(xi, Y[j]);
           i64.add();
           addMul(qi, P[j]);
-          optionalCarry(doCarry, $, tmp);
+          Field.optionalCarry(doCarry, $, tmp);
           local.set(XY[j - 1]);
           // if the last iteration does a carry, XY[n-1] is set to it
           local.set(XY[j]);
@@ -132,20 +123,14 @@ function multiplyMontgomery(
           // if the last iteration doesn't do a carry, then XY[n-1] is never set,
           // so we also don't have to get it & can save 1 addition
           i64.mul(xi, Y[j]);
-          optionalCarryAdd(didCarry);
+          Field.optionalCarryAdd(didCarry);
           addMul(qi, P[j]);
           local.set(XY[j - 1]);
         }
       });
-      // outside i loop: final pass of collecting carries
-      for (let j = 1; j < n; j++) {
-        i32.wrap_i64(i64.and(XY[j - 1], wordMax));
-        i32.store({ offset: 4 * (j - 1) }, xy, $);
-        i64.shr_u(XY[j - 1], wn);
-        local.set(XY[j], i64.add($, XY[j]));
-      }
-      i32.wrap_i64(XY[n - 1]);
-      i32.store({ offset: 4 * (n - 1) }, xy, $);
+
+      // final pass of collecting carries, store output in memory
+      Field.carryAndStore(xy, XY);
     }
   );
 
@@ -159,40 +144,24 @@ function multiplyMontgomery(
         global.set(multiplyCount, i32.add(multiplyCount, 1));
       }
 
-      // load x into locals
-      for (let i = 0; i < n; i++) {
-        i32.load({ offset: i * 4 }, x);
-        i64.extend_i32_u();
-        local.set(X[i]);
-      }
+      // load x from memory into locals
+      Field.load(x, X);
 
       for (let i = 0; i < n; i++) {
         // j=0, compute q_i
         let j = 0;
-        let didCarry = false;
-        let doCarry = 0 % nSafeStepsSquare === 0;
-        // tmp = XY[i] + 2*x[0]*x[i]
+        // $ = XY[i] + 2*x[0]*x[i]
         if (i === 0) {
-          i64.mul(X[0], X[0]);
+          i64.mul(X[i], X[j]);
         } else {
-          local.get(XY[0]);
-          i64.shl(i64.mul(X[i], X[0]), 1n);
-          i64.add();
+          i64.shl(i64.mul(X[i], X[j]), 1n);
+          i64.add($, XY[j]);
         }
-        // qi = mu * (tmp & wordMax) & wordMax
-        if (mu === wordMax) {
-          // special case relevant for high 2-adicity curves
-          local.set(tmp);
-          i64.sub(wordMax + 1n, i64.and(tmp, wordMax));
-        } else {
-          local.tee(tmp);
-          i64.and($, wordMax);
-          i64.mul($, mu);
-          i64.and($, wordMax);
-        }
-        local.set(qi);
+        // qi = ($ & wordMax) * mu & wordMax
+        local.set(tmp);
+        local.set(qi, computeQ(tmp));
         local.get(tmp);
-        // (stack, _) = $ + qi*p[0]
+        // ($, _) = $ + qi*p[0]
         addMul(qi, P[0]);
         i64.shr_u($, wn); // we just put carry on the stack, use it later
 
@@ -200,39 +169,31 @@ function multiplyMontgomery(
           // XY[j] + 2*x[i]*x[j] + qi*p[j], or
           // stack + XY[j] + 2*x[i]*x[j] + qi*p[j]
           // ... = XY[j-1], or  = (stack, XY[j-1])
-          didCarry = doCarry;
-          doCarry = j % nSafeStepsSquare === 0;
+          let didCarry = (j - 1) % nSafeStepsSquare === 0;
+          let doCarry = j % nSafeStepsSquare === 0;
           local.get(XY[j]);
-          if (didCarry) i64.add(); // add carry from stack
-          if (j <= i) i64.mul(X[i], X[j]);
-          if (j < i) i64.shl($, 1n);
-          if (j <= i) i64.add();
-          addMul(qi, P[j]);
-          if (doCarry) {
-            // put carry on the stack
-            local.tee(tmp);
-            i64.shr_u($, wn);
-            // mod 2^w the current result
-            i64.and(tmp, wordMax);
+          Field.optionalCarryAdd(didCarry);
+          if (j <= i) {
+            i64.mul(X[i], X[j]);
+            if (j < i) i64.shl($, 1n);
+            i64.add();
           }
+          addMul(qi, P[j]);
+          Field.optionalCarry(doCarry, $, tmp);
           local.set(XY[j - 1]);
         }
         j = n - 1;
-        didCarry = doCarry;
-        doCarry = j % nSafeStepsSquare === 0;
+        let didCarry = (j - 1) % nSafeStepsSquare === 0;
+        let doCarry = j % nSafeStepsSquare === 0;
         if (doCarry) {
           local.get(XY[j]);
-          if (didCarry) i64.add(); // add carry from stack
+          Field.optionalCarryAdd(didCarry);
           if (i === j) {
             i64.mul(X[i], X[j]);
             i64.add();
           }
           addMul(qi, P[j]);
-          // put carry on the stack
-          local.tee(tmp);
-          i64.shr_u($, wn);
-          // mod 2^w the current result
-          i64.and(tmp, wordMax);
+          Field.optionalCarry(doCarry, $, tmp);
           local.set(XY[j - 1]);
           // if the last iteration does a carry, XY[n-1] is set to it
           local.set(XY[j]);
@@ -241,20 +202,14 @@ function multiplyMontgomery(
           // so we also don't have to get it & can save 1 addition
           if (i === j) i64.mul(X[i], X[j]);
           i64.mul(qi, P[j]);
-          if (didCarry) i64.add(); // add carry from stack
+          Field.optionalCarryAdd(didCarry);
           if (i === j) i64.add();
           local.set(XY[j - 1]);
         }
       }
-      // outside i loop: final pass of collecting carries
-      for (let j = 1; j < n; j++) {
-        i32.wrap_i64(i64.and(XY[j - 1], wordMax));
-        i32.store({ offset: 4 * (j - 1) }, xy, $);
-        i64.shr_u(XY[j - 1], wn);
-        local.set(XY[j], i64.add($, XY[j]));
-      }
-      i32.wrap_i64(XY[n - 1]);
-      i32.store({ offset: 4 * (n - 1) }, xy, $);
+
+      // final pass of collecting carries, store output in memory
+      Field.carryAndStore(xy, XY);
     }
   );
 
@@ -275,36 +230,25 @@ function multiplyMontgomery(
     }
   );
 
-  // helpers
-
-  function optionalCarry(
-    shouldCarry: boolean,
-    input: StackVar<i64>,
-    tmp: Local<i64>
-  ): void;
-  function optionalCarry(shouldCarry: boolean, input: Local<i64>): void;
-  function optionalCarry(
-    shouldCarry: boolean,
-    input: StackVar<i64> | Local<i64>,
-    tmp?: Local<i64>
-  ) {
-    if (!shouldCarry) return;
-    if ("kind" in input && input.kind === "stack-var") {
-      // put carry on the stack
-      local.tee(tmp!, input);
-      i64.shr_u($, wn);
-      // mod 2^w the current result
-      i64.and(tmp!, wordMax);
+  /**
+   * compute q(x), the w-bit multiplier for p such that x + q(x) * p = 0 mod 2^w
+   *
+   * the equation above gives q(x) =  (x % 2^w) * mu % 2^w,
+   * where mu = -p^(-1) % 2^w is a precomputed constant.
+   *
+   * for high 2-adicity curves, we have p = 1 mod 2^w,
+   * which implies that mu = 2^w - 1, and the computation simplifies
+   */
+  function computeQ(x: Input<i64>) {
+    // q = ((x & wordMax) * mu) & wordMax, where wordMax = 2^w - 1
+    x = i64.and(x, wordMax);
+    if (mu === wordMax) {
+      // special case relevant for high 2-adicity curves: mu = 2^w - 1
+      // (mu * x) % 2^w = -x % 2^w  = 2^w - x
+      return i64.sub(wordMax + 1n, x);
     } else {
-      // put carry on the stack
-      i64.shr_u(input, wn);
-      // mod 2^w the current result
-      i64.and(input, wordMax);
+      return i64.and(i64.mul(x, mu), wordMax);
     }
-  }
-  function optionalCarryAdd(didCarry: boolean) {
-    // add carry from stack
-    if (didCarry) i64.add();
   }
 
   return {

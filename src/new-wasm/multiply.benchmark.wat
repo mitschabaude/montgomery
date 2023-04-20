@@ -67,13 +67,14 @@
       i32.load
       i64.extend_i32_u
       local.set 5
-      i64.const 536870912
-      local.get 15
       local.get 5
       local.get 6
       i64.mul
+      local.get 15
       i64.add
-      local.tee 3
+      local.set 3
+      i64.const 536870912
+      local.get 3
       i64.const 536870911
       i64.and
       i64.sub
@@ -1389,12 +1390,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 5
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1447,12 +1448,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 6
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1511,12 +1512,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 7
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1581,12 +1582,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 8
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1657,12 +1658,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 9
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1739,12 +1740,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 10
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1827,12 +1828,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 11
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912
@@ -1921,12 +1922,12 @@
     i64.const 4194304
     i64.mul
     local.set 20
-    local.get 13
     local.get 12
     local.get 4
     i64.mul
     i64.const 1
     i64.shl
+    local.get 13
     i64.add
     local.set 2
     i64.const 536870912

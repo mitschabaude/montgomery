@@ -1,9 +1,87 @@
-import { $, control, func, i32, i64, local, Func } from "wasmati";
+import {
+  $,
+  control,
+  func,
+  i32,
+  i64,
+  local,
+  Local,
+  Func,
+  StackVar,
+} from "wasmati";
+import { montgomeryParams } from "../finite-field-generate.js";
 
-// convert between internal format and I/O-friendly, packed byte format
-// method: just pack all the n*w bits into memory contiguously
-
+export { createField };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
+
+// inline methods to operate on a field element stored as n * w-bit limbs
+
+function createField(p: bigint, w: number) {
+  const { n, wn, wordMax } = montgomeryParams(p, w);
+
+  function load(x: Local<i32>, X: Local<i64>[]) {
+    for (let i = 0; i < n; i++) {
+      i32.load({ offset: i * 4 }, x);
+      i64.extend_i32_u();
+      local.set(X[i]);
+    }
+  }
+  function carryAndStore(x: Local<i32>, X: Local<i64>[]) {
+    for (let j = 1; j < n; j++) {
+      i32.wrap_i64(i64.and(X[j - 1], wordMax));
+      i32.store({ offset: 4 * (j - 1) }, x, $);
+      i64.shr_u(X[j - 1], wn);
+      local.set(X[j], i64.add($, X[j]));
+    }
+    i32.wrap_i64(X[n - 1]);
+    i32.store({ offset: 4 * (n - 1) }, x, $);
+  }
+
+  /**
+   * perform a w-bit carry on a 64-bit value and put both the low and high parts on the stack (low first).
+   *
+   * needs a tmp local var if the input is the current stack
+   */
+  function optionalCarry(
+    shouldCarry: boolean,
+    input: StackVar<i64>,
+    tmp: Local<i64>
+  ): void;
+  function optionalCarry(shouldCarry: boolean, input: Local<i64>): void;
+  function optionalCarry(
+    shouldCarry: boolean,
+    input: StackVar<i64> | Local<i64>,
+    tmp?: Local<i64>
+  ) {
+    if (!shouldCarry) return;
+    if ("kind" in input && input.kind === "stack-var") {
+      // put carry on the stack
+      local.tee(tmp!, input);
+      i64.shr_u($, wn);
+      // mod 2^w the current result
+      i64.and(tmp!, wordMax);
+    } else {
+      // put carry on the stack
+      i64.shr_u(input, wn);
+      // mod 2^w the current result
+      i64.and(input, wordMax);
+    }
+  }
+  function optionalCarryAdd(didCarry: boolean) {
+    // add carry from stack
+    if (didCarry) i64.add();
+  }
+
+  return {
+    load,
+    carryAndStore,
+    optionalCarry,
+    optionalCarryAdd,
+  };
+}
+
+// helpers to convert between internal format and I/O-friendly, packed byte format
+// method: just pack all the n*w bits into memory contiguously
 
 /**
  * recover n * w-bit representation (1 int32 per w-bit limb) from packed representation
