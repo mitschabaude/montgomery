@@ -85,15 +85,14 @@ function multiplyMontgomery(
         i64.mul(xi, Y[j]);
         i64.add();
         // qi = (($ & wordMax) * mu) & wordMax
+        local.tee(tmp);
+        i64.and($, wordMax);
         if (mu === wordMax) {
-          // special case relevant for high 2-adicity curves
-          local.set(tmp);
-          i64.sub(i64.const(wordMax + 1n), i64.and(tmp, wordMax));
+          // special case relevant for high 2-adicity curves: mu = 2^w - 1
+          // (mu * x) % 2^w = -x % 2^w  = 2^w - x
+          i64.sub(wordMax + 1n, $);
         } else {
-          local.tee(tmp);
-          i64.and($, wordMax);
-          i64.mul($, mu);
-          i64.and($, wordMax);
+          i64.and(i64.mul($, mu), wordMax);
         }
         local.set(qi);
         local.get(tmp);
@@ -280,16 +279,22 @@ function multiplyMontgomery(
 
   function optionalCarry(
     shouldCarry: boolean,
-    input: StackVar<i64> | Local<i64>,
+    input: StackVar<i64>,
     tmp: Local<i64>
+  ): void;
+  function optionalCarry(shouldCarry: boolean, input: Local<i64>): void;
+  function optionalCarry(
+    shouldCarry: boolean,
+    input: StackVar<i64> | Local<i64>,
+    tmp?: Local<i64>
   ) {
     if (!shouldCarry) return;
     if ("kind" in input && input.kind === "stack-var") {
       // put carry on the stack
-      local.tee(tmp, input);
+      local.tee(tmp!, input);
       i64.shr_u($, wn);
       // mod 2^w the current result
-      i64.and(tmp, wordMax);
+      i64.and(tmp!, wordMax);
     } else {
       // put carry on the stack
       i64.shr_u(input, wn);

@@ -67,14 +67,13 @@
       i32.load
       i64.extend_i32_u
       local.set 5
+      i64.const 536870912
       local.get 15
       local.get 5
       local.get 6
       i64.mul
       i64.add
-      local.set 3
-      i64.const 536870912
-      local.get 3
+      local.tee 3
       i64.const 536870911
       i64.and
       i64.sub
