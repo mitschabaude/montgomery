@@ -213,6 +213,87 @@ function multiplyMontgomery(
     }
   );
 
+  // multiplication by 2^k, where 2^k < 2p
+  // TODO: right now, this is implemented exactly like multiply,
+  // just that xi is computed instead of loaded from memory.
+  // could be at least 50% faster!
+  // (all the multiplications by 0 and corresponding adds / carries can be saved,
+  // the if loop should only go to (w*n-k) // n, and just do one final round
+  // of flexible reduction by 2^(w*n-k % n))
+  const leftShift = func(
+    {
+      in: [i32, i32, i32],
+      locals: [i64, i64, i64, i32, i32, i32, ...nLocals, ...nLocals],
+      out: [],
+    },
+    ([xy, y, k], [tmp, qi, xi, i, i0, xi0, ...rest]) => {
+      let Y = rest.slice(0, n);
+      let XY = rest.slice(n, 2 * n);
+
+      // load y from memory into locals
+      Field.load(y, Y);
+
+      // figure out the value of i0, xi0 where 2^k has its bit set
+      // i0 = 4 * k // w, xi0 = 2^(k % w)
+      local.set(i0, i32.shl(i32.div_u(k, w), 2));
+      local.set(xi0, i32.shl(1, i32.rem_u(k, w)));
+
+      forLoop4(i, 0, n, () => {
+        // compute x[i]
+        local.set(xi, i64.extend_i32_u(i32.mul(i32.eq(i, i0), xi0)));
+
+        // $ = XY[0] + x[i]*y[0]
+        let j = 0;
+        i64.mul(xi, Y[j]);
+        i64.add($, XY[j]);
+        // qi = ($ & wordMax) * mu & wordMax
+        local.set(tmp);
+        local.set(qi, computeQ(tmp));
+        local.get(tmp);
+        // ($, _) = $ + qi*p[0]
+        addMul(qi, P[j]);
+        i64.shr_u($, wn); // we just put carry on the stack, use it later
+
+        for (j = 1; j < n - 1; j++) {
+          // XY[j] + x[i]*y[j] + qi*p[j], or
+          // stack + XY[j] + x[i]*y[j] + qi*p[j]
+          // ... = XY[j-1], or  = (stack, XY[j-1])
+          let didCarry = (j - 1) % nSafeSteps === 0;
+          let doCarry = j % nSafeSteps === 0;
+          i64.mul(xi, Y[j]);
+          Field.optionalCarryAdd(didCarry);
+          i64.add($, XY[j]);
+          addMul(qi, P[j]);
+          Field.optionalCarry(doCarry, $, tmp);
+          local.set(XY[j - 1]);
+        }
+        j = n - 1;
+        let didCarry = (j - 1) % nSafeSteps === 0;
+        let doCarry = j % nSafeSteps === 0;
+        if (doCarry) {
+          i64.mul(xi, Y[j]);
+          Field.optionalCarryAdd(didCarry);
+          i64.add($, XY[j]);
+          addMul(qi, P[j]);
+          Field.optionalCarry(doCarry, $, tmp);
+          local.set(XY[j - 1]);
+          // if the last iteration does a carry, XY[n-1] is set to it
+          local.set(XY[j]);
+        } else {
+          // if the last iteration doesn't do a carry, then XY[n-1] is never set,
+          // so we also don't have to get it & can save 1 addition
+          i64.mul(xi, Y[j]);
+          Field.optionalCarryAdd(didCarry);
+          addMul(qi, P[j]);
+          local.set(XY[j - 1]);
+        }
+      });
+
+      // final pass of collecting carries, store output in memory
+      Field.carryAndStore(xy, XY);
+    }
+  );
+
   const benchMultiply = func(
     { in: [i32, i32], locals: [i32], out: [] },
     ([x, N], [i]) => {
@@ -256,6 +337,7 @@ function multiplyMontgomery(
     benchMultiply,
     square,
     benchSquare,
+    leftShift,
     multiplyCount,
     resetMultiplyCount,
   };
