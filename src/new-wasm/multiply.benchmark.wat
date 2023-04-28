@@ -2122,9 +2122,431 @@
     local.get 21
     i32.wrap_i64
     i32.store offset=32)
+  (func (;9;) (type 0) (param i32 i32)
+    (local i32)
+    i32.const 0
+    local.set 2
+    loop  ;; label = @1
+      local.get 0
+      local.get 0
+      local.get 0
+      call 10
+      local.get 2
+      i32.const 1
+      i32.add
+      local.tee 2
+      local.get 1
+      i32.ne
+      br_if 0 (;@1;)
+    end)
+  (func (;10;) (type 1) (param i32 i32 i32)
+    (local i64)
+    i64.const 0
+    local.get 1
+    i32.load
+    i64.extend_i32_u
+    local.get 2
+    i32.load
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store
+    local.get 1
+    i32.load offset=4
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=4
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=4
+    local.get 1
+    i32.load offset=8
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=8
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=8
+    local.get 1
+    i32.load offset=12
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=12
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=12
+    local.get 1
+    i32.load offset=16
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=16
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=16
+    local.get 1
+    i32.load offset=20
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=20
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=20
+    local.get 1
+    i32.load offset=24
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=24
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=24
+    local.get 1
+    i32.load offset=28
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=28
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=28
+    local.get 1
+    i32.load offset=32
+    i64.extend_i32_u
+    local.get 2
+    i32.load offset=32
+    i64.extend_i32_u
+    i64.add
+    i64.add
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=32
+    drop
+    block  ;; label = @1
+      local.get 0
+      i32.load offset=32
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 8388608
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 8388608
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=28
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 0
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 0
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=24
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 0
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 0
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=20
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 0
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 0
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=16
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 1096
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 1096
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=12
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 442757157
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 442757157
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=8
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 108826060
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 108826060
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load offset=4
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 315821776
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 315821776
+      i64.ne
+      br_if 0 (;@1;)
+      local.get 0
+      i32.load
+      i64.extend_i32_u
+      local.set 3
+      local.get 3
+      i64.const 2
+      i64.lt_u
+      br_if 1 (;@0;)
+      local.get 3
+      i64.const 2
+      i64.ne
+      br_if 0 (;@1;)
+    end
+    i64.const 0
+    local.get 0
+    i32.load
+    i64.extend_i32_u
+    i64.add
+    i64.const 2
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store
+    local.get 0
+    i32.load offset=4
+    i64.extend_i32_u
+    i64.add
+    i64.const 315821776
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=4
+    local.get 0
+    i32.load offset=8
+    i64.extend_i32_u
+    i64.add
+    i64.const 108826060
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=8
+    local.get 0
+    i32.load offset=12
+    i64.extend_i32_u
+    i64.add
+    i64.const 442757157
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=12
+    local.get 0
+    i32.load offset=16
+    i64.extend_i32_u
+    i64.add
+    i64.const 1096
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=16
+    local.get 0
+    i32.load offset=20
+    i64.extend_i32_u
+    i64.add
+    i64.const 0
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=20
+    local.get 0
+    i32.load offset=24
+    i64.extend_i32_u
+    i64.add
+    i64.const 0
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=24
+    local.get 0
+    i32.load offset=28
+    i64.extend_i32_u
+    i64.add
+    i64.const 0
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=28
+    local.get 0
+    i32.load offset=32
+    i64.extend_i32_u
+    i64.add
+    i64.const 8388608
+    i64.sub
+    local.tee 3
+    i64.const 29
+    i64.shr_u
+    local.get 0
+    local.get 3
+    i64.const 536870911
+    i64.and
+    i32.wrap_i64
+    i32.store offset=32
+    drop)
   (memory (;0;) 100)
   (export "benchMontgomery" (func 0))
   (export "benchSchoolbook" (func 2))
   (export "benchBarrett" (func 4))
   (export "benchSquare" (func 7))
+  (export "benchAdd" (func 9))
   (export "memory" (memory 0)))

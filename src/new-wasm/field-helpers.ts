@@ -8,6 +8,7 @@ import {
   Local,
   StackVar,
   Input,
+  // needed for TS
   Func,
 } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
@@ -25,6 +26,17 @@ function createField(p: bigint, w: number) {
   }
   function storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
     i32.store({ offset: 4 * i }, x, i32.wrap_i64(xi));
+  }
+
+  function forEach(callback: (i: number) => void) {
+    for (let i = 0; i < n; i++) {
+      callback(i);
+    }
+  }
+  function forEachReversed(callback: (i: number) => void) {
+    for (let i = n - 1; i >= 0; i--) {
+      callback(i);
+    }
   }
 
   function load(x: Local<i32>, X: Local<i64>[]) {
@@ -46,9 +58,7 @@ function createField(p: bigint, w: number) {
   }
 
   /**
-   * perform a w-bit carry on a 64-bit value and put both the low and high parts on the stack (low first).
-   *
-   * needs a tmp local var if the input is the current stack
+   * optionally perform carry()
    */
   function optionalCarry(
     shouldCarry: boolean,
@@ -61,7 +71,17 @@ function createField(p: bigint, w: number) {
     input: StackVar<i64> | Local<i64>,
     tmp?: Local<i64>
   ) {
-    if (!shouldCarry) return;
+    if (shouldCarry) carry(input as any, tmp!);
+  }
+
+  /**
+   * perform a w-bit carry on a 64-bit value and put both the low and high parts on the stack (low first).
+   *
+   * needs a tmp local var if the input is the current stack
+   */
+  function carry(input: StackVar<i64>, tmp: Local<i64>): void;
+  function carry(input: Local<i64>): void;
+  function carry(input: StackVar<i64> | Local<i64>, tmp?: Local<i64>) {
     if ("kind" in input && input.kind === "stack-var") {
       // put carry on the stack
       local.tee(tmp!, input);
@@ -75,6 +95,7 @@ function createField(p: bigint, w: number) {
       i64.and(input, wordMax);
     }
   }
+
   function optionalCarryAdd(didCarry: boolean) {
     // add carry from stack
     if (didCarry) i64.add();
@@ -86,6 +107,9 @@ function createField(p: bigint, w: number) {
     wordMax,
     loadLimb,
     storeLimb,
+    carry,
+    forEach,
+    forEachReversed,
     load,
     carryAndStore,
     optionalCarry,

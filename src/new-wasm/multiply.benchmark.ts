@@ -6,6 +6,7 @@ import { jsHelpers } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
 import { barrettReduction } from "./barrett.js";
+import { arithmetic } from "./field-arithmetic.js";
 
 let N = 1e7;
 
@@ -17,6 +18,7 @@ for (let w of [29]) {
   );
   let { benchMultiply: benchSchoolbook, multiply } = multiplySchoolbook(p, w);
   let { benchMultiply: benchBarrett } = barrettReduction(p, w, multiply);
+  let { benchAdd } = arithmetic(p, w);
 
   let module = Module({
     exports: {
@@ -24,6 +26,7 @@ for (let w of [29]) {
       benchSchoolbook,
       benchBarrett,
       benchSquare,
+      benchAdd,
       memory: memory({ min: 100 }),
     },
   });
@@ -45,6 +48,7 @@ for (let w of [29]) {
   bench("multiply barrett", wasm.benchBarrett, { x, N });
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
+  bench("add", wasm.benchAdd, { x, N });
 }
 
 function bench(
