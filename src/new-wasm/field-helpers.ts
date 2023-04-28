@@ -6,10 +6,10 @@ import {
   i64,
   local,
   Local,
-  Func,
   StackVar,
+  Input,
 } from "wasmati";
-import { montgomeryParams } from "../finite-field-generate.js";
+import { montgomeryParams } from "./helpers.js";
 
 export { createField };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
@@ -18,6 +18,13 @@ export { fromPackedBytes, toPackedBytes, extractBitSlice };
 
 function createField(p: bigint, w: number) {
   const { n, wn, wordMax } = montgomeryParams(p, w);
+
+  function loadLimb(x: Local<i32>, i: number) {
+    return i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
+  }
+  function storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
+    i32.store({ offset: 4 * i }, x, i32.wrap_i64(xi));
+  }
 
   function load(x: Local<i32>, X: Local<i64>[]) {
     for (let i = 0; i < n; i++) {
@@ -73,6 +80,11 @@ function createField(p: bigint, w: number) {
   }
 
   return {
+    n,
+    wn,
+    wordMax,
+    loadLimb,
+    storeLimb,
     load,
     carryAndStore,
     optionalCarry,
