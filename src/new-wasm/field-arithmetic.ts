@@ -27,20 +27,20 @@ function arithmetic(p: bigint, w: number) {
       { in: [i32, i32, i32], locals: [i64], out: [] },
       ([out, x, y], [tmp]) => {
         // first loop: x + y
-        for (let i = 0; i < Field.n; i++) {
+        Field.forEach((i) => {
           // (carry, out[i]) = x[i] + y[i] + carry;
           let xi = Field.loadLimb(x, i);
           let yi = Field.loadLimb(y, i);
           i64.add(xi, yi);
-          if (i > 0) i64.add(); // add the carry
+          if (i > 0) i64.add();
           Field.carry($, tmp);
           Field.storeLimb(out, i, $);
-        }
+        });
         drop();
         if (!doReduce) return;
         // second loop: check if we overflowed by checking x + y < 2p
         block(null, () => {
-          for (let i = Field.n - 1; i >= 0; i--) {
+          Field.forEachReversed((i) => {
             // if (out[i] < 2p[i]) return
             local.set(tmp, Field.loadLimb(out, i));
             i64.lt_u(tmp, P2[i]);
@@ -48,19 +48,18 @@ function arithmetic(p: bigint, w: number) {
             // if (out[i] !== 2p[i]) break;
             i64.ne(tmp, P2[i]);
             br_if(0);
-          }
+          });
         });
         // third loop
         // if we're here, t >= 2p, so do t - 2p to get back in 0,..,2p-1
-        i64.const(0n);
-        for (let i = 0; i < Field.n; i++) {
+        Field.forEach((i) => {
           // (carry, out[i]) = out[i] - 2p[i] + carry;
           Field.loadLimb(out, i);
-          i64.add(); // add the carry
+          if (i > 0) i64.add(); // add the carry
           i64.sub($, P2[i]);
           Field.carry($, tmp);
           Field.storeLimb(out, i, $);
-        }
+        });
         drop();
       }
     );
@@ -72,7 +71,7 @@ function arithmetic(p: bigint, w: number) {
       { in: [i32, i32, i32], locals: [i64], out: [] },
       ([out, x, y], [tmp]) => {
         // first loop: x - y
-        for (let i = 0; i < Field.n; i++) {
+        Field.forEach((i) => {
           // (carry, out[i]) = x[i] - y[i] + carry;
           Field.loadLimb(x, i);
           if (i > 0) i64.add();
@@ -80,7 +79,7 @@ function arithmetic(p: bigint, w: number) {
           i64.sub();
           Field.carry($, tmp);
           Field.storeLimb(out, i, $);
-        }
+        });
         if (!doReduce) return drop();
         // check if we underflowed by checking carry === 0 (in that case, we didn't and can return)
         i64.eq($, 0n);
@@ -88,16 +87,15 @@ function arithmetic(p: bigint, w: number) {
         // second loop
         // if we're here, y > x and out = x - y + R, while we want x - y + 2p
         // so do (out += 2p) and ignore the known overflow of R
-        for (let i = 0; i < Field.n; i++) {
+        Field.forEach((i) => {
           // (carry, out[i]) = (2*p)[i] + out[i] + carry;
           i64.const(P2[i]);
-          i > 0 && i64.add();
+          if (i > 0) i64.add();
           Field.loadLimb(out, i);
           i64.add();
-          local.set(tmp);
           Field.carry($, tmp);
           Field.storeLimb(out, i, $);
-        }
+        });
         drop();
       }
     );

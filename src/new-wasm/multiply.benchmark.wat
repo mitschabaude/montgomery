@@ -2141,14 +2141,12 @@
     end)
   (func (;10;) (type 1) (param i32 i32 i32)
     (local i64)
-    i64.const 0
     local.get 1
     i32.load
     i64.extend_i32_u
     local.get 2
     i32.load
     i64.extend_i32_u
-    i64.add
     i64.add
     local.tee 3
     i64.const 29
@@ -2406,11 +2404,9 @@
       i64.ne
       br_if 0 (;@1;)
     end
-    i64.const 0
     local.get 0
     i32.load
     i64.extend_i32_u
-    i64.add
     i64.const 2
     i64.sub
     local.tee 3
