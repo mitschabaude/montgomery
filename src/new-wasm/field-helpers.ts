@@ -8,6 +8,7 @@ import {
   Local,
   StackVar,
   Input,
+  Func,
 } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
 
