@@ -12,6 +12,7 @@ import {
   Func,
 } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
+import { bigintToLegs } from "../util.js";
 
 export { createField };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
@@ -101,10 +102,17 @@ function createField(p: bigint, w: number) {
     if (didCarry) i64.add();
   }
 
+  let P = bigintToLegs(p, w, n);
+  let P2 = bigintToLegs(2n * p, w, n);
+
   return {
+    p,
+    w,
     n,
     wn,
     wordMax,
+    P,
+    P2,
     loadLimb,
     storeLimb,
     carry,

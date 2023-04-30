@@ -1,4 +1,3 @@
-import { montgomeryParams } from "./helpers.js";
 import { createField } from "./field-helpers.js";
 import {
   $,
@@ -14,13 +13,13 @@ import {
   return_,
 } from "wasmati";
 import { forLoop1 } from "./wasm-util.js";
-import { bigintToLegs } from "../util.js";
 
 export { arithmetic };
 
 function arithmetic(p: bigint, w: number) {
   const Field = createField(p, w);
-  let P2 = bigintToLegs(2n * p, w, Field.n);
+
+  // TODO: add/sub/reduce should support to reduce to larger multiples d*p, d > 1
 
   const addition = (doReduce: boolean) =>
     func(
@@ -43,10 +42,10 @@ function arithmetic(p: bigint, w: number) {
           Field.forEachReversed((i) => {
             // if (out[i] < 2p[i]) return
             local.set(tmp, Field.loadLimb(out, i));
-            i64.lt_u(tmp, P2[i]);
+            i64.lt_u(tmp, Field.P2[i]);
             br_if(1);
             // if (out[i] !== 2p[i]) break;
-            i64.ne(tmp, P2[i]);
+            i64.ne(tmp, Field.P2[i]);
             br_if(0);
           });
         });
@@ -56,7 +55,7 @@ function arithmetic(p: bigint, w: number) {
           // (carry, out[i]) = out[i] - 2p[i] + carry;
           Field.loadLimb(out, i);
           if (i > 0) i64.add(); // add the carry
-          i64.sub($, P2[i]);
+          i64.sub($, Field.P2[i]);
           Field.carry($, tmp);
           Field.storeLimb(out, i, $);
         });
@@ -89,7 +88,7 @@ function arithmetic(p: bigint, w: number) {
         // so do (out += 2p) and ignore the known overflow of R
         Field.forEach((i) => {
           // (carry, out[i]) = (2*p)[i] + out[i] + carry;
-          i64.const(P2[i]);
+          i64.const(Field.P2[i]);
           if (i > 0) i64.add();
           Field.loadLimb(out, i);
           i64.add();
@@ -103,6 +102,38 @@ function arithmetic(p: bigint, w: number) {
   const subtract = subtraction(true);
   const subtractNoReduce = subtraction(false);
 
+  /**
+   * reduce in place from modulo 2*d*p to modulo d*p, i.e.
+   * if (x > d*p) x -= d*p
+   * (condition: d*p < R = 2^(n*w); we always have d=1 for now but different ones could be used
+   * once we try supporting less reductions in add/sub)
+   */
+  const reduce = func({ in: [i32], locals: [i64], out: [] }, ([x], [tmp]) => {
+    // check if x < p
+    block(null, () => {
+      Field.forEachReversed((i) => {
+        // if (x[i] < p[i]) return
+        Field.loadLimb(x, i);
+        local.tee(tmp);
+        i64.lt_u($, Field.P[i]);
+        br_if(1);
+        // if (x[i] !== p[i]) break;
+        i64.ne(tmp, Field.P[i]);
+        br_if(0);
+      });
+    });
+    // if we're here, t >= dp but we assume t < 2dp, so do t - dp
+    Field.forEach((i) => {
+      // (carry, x[i]) = x[i] - p[i] + carry;
+      Field.loadLimb(x, i);
+      if (i > 0) i64.add(); // add the carry
+      i64.sub($, Field.P[i]);
+      Field.carry($, tmp);
+      Field.storeLimb(x, i, $);
+    });
+    drop();
+  });
+
   const benchAdd = func(
     { in: [i32, i32], locals: [i32], out: [] },
     ([x, N], [i]) => {
@@ -112,5 +143,5 @@ function arithmetic(p: bigint, w: number) {
     }
   );
 
-  return { add, addNoReduce, subtract, subtractNoReduce, benchAdd };
+  return { add, addNoReduce, subtract, subtractNoReduce, reduce, benchAdd };
 }
