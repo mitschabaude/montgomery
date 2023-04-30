@@ -2556,14 +2556,14 @@
     i32.const 0
     local.set 4
     loop  ;; label = @1
-      local.get 0
-      local.get 2
-      local.get 1
-      call 12
       local.get 1
       local.get 1
       local.get 2
       call 10
+      local.get 0
+      local.get 2
+      local.get 1
+      call 12
       local.get 4
       i32.const 1
       i32.add
@@ -2574,6 +2574,10 @@
     end)
   (func (;12;) (type 1) (param i32 i32 i32)
     (local i32)
+    local.get 2
+    call 13
+    local.get 2
+    call 13
     local.get 2
     call 13
     local.get 2
@@ -4110,7 +4114,7 @@
   (memory (;0;) 100)
   (global (;0;) i32 (i32.const 36))
   (global (;1;) i32 (i32.const 0))
-  (global (;2;) i32 (i32.const 0))
+  (global (;2;) i32 (i32.const 72))
   (export "benchMontgomery" (func 0))
   (export "benchSchoolbook" (func 2))
   (export "benchBarrett" (func 4))
@@ -4119,5 +4123,5 @@
   (export "benchInverse" (func 11))
   (export "memory" (memory 0))
   (export "dataOffset" (global 2))
-  (data (;0;) (i32.const 0) "}\c8BBJ4\87y\ce")
-  (data (;1;) (i32.const 36) "\01h\e6\12$\00\00\00\00"))
+  (data (;0;) (i32.const 0) "}%m\07\c8%a\18Bn\1f\14BE\ed\0bJ\e74\164FW\12\877S\0fyGq\0b\ce\bd\17\00")
+  (data (;1;) (i32.const 36) "\01\00\00\00h\87i\09\e6F>\13\12\f81\0d$\02\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00@\00"))

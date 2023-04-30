@@ -6,11 +6,7 @@ import { jsHelpers } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
 import { barrettReduction } from "./barrett.js";
-import {
-  FieldWithArithmetic,
-  arithmetic,
-  fieldHelpers,
-} from "./field-arithmetic.js";
+import { FieldWithArithmetic } from "./field-arithmetic.js";
 import { ImplicitMemory, forLoop1 } from "./wasm-util.js";
 import { fieldInverse } from "./inverse.js";
 
@@ -39,7 +35,6 @@ for (let w of [29]) {
   );
 
   let implicitMemory = new ImplicitMemory(memory({ min: 100 }));
-  let dataOffset = global(Const.i32(implicitMemory.dataOffset));
 
   let { inverse } = fieldInverse(
     implicitMemory,
@@ -50,12 +45,12 @@ for (let w of [29]) {
 
   const benchInverse = func(
     { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-    ([scratch, a, u, N], [i]) => {
+    ([scratch, x, y, N], [i]) => {
       forLoop1(i, 0, N, () => {
         // x <- x + y
+        call(Field.add, [x, x, y]);
         // y <- 1/x
-        call(inverse, [scratch, u, a]);
-        call(Field.add, [a, a, u]);
+        call(inverse, [scratch, y, x]);
       });
     }
   );
@@ -69,7 +64,7 @@ for (let w of [29]) {
       benchAdd,
       benchInverse,
       memory: implicitMemory.memory,
-      dataOffset,
+      dataOffset: global(Const.i32(implicitMemory.dataOffset)),
     },
   });
   await writeWat(
@@ -78,7 +73,11 @@ for (let w of [29]) {
   );
 
   let wasm = (await module.instantiate()).instance.exports;
-  let { writeBigint, getPointer, getPointers, n } = jsHelpers(p, w, wasm);
+  let { writeBigint, getPointer, getPointers, n, readBigint } = jsHelpers(
+    p,
+    w,
+    wasm
+  );
 
   let [scratch] = getPointers(10);
   let x = getPointer();
@@ -87,15 +86,18 @@ for (let w of [29]) {
   let y = getPointer();
   let y0 = randomBaseFieldx2();
   writeBigint(y, y0);
+  console.log(scratch, readBigint(x), readBigint(y));
 
   console.log(`w=${w}, n=${n}, nw=${n * w}, op x ${N}\n`);
+
+  let N2 = 1e1;
+  bench2("inverse", () => wasm.benchInverse(scratch, x, y, N2), { N: N2 });
 
   bench("multiply montgomery", wasm.benchMontgomery, { x, N });
   bench("multiply barrett", wasm.benchBarrett, { x, N });
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
   bench("add x3", wasm.benchAdd, { x, N });
-  bench2("inverse", () => wasm.benchInverse(scratch, x, y, N), { N });
 }
 
 function bench(

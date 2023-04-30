@@ -19,6 +19,7 @@ import { FieldWithArithmetic } from "./field-arithmetic.js";
 import { montgomeryParams } from "./helpers.js";
 import { mod } from "../finite-field-js.js";
 import { ImplicitMemory } from "./wasm-util.js";
+import { bigintToBytes } from "../util.js";
 
 export { fieldInverse };
 
@@ -190,8 +191,8 @@ function fieldInverse(
   let { K, lengthP } = montgomeryParams(p, w);
   let N = lengthP;
   let R2corr = mod(1n << BigInt(4 * K - 2 * N + 1), p);
-  let r2corrGlobal = implicitMemory.data32(Field.bigintToLimbs32(R2corr));
-  let pGlobal = implicitMemory.data32(Field.P);
+  let r2corrGlobal = implicitMemory.data(Field.bigintToData(R2corr));
+  let pGlobal = implicitMemory.data(Field.bigintToData(p));
 
   /**
    * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)

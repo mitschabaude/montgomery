@@ -73,7 +73,7 @@ function jsHelpers(
       }
     },
 
-    readBigInt(x: number, length = 1) {
+    readBigint(x: number, length = 1) {
       let arr = new Uint32Array(memory.buffer.slice(x, x + n * 4 * length));
       let x0 = 0n;
       let bitPosition = 0n;

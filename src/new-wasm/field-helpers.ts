@@ -12,7 +12,7 @@ import {
   Func,
 } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
-import { bigintToLegs } from "../util.js";
+import { bigintToBytes, bigintToLegs } from "../util.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
@@ -42,8 +42,8 @@ function createField(p: bigint, w: number) {
     return bigintToLegs(x, w, n);
   }
 
-  function bigintToLimbs32(x: bigint) {
-    return bigintToLimbs(x).map(Number);
+  function bigintToData(x: bigint) {
+    return bigintToLimbs(x).flatMap((xi) => [...bigintToBytes(xi, 4)]);
   }
 
   function forEach(callback: (i: number) => void) {
@@ -136,7 +136,7 @@ function createField(p: bigint, w: number) {
     storeLimb,
     storeLimb32,
     bigintToLimbs,
-    bigintToLimbs32,
+    bigintToData,
     carry,
     forEach,
     forEachReversed,

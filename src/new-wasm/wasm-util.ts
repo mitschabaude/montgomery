@@ -22,11 +22,11 @@ class ImplicitMemory {
     this.memory = memory;
   }
 
-  data32(limbs: number[] | bigint[]) {
+  data(bytes: Uint8Array | number[]) {
     let offset = Const.i32(this.dataOffset);
-    let dataSegment = data({ offset, memory: this.memory }, limbs.map(Number));
+    let dataSegment = data({ offset, memory: this.memory }, bytes);
     this.dataSegments.push(dataSegment);
-    this.dataOffset += limbs.length * 4;
+    this.dataOffset += bytes.length;
     return global(offset);
   }
 }
