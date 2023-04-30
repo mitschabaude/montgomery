@@ -24,7 +24,7 @@ class ImplicitMemory {
 
   data32(limbs: number[] | bigint[]) {
     let offset = Const.i32(this.dataOffset);
-    let dataSegment = data({ offset }, limbs.map(Number));
+    let dataSegment = data({ offset, memory: this.memory }, limbs.map(Number));
     this.dataSegments.push(dataSegment);
     this.dataOffset += limbs.length * 4;
     return global(offset);
