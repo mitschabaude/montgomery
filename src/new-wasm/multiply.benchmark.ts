@@ -6,7 +6,8 @@ import { jsHelpers } from "./helpers.js";
 import { writeWat } from "./wat-helpers.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
 import { barrettReduction } from "./barrett.js";
-import { arithmetic } from "./field-arithmetic.js";
+import { arithmetic, fieldHelpers } from "./field-arithmetic.js";
+import { createField } from "./field-helpers.js";
 
 let N = 1e7;
 
@@ -18,7 +19,9 @@ for (let w of [29]) {
   );
   let { benchMultiply: benchSchoolbook, multiply } = multiplySchoolbook(p, w);
   let { benchMultiply: benchBarrett } = barrettReduction(p, w, multiply);
-  let { benchAdd } = arithmetic(p, w);
+  const Field = createField(p, w);
+  let { benchAdd } = arithmetic(Field);
+  fieldHelpers(Field);
 
   let module = Module({
     exports: {

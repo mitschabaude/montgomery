@@ -14,13 +14,16 @@ import {
 import { montgomeryParams } from "./helpers.js";
 import { bigintToLegs } from "../util.js";
 
-export { createField };
+export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
 
 // inline methods to operate on a field element stored as n * w-bit limbs
 
+type Field = ReturnType<typeof createField>;
+
 function createField(p: bigint, w: number) {
   const { n, wn, wordMax } = montgomeryParams(p, w);
+  const sizeBytes = 4 * n; // size in bytes
 
   function loadLimb(x: Local<i32>, i: number) {
     return i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
@@ -113,6 +116,7 @@ function createField(p: bigint, w: number) {
     wordMax,
     P,
     P2,
+    sizeBytes,
     loadLimb,
     storeLimb,
     carry,
