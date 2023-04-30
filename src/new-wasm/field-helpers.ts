@@ -23,13 +23,27 @@ type Field = ReturnType<typeof createField>;
 
 function createField(p: bigint, w: number) {
   const { n, wn, wordMax } = montgomeryParams(p, w);
-  const sizeBytes = 4 * n; // size in bytes
+  const size = 4 * n; // size in bytes
 
   function loadLimb(x: Local<i32>, i: number) {
     return i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
   }
+  function loadLimb32(x: Local<i32>, i: number) {
+    return i32.load({ offset: 4 * i }, x);
+  }
   function storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
     i32.store({ offset: 4 * i }, x, i32.wrap_i64(xi));
+  }
+  function storeLimb32(x: Local<i32>, i: number, xi: Input<i32>) {
+    i32.store({ offset: 4 * i }, x, xi);
+  }
+
+  function bigintToLimbs(x: bigint) {
+    return bigintToLegs(x, w, n);
+  }
+
+  function bigintToLimbs32(x: bigint) {
+    return bigintToLimbs(x).map(Number);
   }
 
   function forEach(callback: (i: number) => void) {
@@ -105,8 +119,8 @@ function createField(p: bigint, w: number) {
     if (didCarry) i64.add();
   }
 
-  let P = bigintToLegs(p, w, n);
-  let P2 = bigintToLegs(2n * p, w, n);
+  let P = bigintToLimbs(p);
+  let P2 = bigintToLimbs(2n * p);
 
   return {
     p,
@@ -116,9 +130,13 @@ function createField(p: bigint, w: number) {
     wordMax,
     P,
     P2,
-    sizeBytes,
+    size,
     loadLimb,
+    loadLimb32,
     storeLimb,
+    storeLimb32,
+    bigintToLimbs,
+    bigintToLimbs32,
     carry,
     forEach,
     forEachReversed,

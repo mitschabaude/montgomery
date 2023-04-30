@@ -1,9 +1,8 @@
-import { Field } from "./field-helpers.js";
+import { Field, createField } from "./field-helpers.js";
 import {
   $,
   block,
   br_if,
-  call,
   drop,
   func,
   i32,
@@ -12,11 +11,19 @@ import {
   local,
   memory,
   return_,
+  Local,
 } from "wasmati";
-import { forLoop1 } from "./wasm-util.js";
-import { Local } from "wasmati";
 
-export { arithmetic, fieldHelpers };
+export { arithmetic, fieldHelpers, FieldWithArithmetic };
+
+type FieldWithArithmetic = ReturnType<typeof FieldWithArithmetic>;
+
+function FieldWithArithmetic(p: bigint, w: number) {
+  const Field = createField(p, w);
+  const arithmetic_ = arithmetic(Field);
+  const helper_ = fieldHelpers(Field);
+  return { ...Field, ...arithmetic_, ...helper_ };
+}
 
 function arithmetic(Field: Field) {
   // TODO: add/sub/reduce should support to reduce to larger multiples d*p, d > 1
@@ -134,16 +141,7 @@ function arithmetic(Field: Field) {
     drop();
   });
 
-  const benchAdd = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
-      forLoop1(i, 0, N, () => {
-        call(add, [x, x, x]);
-      });
-    }
-  );
-
-  return { add, addNoReduce, subtract, subtractNoReduce, reduce, benchAdd };
+  return { add, addNoReduce, subtract, subtractNoReduce, reduce };
 }
 
 /**
@@ -213,7 +211,7 @@ function fieldHelpers(Field: Field) {
   function copyInline(x: Local<i32>, y: Local<i32>) {
     local.get(x);
     local.get(y);
-    i32.const(Field.sizeBytes);
+    i32.const(Field.size);
     memory.copy();
   }
   const copy = func({ in: [i32, i32], out: [] }, ([x, y]) => {

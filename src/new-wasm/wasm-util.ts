@@ -1,6 +1,35 @@
-import { Local, br_if, i32, local, loop } from "wasmati";
+import {
+  Const,
+  Dependency,
+  Local,
+  br_if,
+  data,
+  global,
+  i32,
+  local,
+  loop,
+} from "wasmati";
 
-export { forLoop, forLoop1, forLoop4 };
+export { ImplicitMemory, forLoop, forLoop1, forLoop4 };
+
+// collect memory + data segments together
+class ImplicitMemory {
+  memory: Dependency.AnyMemory;
+  dataOffset: number = 0;
+  dataSegments: Dependency.Data[] = [];
+
+  constructor(memory: Dependency.AnyMemory) {
+    this.memory = memory;
+  }
+
+  data32(limbs: number[] | bigint[]) {
+    let offset = Const.i32(this.dataOffset);
+    let dataSegment = data({ offset }, limbs.map(Number));
+    this.dataSegments.push(dataSegment);
+    this.dataOffset += limbs.length * 4;
+    return global(offset);
+  }
+}
 
 // helper
 function forLoop(

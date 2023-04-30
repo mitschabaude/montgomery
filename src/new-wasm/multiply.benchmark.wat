@@ -2131,6 +2131,14 @@
       local.get 0
       local.get 0
       call 10
+      local.get 0
+      local.get 0
+      local.get 0
+      call 10
+      local.get 0
+      local.get 0
+      local.get 0
+      call 10
       local.get 2
       i32.const 1
       i32.add
