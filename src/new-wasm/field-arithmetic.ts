@@ -12,6 +12,9 @@ import {
   memory,
   return_,
   Local,
+  Func,
+  StackVar,
+  Input,
 } from "wasmati";
 
 export { arithmetic, fieldHelpers, FieldWithArithmetic };

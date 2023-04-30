@@ -4,6 +4,8 @@ import {
   Input,
   Local,
   StackVar,
+  Dependency,
+  Func,
   Type,
   call,
   func,
