@@ -833,11 +833,11 @@ function batchAddUnsafe(
   H: Uint32Array,
   n: number
 ) {
-  for (let i = 0; i < n; i++) {
-    subtractPositive(memoryBytes[tmp + 4 * i], H[i], G[i]);
+  for (let i = 0, tmpi = tmp; i < n; i++, tmpi += sizeField) {
+    subtractPositive(tmpi, H[i], G[i]);
   }
   batchInverse(scratch[0], d, tmp, n);
-  for (let i = 0; i < n; i++) {
-    addAffine(scratch[0], S[i], G[i], H[i], memoryBytes[d + 4 * i]);
+  for (let i = 0, di = d; i < n; i++, di += sizeField) {
+    addAffine(scratch[0], S[i], G[i], H[i], di);
   }
 }

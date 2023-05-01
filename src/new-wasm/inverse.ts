@@ -258,7 +258,7 @@ function fieldInverse(
         i32.ne($N, local.tee($i, i32.add($i, Field.size)));
         br_if(0);
       });
-      // invere I = 1/(x0*...*x(n-1))
+      // inverse I = 1/(x0*...*x(n-1))
       call(inverse, [scratch, I, i32.add(z, i32.sub($N, Field.size))]);
       // create inverses 1/x(n-1), ..., 1/x2
       local.set($i, i32.sub($N, Field.size));
