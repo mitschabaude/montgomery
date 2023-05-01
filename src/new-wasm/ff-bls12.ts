@@ -21,12 +21,12 @@ const p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
 const w = 30;
 
+let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
+
+const Field = FieldWithArithmetic(p, w);
 let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
   countMultiplications: false,
 });
-const Field = FieldWithArithmetic(p, w);
-
-let implicitMemory = new ImplicitMemory(memory({ min: 100 }));
 
 let { inverse, makeOdd } = fieldInverse(
   implicitMemory,
