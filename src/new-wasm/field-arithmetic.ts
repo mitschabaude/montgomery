@@ -66,7 +66,7 @@ function arithmetic(Field: Field) {
           Field.loadLimb(out, i);
           if (i > 0) i64.add(); // add the carry
           i64.sub($, Field.P2[i]);
-          Field.carry($, tmp);
+          Field.carrySigned($, tmp);
           Field.storeLimb(out, i, $);
         });
         drop();
@@ -161,7 +161,7 @@ function arithmetic(Field: Field) {
       Field.loadLimb(x, i);
       if (i > 0) i64.add(); // add the carry
       i64.sub($, Field.P[i]);
-      Field.carry($, tmp);
+      Field.carrySigned($, tmp);
       Field.storeLimb(x, i, $);
     });
     drop();

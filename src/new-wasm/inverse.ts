@@ -28,7 +28,7 @@ function fieldInverse(
   implicitMemory: ImplicitMemory,
   Field: FieldWithMultiply
 ) {
-  let { n, w, p } = Field;
+  const { n, w, p, multiply } = Field;
 
   /**
    * a core building block for montgomery inversion
@@ -225,5 +225,58 @@ function fieldInverse(
     }
   );
 
-  return { makeOdd, inverse };
+  const batchInverse = func(
+    { in: [i32, i32, i32, i32], locals: [i32, i32, i32], out: [] },
+    ([scratch, z, x, $n], [$i, I, $N]) => {
+      local.set(I, scratch);
+      local.set(scratch, i32.add(scratch, Field.size));
+      local.set($N, i32.mul($n, Field.size));
+      // return early if n = 0 or 1
+      i32.eqz($n);
+      if_(null, () => return_());
+      i32.eq($n, 1);
+      if_(null, () => {
+        call(inverse, [scratch, z, x]);
+        return_();
+      });
+      // create products x0*x1, ..., x0*...*x(n-1)
+      call(multiply, [i32.add(z, Field.size), i32.add(x, Field.size), x]);
+      i32.eq($n, 2);
+      if_(null, () => {
+        call(inverse, [scratch, I, i32.add(z, Field.size)]);
+        call(multiply, [i32.add(z, Field.size), x, I]),
+          call(multiply, [z, i32.add(x, Field.size), I]),
+          return_();
+      });
+      local.set($i, i32.const(2 * Field.size));
+      loop(null, () => {
+        call(multiply, [
+          i32.add(z, $i),
+          i32.add(z, i32.sub($i, Field.size)),
+          i32.add(x, $i),
+        ]);
+        i32.ne($N, local.tee($i, i32.add($i, Field.size)));
+        br_if(0);
+      });
+      // invere I = 1/(x0*...*x(n-1))
+      call(inverse, [scratch, I, i32.add(z, i32.sub($N, Field.size))]);
+      // create inverses 1/x(n-1), ..., 1/x2
+      local.set($i, i32.sub($N, Field.size));
+      loop(null, () => {
+        call(multiply, [
+          i32.add(z, $i),
+          i32.add(z, i32.sub($i, Field.size)),
+          I,
+        ]);
+        call(multiply, [I, I, i32.add(x, $i)]);
+        i32.ne(Field.size, local.tee($i, i32.sub($i, Field.size)));
+        br_if(0);
+      });
+      // 1/x1, 1/x0
+      call(multiply, [i32.add(z, Field.size), x, I]);
+      call(multiply, [z, i32.add(x, Field.size), I]);
+    }
+  );
+
+  return { makeOdd, inverse, batchInverse };
 }

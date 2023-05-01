@@ -154,15 +154,25 @@ function testBatchMontgomery() {
   }
   // compute inverses as batch
   let invX1 = F.getPointers(n);
-  F.batchInverse(scratch, invX1[0], X[0], n);
+  F.batchInverse(scratch[0], invX1[0], X[0], n);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {
-    if (mod(F.readBigint(invX1[i]) - F.readBigint(invX[i]), p) !== 0n)
-      throw Error("batch inverse");
+    let z0 = F.readBigint(invX[i]);
+    let z1 = F.readBigint(invX1[i]);
+    if (mod(z1 - z0, p) !== 0n) throw Error("batch inverse");
+
     F.reduce(invX1[i]);
     F.reduce(invX[i]);
-    if (!F.isEqual(invX1[i], invX[i]))
-      console.warn("WARNING: batch inverse not exactly equal after reducing");
+    if (!F.isEqual(invX1[i], invX[i])) {
+      console.log({
+        i,
+        z0,
+        z1,
+        invX0: F.readBigint(invX[i]),
+        invX1: F.readBigint(invX1[i]),
+      });
+      throw Error("batch inverse / reduce");
+    }
   }
 }

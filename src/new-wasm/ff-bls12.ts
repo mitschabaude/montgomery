@@ -28,7 +28,7 @@ let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
 });
 const Field = Object.assign(Field_, { multiply, square, leftShift });
 
-let { inverse, makeOdd } = fieldInverse(implicitMemory, Field);
+let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
 let { addAffine, endomorphism } = curveOps(implicitMemory, Field, beta);
 
 let {
@@ -56,6 +56,7 @@ let module = Module({
     // inverse
     inverse,
     makeOdd,
+    batchInverse,
     // helpers
     isEqual,
     isGreater,
@@ -124,7 +125,6 @@ let F = {
   memoryBytes,
   toMontgomery,
   fromMontgomery,
-  batchInverse,
 };
 
 /**
@@ -133,7 +133,12 @@ let F = {
  * @param X fields to invert, at least length n
  * @param n length
  */
-function batchInverse([I, tmp]: number[], invX: number, X: number, n: number) {
+function batchInverseJs(
+  [I, tmp]: number[],
+  invX: number,
+  X: number,
+  n: number
+) {
   if (n === 0) return;
   if (n === 1) {
     F.inverse(tmp, memoryBytes[invX + 0], memoryBytes[X + 0]);

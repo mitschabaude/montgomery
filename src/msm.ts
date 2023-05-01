@@ -726,7 +726,7 @@ function batchAdd(
       nAdd++, nBoth++;
     }
   }
-  batchInverse(scratch, d[0], tmp[0], nBoth);
+  batchInverse(scratch[0], d[0], tmp[0], nBoth);
   for (let j = 0; j < nAdd; j++) {
     let i = iAdd[j];
     addAffine(scratch[0], S[i], G[i], H[i], d[iBoth[i]]);
@@ -768,7 +768,7 @@ function batchDoubleInPlace(
     add(tmp[n1], y, y); // TODO: efficient doubling
     n1++;
   }
-  batchInverse(scratch, d[0], tmp[0], n1);
+  batchInverse(scratch[0], d[0], tmp[0], n1);
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
@@ -836,7 +836,7 @@ function batchAddUnsafe(
   for (let i = 0; i < n; i++) {
     subtractPositive(memoryBytes[tmp + 4 * i], H[i], G[i]);
   }
-  batchInverse(scratch, d, tmp, n);
+  batchInverse(scratch[0], d, tmp, n);
   for (let i = 0; i < n; i++) {
     addAffine(scratch[0], S[i], G[i], H[i], memoryBytes[d + 4 * i]);
   }
