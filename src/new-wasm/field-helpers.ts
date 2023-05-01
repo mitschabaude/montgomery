@@ -82,36 +82,32 @@ function createField(p: bigint, w: number) {
     shouldCarry: boolean,
     input: StackVar<i64>,
     tmp: Local<i64>
-  ): void;
-  function optionalCarry(shouldCarry: boolean, input: Local<i64>): void;
-  function optionalCarry(
-    shouldCarry: boolean,
-    input: StackVar<i64> | Local<i64>,
-    tmp?: Local<i64>
   ) {
-    if (shouldCarry) carry(input as any, tmp!);
+    if (shouldCarry) carry(input, tmp);
   }
 
   /**
    * perform a w-bit carry on a 64-bit value and put both the low and high parts on the stack (low first).
    *
-   * needs a tmp local var if the input is the current stack
+   * needs a tmp local var since the input is on the current stack
    */
-  function carry(input: StackVar<i64>, tmp: Local<i64>): void;
-  function carry(input: Local<i64>): void;
-  function carry(input: StackVar<i64> | Local<i64>, tmp?: Local<i64>) {
-    if ("kind" in input && input.kind === "stack-var") {
-      // put carry on the stack
-      local.tee(tmp!, input);
-      i64.shr_u($, wn);
-      // mod 2^w the current result
-      i64.and(tmp!, wordMax);
-    } else {
-      // put carry on the stack
-      i64.shr_u(input, wn);
-      // mod 2^w the current result
-      i64.and(input, wordMax);
-    }
+  function carry(input: StackVar<i64>, tmp: Local<i64>) {
+    // put carry on the stack
+    local.tee(tmp!, input);
+    i64.shr_u($, wn);
+    // mod 2^w the current result
+    i64.and(tmp!, wordMax);
+  }
+  /**
+   * same as {@link carry} but with a signed shift, suitable for carrying values in the range
+   * [-2^63, 2^63)
+   */
+  function carrySigned(input: StackVar<i64>, tmp: Local<i64>) {
+    // put carry on the stack
+    local.tee(tmp!, input);
+    i64.shr_s($, wn);
+    // mod 2^w the current result
+    i64.and(tmp!, wordMax);
   }
 
   function optionalCarryAdd(didCarry: boolean) {
@@ -138,6 +134,7 @@ function createField(p: bigint, w: number) {
     bigintToLimbs,
     bigintToData,
     carry,
+    carrySigned,
     forEach,
     forEachReversed,
     load,

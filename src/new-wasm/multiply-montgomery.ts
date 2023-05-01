@@ -39,16 +39,6 @@ function multiplyMontgomery(
   let nSafeSteps = 2 ** (64 - 2 * w - 1);
   let nSafeStepsSquare = Math.floor(2 ** (64 - 2 * w) / 3); // three terms per step
 
-  console.log("multiplyMontgomery", {
-    n,
-    wn,
-    wordMax,
-    mu,
-    x: p % (1n << wn),
-    nSafeTerms,
-    nSafeSteps,
-  });
-
   const multiplyCount = global(Const.i32(0), { mutable: true });
 
   const resetMultiplyCount = func({ in: [], locals: [], out: [] }, () => {
