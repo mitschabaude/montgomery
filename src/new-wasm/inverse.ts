@@ -20,14 +20,13 @@ import { montgomeryParams } from "./helpers.js";
 import { mod } from "../finite-field-js.js";
 import { ImplicitMemory } from "./wasm-util.js";
 import { bigintToBytes } from "../util.js";
+import { FieldWithMultiply } from "./multiply-montgomery.js";
 
 export { fieldInverse };
 
 function fieldInverse(
   implicitMemory: ImplicitMemory,
-  Field: FieldWithArithmetic,
-  multiply: Func<[i32, i32, i32], []>,
-  leftShift: Func<[i32, i32, i32], []>
+  Field: FieldWithMultiply
 ) {
   let { n, w, p } = Field;
 
@@ -217,9 +216,9 @@ function fieldInverse(
       // N <= k+1 <= 2N, so that 0 <= 2N-(k+1) <= N, so that
       // 1 <= 2^(2N-(k+1)) <= 2^N < 2p
       // (in practice, k seems to be normally distributed around ~1.4N and never reach either N or 2N)
-      call(leftShift, [r, r, i32.sub(2 * N - 1, k)]); // * 2^(2N - (k+1)) * 2^(-K)
+      call(Field.leftShift, [r, r, i32.sub(2 * N - 1, k)]); // * 2^(2N - (k+1)) * 2^(-K)
       // now we multiply by 2^(2(K + K-N) + 1))
-      call(multiply, [r, r, r2corrGlobal]); // * 2^(2K + 2(K-n) + 1) * 2^(-K)
+      call(Field.multiply, [r, r, r2corrGlobal]); // * 2^(2K + 2(K-n) + 1) * 2^(-K)
       // = * 2 ^ (2n - k - 1 + 2(K-n) + 1)) = 2^(2*K - k)
       // ^^^ transforms (a * 2^K)^(-1)*2^k = a^(-1) 2^(-K+k)
       //     to a^(-1) 2^(-K+k + 2K -k) = a^(-1) 2^K = the montgomery representation of a^(-1)

@@ -138,3 +138,31 @@ for (let i = 0; i < 100; i++) {
   let ok = testDecomposeRandomScalar();
   if (!ok) throw Error("scalar decomposition");
 }
+
+testBatchMontgomery();
+
+function testBatchMontgomery() {
+  let n = 1000;
+  let X = F.getPointers(n);
+  let invX = F.getPointers(n);
+  let scratch = F.getPointers(10);
+  for (let i = 0; i < n; i++) {
+    let x0 = randomBaseFieldx2();
+    F.writeBigint(X[i], x0);
+    // compute inverses normally
+    F.inverse(scratch[0], invX[i], X[i]);
+  }
+  // compute inverses as batch
+  let invX1 = F.getPointers(n);
+  F.batchInverse(scratch, invX1[0], X[0], n);
+
+  // check that all inverses are equal
+  for (let i = 0; i < n; i++) {
+    if (mod(F.readBigint(invX1[i]) - F.readBigint(invX[i]), p) !== 0n)
+      throw Error("batch inverse");
+    F.reduce(invX1[i]);
+    F.reduce(invX[i]);
+    if (!F.isEqual(invX1[i], invX[i]))
+      console.warn("WARNING: batch inverse not exactly equal after reducing");
+  }
+}

@@ -17,12 +17,18 @@ for (let w of [29]) {
   let {
     benchMultiply: benchMontgomery,
     benchSquare,
-    multiply: multiplyMontgomery_,
+    multiply,
     leftShift,
+    square,
   } = multiplyMontgomery(p, w, { countMultiplications: false });
-  let { benchMultiply: benchSchoolbook, multiply } = multiplySchoolbook(p, w);
-  let { benchMultiply: benchBarrett } = barrettReduction(p, w, multiply);
-  const Field = FieldWithArithmetic(p, w);
+  let { benchMultiply: benchSchoolbook, multiply: multiplySchoolbook_ } =
+    multiplySchoolbook(p, w);
+  let { benchMultiply: benchBarrett } = barrettReduction(
+    p,
+    w,
+    multiplySchoolbook_
+  );
+  const Field = { ...FieldWithArithmetic(p, w), multiply, leftShift, square };
 
   const benchAdd = func(
     { in: [i32, i32], locals: [i32], out: [] },
@@ -37,12 +43,7 @@ for (let w of [29]) {
 
   let implicitMemory = new ImplicitMemory(memory({ min: 100 }));
 
-  let { inverse } = fieldInverse(
-    implicitMemory,
-    Field,
-    multiplyMontgomery_,
-    leftShift
-  );
+  let { inverse } = fieldInverse(implicitMemory, Field);
 
   const benchInverse = func(
     { in: [i32, i32, i32, i32], locals: [i32], out: [] },

@@ -51,7 +51,7 @@ function jsHelpers(
     memory: WebAssembly.Memory;
     toPackedBytes?: (bytes: number, x: number) => void;
     fromPackedBytes?: (x: number, bytes: number) => void;
-    dataOffset?: WebAssembly.Global;
+    dataOffset?: { valueOf(): number };
   }
 ) {
   let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
@@ -136,10 +136,7 @@ function jsHelpers(
      * @param size size per pointer (default: one field element)
      */
     getZeroPointers(N: number, size = n * 4) {
-      /**
-       * @type {number[]}
-       */
-      let pointers = Array(N);
+      let pointers: number[] = Array(N);
       let offset = obj.offset;
       new Uint8Array(memory.buffer, offset, N * size).fill(0);
       for (let i = 0; i < N; i++) {

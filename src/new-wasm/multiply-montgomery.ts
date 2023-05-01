@@ -3,7 +3,6 @@ import {
   Const,
   Input,
   Local,
-  StackVar,
   Dependency,
   Func,
   Type,
@@ -19,8 +18,18 @@ import { modInverse } from "../finite-field-js.js";
 import { bigintToLegs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 import { createField } from "./field-helpers.js";
+import { FieldWithArithmetic } from "./field-arithmetic.js";
 
-export { multiplyMontgomery };
+export { multiplyMontgomery, FieldWithMultiply };
+
+type FieldMultiplications = {
+  multiply: Func<[i32, i32, i32], []>;
+  square: Func<[i32, i32], []>;
+  leftShift: Func<[i32, i32, i32], []>;
+};
+type FieldWithMultiply = FieldWithArithmetic & FieldMultiplications;
+
+multiplyMontgomery satisfies (...args: any) => FieldMultiplications;
 
 function multiplyMontgomery(
   p: bigint,

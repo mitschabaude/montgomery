@@ -22,7 +22,7 @@ export { fromPackedBytes, toPackedBytes, extractBitSlice };
 type Field = ReturnType<typeof createField>;
 
 function createField(p: bigint, w: number) {
-  const { n, wn, wordMax } = montgomeryParams(p, w);
+  const { n, wn, wordMax, R } = montgomeryParams(p, w);
   const size = 4 * n; // size in bytes
 
   function loadLimb(x: Local<i32>, i: number) {
@@ -124,6 +124,7 @@ function createField(p: bigint, w: number) {
     n,
     wn,
     wordMax,
+    R,
     P,
     P2,
     size,
