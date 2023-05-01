@@ -818,7 +818,7 @@ function toAffineOutput(
  * where inputs are independent and pseudo-random in significant parts of the msm algorithm
  * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
  *
- * the performance improvement is in the ballpark of 1-3%
+ * the performance improvement is in the ballpark of 5%
  *
  * @param scratch
  * @param tmp pointers of length n
