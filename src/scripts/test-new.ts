@@ -154,7 +154,8 @@ function testBatchMontgomery() {
   }
   // compute inverses as batch
   let invX1 = F.getPointers(n);
-  F.batchInverse(scratch[0], invX1[0], X[0], n);
+  // F.batchInverse(scratch[0], invX1[0], X[0], n);
+  F.batchInverseJs(scratch, invX1[0], X[0], n);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {

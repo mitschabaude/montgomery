@@ -125,6 +125,7 @@ let F = {
   memoryBytes,
   toMontgomery,
   fromMontgomery,
+  batchInverseJs,
 };
 
 /**
@@ -141,27 +142,25 @@ function batchInverseJs(
 ) {
   if (n === 0) return;
   if (n === 1) {
-    F.inverse(tmp, memoryBytes[invX + 0], memoryBytes[X + 0]);
+    F.inverse(tmp, invX, X);
     return;
   }
+  let size = Field.size;
+  let N = n * size;
   // invX = [_, x0*x1, ..., x0*....*x(n-2), x0*....*x(n-1)]
   // invX[i] = x0*...*xi
-  multiply_(memoryBytes[invX + 4], memoryBytes[X + 4], memoryBytes[X + 0]);
-  for (let i = 2 * 4, N = n * 4; i < N; i += 4) {
-    multiply_(
-      memoryBytes[invX + i],
-      memoryBytes[invX + i - 4],
-      memoryBytes[X + i]
-    );
+  multiply_(invX + size, X + size, X);
+  for (let i = 2 * size; i < N; i += size) {
+    multiply_(invX + i, invX + i - size, X + i);
   }
   // I = 1/(x0*....*x(n-1)) = 1/invX[n-1]
-  F.inverse(tmp, I, memoryBytes[invX + 4 * (n - 1)]);
+  F.inverse(tmp, I, invX + N - size);
 
-  for (let i = 4 * (n - 1); i > 4; i -= 4) {
-    multiply_(memoryBytes[invX + i], memoryBytes[invX + i - 4], I);
-    multiply_(I, I, memoryBytes[X + i]);
+  for (let i = N - size; i > size; i -= size) {
+    multiply_(invX + i, invX + i - size, I);
+    multiply_(I, I, X + i);
   }
   // now I = 1/(x0*x1)
-  multiply_(memoryBytes[invX + 4], memoryBytes[X + 0], I);
-  multiply_(memoryBytes[invX + 0], I, memoryBytes[X + 4]);
+  multiply_(invX + size, X, I);
+  multiply_(invX, I, X + size);
 }
