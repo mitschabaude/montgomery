@@ -180,7 +180,11 @@ type InputPoint = [xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean];
 function msmAffine(
   inputScalars: Uint8Array[],
   inputPoints: InputPoint[],
-  { c: c_, c0: c0_ }: { c?: number; c0?: number } | undefined = {}
+  {
+    c: c_,
+    c0: c0_,
+    useSafeAdditions = false,
+  }: { c?: number; c0?: number; useSafeAdditions?: boolean } | undefined = {}
 ) {
   let N = inputScalars.length;
   let n = log2(N);
@@ -203,10 +207,7 @@ function msmAffine(
   let sizeScalar2 = 2 * scalarSize;
   let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
 
-  /**
-   * @type {(number)[][]}
-   */
-  let bucketCounts = Array(K);
+  let bucketCounts: number[][] = Array(K);
   for (let k = 0; k < K; k++) {
     bucketCounts[k] = Array(L + 1);
     for (let l = 0; l <= L; l++) {
@@ -405,10 +406,8 @@ function msmAffine(
    * - 'loop #2' is negligible at < 0.1% of runtime.
    * - 1-2% spent on {@link bucketCounts} reads/writes
    * - 0.5% on {@link extractBitSlice}
-   *
-   * @type {number[][]}
    */
-  let buckets = Array(K);
+  let buckets: number[][] = Array(K);
   for (let k = 0; k < K; k++) {
     buckets[k] = Array(L + 1);
     // the starting pointer for the array of points, in bucket order
@@ -477,8 +476,10 @@ function msmAffine(
 
   let [G, gPtr] = getEmptyPointersInMemory(nPairs); // holds first summands
   let [H, hPtr] = getEmptyPointersInMemory(nPairs); // holds second summands
-  let denom = getPointer(nPairs * sizeField);
-  let tmp = getPointer(nPairs * sizeField);
+  // let denom = getPointer(nPairs * sizeField);
+  // let tmp = getPointer(nPairs * sizeField);
+  let [denom] = getPointersInMemory(nPairs, sizeField);
+  let [tmp] = getPointersInMemory(nPairs, sizeField);
 
   // batch-add buckets into their first point, in `maxBucketSize` iterations
   for (let m = 1; m < maxBucketSize; m *= 2) {
@@ -501,7 +502,11 @@ function msmAffine(
     }
     nPairs = p;
     // now (G,H) represents a big array of independent additions, which we batch-add
-    batchAddUnsafe(scratch, tmp, denom, G, G, H, nPairs);
+    if (useSafeAdditions) {
+      batchAdd(scratch, tmp, denom, G, G, H, nPairs);
+    } else {
+      batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+    }
   }
   // we're done!!
   // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
@@ -554,8 +559,7 @@ function reduceBucketsAffine(
 
   // normalize the way buckets are stored -- we'll store intermediate running sums there
   // copy bucket sums into new contiguous pointers to improve memory access
-  /** @type {number[][]} */
-  let buckets = Array(K);
+  let buckets: number[][] = Array(K);
   for (let k = 0; k < K; k++) {
     let newBuckets = getZeroPointers(L + 1, sizeAffine);
     buckets[k] = newBuckets;
