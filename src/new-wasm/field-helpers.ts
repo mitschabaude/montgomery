@@ -93,10 +93,10 @@ function createField(p: bigint, w: number) {
    */
   function carry(input: StackVar<i64>, tmp: Local<i64>) {
     // put carry on the stack
-    local.tee(tmp!, input);
+    local.tee(tmp, input);
     i64.shr_u($, wn);
     // mod 2^w the current result
-    i64.and(tmp!, wordMax);
+    i64.and(tmp, wordMax);
   }
   /**
    * same as {@link carry} but with a signed shift, suitable for carrying values in the range
@@ -104,10 +104,10 @@ function createField(p: bigint, w: number) {
    */
   function carrySigned(input: StackVar<i64>, tmp: Local<i64>) {
     // put carry on the stack
-    local.tee(tmp!, input);
+    local.tee(tmp, input);
     i64.shr_s($, wn);
     // mod 2^w the current result
-    i64.and(tmp!, wordMax);
+    i64.and(tmp, wordMax);
   }
 
   function optionalCarryAdd(didCarry: boolean) {

@@ -11,6 +11,7 @@ import { ImplicitMemory, forLoop1 } from "./wasm-util.js";
 import { fieldInverse } from "./inverse.js";
 
 let N = 1e7;
+let Ninv = 1e5;
 
 for (let w of [29]) {
   let {
@@ -73,30 +74,29 @@ for (let w of [29]) {
   );
 
   let wasm = (await module.instantiate()).instance.exports;
-  let { writeBigint, getPointer, getPointers, n, readBigint } = jsHelpers(
-    p,
-    w,
-    wasm
-  );
+  let { writeBigint, getPointer, getPointers, n } = jsHelpers(p, w, wasm);
 
   let [scratch] = getPointers(10);
   let x = getPointer();
-  let x0 = randomBaseFieldx2();
-  writeBigint(x, x0);
   let y = getPointer();
-  let y0 = randomBaseFieldx2();
-  writeBigint(y, y0);
-  console.log(scratch, readBigint(x), readBigint(y));
+  writeBigint(x, randomBaseFieldx2());
+  writeBigint(y, randomBaseFieldx2());
 
   console.log(`w=${w}, n=${n}, nw=${n * w}, op x ${N}\n`);
 
-  let N2 = 1e1;
-  bench2("inverse", () => wasm.benchInverse(scratch, x, y, N2), { N: N2 });
-
-  bench("multiply montgomery", wasm.benchMontgomery, { x, N });
+  let tMul = bench("multiply montgomery", wasm.benchMontgomery, { x, N });
   bench("multiply barrett", wasm.benchBarrett, { x, N });
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
+
+  writeBigint(x, randomBaseFieldx2());
+  writeBigint(y, randomBaseFieldx2());
+
+  bench2("inverse", () => wasm.benchInverse(scratch, x, y, Ninv), {
+    N: Ninv,
+    tMul,
+  });
+
   bench("add x3", wasm.benchAdd, { x, N });
 }
 
@@ -105,19 +105,31 @@ function bench(
   compute: (x: number, N: number) => void,
   { x, N }: { x: number; N: number }
 ) {
+  name = name.padEnd(20, " ");
   tic();
   compute(x, N);
   let time = toc();
   console.log(`${name} \t ${(N / time / 1e6).toFixed(1).padStart(4)}M ops/s`);
   console.log(`${name} \t ${((time / N) * 1e9).toFixed(0)}ns`);
   console.log();
+  return time / N;
 }
 
-function bench2(name: string, compute: () => void, { N }: { N: number }) {
+function bench2(
+  name: string,
+  compute: () => void,
+  { N, tMul }: { N: number; tMul: number }
+) {
+  name = name.padEnd(20, " ");
   tic();
   compute();
   let time = toc();
-  console.log(`${name} \t ${(N / time / 1e6).toFixed(1).padStart(4)}M ops/s`);
-  console.log(`${name} \t ${((time / N) * 1e9).toFixed(0)}ns`);
+  console.log(`${name} \t ${(N / time / 1e3).toFixed(0).padStart(4)}K ops/s`);
+  console.log(
+    `${name} \t ${(time / N / tMul).toFixed(0)} muls / ${(
+      (time / N) *
+      1e9
+    ).toFixed(0)}ns`
+  );
   console.log();
 }

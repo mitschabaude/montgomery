@@ -2577,10 +2577,6 @@
     local.get 2
     call 13
     local.get 2
-    call 13
-    local.get 2
-    call 13
-    local.get 2
     call 14
     if  ;; label = @1
       unreachable
@@ -3560,7 +3556,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3577,7 +3573,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3594,7 +3590,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3611,7 +3607,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3628,7 +3624,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3645,7 +3641,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3662,7 +3658,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3679,7 +3675,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -3696,7 +3692,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911

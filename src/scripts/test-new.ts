@@ -1,14 +1,15 @@
 // run with ts-node-esm
 import { F } from "../new-wasm/ff-bls12.js";
-import { webcrypto } from "node:crypto";
-import { extractBitSlice as extractBitSliceJS } from "../util.js";
-import { mod, modInverse, randomBaseFieldx2 } from "../finite-field-js.js";
 import {
   glv,
   getPointerScalar,
   testDecomposeRandomScalar,
   writeBytesScalar,
 } from "../new-wasm/glv-bls12.js";
+import { webcrypto } from "node:crypto";
+import { extractBitSlice as extractBitSliceJS } from "../util.js";
+import { mod, modInverse, randomBaseFieldx2 } from "../finite-field-js.js";
+
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
@@ -71,6 +72,12 @@ function test() {
   // subtract
   z0 = mod(x0 - y0, p);
   F.subtract(z, x, y);
+  z1 = ofWasm(scratch, z);
+  if (z0 !== z1) throw Error("subtract");
+
+  // subtract plus 2p
+  z0 = mod(x0 - y0, p);
+  F.subtractPositive(z, x, y);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("subtract");
 

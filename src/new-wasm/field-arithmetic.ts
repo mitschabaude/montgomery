@@ -112,6 +112,29 @@ function arithmetic(Field: Field) {
   const subtract = subtraction(true);
   const subtractNoReduce = subtraction(false);
 
+  // x - y + 2p -- subtraction that's guaranteed to stay positive if y < 2p,
+  // so there's no conditional branch.
+  // => output is < x + 2p but not necessarily < 2p
+  // this is often fine for inputs to multiplications, which e.g. contract <8p inputs to <2p outputs
+  const subtractPositive = func(
+    { in: [i32, i32, i32], locals: [i64], out: [] },
+    ([out, x, y], [tmp]) => {
+      // first loop: x - y
+      Field.forEach((i) => {
+        // (carry, out[i]) = 2p + x[i] - y[i] + carry;
+        i64.const(Field.P2[i]);
+        if (i > 0) i64.add();
+        Field.loadLimb(x, i);
+        i64.add();
+        Field.loadLimb(y, i);
+        i64.sub();
+        Field.carrySigned($, tmp);
+        Field.storeLimb(out, i, $);
+      });
+      drop();
+    }
+  );
+
   /**
    * reduce in place from modulo 2*d*p to modulo d*p, i.e.
    * if (x > d*p) x -= d*p
@@ -144,7 +167,14 @@ function arithmetic(Field: Field) {
     drop();
   });
 
-  return { add, addNoReduce, subtract, subtractNoReduce, reduce };
+  return {
+    add,
+    addNoReduce,
+    subtract,
+    subtractNoReduce,
+    subtractPositive,
+    reduce,
+  };
 }
 
 /**

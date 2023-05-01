@@ -34,24 +34,38 @@ let { inverse, makeOdd } = fieldInverse(
   multiply,
   leftShift
 );
-let { isEqual, isGreater, isZero, add, subtract, reduce, copy } = Field;
+let {
+  isEqual,
+  isGreater,
+  isZero,
+  add,
+  subtract,
+  subtractPositive,
+  reduce,
+  copy,
+} = Field;
 
 let module = Module({
   exports: {
     memory: implicitMemory.memory,
     dataOffset: global(Const.i32(implicitMemory.dataOffset)),
+    // mutliplication
     multiply,
     square,
     leftShift,
+    // inverse
     inverse,
+    makeOdd,
+    // helpers
     isEqual,
     isGreater,
     isZero,
+    // arithmetic
     add,
     subtract,
+    subtractPositive,
     reduce,
     copy,
-    makeOdd,
   },
 });
 
