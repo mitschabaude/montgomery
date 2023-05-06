@@ -1,6 +1,5 @@
-import * as Field from "./finite-field.js";
-import * as Scalar from "./scalar-glv.js";
-import * as Curve from "./curve.js";
+import { F as Field } from "./new-wasm/ff-bls12.js";
+import * as Scalar from "./new-wasm/glv-bls12.js";
+import * as Curve from "./new-wasm/ec-bls12.js";
 export { Field, Scalar, Curve };
-export { msmAffine as msm } from "./msm.js";
-export { msmBigint } from "./msm-bigint.js";
+export { msmAffine as msm, msmBigint } from "./msm.js";
