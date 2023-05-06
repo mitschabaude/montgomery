@@ -29,7 +29,12 @@ let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
 const Field = Object.assign(Field_, { multiply, square, leftShift });
 
 let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
-let { addAffine, endomorphism } = curveOps(implicitMemory, Field, beta);
+let { addAffine, endomorphism, batchAddUnsafe } = curveOps(
+  implicitMemory,
+  Field,
+  inverse,
+  beta
+);
 
 let {
   isEqual,
@@ -49,6 +54,7 @@ let module = Module({
     // curve ops
     addAffine,
     endomorphism,
+    batchAddUnsafe,
     // multiplication
     multiply,
     square,

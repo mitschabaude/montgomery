@@ -556,7 +556,8 @@ function msm(
     if (useSafeAdditions) {
       batchAdd(scratch, tmp, denom, G, G, H, nPairs);
     } else {
-      batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+      // batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+      F.batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
     }
   }
   // we're done!!
