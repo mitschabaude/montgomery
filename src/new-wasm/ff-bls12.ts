@@ -54,6 +54,11 @@ let module = Module({
     square,
     leftShift,
     // inverse
+    /**
+     * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
+     *
+     * needs 3 fields of scratch space
+     */
     inverse,
     makeOdd,
     batchInverse,

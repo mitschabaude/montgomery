@@ -18,6 +18,7 @@ export {
   getPointer as getPointerScalar,
   resetPointers as resetPointersScalar,
   writeBytesDouble as writeBytesScalar,
+  writeBigintScalar,
   fieldSizeBytes as scalarSize,
   packedSizeBytes as packedScalarSize,
   bitLength as scalarBitlength,

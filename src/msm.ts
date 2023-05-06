@@ -18,6 +18,7 @@ import { F } from "./new-wasm/ff-bls12.js";
 import {
   glv,
   writeBytesScalar,
+  writeBigintScalar,
   scalarSize,
   getPointerScalar,
   resetPointersScalar,
@@ -39,19 +40,21 @@ const {
   memoryBytes,
   getZeroPointers,
   writeBytes,
+  writeBigint,
   toMontgomery,
   resetPointers,
   constants,
   fromMontgomery,
   getPointer,
   readBytes,
+  readBigint,
   getPointersInMemory,
   getEmptyPointersInMemory,
   packedSizeBytes,
   batchInverse,
 } = F;
 
-export { msmAffine, batchAdd };
+export { msmBytesInput as msmAffine, msmBigint, batchAdd };
 
 /**
  * Memory layout of curve points
@@ -98,13 +101,75 @@ let sizeProjective = 12 * n + 4;
  * @param c window size
  * @param c0 log-size of sub-partitions used in the bucket reduction step
  */
-let cTable = {
+let cTable: Record<number, [number, number] | undefined> = {
   [14]: [13, 7],
   [16]: [15, 8],
   [18]: [16, 8],
 };
 
-type InputPoint = [xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean];
+type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
+
+// perform MSM where input scalars and points are Rust-compatible byte arrays
+// (format specified for Zprize 2022)
+function msmBigint(
+  inputScalars: bigint[],
+  inputPoints: BigintPoint[],
+  options:
+    | { c?: number; c0?: number; useSafeAdditions?: boolean }
+    | undefined = {}
+) {
+  let N = inputPoints.length;
+  if (inputScalars.length !== N) {
+    throw Error("Mismatch of scalar/point array length");
+  }
+
+  // transfer scalars to wasm memory
+  let scalarPtr = bigintScalarsToMemory(inputScalars);
+  // transfer points to wasm memory
+  let pointPtr = bigintPointsToMemory(inputPoints);
+
+  let finalSum = msm(scalarPtr, pointPtr, N, options);
+
+  // convert final sum back to affine point
+  let result = toAffineOutputBigint(getPointers(4), finalSum);
+
+  resetPointers();
+  resetPointersScalar();
+
+  return result;
+}
+
+type BytesPoint = [xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean];
+
+// perform MSM where input scalars and points are Rust-compatible byte arrays
+// (format specified for Zprize 2022)
+function msmBytesInput(
+  inputScalars: Uint8Array[],
+  inputPoints: BytesPoint[],
+  options:
+    | { c?: number; c0?: number; useSafeAdditions?: boolean }
+    | undefined = {}
+) {
+  let N = inputPoints.length;
+  if (inputScalars.length !== N) {
+    throw Error("Mismatch of scalar/point array length");
+  }
+
+  // transfer scalars to wasm memory
+  let scalarPtr = bytesScalarsToMemory(inputScalars);
+  // transfer points to wasm memory
+  let pointPtr = bytesPointsToMemory(inputPoints);
+
+  let finalSum = msm(scalarPtr, pointPtr, N, options);
+
+  // convert final sum back to affine point
+  let result = toAffineOutput(getPointers(4), finalSum);
+
+  resetPointers();
+  resetPointersScalar();
+
+  return { result };
+}
 
 /**
  * MSM (multi-scalar multiplication)
@@ -172,21 +237,22 @@ type InputPoint = [xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean];
  *
  * you can find more details on each phase and reasoning about performance in the comments below!
  *
- * @param {Uint8Array[]} inputScalars `s_0, ..., s_(N-1)`
- * @param {InputPoint[]} inputPoints `G_0, ..., G_(N-1)`
- * @param {{c?: number, c0?: number} | undefined} options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
+ * @param scalars pointer to array of scalars `s_0, ..., s_(N-1)`
+ * @param points pointer to array of points `G_0, ..., G_(N-1)`
+ * @param N number of scalars/points
+ * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
-function msmAffine(
-  inputScalars: Uint8Array[],
-  inputPoints: InputPoint[],
+function msm(
+  scalarPtr: number,
+  pointPtr0: number,
+  N: number,
   {
     c: c_,
     c0: c0_,
     useSafeAdditions = false,
   }: { c?: number; c0?: number; useSafeAdditions?: boolean } | undefined = {}
 ) {
-  let N = inputScalars.length;
   let n = log2(N);
   let c = n - 1;
   if (c < 1) c = 1;
@@ -205,7 +271,6 @@ function msmAffine(
   let sizeAffine4 = 4 * sizeAffine;
   let pointPtr = getPointer(N * sizeAffine4);
   let sizeScalar2 = 2 * scalarSize;
-  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
 
   let bucketCounts: number[][] = Array(K);
   for (let k = 0; k < K; k++) {
@@ -239,9 +304,8 @@ function msmAffine(
    *
    * ### Performance
    *
-   * this phase takes ~8% of the total, roughly made up of
+   * this phase takes ~6% of the total, roughly made up of
    *
-   * 2% write scalars & points to wasm memory
    * 1% bucket counts
    * 1% turn coordinates to montgomery form
    * 0.5% endomorphism
@@ -255,15 +319,11 @@ function msmAffine(
    * by the architecture and can't be significantly reduced.
    */
   for (
-    let i = 0, point = pointPtr, scalar = scalarPtr;
+    let i = 0, point0 = pointPtr0, point = pointPtr, scalar = scalarPtr;
     i < N;
-    i++, point += sizeAffine4, scalar += sizeScalar2
+    i++, point0 += sizeAffine, point += sizeAffine4, scalar += sizeScalar2
   ) {
-    let inputScalar = inputScalars[i];
-    let inputPoint = inputPoints[i];
-
     // load scalar and decompose from one 32-byte into two 16-byte chunks
-    writeBytesScalar(scalar, inputScalar);
     let negateFlags = 0;
     /**
      * if the window size exactly divides the scalar bit length, we have to make sure that neither
@@ -278,23 +338,14 @@ function msmAffine(
     let negateFirst = negateFlags & 1;
     let negateSecond = negateFlags >> 1;
 
-    /**
-     * store point in n-limb format and convert to montgomery representation.
-     * see {@link sizeField} for the memory layout.
-     */
     let x = point;
     let y = point + sizeField;
-    // this line writes inputPoint[0] to a `scratch` location and uses `fromPackedBytes`
-    // to turn the packed layout of the input field element into our wider n-limb layout.
-    // the output field element is stored at `x`
-    writeBytes(scratch, x, inputPoint[0]);
-    //
-    writeBytes(scratch, y, inputPoint[1]);
-    let isNonZero = Number(!inputPoint[2]);
+
+    // copy original point to new, larger array
+    copy(x, point0);
+    copy(y, point0 + sizeField);
+    let isNonZero = memoryBytes[point0 + 2 * sizeField];
     memoryBytes[point + 2 * sizeField] = isNonZero;
-    // do one multiplication on each coordinate to bring it into montgomery form
-    toMontgomery(x);
-    toMontgomery(y);
 
     // -point, endo(point), -endo(point)
     // this just takes 1 field multiplication for the endomorphism, and 1 subtraction
@@ -528,13 +579,9 @@ function msmAffine(
     addAssignProjective(scratch, finalSum, partialSum);
   }
 
-  // convert final sum back to affine point
-  let result = toAffineOutput(scratch, finalSum);
+  // TODO: reset memory to start, copy final sum into new pointer
 
-  resetPointers();
-  resetPointersScalar();
-
-  return { result };
+  return finalSum;
 }
 
 /**
@@ -781,14 +828,14 @@ function batchDoubleInPlace(
 /**
  * converts projective point back to affine, and into the `InputPoint` format expected from the MSM
  *
- * @param {number[]} scratchSpace
+ * @param {number[]} scratch at least 4 fields
  * @param {number} point projective representation
- * @returns {InputPoint}
+ * @returns {BytesPoint}
  */
 function toAffineOutput(
-  [zinv, ...scratchSpace]: number[],
+  [zinv, ...scratch]: number[],
   point: number
-): InputPoint {
+): BytesPoint {
   if (isZeroProjective(point)) {
     return [
       new Uint8Array(packedSizeBytes),
@@ -798,12 +845,36 @@ function toAffineOutput(
   }
   let [x, y, z] = projectiveCoords(point);
   // return x/z, y/z
-  inverse(scratchSpace[0], zinv, z);
+  inverse(scratch[0], zinv, z);
   multiply(x, x, zinv);
   multiply(y, y, zinv);
   fromMontgomery(x);
   fromMontgomery(y);
-  return [readBytes(scratchSpace, x), readBytes(scratchSpace, y), false];
+  return [readBytes(scratch, x), readBytes(scratch, y), false];
+}
+
+/**
+ * converts projective point back to affine, and into the `InputPoint` format expected from the MSM
+ *
+ * @param {number[]} scratch toAffineOutputBigint
+ * @param {number} point projective representation
+ * @returns {InputPoint}
+ */
+function toAffineOutputBigint(
+  [zinv, ...scratch]: number[],
+  point: number
+): BigintPoint {
+  if (isZeroProjective(point)) {
+    return { x: 0n, y: 0n, isInfinity: true };
+  }
+  let [x, y, z] = projectiveCoords(point);
+  // return x/z, y/z
+  inverse(scratch[0], zinv, z);
+  multiply(x, x, zinv);
+  multiply(y, y, zinv);
+  fromMontgomery(x);
+  fromMontgomery(y);
+  return { x: readBigint(x), y: readBigint(y), isInfinity: false };
 }
 
 /**
@@ -844,4 +915,75 @@ function batchAddUnsafe(
   for (let i = 0, di = d; i < n; i++, di += sizeField) {
     addAffine(scratch[0], S[i], G[i], H[i], di);
   }
+}
+
+function bigintScalarsToMemory(inputScalars: bigint[]) {
+  let N = inputScalars.length;
+  let sizeScalar2 = 2 * scalarSize;
+  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
+  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar2) {
+    let inputScalar = inputScalars[i];
+    writeBigintScalar(scalar, inputScalar);
+  }
+  return scalarPtr;
+}
+
+function bigintPointsToMemory(inputPoints: BigintPoint[]) {
+  let N = inputPoints.length;
+  let pointPtr = getPointer(N * sizeAffine);
+
+  for (let i = 0, point = pointPtr; i < N; i++, point += sizeAffine) {
+    let inputPoint = inputPoints[i];
+    /**
+     * store point in n-limb format and convert to montgomery representation.
+     * see {@link sizeField} for the memory layout.
+     */
+    let x = point;
+    let y = point + sizeField;
+    writeBigint(x, inputPoint.x);
+    writeBigint(y, inputPoint.y);
+    let isNonZero = Number(!inputPoint.isInfinity);
+    memoryBytes[point + 2 * sizeField] = isNonZero;
+
+    // do one multiplication on each coordinate to bring it into montgomery form
+    toMontgomery(x);
+    toMontgomery(y);
+  }
+  return pointPtr;
+}
+
+function bytesScalarsToMemory(inputScalars: Uint8Array[]) {
+  let N = inputScalars.length;
+  let sizeScalar2 = 2 * scalarSize;
+  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
+  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar2) {
+    let inputScalar = inputScalars[i];
+    writeBytesScalar(scalar, inputScalar);
+  }
+  return scalarPtr;
+}
+
+function bytesPointsToMemory(inputPoints: BytesPoint[]) {
+  let N = inputPoints.length;
+  let scratch = getPointers(5);
+  let pointPtr = getPointer(N * sizeAffine);
+
+  for (let i = 0, point = pointPtr; i < N; i++, point += sizeAffine) {
+    let inputPoint = inputPoints[i];
+    /**
+     * store point in n-limb format and convert to montgomery representation.
+     * see {@link sizeField} for the memory layout.
+     */
+    let x = point;
+    let y = point + sizeField;
+    writeBytes(scratch, x, inputPoint[0]);
+    writeBytes(scratch, y, inputPoint[1]);
+    let isNonZero = Number(!inputPoint[2]);
+    memoryBytes[point + 2 * sizeField] = isNonZero;
+
+    // do one multiplication on each coordinate to bring it into montgomery form
+    toMontgomery(x);
+    toMontgomery(y);
+  }
+  return pointPtr;
 }
