@@ -2,12 +2,12 @@
   "name": "montgomery",
   "version": "0.2.1",
   "description": "Fast implementation of multi-scalar multiplication in WebAssembly",
-  "main": "./src/index.js",
+  "main": "./build/index.js",
   "type": "module",
-  "types": "./build/types/index.d.ts",
+  "types": "./build/index.d.ts",
   "exports": {
-    "types": "./build/types/index.d.ts",
-    "default": "./src/index.js"
+    "types": "./build/index.d.ts",
+    "default": "./build/index.js"
   },
   "repository": {
     "type": "git",
@@ -15,12 +15,12 @@
   },
   "files": [
     "src",
-    "build/types",
+    "build",
     "README.md",
     "NOTICE"
   ],
   "scripts": {
-    "build": "node src/finite-field-compile.js && ts-node-esm src/scripts/test.ts",
+    "build": "npx tsc && ts-node-esm src/scripts/test.ts",
     "build:new": "npx tsc -b tsconfig.new.json",
     "start": "node src/scripts/run.js",
     "test": "ts-node-esm src/scripts/test.ts",
@@ -32,8 +32,7 @@
   "author": "Gregor Mitscha-Baude",
   "license": "Apache-2.0",
   "dependencies": {
-    "fast-base64": "^0.1.8",
-    "ieee754": "^1.2.1"
+    "fast-base64": "^0.1.8"
   },
   "devDependencies": {
     "chrode": "^0.3.4",
