@@ -1,3 +1,4 @@
+import type * as W from "wasmati";
 import {
   $,
   control,
@@ -8,8 +9,6 @@ import {
   Local,
   StackVar,
   Input,
-  // needed for TS
-  Func,
 } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
 import { bigintToBytes, bigintToLegs } from "../util.js";

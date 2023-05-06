@@ -1,9 +1,9 @@
+import type * as W from "wasmati";
 import {
   $,
   Const,
   Input,
   Local,
-  Dependency,
   Func,
   Type,
   call,

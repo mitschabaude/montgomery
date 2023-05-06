@@ -1,4 +1,5 @@
 import { Field, createField } from "./field-helpers.js";
+import type * as W from "wasmati";
 import {
   $,
   block,
@@ -12,9 +13,6 @@ import {
   memory,
   return_,
   Local,
-  Func,
-  StackVar,
-  Input,
 } from "wasmati";
 
 export { arithmetic, fieldHelpers, FieldWithArithmetic };

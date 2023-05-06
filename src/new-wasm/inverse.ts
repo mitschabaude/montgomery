@@ -1,6 +1,6 @@
+import type * as W from "wasmati";
 import {
   $,
-  Func,
   block,
   br,
   br_if,
@@ -15,11 +15,9 @@ import {
   return_,
   unreachable,
 } from "wasmati";
-import { FieldWithArithmetic } from "./field-arithmetic.js";
 import { montgomeryParams } from "./helpers.js";
 import { mod } from "../finite-field-js.js";
 import { ImplicitMemory } from "./wasm-util.js";
-import { bigintToBytes } from "../util.js";
 import { FieldWithMultiply } from "./multiply-montgomery.js";
 
 export { fieldInverse };
