@@ -29,8 +29,6 @@ type FieldMultiplications = {
 };
 type FieldWithMultiply = FieldWithArithmetic & FieldMultiplications;
 
-multiplyMontgomery satisfies (...args: any) => FieldMultiplications;
-
 function multiplyMontgomery(
   p: bigint,
   w: number,
