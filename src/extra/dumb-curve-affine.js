@@ -1,5 +1,5 @@
-import { mod, modInverse, p } from "../finite-field-js.js";
-import { bigintFromBytes, bigintToBits } from "../util.js";
+import { mod, modInverse, p } from "./old-wasm/finite-field-js.js";
+import { bigintFromBytes, bigintToBits } from "./old-wasm/util.js";
 
 export { msmDumbAffine, doubleAffine, addAffine, scale };
 

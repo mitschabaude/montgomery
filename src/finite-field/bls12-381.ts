@@ -4,6 +4,7 @@ export {
   p,
   beta,
   scalar,
+  randomScalars,
   randomBaseField,
   randomBaseFieldx2,
   randomBaseFieldx4,
@@ -22,6 +23,29 @@ let scalar = {
     minusZ: bigintToBits(0xd201000000010000n, 64),
   },
 };
+
+function randomScalars(n: number) {
+  let N = n * 32 * 2;
+  let bytes = randomBytes(N);
+  let scalars: Uint8Array[] = Array(n);
+  for (let i = 0, j = 0; i < n; i++) {
+    while (true) {
+      if (j + 32 > N) {
+        bytes = randomBytes(N);
+        j = 0;
+      }
+      let bytes_ = bytes.slice(j, j + 32);
+      bytes_[31] &= 0x7f;
+      j += 32;
+      let x = bigintFromBytes(bytes_);
+      if (x < scalar.p) {
+        scalars[i] = bytes_;
+        break;
+      }
+    }
+  }
+  return scalars;
+}
 
 function randomBaseField() {
   while (true) {

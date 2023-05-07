@@ -9,7 +9,7 @@ import {
 } from "../src/extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { F } from "../src/new-wasm/ff-bls12.js";
+import { F } from "../src/wasm/ff-bls12.js";
 import { mod } from "../src/finite-field-js.js";
 import { msmAffine, msmBigint } from "../src/msm.js";
 import { bigintFromBytes } from "../src/util.js";

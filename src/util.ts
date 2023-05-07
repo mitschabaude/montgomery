@@ -14,12 +14,7 @@ export {
   bytesEqual,
 };
 
-/**
- *
- * @param {Uint8Array} bytes
- * @returns
- */
-function bigintFromBytes(bytes) {
+function bigintFromBytes(bytes: Uint8Array) {
   let x = 0n;
   let bitPosition = 0n;
   for (var i = 0; i < bytes.length; i++) {
@@ -29,13 +24,7 @@ function bigintFromBytes(bytes) {
   return x;
 }
 
-/**
- *
- * @param {bigint} x
- * @param {number | undefined} length
- * @returns {Uint8Array}
- */
-function bigintToBytes(x, length) {
+function bigintToBytes(x: bigint, length: number | undefined): Uint8Array {
   let bytes = [];
   for (; x > 0; x >>= 8n) {
     bytes.push(Number(x & 0xffn));
@@ -49,12 +38,7 @@ function bigintToBytes(x, length) {
   return sizedArray;
 }
 
-/**
- *
- * @param {BigUint64Array} x
- * @return {Uint8Array}
- */
-function bigUint64toUint8Array(x) {
+function bigUint64toUint8Array(x: BigUint64Array): Uint8Array {
   let n = x.length * 8;
   let x8 = new Uint8Array(n);
   for (let i = 0; i < n; i += 8) {
@@ -67,12 +51,7 @@ function bigUint64toUint8Array(x) {
   return x8;
 }
 
-/**
- *
- * @param {Uint8Array} x8
- * @returns {BigUint64Array}
- */
-function uint8ArrayToBigUint64(x8) {
+function uint8ArrayToBigUint64(x8: Uint8Array): BigUint64Array {
   let n = x8.length;
   let x = new BigUint64Array(n >> 3);
   for (let i = 0; i < n; i += 8) {
@@ -87,13 +66,7 @@ function uint8ArrayToBigUint64(x8) {
   return x;
 }
 
-/**
- *
- * @param {bigint} x
- * @param {number} bitLength
- * @return {boolean[]}
- */
-function bigintToBits(x, bitLength) {
+function bigintToBits(x: bigint, bitLength: number): boolean[] {
   let bits = Array(bitLength || 0);
   for (let i = 0; bitLength ? i < bitLength : x > 0n; i++) {
     bits[i] = !!Number(x & 1n);
@@ -104,15 +77,15 @@ function bigintToBits(x, bitLength) {
 
 /**
  * Split bigint into n w-bit legs, which are also bigints
- * @param {bigint} x0
- * @param {number} w word size
- * @param {number} n number of legs
+ * @param x0
+ * @param w word size
+ * @param n number of legs
  */
-function bigintToLegs(x0, w, n) {
+function bigintToLegs(x0: bigint, w: number, n: number) {
   /**
    * @type {bigint[]}
    */
-  let legs = Array(n);
+  let legs: bigint[] = Array(n);
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
   for (let i = 0; i < n; i++) {
@@ -122,13 +95,7 @@ function bigintToLegs(x0, w, n) {
   return legs;
 }
 
-/**
- *
- * @param {BigUint64Array} x
- * @param {number} w
- * @param {number} n
- */
-function bigintFromLegs(x, w, n) {
+function bigintFromLegs(x: BigUint64Array, w: number, n: number) {
   let wn = BigInt(w);
   let x0 = x[n - 1];
   for (let i = n - 2; i >= 0; i--) {
@@ -137,7 +104,7 @@ function bigintFromLegs(x, w, n) {
   return x0;
 }
 
-function logBytesAsBigint(bytes) {
+function logBytesAsBigint(bytes: Uint8Array) {
   let x = bigintFromBytes(bytes);
   console.log(x);
 }
@@ -145,9 +112,8 @@ function logBytesAsBigint(bytes) {
 /**
  * ceil(log2(n))
  * = smallest k such that n <= 2^k
- * @param {number | bigint} n
  */
-function log2(n) {
+function log2(n: number | bigint) {
   if (typeof n === "number") n = BigInt(n);
   if (n === 1n) return 0;
   return (n - 1n).toString(2).length;
@@ -159,7 +125,11 @@ function log2(n) {
  * @param {number} startBit
  * @param {number} bitLength
  */
-function extractBitSlice(bytes, startBit, bitLength) {
+function extractBitSlice(
+  bytes: Uint8Array,
+  startBit: number,
+  bitLength: number
+) {
   let endBit = startBit + bitLength;
   let startByte = startBit >> 3;
   startBit -= startByte << 3;
@@ -178,11 +148,7 @@ function extractBitSlice(bytes, startBit, bitLength) {
   return slice;
 }
 
-/**
- *
- * @param {number} n
- */
-function randomBytes(n) {
+function randomBytes(n: number) {
   let arr = new Uint8Array(n);
   for (let i = 0; i < n; i += 65536) {
     let m = Math.min(n - i, 65536);
@@ -191,19 +157,13 @@ function randomBytes(n) {
   return arr;
 }
 
-/**
- * @template T
- * @param {number} n
- * @param {(i: number) => T} callback
- * @returns T[]
- */
-function mapRange(n, callback) {
+function mapRange<T>(n: number, callback: (i: number) => T) {
   return Array(n)
     .fill(0)
     .map((_, i) => callback(i));
 }
 
-function bytesEqual(b1, b2) {
+function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
   if (b1.length !== b2.length) return false;
   for (let i = 0; i < b1.length; i++) {
     if (b1[i] !== b2[i]) return false;

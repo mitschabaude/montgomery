@@ -3,8 +3,7 @@ import { Const, Module, global, memory } from "wasmati";
 import { barrettReduction } from "./barrett.js";
 import { glv } from "./glv.js";
 import { multiplySchoolbook } from "./multiply-schoolbook.js";
-import { randomScalars } from "../finite-field-js.js";
-import { bigintFromBytes } from "../util.js";
+import { bigintFromBytes, randomBytes } from "../util.js";
 import { jsHelpers, montgomeryParams } from "./helpers.js";
 import {
   extractBitSlice,
@@ -84,10 +83,8 @@ let {
 let [scratchPtr, , bytesPtr, bytesPtr2] = getStablePointers(5);
 
 function testDecomposeRandomScalar() {
-  let [scalar] = randomScalars(1);
-  let scalar0 = bigintFromBytes(scalar);
-
-  writeBytesDouble(scratchPtr, scalar);
+  let scalar = randomScalar();
+  writeBigintScalar(scratchPtr, scalar);
   glvWasm.decompose(scratchPtr);
 
   let r = readBytes([bytesPtr], scratchPtr);
@@ -95,7 +92,7 @@ function testDecomposeRandomScalar() {
   let r0 = bigintFromBytes(r);
   let l0 = bigintFromBytes(l);
 
-  let isCorrect = r0 + l0 * lambda === scalar0;
+  let isCorrect = r0 + l0 * lambda === scalar;
   return isCorrect;
 }
 
@@ -111,5 +108,14 @@ function writeBigintScalar(x: number, x0: bigint) {
   for (let i = 0; i < 2 * n; i++) {
     arr[i] = Number(x0 & wordMax);
     x0 >>= wn;
+  }
+}
+
+function randomScalar() {
+  while (true) {
+    let bytes = randomBytes(32);
+    bytes[31] &= 0x7f;
+    let x = bigintFromBytes(bytes);
+    if (x < q) return x;
   }
 }

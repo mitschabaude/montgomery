@@ -1,15 +1,19 @@
 /**
  * initial explorations on barrett reduction, in JS
  */
-import { montgomeryParams } from "../finite-field-generate.js";
-import { mod, randomBaseFieldx4, randomScalar } from "../finite-field-js.js";
+import { montgomeryParams } from "./old-wasm/finite-field-generate.js";
+import {
+  mod,
+  randomBaseFieldx4,
+  randomScalar,
+} from "./old-wasm/finite-field-js.js";
 import {
   bigintFromBytes,
   bigintFromLegs,
   bigintToBits,
   bigintToLegs,
   log2,
-} from "../util.js";
+} from "./old-wasm/util.js";
 
 let p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;

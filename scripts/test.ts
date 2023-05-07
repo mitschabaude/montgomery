@@ -8,7 +8,8 @@ import {
 } from "../src/wasm/glv-bls12.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
-import { mod, modInverse, randomBaseFieldx2 } from "../src/finite-field-js.js";
+import { mod, modInverse } from "../src/finite-field-js.js";
+import { randomBaseFieldx2 } from "../src/finite-field/bls12-381.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
