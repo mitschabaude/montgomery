@@ -3,9 +3,10 @@ import { load } from "./store-inputs.js";
 import { webcrypto } from "node:crypto";
 import { msmAffine } from "../msm.js";
 // web crypto compat
-if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19)
+  (globalThis as any).crypto = webcrypto;
 
-let n = process.argv[2] ?? 14;
+let n = Number(process.argv[2] || 16);
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("warm-up JIT compiler with fixed set of points");
@@ -18,22 +19,9 @@ tic("warm-up JIT compiler with fixed set of points");
 toc();
 
 tic("load inputs & convert to rust");
-let points, scalars;
-let result = await load(n);
-points = result.points;
-scalars = result.scalars;
+let { points, scalars } = await load(n);
 toc();
 
 tic("msm (ours)");
-let { statistics } = msmAffine(scalars, points);
+msmAffine(scalars, points);
 toc();
-
-let { nMul1, nMul2, nMul3 } = statistics;
-let nMul = nMul1 + nMul2 + nMul3;
-
-console.log(`
-# muls:
-  stage 1: ${(1e-6 * nMul1).toFixed(3).padStart(6)} M
-  stage 2: ${(1e-6 * (nMul2 + nMul3)).toFixed(3).padStart(6)} M
-  total:  ${(1e-6 * nMul).toFixed(3).padStart(6)} M
-`);

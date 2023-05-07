@@ -54,9 +54,15 @@ async function load(n) {
   let N0 = 2 ** n;
   if (N0 > N)
     throw Error(`Cannot load 2^${n} points, only have 2^${log2(N)} stored.`);
-  points = points
+  /**
+   * @type {import("../extra/old-wasm/msm-projective.js").CompatiblePoint[]}
+   */
+  let points_ = points
     .slice(0, N0)
     .map(([x, y, inf]) => [new Uint8Array(x), new Uint8Array(y), inf]);
-  scalars = scalars.slice(0, N0).map((s) => new Uint8Array(s));
-  return { points, scalars, N };
+  /**
+   * @type {Uint8Array[]}
+   */
+  let scalars_ = scalars.slice(0, N0).map((s) => new Uint8Array(s));
+  return { points: points_, scalars: scalars_, N };
 }

@@ -28,8 +28,8 @@ import {
   n,
 } from "../finite-field.js";
 import { webcrypto } from "node:crypto";
-import { extractBitSlice as extractBitSliceJS } from "../util.js";
-import { modInverse } from "../finite-field-js.js";
+import { extractBitSlice as extractBitSliceJS } from "../../../util.js";
+import { modInverse } from "../../../finite-field-js.js";
 import {
   extractBitSlice,
   getPointerScalar,

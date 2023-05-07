@@ -6,4 +6,5 @@ This also includes code that is really useful for testing, debugging and benchma
 
 - the Arkworks reference implementation, compiled to Wasm from Rust
 - the `tictoc.js` micro-library which makes timing performance much more convenient than `let t = performance.now()`
+- the old (Zprize) MSM implementation not written in TS, and using a more ad hob way to generate wasm
 - a "dumb" MSM implementation based on JS bigints, non-batched affine additions and plain (non-pippenger) scalar multiplications, which is simple to reason about

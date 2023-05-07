@@ -21,10 +21,10 @@
   ],
   "scripts": {
     "build": "npx tsc && ts-node-esm src/scripts/test.ts",
-    "start": "node src/scripts/run.js",
+    "start": "ts-node-esm src/scripts/run-simple.ts",
     "test": "ts-node-esm src/scripts/test.ts",
     "test-msm": "ts-node-esm src/scripts/test-msm.js",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run clean && npm run build",
     "clean": "rm -rf build"
   },
   "keywords": [],
