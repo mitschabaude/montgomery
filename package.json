@@ -22,6 +22,8 @@
   "scripts": {
     "build": "npx tsc && ts-node-esm scripts/test.ts",
     "start": "ts-node-esm scripts/run-simple.ts",
+    "start-web": "npx chrode ./scripts/run.web.ts --no-headless",
+    "evaluate": "ts-node-esm scripts/evaluate-msm.ts",
     "test": "ts-node-esm scripts/test.ts",
     "test-msm": "ts-node-esm scripts/test-msm.ts",
     "prepublishOnly": "npm run clean && npm run build",

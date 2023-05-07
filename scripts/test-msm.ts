@@ -3,7 +3,10 @@ import {
   ScalarVectorInput,
   compute_msm,
 } from "../src/extra/reference.node.js";
-import { msmProjective } from "../src/extra/old-wasm/msm-projective.js";
+import {
+  CompatiblePoint,
+  msmProjective,
+} from "../src/extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
 import { F } from "../src/new-wasm/ff-bls12.js";
@@ -25,7 +28,7 @@ console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 let p = F.p;
 
 tic("load inputs & convert to rust");
-let points, scalars, pointVec, scalarVec;
+let points: CompatiblePoint[], scalars: Uint8Array[];
 let loaded = await load(n);
 points = loaded.points;
 scalars = loaded.scalars;
@@ -33,8 +36,8 @@ scalars = loaded.scalars;
 // points = [points[0], points[1]];
 // scalars = [bigintToBytes(0n, 32), bigintToBytes(0n, 32)];
 
-scalarVec = ScalarVectorInput.fromJsArray(scalars);
-pointVec = PointVectorInput.fromJsArray(points);
+let scalarVec = ScalarVectorInput.fromJsArray(scalars);
+let pointVec = PointVectorInput.fromJsArray(points);
 toc();
 
 tic("msm (rust)");

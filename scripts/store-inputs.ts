@@ -6,19 +6,21 @@ import {
   PointVectorInput,
   ScalarVectorInput,
 } from "../src/extra/reference.node.js";
-if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
+import { BytesPoint } from "../src/msm.js";
+if (Number(process.version.slice(1, 3)) < 19)
+  (globalThis as any).crypto = webcrypto;
 
 export { load };
 
 let file = "./inputs.json";
 
-Uint8Array.prototype.toJSON = function () {
+(Uint8Array.prototype as any).toJSON = function () {
   return [...this];
 };
 
 let isMain = process.argv[1] === import.meta.url.slice(7);
 if (isMain) {
-  let n = process.argv[2] ?? 14;
+  let n = Number(process.argv[2] ?? 14);
   let isLoad = process.argv[3] === "--load" || process.argv[2] === "--load";
   if (!isLoad) {
     await store(n);
@@ -30,7 +32,7 @@ if (isMain) {
   }
 }
 
-async function store(n) {
+async function store(n: number) {
   tic("create inputs (rust)");
   let points = new PointVectorInput(2 ** n).toJsArray();
   let scalars = new ScalarVectorInput(2 ** n).toJsArray();
@@ -41,28 +43,21 @@ async function store(n) {
   console.log(`Wrote ${(json.length * 1e-3).toFixed(2)} kB to ${file}`);
 }
 
-/**
- *
- * @param {number} n
- */
-async function load(n) {
-  /**
-   * @type {{scalars: number[]; points: import("../msm-projective.js").CompatiblePoint[]}}
-   */
-  let { points, scalars } = JSON.parse(await fs.readFile(file, "utf-8"));
-  let N = points.length;
+type LoadedPoint = [xArray: number[], yArray: number[], isInfinity: boolean];
+
+async function load(n: number) {
+  let loaded: { scalars: number[]; points: LoadedPoint[] } = JSON.parse(
+    await fs.readFile(file, "utf-8")
+  );
+  let N = loaded.points.length;
   let N0 = 2 ** n;
   if (N0 > N)
     throw Error(`Cannot load 2^${n} points, only have 2^${log2(N)} stored.`);
-  /**
-   * @type {import("../src/extra/old-wasm/msm-projective.js").CompatiblePoint[]}
-   */
-  let points_ = points
+  let points = loaded.points
     .slice(0, N0)
-    .map(([x, y, inf]) => [new Uint8Array(x), new Uint8Array(y), inf]);
-  /**
-   * @type {Uint8Array[]}
-   */
-  let scalars_ = scalars.slice(0, N0).map((s) => new Uint8Array(s));
-  return { points: points_, scalars: scalars_, N };
+    .map(
+      ([x, y, inf]) => [new Uint8Array(x), new Uint8Array(y), inf] as BytesPoint
+    );
+  let scalars = loaded.scalars.slice(0, N0).map((s) => new Uint8Array(s));
+  return { points, scalars, N };
 }

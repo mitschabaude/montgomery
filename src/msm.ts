@@ -54,7 +54,7 @@ const {
   batchInverse,
 } = F;
 
-export { msmBytesInput as msmAffine, msmBigint, batchAdd };
+export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };
 
 /**
  * Memory layout of curve points

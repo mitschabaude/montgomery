@@ -1,9 +1,10 @@
-import { tic, toc } from "../extra/tictoc.js";
+import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
 import { webcrypto } from "node:crypto";
-import { msmAffine } from "../msm.js";
+import { msmAffine } from "../src/msm.js";
 // web crypto compat
-if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19)
+  (globalThis as any).crypto = webcrypto;
 
 tic("load inputs");
 let { points, scalars } = await load(18);
@@ -26,14 +27,13 @@ let REPEAT = 10;
 // input log-sizes to test
 let N = [14, 16, 18];
 
-let times = {}; // { n: { time, std } }
+let times: Record<number, { time: number; std: number }> = {};
 
 for (let n of N) {
   let scalarsN = scalars.slice(0, 1 << n);
   let pointsN = points.slice(0, 1 << n);
-  times[n] = {};
   console.log({ n });
-  let times_ = [];
+  let times_: number[] = [];
   for (let i = 0; i < REPEAT; i++) {
     tic();
     msmAffine(scalarsN, pointsN);
@@ -47,12 +47,12 @@ for (let n of N) {
 
 console.dir(times, { depth: Infinity });
 
-function median(arr) {
+function median(arr: number[]) {
   let mid = arr.length >> 1;
   let nums = [...arr].sort((a, b) => a - b);
   return arr.length % 2 !== 0 ? nums[mid] : (nums[mid - 1] + nums[mid]) / 2;
 }
-function standardDev(arr) {
+function standardDev(arr: number[]) {
   let n = arr.length;
   let sum = 0;
   for (let x of arr) {
