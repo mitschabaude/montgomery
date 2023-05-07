@@ -1,6 +1,6 @@
 import type * as W from "wasmati";
 import { bigintFromBytes, randomBytes } from "../util.js";
-import { createGlvScalar } from "../glv-scalar.js";
+import { createGlvScalar } from "../scalar-glv.js";
 import { lambda, q } from "./bls12-381.params.js";
 
 export { Scalar, testDecomposeRandomScalar };
