@@ -44,14 +44,18 @@ import {
   batchAddUnsafe,
 } from "./wasm/finite-field.wasm.js";
 import {
-  glv,
   writeBytesScalar,
   scalarSize,
   getPointerScalar,
   resetPointersScalar,
   scalarBitlength,
-} from "./new-wasm/glv-bls12.js";
+} from "./scalar-glv.js";
 import { log2 } from "./util.js";
+import {
+  decompose,
+  decomposeNoMsb,
+  extractBitSlice,
+} from "./wasm/scalar-glv.wasm.js";
 
 export { msmAffine, batchAdd };
 
@@ -272,9 +276,9 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
      * there'd be a final carry bit that's not accounted for.
      */
     if (dividesEvenly) {
-      negateFlags = glv.decomposeNoMsb(scalar);
+      negateFlags = decomposeNoMsb(scalar);
     } else {
-      glv.decompose(scalar);
+      decompose(scalar);
     }
     let negateFirst = negateFlags & 1;
     let negateSecond = negateFlags >> 1;
@@ -327,7 +331,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
       // compute kth slice from first half scalar
-      let l = glv.extractBitSlice(scalar, k * c, c) + carry0;
+      let l = extractBitSlice(scalar, k * c, c) + carry0;
 
       if (l > L) {
         l = doubleL - l;
@@ -345,7 +349,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
       // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
       // creating such throw-away objects has a garbage collection cost
-      l = glv.extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
+      l = extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
 
       if (l > L) {
         l = doubleL - l;
@@ -459,7 +463,7 @@ function msmAffine(inputScalars, inputPoints, { c: c_, c0: c0_ } = {}) {
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
      */
     for (let k = 0; k < K; k++) {
-      let l = glv.extractBitSlice(scalar, k * c, c) + carry;
+      let l = extractBitSlice(scalar, k * c, c) + carry;
       if (l > L) {
         l = doubleL - l;
         carry = 1;

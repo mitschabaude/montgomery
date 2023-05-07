@@ -1,5 +1,5 @@
 import { jsHelpers } from "./finite-field-generate.js";
-import { randomScalars } from "./finite-field-js.js";
+import { randomScalars } from "../../finite-field-js.js";
 import {
   decompose,
   fromPackedBytes,
@@ -9,7 +9,7 @@ import {
   dataOffset,
   extractBitSlice,
 } from "./wasm/scalar-glv.wasm.js";
-import { bigintFromBytes } from "./util.js";
+import { bigintFromBytes } from "../../util.js";
 
 export {
   writeBytesDouble as writeBytesScalar,

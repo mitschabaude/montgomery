@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 import { createFiniteFieldWat, createGLVWat } from "./finite-field-generate.js";
 import { toBase64 } from "fast-base64";
 import Wabt from "wabt";
@@ -11,7 +12,9 @@ export {
   wasmToJs,
 };
 
-let isMain = process.argv[1] === import.meta.url.slice(7);
+let filename = import.meta.url.slice(7);
+let folder = filename.split("/").slice(0, -1).join("/");
+let isMain = process.argv[1] === filename;
 if (isMain) {
   let p =
     0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -23,6 +26,9 @@ if (isMain) {
   compileFiniteFieldWasm(p, w, { withBenchmarks: true, endoCubeRoot: beta });
   compileGLVWasm(q, lambda, w, { withBenchmarks: true });
 }
+function resolve(str) {
+  return path.resolve(folder, str);
+}
 
 async function compileFiniteFieldWasm(
   p,
@@ -33,19 +39,19 @@ async function compileFiniteFieldWasm(
     withBenchmarks,
     endoCubeRoot,
   });
-  await writeFile(`./src/wasm/finite-field.wat`, writer.text);
+  await writeFile(resolve("./wasm/finite-field.wat"), writer.text);
   let { js, wasm } = await compileWat(writer);
-  await writeFile(`./src/wasm/finite-field.wasm.js`, js);
-  await writeFile("./src/wasm/finite-field.wasm", wasm);
+  await writeFile(resolve("./wasm/finite-field.wasm.js"), js);
+  await writeFile(resolve("./wasm/finite-field.wasm"), wasm);
   return { js, wasm, wat: writer.text };
 }
 
 async function compileGLVWasm(q, lambda, w, { withBenchmarks = false } = {}) {
   let writer = await createGLVWat(q, lambda, w, { withBenchmarks });
-  await writeFile(`./src/wasm/scalar-glv.wat`, writer.text);
+  await writeFile(resolve("./wasm/scalar-glv.wat"), writer.text);
   let { js, wasm } = await compileWat(writer);
-  await writeFile(`./src/wasm/scalar-glv.wasm.js`, js);
-  await writeFile("./src/wasm/scalar-glv.wasm", wasm);
+  await writeFile(resolve("./wasm/scalar-glv.wasm.js"), js);
+  await writeFile(resolve("./wasm/scalar-glv.wasm"), wasm);
   return { js, wasm, wat: writer.text };
 }
 

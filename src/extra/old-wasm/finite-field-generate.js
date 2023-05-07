@@ -41,7 +41,7 @@ const mulInputFactor = 8n;
  *
  * @param {bigint} p
  * @param {number} w
- * @param {import('./wasm/finite-field.wasm.js')} wasm
+ * @param {import('./extra/old-wasm/wasm/finite-field.wasm.js')} wasm
  */
 function createFiniteField(p, w, wasm) {
   let {
@@ -2102,7 +2102,7 @@ function montgomeryParams(p, w) {
  *
  * @param {bigint} p modulus
  * @param {number} w word size
- * @param {import('./wasm/finite-field.wasm.js')} wasm
+ * @param {import('./extra/old-wasm/wasm/finite-field.wasm.js')} wasm
  */
 function jsHelpers(
   p,

@@ -1,59 +1,34 @@
 // run with ts-node-esm
-import {
-  add,
-  multiply,
-  reduce,
-  subtract,
-  makeOdd,
-  copy,
-  isEqual,
-  isEqualNegative,
-  leftShift,
-  square,
-  subtractPositive,
-  inverse,
-  multiplySchoolbook,
-  batchInverse,
-  multiplyDifference,
-} from "../wasm/finite-field.wasm.js";
-import {
-  p,
-  constants,
-  mod,
-  randomBaseFieldx2,
-  writeBigint,
-  readBigInt,
-  toMontgomery,
-  getPointers,
-  w,
-  n,
-} from "../finite-field.js";
-import { webcrypto } from "node:crypto";
-import { extractBitSlice as extractBitSliceJS } from "../util.js";
-import { modInverse } from "../finite-field-js.js";
+import { F } from "../new-wasm/ff-bls12.js";
 import {
   glv,
   getPointerScalar,
   testDecomposeRandomScalar,
   writeBytesScalar,
 } from "../new-wasm/glv-bls12.js";
+import { webcrypto } from "node:crypto";
+import { extractBitSlice as extractBitSliceJS } from "../util.js";
+import { mod, modInverse, randomBaseFieldx2 } from "../finite-field-js.js";
+
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
 
+const { p } = F;
+
 function toWasm(x0: bigint, x: number) {
-  writeBigint(x, x0);
-  toMontgomery(x);
+  F.writeBigint(x, x0);
+  F.toMontgomery(x);
 }
 function ofWasm([tmp]: number[], x: number) {
-  multiply(tmp, x, constants.one);
-  reduce(tmp);
-  return mod(readBigInt(tmp), p);
+  F.multiply(tmp, x, F.constants.one);
+  F.reduce(tmp);
+  return mod(F.readBigint(tmp), p);
 }
 
-let [x, y, z, z_hi, ...scratch] = getPointers(10);
+let [x, y, z, z_hi, ...scratch] = F.getPointers(10);
 
-let R = mod(1n << BigInt(w * n), p);
+let R = mod(1n << BigInt(F.w * F.n), p);
 let Rinv = modInverse(R, p);
 
 function test() {
@@ -64,99 +39,90 @@ function test() {
 
   // multiply
   let z0 = mod(x0 * y0, p);
-  multiply(z, x, y);
+  F.multiply(z, x, y);
   let z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("multiply");
   z0 = 0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffffn; // test overflow resistance
   toWasm(z0, z);
   z0 = mod(z0 * z0, p);
-  multiply(z, z, z);
+  F.multiply(z, z, z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("multiply");
 
   // square
   z0 = mod(x0 * x0, p);
-  square(z, x);
+  F.square(z, x);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("square");
-
-  // multiplyDifference
-  z0 = mod(x0 * (x0 - y0), p);
-  multiplyDifference(z, x, x, y);
-  z1 = ofWasm(scratch, z);
-  if (z0 !== z1) throw Error("multiplyDifference");
 
   // leftShift
   let k = 97;
   z0 = 1n << BigInt(k);
   // computes R^2 * 2^k / R = 2^k R, which is 2^k in montgomery form
-  leftShift(z, constants.R2, k);
+  F.leftShift(z, F.constants.R2, k);
   z1 = ofWasm(scratch, z);
   if (z1 !== z0) throw Error("leftShift");
 
-  // barrett multiplication
-  writeBigint(x, x0);
-  writeBigint(y, y0);
-  let xy0 = x0 * y0;
-  z0 = mod(x0 * y0, p);
-  multiplySchoolbook(z, x, y);
-  z1 = readBigInt(z);
-  let l = readBigInt(z_hi);
-  let lTrue = (xy0 - z0) / p;
-  let xHi = xy0 >> 380n;
-  let m = 2n ** (380n + 390n) / p;
-  let lApprox = (xHi * m) >> 390n;
-  console.assert(lTrue * p + z0 === xy0, "barrett: test correctness");
-  console.assert(l === lApprox, "barrett: l");
-  console.assert([0n, 1n].includes(lTrue - l), "barrett: error is 0 or 1");
-  if (mod(z0 - z1, p) !== 0n) throw Error("barrett multiply");
-  toWasm(x0, x);
-  toWasm(y0, y);
+  // // barrett multiplication
+  // writeBigint(x, x0);
+  // writeBigint(y, y0);
+  // let xy0 = x0 * y0;
+  // z0 = mod(x0 * y0, p);
+  // multiplySchoolbook(z, x, y);
+  // z1 = readBigInt(z);
+  // let l = readBigInt(z_hi);
+  // let lTrue = (xy0 - z0) / p;
+  // let xHi = xy0 >> 380n;
+  // let m = 2n ** (380n + 390n) / p;
+  // let lApprox = (xHi * m) >> 390n;
+  // console.assert(lTrue * p + z0 === xy0, "barrett: test correctness");
+  // console.assert(l === lApprox, "barrett: l");
+  // console.assert([0n, 1n].includes(lTrue - l), "barrett: error is 0 or 1");
+  // if (mod(z0 - z1, p) !== 0n) throw Error("barrett multiply");
+  // toWasm(x0, x);
+  // toWasm(y0, y);
 
   // add
   z0 = mod(x0 + y0, p);
-  add(z, x, y);
+  F.add(z, x, y);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("add");
 
   // subtract
   z0 = mod(x0 - y0, p);
-  subtract(z, x, y);
+  F.subtract(z, x, y);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("subtract");
 
   // subtract plus 2p
   z0 = mod(x0 - y0, p);
-  subtractPositive(z, x, y);
+  F.subtractPositive(z, x, y);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("subtract");
 
   // reduceInPlace
   z0 = x0 >= p ? x0 - p : x0;
-  copy(z, x);
-  reduce(z);
+  F.copy(z, x);
+  F.reduce(z);
   z1 = ofWasm(scratch, z);
   if (z0 !== z1) throw Error("reduceInPlace");
 
   // isEqual
-  if (isEqual(x, x) !== 1) throw Error("isEqual");
-  if (isEqual(x, y) !== 0) throw Error("isEqual");
-  subtract(y, constants.p, x);
-  // TODO this sometimes throws, and isn't used. remove
-  if (isEqualNegative(x, y) !== 1) throw Error("isEqualNegative");
+  if (F.isEqual(x, x) !== 1) throw Error("isEqual");
+  if (F.isEqual(x, y) !== 0) throw Error("isEqual");
 
   // inverse
-  inverse(scratch[0], z, x);
-  multiply(z, z, x);
+  F.inverse(scratch[0], z, x);
+  F.multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");
 
   // makeOdd
-  writeBigint(x, 5n << 120n);
-  writeBigint(z, 3n);
-  makeOdd(x, z);
-  x0 = readBigInt(x);
-  z0 = readBigInt(z);
+  F.writeBigint(x, 5n << 120n);
+  F.writeBigint(z, 3n);
+  F.makeOdd(x, z);
+  x0 = F.readBigint(x);
+  z0 = F.readBigint(z);
   if (!(x0 === 5n && z0 === 3n << 120n)) throw Error("makeOdd");
 
   // extractBitSlice
@@ -184,32 +150,6 @@ function test() {
   if (extractBitSlice(s, 16, 10) !== 0b1111_1111) throw e;
 }
 
-function testBatchMontgomery() {
-  let n = 1000;
-  let X = getPointers(n);
-  let invX = getPointers(n);
-  let scratch = getPointers(10);
-  for (let i = 0; i < n; i++) {
-    let x0 = randomBaseFieldx2();
-    writeBigint(X[i], x0);
-    // compute inverses normally
-    inverse(scratch[0], invX[i], X[i]);
-  }
-  // compute inverses as batch
-  let invX1 = getPointers(n);
-  batchInverse(scratch[0], invX1[0], X[0], n);
-
-  // check that all inverses are equal
-  for (let i = 0; i < n; i++) {
-    if (mod(readBigInt(invX1[i]) - readBigInt(invX[i]), p) !== 0n)
-      throw Error("batch inverse");
-    reduce(invX1[i]);
-    reduce(invX[i]);
-    if (!isEqual(invX1[i], invX[i]))
-      console.warn("WARNING: batch inverse not exactly equal after reducing");
-  }
-}
-
 for (let i = 0; i < 20; i++) {
   test();
 }
@@ -219,3 +159,40 @@ for (let i = 0; i < 100; i++) {
 }
 
 testBatchMontgomery();
+
+function testBatchMontgomery() {
+  let n = 1000;
+  let X = F.getPointers(n);
+  let invX = F.getPointers(n);
+  let scratch = F.getPointers(10);
+  for (let i = 0; i < n; i++) {
+    let x0 = randomBaseFieldx2();
+    F.writeBigint(X[i], x0);
+    // compute inverses normally
+    F.inverse(scratch[0], invX[i], X[i]);
+  }
+  // compute inverses as batch
+  let invX1 = F.getPointers(n);
+  // F.batchInverse(scratch[0], invX1[0], X[0], n);
+  F.batchInverseJs(scratch, invX1[0], X[0], n);
+
+  // check that all inverses are equal
+  for (let i = 0; i < n; i++) {
+    let z0 = F.readBigint(invX[i]);
+    let z1 = F.readBigint(invX1[i]);
+    if (mod(z1 - z0, p) !== 0n) throw Error("batch inverse");
+
+    F.reduce(invX1[i]);
+    F.reduce(invX[i]);
+    if (!F.isEqual(invX1[i], invX[i])) {
+      console.log({
+        i,
+        z0,
+        z1,
+        invX0: F.readBigint(invX[i]),
+        invX1: F.readBigint(invX1[i]),
+      });
+      throw Error("batch inverse / reduce");
+    }
+  }
+}

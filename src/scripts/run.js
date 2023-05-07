@@ -3,7 +3,10 @@ import {
   ScalarVectorInput,
   compute_msm,
 } from "../extra/reference.node.js";
-import { msmProjective, randomCurvePoints } from "../msm-projective.js";
+import {
+  msmProjective,
+  randomCurvePoints,
+} from "../extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../extra/tictoc.js";
 import { load } from "./store-inputs.js";
 import { cpus } from "node:os";
@@ -17,8 +20,8 @@ import {
   benchMultiply,
   benchInverse,
   getPointer,
-} from "../finite-field.js";
-import { msmAffine } from "../msm.js";
+} from "../extra/old-wasm/finite-field.js";
+import { msmAffine } from "../extra/old-wasm/msm-old.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

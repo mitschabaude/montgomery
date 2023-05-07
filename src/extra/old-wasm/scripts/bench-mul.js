@@ -1,5 +1,5 @@
-import { tic, toc } from "../extra/tictoc.js";
-import { p, randomBaseFieldx2, mod, beta } from "../finite-field-js.js";
+import { tic, toc } from "../../tictoc.js";
+import { p, randomBaseFieldx2, mod, beta } from "../../../finite-field-js.js";
 import fs from "node:fs/promises";
 import { webcrypto } from "node:crypto";
 import {
@@ -10,13 +10,13 @@ import {
   moduleWithMemory,
   jsHelpers,
 } from "../finite-field-generate.js";
-import { Writer } from "../lib/wasm-generate.js";
+import { Writer } from "../../../lib/wasm-generate.js";
 import {
   compileFiniteFieldWasm,
   interpretWat,
   writeFile,
 } from "../finite-field-compile.js";
-import { bigintFromBytes } from "../util.js";
+import { bigintFromBytes } from "../../../util.js";
 import { getPointers, writeBigint } from "../finite-field.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 

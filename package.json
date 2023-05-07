@@ -21,12 +21,11 @@
   ],
   "scripts": {
     "build": "npx tsc && ts-node-esm src/scripts/test.ts",
-    "build:new": "npx tsc -b tsconfig.new.json",
     "start": "node src/scripts/run.js",
     "test": "ts-node-esm src/scripts/test.ts",
     "test-msm": "ts-node-esm src/scripts/test-msm.js",
-    "prepublishOnly": "npm run build && npx tsc",
-    "clean": "rm -rf build types"
+    "prepublishOnly": "npm run build",
+    "clean": "rm -rf build"
   },
   "keywords": [],
   "author": "Gregor Mitscha-Baude",
