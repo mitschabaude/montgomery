@@ -1,11 +1,11 @@
 import fs from "node:fs/promises";
-import { tic, toc } from "../extra/tictoc.js";
-import { log2 } from "../util.js";
+import { tic, toc } from "../src/extra/tictoc.js";
+import { log2 } from "../src/util.js";
 import { webcrypto } from "node:crypto";
 import {
   PointVectorInput,
   ScalarVectorInput,
-} from "../extra/reference.node.js";
+} from "../src/extra/reference.node.js";
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
 export { load };
@@ -55,7 +55,7 @@ async function load(n) {
   if (N0 > N)
     throw Error(`Cannot load 2^${n} points, only have 2^${log2(N)} stored.`);
   /**
-   * @type {import("../extra/old-wasm/msm-projective.js").CompatiblePoint[]}
+   * @type {import("../src/extra/old-wasm/msm-projective.js").CompatiblePoint[]}
    */
   let points_ = points
     .slice(0, N0)

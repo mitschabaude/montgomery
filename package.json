@@ -20,10 +20,10 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "npx tsc && ts-node-esm src/scripts/test.ts",
-    "start": "ts-node-esm src/scripts/run-simple.ts",
-    "test": "ts-node-esm src/scripts/test.ts",
-    "test-msm": "ts-node-esm src/scripts/test-msm.js",
+    "build": "npx tsc && ts-node-esm scripts/test.ts",
+    "start": "ts-node-esm scripts/run-simple.ts",
+    "test": "ts-node-esm scripts/test.ts",
+    "test-msm": "ts-node-esm scripts/test-msm.js",
     "prepublishOnly": "npm run clean && npm run build",
     "clean": "rm -rf build"
   },

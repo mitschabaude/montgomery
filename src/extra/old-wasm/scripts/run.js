@@ -5,7 +5,7 @@ import {
 } from "../../reference.node.js";
 import { msmProjective, randomCurvePoints } from "../msm-projective.js";
 import { tic, toc } from "../../tictoc.js";
-import { load } from "../../../scripts/store-inputs.js";
+import { load } from "../../../../scripts/store-inputs.js";
 import { cpus } from "node:os";
 import { execSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";

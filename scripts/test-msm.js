@@ -2,15 +2,16 @@ import {
   PointVectorInput,
   ScalarVectorInput,
   compute_msm,
-} from "../extra/reference.node.js";
-import { msmProjective } from "../msm-projective.js";
-import { tic, toc } from "../extra/tictoc.js";
+} from "../src/extra/reference.node.js";
+import { msmProjective } from "../src/extra/old-wasm/msm-projective.js";
+import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { mod, p } from "../finite-field.js";
-import { msmAffine, msmBigint } from "../msm.js";
-import { bigintFromBytes } from "../util.js";
-import { modInverse } from "../finite-field-js.js";
-import { msmDumbAffine } from "../extra/dumb-curve-affine.js";
+import { F } from "../src/new-wasm/ff-bls12.js";
+import { mod } from "../src/finite-field-js.js";
+import { msmAffine, msmBigint } from "../src/msm.js";
+import { bigintFromBytes } from "../src/util.js";
+import { modInverse } from "../src/finite-field-js.js";
+import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { load } from "./store-inputs.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
@@ -19,6 +20,8 @@ let runSlowMsm = false;
 
 let n = process.argv[2] ?? 14;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
+
+let p = F.p;
 
 tic("load inputs & convert to rust");
 let points, scalars, pointVec, scalarVec;

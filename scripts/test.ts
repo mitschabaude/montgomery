@@ -1,14 +1,14 @@
 // run with ts-node-esm
-import { F } from "../new-wasm/ff-bls12.js";
+import { F } from "../src/new-wasm/ff-bls12.js";
 import {
   glv,
   getPointerScalar,
   testDecomposeRandomScalar,
   writeBytesScalar,
-} from "../new-wasm/glv-bls12.js";
+} from "../src/new-wasm/glv-bls12.js";
 import { webcrypto } from "node:crypto";
-import { extractBitSlice as extractBitSliceJS } from "../util.js";
-import { mod, modInverse, randomBaseFieldx2 } from "../finite-field-js.js";
+import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
+import { mod, modInverse, randomBaseFieldx2 } from "../src/finite-field-js.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)

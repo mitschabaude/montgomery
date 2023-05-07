@@ -1,11 +1,11 @@
-import { tic, toc } from "../extra/tictoc.js";
+import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
 import { webcrypto } from "node:crypto";
 import {
   ScalarVectorInput,
   PointVectorInput,
   compute_msm,
-} from "../extra/reference.node.js";
+} from "../src/extra/reference.node.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
 
