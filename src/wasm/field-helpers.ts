@@ -10,8 +10,8 @@ import {
   StackVar,
   Input,
 } from "wasmati";
-import { montgomeryParams } from "./helpers.js";
 import { bigintToBytes, bigintToLimbs as bigintToLimbs_ } from "../util.js";
+import { montgomeryParams } from "../finite-field-js.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };

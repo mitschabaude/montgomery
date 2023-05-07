@@ -4,12 +4,13 @@ import { barrettReduction } from "../wasm/barrett.js";
 import { glv } from "../wasm/glv.js";
 import { multiplySchoolbook } from "../wasm/multiply-schoolbook.js";
 import { bigintFromBytes, randomBytes } from "../util.js";
-import { memoryHelpers, montgomeryParams } from "../wasm/helpers.js";
+import { memoryHelpers } from "../wasm/helpers.js";
 import {
   extractBitSlice,
   fromPackedBytes,
   toPackedBytes,
 } from "../wasm/field-helpers.js";
+import { montgomeryParams } from "../finite-field-js.js";
 
 export {
   glvWasm as glv,

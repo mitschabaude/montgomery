@@ -11,8 +11,8 @@ import {
   local,
 } from "wasmati";
 import { bigintToLimbs } from "../util.js";
-import { montgomeryParams } from "./helpers.js";
 import { barrettError } from "./barrett.js";
+import { montgomeryParams } from "../finite-field-js.js";
 
 export { glv };
 

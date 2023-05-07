@@ -1,7 +1,7 @@
 import type * as W from "wasmati";
 import { $, Type, call, func, i32, i64, local } from "wasmati";
-import { montgomeryParams } from "./helpers.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
+import { montgomeryParams } from "../finite-field-js.js";
 
 export { multiplySchoolbook };
 
