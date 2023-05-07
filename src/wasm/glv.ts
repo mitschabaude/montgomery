@@ -12,7 +12,7 @@ import {
 } from "wasmati";
 import { bigintToLimbs } from "../util.js";
 import { barrettError } from "./barrett.js";
-import { montgomeryParams } from "../finite-field-js.js";
+import { montgomeryParams } from "../ff-util.js";
 
 export { glv };
 

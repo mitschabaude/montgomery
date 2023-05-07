@@ -10,10 +10,9 @@ import {
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
 import { F } from "../src/concrete/ff-bls12.js";
-import { mod } from "../src/finite-field-js.js";
+import { mod, modInverse } from "../src/ff-util.js";
 import { msmAffine, msmBigint } from "../src/msm.js";
 import { bigintFromBytes } from "../src/util.js";
-import { modInverse } from "../src/finite-field-js.js";
 import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { load } from "./store-inputs.js";
 // web crypto compat

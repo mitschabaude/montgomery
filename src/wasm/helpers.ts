@@ -1,4 +1,4 @@
-import { montgomeryParams } from "../finite-field-js.js";
+import { montgomeryParams } from "../ff-util.js";
 
 export { memoryHelpers };
 

@@ -1,8 +1,8 @@
-import { log2 } from "./util.js";
-
 /**
  * some basic ff algorithms in js, to use in wasm builders and tests
  */
+import { log2 } from "./util.js";
+
 export { mod, modExp, modInverse, montgomeryParams };
 
 function mod(x: bigint, p: bigint) {

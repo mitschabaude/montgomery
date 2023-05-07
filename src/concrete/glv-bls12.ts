@@ -10,7 +10,7 @@ import {
   fromPackedBytes,
   toPackedBytes,
 } from "../wasm/field-helpers.js";
-import { montgomeryParams } from "../finite-field-js.js";
+import { montgomeryParams } from "../ff-util.js";
 
 export {
   glvWasm as glv,

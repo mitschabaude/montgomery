@@ -1,14 +1,14 @@
 // run with ts-node-esm
-import { F } from "../src/wasm/ff-bls12.js";
+import { F } from "../src/concrete/ff-bls12.js";
 import {
   glv,
   getPointerScalar,
   testDecomposeRandomScalar,
   writeBytesScalar,
-} from "../src/wasm/glv-bls12.js";
+} from "../src/concrete/glv-bls12.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
-import { mod, modInverse } from "../src/finite-field-js.js";
+import { mod, modInverse } from "../src/ff-util.js";
 import { randomBaseFieldx2 } from "../src/concrete/bls12-381.js";
 
 // web crypto compat
