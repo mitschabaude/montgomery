@@ -15,15 +15,7 @@ import {
   isZeroProjective,
 } from "./concrete/ec-bls12.js";
 import { F } from "./concrete/ff-bls12.js";
-import {
-  glv,
-  writeBytesScalar,
-  writeBigintScalar,
-  scalarSize,
-  getPointerScalar,
-  resetPointersScalar,
-  scalarBitlength,
-} from "./concrete/glv-bls12.js";
+import { Scalar } from "./concrete/bls12-381.js";
 import { log2 } from "./util.js";
 
 const {
@@ -53,6 +45,17 @@ const {
   packedSizeBytes,
   batchInverse,
 } = F;
+let {
+  decompose,
+  decomposeNoMsb,
+  extractBitSlice,
+  writeBytesDouble: writeBytesScalar,
+  writeBigintDouble: writeBigintScalar,
+  fieldSizeBytes: scalarSize,
+  getPointer: getPointerScalar,
+  resetPointers: resetPointersScalar,
+  bitLength: scalarBitlength,
+} = Scalar;
 
 export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };
 
@@ -331,9 +334,9 @@ function msm(
      * there'd be a final carry bit that's not accounted for.
      */
     if (dividesEvenly) {
-      negateFlags = glv.decomposeNoMsb(scalar);
+      negateFlags = decomposeNoMsb(scalar);
     } else {
-      glv.decompose(scalar);
+      decompose(scalar);
     }
     let negateFirst = negateFlags & 1;
     let negateSecond = negateFlags >> 1;
@@ -377,7 +380,7 @@ function msm(
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
       // compute kth slice from first half scalar
-      let l = glv.extractBitSlice(scalar, k * c, c) + carry0;
+      let l = extractBitSlice(scalar, k * c, c) + carry0;
 
       if (l > L) {
         l = doubleL - l;
@@ -395,7 +398,7 @@ function msm(
       // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
       // creating such throw-away objects has a garbage collection cost
-      l = glv.extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
+      l = extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
 
       if (l > L) {
         l = doubleL - l;
@@ -507,7 +510,7 @@ function msm(
      * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
      */
     for (let k = 0; k < K; k++) {
-      let l = glv.extractBitSlice(scalar, k * c, c) + carry;
+      let l = extractBitSlice(scalar, k * c, c) + carry;
       if (l > L) {
         l = doubleL - l;
         carry = 1;

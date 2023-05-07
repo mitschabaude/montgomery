@@ -29,6 +29,13 @@ class ImplicitMemory {
     this.dataOffset += bytes.length;
     return global(offset);
   }
+
+  getExports() {
+    return {
+      memory: this.memory,
+      dataOffset: global(Const.i32(this.dataOffset)),
+    };
+  }
 }
 
 // helper

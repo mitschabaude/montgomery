@@ -1,15 +1,13 @@
 // run with ts-node-esm
 import { F } from "../src/concrete/ff-bls12.js";
 import {
-  glv,
-  getPointerScalar,
+  Scalar,
   testDecomposeRandomScalar,
-  writeBytesScalar,
-} from "../src/concrete/glv-bls12.js";
+} from "../src/concrete/bls12-381.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modInverse } from "../src/ff-util.js";
-import { randomBaseFieldx2 } from "../src/concrete/bls12-381.js";
+import { randomBaseFieldx2 } from "../src/concrete/bls12-381.params.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
@@ -138,9 +136,9 @@ function test() {
   if (extractBitSliceJS(arr, 16, 10) !== 0b1111_1111) throw e;
 
   // extractBitSlice (wasm)
-  let s = getPointerScalar();
-  writeBytesScalar(s, arr);
-  const { extractBitSlice } = glv;
+  let s = Scalar.getPointer();
+  Scalar.writeBytesDouble(s, arr);
+  const { extractBitSlice } = Scalar;
   e = Error("extractBitSlice (wasm)");
   if (extractBitSlice(s, 2, 4) !== 0b10_01) throw e;
   if (extractBitSlice(s, 0, 2) !== 0b10) throw e;
@@ -174,8 +172,7 @@ function testBatchMontgomery() {
   }
   // compute inverses as batch
   let invX1 = F.getPointers(n);
-  // F.batchInverse(scratch[0], invX1[0], X[0], n);
-  F.batchInverseJs(scratch, invX1[0], X[0], n);
+  F.batchInverse(scratch[0], invX1[0], X[0], n);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {

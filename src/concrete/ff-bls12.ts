@@ -8,16 +8,11 @@ import { mod, montgomeryParams } from "../ff-util.js";
 import { curveOps } from "../wasm/curve.js";
 import { memoryHelpers } from "../wasm/helpers.js";
 import { fromPackedBytes, toPackedBytes } from "../wasm/field-helpers.js";
+import { p, beta } from "./bls12-381.params.js";
 
 export { F, wasm as ffWasm, helpers as ffHelpers };
 
-// bls12-381
-const p =
-  0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
-const beta =
-  0x1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaacn;
 const w = 30;
-
 let { K, R, lengthP: N, n, nPackedBytes } = montgomeryParams(p, w);
 
 let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
@@ -49,8 +44,7 @@ let {
 
 let module = Module({
   exports: {
-    memory: implicitMemory.memory,
-    dataOffset: global(Const.i32(implicitMemory.dataOffset)),
+    ...implicitMemory.getExports(),
     // curve ops
     addAffine,
     endomorphism,
@@ -136,7 +130,6 @@ let F = {
   memoryBytes,
   toMontgomery,
   fromMontgomery,
-  batchInverseJs,
 };
 
 /**
