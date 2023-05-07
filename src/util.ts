@@ -85,14 +85,14 @@ function bigintToLimbs(x0: bigint, w: number, n: number) {
   /**
    * @type {bigint[]}
    */
-  let legs: bigint[] = Array(n);
+  let limbs: bigint[] = Array(n);
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
   for (let i = 0; i < n; i++) {
-    legs[i] = x0 & wordMax;
+    limbs[i] = x0 & wordMax;
     x0 >>= wn;
   }
-  return legs;
+  return limbs;
 }
 
 function bigintFromLimbs(x: BigUint64Array, w: number, n: number) {

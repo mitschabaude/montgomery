@@ -4,7 +4,7 @@ import { barrettReduction } from "../wasm/barrett.js";
 import { glv } from "../wasm/glv.js";
 import { multiplySchoolbook } from "../wasm/multiply-schoolbook.js";
 import { bigintFromBytes, randomBytes } from "../util.js";
-import { jsHelpers, montgomeryParams } from "../wasm/helpers.js";
+import { memoryHelpers, montgomeryParams } from "../wasm/helpers.js";
 import {
   extractBitSlice,
   fromPackedBytes,
@@ -78,7 +78,7 @@ let {
   resetPointers,
   bitLength,
   readBytes,
-} = jsHelpers(lambda, w, glvWasm);
+} = memoryHelpers(lambda, w, glvWasm);
 
 let [scratchPtr, , bytesPtr, bytesPtr2] = getStablePointers(5);
 

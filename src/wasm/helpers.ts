@@ -1,9 +1,9 @@
 import { log2 } from "../util.js";
 
-export { montgomeryParams, jsHelpers };
+export { montgomeryParams, memoryHelpers };
 
 /**
- * Compute the montgomery radix R=2^K and number of legs n
+ * Compute the montgomery radix R=2^K and number of limbs n
  * @param p modulus
  * @param w word size in bits
  */
@@ -14,10 +14,10 @@ function montgomeryParams(p: bigint, w: number) {
   }
   // montgomery radix R should be R = 2^K > 2p,
   // where K is exactly divisible by the word size w
-  // i.e., K = n*w, where n is the number of legs our field elements are stored in
+  // i.e., K = n*w, where n is the number of limbs our field elements are stored in
   let lengthP = log2(p);
   let minK = lengthP + 1; // want 2^K > 2p bc montgomery mult. is modulo 2p
-  // number of legs is smallest n such that K := n*w >= minK
+  // number of limbs is smallest n such that K := n*w >= minK
   let n = Math.ceil(minK / w);
   let K = n * w;
   let R = 1n << BigInt(K);
@@ -39,7 +39,7 @@ function montgomeryParams(p: bigint, w: number) {
  * @param w word size
  * @param memory
  */
-function jsHelpers(
+function memoryHelpers(
   p: bigint,
   w: number,
   {

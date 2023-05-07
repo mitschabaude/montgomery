@@ -2,7 +2,7 @@ import { Const, Module, call, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { p, randomBaseFieldx2 } from "../src/concrete/pasta.js";
 import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
-import { jsHelpers } from "../src/wasm/helpers.js";
+import { memoryHelpers } from "../src/wasm/helpers.js";
 import { writeWat } from "../src/wasm/wat-helpers.js";
 import { multiplySchoolbook } from "../src/wasm/multiply-schoolbook.js";
 import { barrettReduction } from "../src/wasm/barrett.js";
@@ -75,7 +75,7 @@ for (let w of [29]) {
   );
 
   let wasm = (await module.instantiate()).instance.exports;
-  let { writeBigint, getPointer, getPointers, n } = jsHelpers(p, w, wasm);
+  let { writeBigint, getPointer, getPointers, n } = memoryHelpers(p, w, wasm);
 
   let [scratch] = getPointers(10);
   let x = getPointer();
