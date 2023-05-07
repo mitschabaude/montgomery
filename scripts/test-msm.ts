@@ -14,11 +14,12 @@ import { modInverse } from "../src/finite-field-js.js";
 import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { load } from "./store-inputs.js";
 // web crypto compat
-if (Number(process.version.slice(1, 3)) < 19) globalThis.crypto = webcrypto;
+if (Number(process.version.slice(1, 3)) < 19)
+  (globalThis as any).crypto = webcrypto;
 
 let runSlowMsm = false;
 
-let n = process.argv[2] ?? 14;
+let n = Number(process.argv[2] ?? 14);
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 let p = F.p;
@@ -90,12 +91,12 @@ console.log("ref === big", { x: xRef === xBig, y: yRef === yBig });
 
 console.log("proj === aff", { x: xProj === xAff, y: yProj === yAff });
 
-function toAffine(x, y, z) {
+function toAffine(x: bigint, y: bigint, z: bigint) {
   if (z === 0n) return [0n, 0n, true];
   let zInv = modInverse(z, p);
   return [mod(x * zInv, p), mod(y * zInv, p)];
 }
-function toAffineFromJacobi(x, y, z) {
+function toAffineFromJacobi(x: bigint, y: bigint, z: bigint) {
   if (z === 0n) return [0n, 0n, true];
   let zInv = modInverse(z, p);
   let zInvSquared = mod(zInv * zInv, p);

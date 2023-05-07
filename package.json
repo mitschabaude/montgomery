@@ -23,7 +23,7 @@
     "build": "npx tsc && ts-node-esm scripts/test.ts",
     "start": "ts-node-esm scripts/run-simple.ts",
     "test": "ts-node-esm scripts/test.ts",
-    "test-msm": "ts-node-esm scripts/test-msm.js",
+    "test-msm": "ts-node-esm scripts/test-msm.ts",
     "prepublishOnly": "npm run clean && npm run build",
     "clean": "rm -rf build"
   },
