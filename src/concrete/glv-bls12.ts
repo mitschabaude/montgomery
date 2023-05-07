@@ -1,15 +1,15 @@
 import type * as W from "wasmati";
 import { Const, Module, global, memory } from "wasmati";
-import { barrettReduction } from "./barrett.js";
-import { glv } from "./glv.js";
-import { multiplySchoolbook } from "./multiply-schoolbook.js";
+import { barrettReduction } from "../wasm/barrett.js";
+import { glv } from "../wasm/glv.js";
+import { multiplySchoolbook } from "../wasm/multiply-schoolbook.js";
 import { bigintFromBytes, randomBytes } from "../util.js";
-import { jsHelpers, montgomeryParams } from "./helpers.js";
+import { jsHelpers, montgomeryParams } from "../wasm/helpers.js";
 import {
   extractBitSlice,
   fromPackedBytes,
   toPackedBytes,
-} from "./field-helpers.js";
+} from "../wasm/field-helpers.js";
 
 export {
   glvWasm as glv,

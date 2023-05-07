@@ -1,13 +1,13 @@
 import type * as W from "wasmati"; // for type names
 import { Const, Module, global, memory } from "wasmati";
-import { FieldWithArithmetic } from "./field-arithmetic.js";
-import { fieldInverse } from "./inverse.js";
-import { multiplyMontgomery } from "./multiply-montgomery.js";
-import { ImplicitMemory } from "./wasm-util.js";
+import { FieldWithArithmetic } from "../wasm/field-arithmetic.js";
+import { fieldInverse } from "../wasm/inverse.js";
+import { multiplyMontgomery } from "../wasm/multiply-montgomery.js";
+import { ImplicitMemory } from "../wasm/wasm-util.js";
 import { mod } from "../finite-field-js.js";
-import { curveOps } from "./curve.js";
-import { jsHelpers, montgomeryParams } from "./helpers.js";
-import { fromPackedBytes, toPackedBytes } from "./field-helpers.js";
+import { curveOps } from "../wasm/curve.js";
+import { jsHelpers, montgomeryParams } from "../wasm/helpers.js";
+import { fromPackedBytes, toPackedBytes } from "../wasm/field-helpers.js";
 
 export { F, wasm as ffWasm, helpers as ffHelpers };
 
