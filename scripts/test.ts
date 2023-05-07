@@ -9,7 +9,7 @@ import {
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modInverse } from "../src/finite-field-js.js";
-import { randomBaseFieldx2 } from "../src/finite-field/bls12-381.js";
+import { randomBaseFieldx2 } from "../src/concrete/bls12-381.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)

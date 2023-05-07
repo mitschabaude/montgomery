@@ -2423,7 +2423,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2438,7 +2438,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2453,7 +2453,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2468,7 +2468,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2483,7 +2483,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2498,7 +2498,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2513,7 +2513,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2528,7 +2528,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2543,7 +2543,7 @@
     i64.sub
     local.tee 3
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 3
     i64.const 536870911
@@ -2710,7 +2710,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2725,7 +2725,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2740,7 +2740,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2755,7 +2755,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2770,7 +2770,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2785,7 +2785,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2800,7 +2800,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2815,7 +2815,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911
@@ -2830,7 +2830,7 @@
     i64.sub
     local.tee 1
     i64.const 29
-    i64.shr_u
+    i64.shr_s
     local.get 0
     local.get 1
     i64.const 536870911

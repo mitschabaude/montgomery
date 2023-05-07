@@ -1,14 +1,14 @@
 import { Const, Module, call, func, global, i32, memory } from "wasmati";
-import { tic, toc } from "../extra/tictoc.js";
-import { p, randomBaseFieldx2 } from "../finite-field/pasta.js";
-import { multiplyMontgomery } from "./multiply-montgomery.js";
-import { jsHelpers } from "./helpers.js";
-import { writeWat } from "./wat-helpers.js";
-import { multiplySchoolbook } from "./multiply-schoolbook.js";
-import { barrettReduction } from "./barrett.js";
-import { FieldWithArithmetic } from "./field-arithmetic.js";
-import { ImplicitMemory, forLoop1 } from "./wasm-util.js";
-import { fieldInverse } from "./inverse.js";
+import { tic, toc } from "../src/extra/tictoc.js";
+import { p, randomBaseFieldx2 } from "../src/concrete/pasta.js";
+import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
+import { jsHelpers } from "../src/wasm/helpers.js";
+import { writeWat } from "../src/wasm/wat-helpers.js";
+import { multiplySchoolbook } from "../src/wasm/multiply-schoolbook.js";
+import { barrettReduction } from "../src/wasm/barrett.js";
+import { FieldWithArithmetic } from "../src/wasm/field-arithmetic.js";
+import { ImplicitMemory, forLoop1 } from "../src/wasm/wasm-util.js";
+import { fieldInverse } from "../src/wasm/inverse.js";
 
 let N = 1e7;
 let Ninv = 1e5;
