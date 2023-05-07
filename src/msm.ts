@@ -13,8 +13,8 @@ import {
   projectiveCoords,
   setIsNonZeroAffine,
   isZeroProjective,
-} from "./new-wasm/ec-bls12.js";
-import { F } from "./new-wasm/ff-bls12.js";
+} from "./wasm/ec-bls12.js";
+import { F } from "./wasm/ff-bls12.js";
 import {
   glv,
   writeBytesScalar,
@@ -23,7 +23,7 @@ import {
   getPointerScalar,
   resetPointersScalar,
   scalarBitlength,
-} from "./new-wasm/glv-bls12.js";
+} from "./wasm/glv-bls12.js";
 import { log2 } from "./util.js";
 
 const {
