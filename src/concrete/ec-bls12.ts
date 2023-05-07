@@ -3,7 +3,7 @@
  * with the notable exception of affine addition, which is implemented in wasm and just re-exported here
  */
 import type * as W from "wasmati"; // for type names
-import { F } from "./ff-bls12.js";
+import { Field } from "./bls12-381.js";
 export {
   addAffine,
   doubleAffine,
@@ -34,7 +34,7 @@ const {
   constants,
   memoryBytes,
   addAffine,
-} = F;
+} = Field;
 
 let sizeField = 4 * n;
 let sizeAffine = 8 * n + 4;

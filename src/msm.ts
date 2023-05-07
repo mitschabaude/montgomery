@@ -14,8 +14,7 @@ import {
   setIsNonZeroAffine,
   isZeroProjective,
 } from "./concrete/ec-bls12.js";
-import { F } from "./concrete/ff-bls12.js";
-import { Scalar } from "./concrete/bls12-381.js";
+import { Field, Scalar } from "./concrete/bls12-381.js";
 import { log2 } from "./util.js";
 
 const {
@@ -44,7 +43,7 @@ const {
   getEmptyPointersInMemory,
   packedSizeBytes,
   batchInverse,
-} = F;
+} = Field;
 let {
   decompose,
   decomposeNoMsb,

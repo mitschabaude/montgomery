@@ -1,12 +1,14 @@
 import type * as W from "wasmati";
 import { bigintFromBytes, randomBytes } from "../util.js";
 import { createGlvScalar } from "../scalar-glv.js";
-import { lambda, q } from "./bls12-381.params.js";
+import { p, beta, lambda, q } from "./bls12-381.params.js";
+import { createMsmField } from "../field-msm.js";
 
-export { Scalar, testDecomposeRandomScalar };
+export { Scalar, Field, testDecomposeRandomScalar };
 
-const w = 29;
-const Scalar = await createGlvScalar(q, lambda, w);
+const Field = await createMsmField(p, 30, beta);
+
+const Scalar = await createGlvScalar(q, lambda, 29);
 
 function testDecomposeRandomScalar() {
   return Scalar.testDecomposeScalar(randomScalar());

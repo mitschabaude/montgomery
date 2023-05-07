@@ -9,7 +9,7 @@ import {
 } from "../src/extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { F } from "../src/concrete/ff-bls12.js";
+import { Field } from "../src/concrete/bls12-381.js";
 import { mod, modInverse } from "../src/ff-util.js";
 import { msmAffine, msmBigint } from "../src/msm.js";
 import { bigintFromBytes } from "../src/util.js";
@@ -24,7 +24,7 @@ let runSlowMsm = false;
 let n = Number(process.argv[2] ?? 14);
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
-let p = F.p;
+let p = Field.p;
 
 tic("load inputs & convert to rust");
 let points: CompatiblePoint[], scalars: Uint8Array[];
