@@ -1,5 +1,5 @@
 import { $, Func, Type, call, func, i32, i64, local } from "wasmati";
-import { bigintFromLegs, bigintToLegs } from "../util.js";
+import { bigintFromLimbs, bigintToLimbs } from "../util.js";
 import { montgomeryParams } from "./helpers.js";
 import { forLoop1 } from "./wasm-util.js";
 
@@ -87,8 +87,8 @@ function barrettReduction(
   let N = n * w;
   let { n0, e0 } = findMsbCutoff(p, w);
   let m = 2n ** BigInt(k + N) / p;
-  let M = bigintToLegs(m, w, n);
-  let P = bigintToLegs(p, w, n);
+  let M = bigintToLimbs(m, w, n);
+  let P = bigintToLimbs(p, w, n);
 
   let nLocals = Array<Type<i64>>(n).fill(i64);
 
@@ -225,8 +225,8 @@ function findMsbCutoff(p: bigint, w: number) {
   // let's construct a conservatively bad x_hi (with large lower limbs)
   let x_hi = 2n ** BigInt(2 * b + 2 * s - k) - 1n;
 
-  let m_vec = bigintToLegs(m, w, n);
-  let x_vec = bigintToLegs(x_hi, w, n);
+  let m_vec = bigintToLimbs(m, w, n);
+  let x_vec = bigintToLimbs(x_hi, w, n);
 
   // construct the length 2N schoolbook multiplication output, without carries
   let t = schoolbook(m_vec, x_vec, { n });
@@ -240,7 +240,7 @@ function findMsbCutoff(p: bigint, w: number) {
 
   // confirm the approximation is fine
   let l = (m * x_hi) >> BigInt(N);
-  let l0 = bigintFromLegs(multiplyMsb(m_vec, x_vec, { n0, n, w }), w, n);
+  let l0 = bigintFromLimbs(multiplyMsb(m_vec, x_vec, { n0, n, w }), w, n);
 
   if (l - l0 > 1n)
     console.warn(

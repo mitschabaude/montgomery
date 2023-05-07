@@ -4,8 +4,8 @@ export {
   bigUint64toUint8Array,
   uint8ArrayToBigUint64,
   bigintToBits,
-  bigintToLegs,
-  bigintFromLegs,
+  bigintToLimbs,
+  bigintFromLimbs,
   logBytesAsBigint,
   log2,
   extractBitSlice,
@@ -76,12 +76,12 @@ function bigintToBits(x: bigint, bitLength: number): boolean[] {
 }
 
 /**
- * Split bigint into n w-bit legs, which are also bigints
+ * Split bigint into n w-bit limbs, which are also bigints
  * @param x0
  * @param w word size
- * @param n number of legs
+ * @param n number of limbs
  */
-function bigintToLegs(x0: bigint, w: number, n: number) {
+function bigintToLimbs(x0: bigint, w: number, n: number) {
   /**
    * @type {bigint[]}
    */
@@ -95,7 +95,7 @@ function bigintToLegs(x0: bigint, w: number, n: number) {
   return legs;
 }
 
-function bigintFromLegs(x: BigUint64Array, w: number, n: number) {
+function bigintFromLimbs(x: BigUint64Array, w: number, n: number) {
   let wn = BigInt(w);
   let x0 = x[n - 1];
   for (let i = n - 2; i >= 0; i--) {

@@ -11,7 +11,7 @@ import {
   Input,
 } from "wasmati";
 import { montgomeryParams } from "./helpers.js";
-import { bigintToBytes, bigintToLegs } from "../util.js";
+import { bigintToBytes, bigintToLimbs as bigintToLimbs_ } from "../util.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
@@ -38,7 +38,7 @@ function createField(p: bigint, w: number) {
   }
 
   function bigintToLimbs(x: bigint) {
-    return bigintToLegs(x, w, n);
+    return bigintToLimbs_(x, w, n);
   }
 
   function bigintToData(x: bigint) {

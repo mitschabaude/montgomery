@@ -10,7 +10,7 @@ import {
   i64,
   local,
 } from "wasmati";
-import { bigintToLegs } from "../util.js";
+import { bigintToLimbs } from "../util.js";
 import { montgomeryParams } from "./helpers.js";
 import { barrettError } from "./barrett.js";
 
@@ -21,8 +21,8 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
   let k = lengthP - 1;
   let N = n * w;
   let m = 2n ** BigInt(k + N) / lambda;
-  let LAMBDA = bigintToLegs(lambda, w, n);
-  let Q = bigintToLegs(q, w, 2 * n);
+  let LAMBDA = bigintToLimbs(lambda, w, n);
+  let Q = bigintToLimbs(q, w, 2 * n);
   let sizeScalar = 4 * n;
 
   // let's compute the maximum error in barrett reduction
@@ -131,7 +131,7 @@ function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
     }
   );
 
-  let lambdaShifted = bigintToLegs(lambda << BigInt(lengthP - 1), w, 2 * n);
+  let lambdaShifted = bigintToLimbs(lambda << BigInt(lengthP - 1), w, 2 * n);
 
   const decomposeNoMsb = func(
     { in: [i32], locals: [i32, i32], out: [i32] },
