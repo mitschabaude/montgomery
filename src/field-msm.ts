@@ -50,7 +50,6 @@ async function createMsmField(p: bigint, w: number, beta: bigint) {
       // curve ops
       addAffine,
       endomorphism,
-      batchAddUnsafe,
       // multiplication
       multiply,
       square,
@@ -125,6 +124,20 @@ async function createMsmField(p: bigint, w: number, beta: bigint) {
     p,
     w,
     ...wasm,
+    /**
+     * affine EC addition, G3 = G1 + G2
+     *
+     * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
+     * (edge cases are handled one level higher, before batching)
+     *
+     * this supports addition with assignment where G3 === G1 (but not G3 === G2)
+     * @param scratch
+     * @param G3 (x3, y3)
+     * @param G1 (x1, y1)
+     * @param G2 (x2, y2)
+     * @param d 1/(x2 - x1)
+     */
+    addAffine: wasm.addAffine,
     ...helpers,
     constants,
     memoryBytes,

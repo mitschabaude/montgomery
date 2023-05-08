@@ -2,19 +2,11 @@
  * The main MSM implementation, based on batched-affine additions
  */
 import {
-  addAffine,
-  doubleAffine,
-  addAssignProjective,
-  doubleInPlaceProjective,
-  copyAffine,
-  copyProjective,
-  copyAffineToProjectiveNonZero,
-  isZeroAffine,
-  projectiveCoords,
-  setIsNonZeroAffine,
-  isZeroProjective,
-} from "./concrete/ec-bls12.js";
-import { Field, Scalar } from "./concrete/bls12-381.js";
+  CurveAffine,
+  CurveProjective,
+  Field,
+  Scalar,
+} from "./concrete/bls12-381.js";
 import { log2 } from "./util.js";
 
 const {
@@ -25,6 +17,7 @@ const {
   isEqual,
   subtractPositive,
   inverse,
+  addAffine,
   endomorphism,
   getPointers,
   n,
@@ -44,6 +37,7 @@ const {
   packedSizeBytes,
   batchInverse,
 } = Field;
+
 let {
   decompose,
   decomposeNoMsb,
@@ -56,44 +50,22 @@ let {
   bitLength: scalarBitlength,
 } = Scalar;
 
+let { sizeAffine, doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } =
+  CurveAffine;
+
+let {
+  sizeProjective,
+  addAssignProjective,
+  doubleInPlaceProjective,
+  isZeroProjective,
+  copyProjective,
+  copyAffineToProjective,
+  projectiveCoords,
+} = CurveProjective;
+
 export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };
 
-/**
- * Memory layout of curve points
- * -------------
- *
- * a _field element_ x is represented as n limbs, where n is a parameter that depends on the field order and limb size.
- * in wasm memory, each limb is stored as an `i32`, i.e. takes up 4 bytes of space.
- * (usually only the lowest w bits of each `i32` are filled, where w <= 32 is some configured limb size)
- *
- * an _affine point_ is layed out as `[x, y, isNonZero]` in memory, where x and y are field elements and
- * `isNonZero` is a flag used to track whether a point is zero / the point at infinity.
- * - x, y each have length sizeField = 4*n bytes
- * - `isNonZero` is either 0 or 1, but we nevertheless reserve 4 bytes (one `i32`) of space for it.
- *   this helps ensure that all memory addresses are multiples of 4, a property which is required by JS APIs like
- *   Uint32Array, and which should also make memory accesses more efficient.
- *
- * in code, we represent an affine point by a pointer `p`.
- * a pointer is just a JS `number`, and can be easily passed between wasm and JS.
- * on the wasm side, a number appears as an `i32`, suitable as input to memory load/store operations.
- *
- * from `p`, we obtain pointers to the individual coordinates as
- * ```
- * x = p
- * y = p + sizeField
- * isNonZero = p + 2*sizeField
- * ```
- *
- * for a _projective point_, the layout is `[x, y, z, isNonZero]`.
- * we can obtain x, y from a pointer as before, and
- * ```
- * z = p + 2*sizeField
- * isNonZero = p + 3*sizeField
- * ```
- */
 let sizeField = 4 * n; // a field element has n limbs, each of which is an int32 (= 4 bytes)
-let sizeAffine = 8 * n + 4; // an affine point is 2 field elements + 1 int32 for isNonZero flag
-let sizeProjective = 12 * n + 4;
 
 /**
  * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
@@ -329,7 +301,7 @@ function msm(
     let negateFlags = 0;
     /**
      * if the window size exactly divides the scalar bit length, we have to make sure that neither
-     * of the two scalar halfs has its MSB set, otherwise the NAF transformation below doesn't work --
+     * of the two scalar halves has its MSB set, otherwise the NAF transformation below doesn't work --
      * there'd be a final carry bit that's not accounted for.
      */
     if (dividesEvenly) {
@@ -560,7 +532,7 @@ function msm(
     } else {
       batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
       // wasm version has indistinguishable performance
-      // F.batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
+      // Field.batchAddUnsafe(scratch[0], tmp[0], denom[0], gPtr, gPtr, hPtr, nPairs);
     }
   }
   // we're done!!
@@ -717,7 +689,7 @@ function reduceBucketsAffine(
   let partialSums = getZeroPointers(K, sizeProjective);
   for (let k = 0; k < K; k++) {
     if (isZeroAffine(buckets[k][1])) continue;
-    copyAffineToProjectiveNonZero(partialSums[k], buckets[k][1]);
+    copyAffineToProjective(partialSums[k], buckets[k][1]);
   }
   return partialSums;
 }
@@ -789,6 +761,46 @@ function batchAdd(
   for (let j = 0; j < nDouble; j++) {
     let i = iDouble[j];
     doubleAffine(scratch, S[i], G[i], d[iBoth[i]]);
+  }
+}
+
+/**
+ * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
+ *
+ * Si = Gi + Hi, i=0,...,n-1
+ *
+ * unsafe: this is a faster version which doesn't handle edge cases!
+ * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
+ *
+ * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
+ * where inputs are independent and pseudo-random in significant parts of the msm algorithm
+ * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
+ *
+ * the performance improvement is in the ballpark of 5%
+ *
+ * @param scratch
+ * @param tmp pointers of length n
+ * @param d pointers of length n
+ * @param S
+ * @param G
+ * @param H
+ * @param n
+ */
+function batchAddUnsafe(
+  scratch: number[],
+  tmp: number,
+  d: number,
+  S: Uint32Array,
+  G: Uint32Array,
+  H: Uint32Array,
+  n: number
+) {
+  for (let i = 0, tmpi = tmp; i < n; i++, tmpi += sizeField) {
+    subtractPositive(tmpi, H[i], G[i]);
+  }
+  batchInverse(scratch[0], d, tmp, n);
+  for (let i = 0, di = d; i < n; i++, di += sizeField) {
+    addAffine(scratch[0], S[i], G[i], H[i], di);
   }
 }
 
@@ -879,46 +891,6 @@ function toAffineOutputBigint(
   fromMontgomery(x);
   fromMontgomery(y);
   return { x: readBigint(x), y: readBigint(y), isInfinity: false };
-}
-
-/**
- * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
- *
- * Si = Gi + Hi, i=0,...,n-1
- *
- * unsafe: this is a faster version which doesn't handle edge cases!
- * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
- *
- * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
- * where inputs are independent and pseudo-random in significant parts of the msm algorithm
- * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
- *
- * the performance improvement is in the ballpark of 5%
- *
- * @param scratch
- * @param tmp pointers of length n
- * @param d pointers of length n
- * @param S
- * @param G
- * @param H
- * @param n
- */
-function batchAddUnsafe(
-  scratch: number[],
-  tmp: number,
-  d: number,
-  S: Uint32Array,
-  G: Uint32Array,
-  H: Uint32Array,
-  n: number
-) {
-  for (let i = 0, tmpi = tmp; i < n; i++, tmpi += sizeField) {
-    subtractPositive(tmpi, H[i], G[i]);
-  }
-  batchInverse(scratch[0], d, tmp, n);
-  for (let i = 0, di = d; i < n; i++, di += sizeField) {
-    addAffine(scratch[0], S[i], G[i], H[i], di);
-  }
 }
 
 function bigintScalarsToMemory(inputScalars: bigint[]) {

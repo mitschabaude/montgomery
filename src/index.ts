@@ -1,5 +1,8 @@
-import { F as Field } from "./concrete/ff-bls12.js";
-import { Scalar } from "./concrete/bls12-381.js";
-import * as Curve from "./concrete/ec-bls12.js";
-export { Field, Scalar, Curve };
+import {
+  Field,
+  Scalar,
+  CurveAffine,
+  CurveProjective,
+} from "./concrete/bls12-381.js";
+export { Field, Scalar, CurveAffine, CurveProjective };
 export { msmAffine as msm, msmBigint } from "./msm.js";
