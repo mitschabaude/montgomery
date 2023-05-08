@@ -3,10 +3,11 @@ import { montgomeryParams } from "../ff-util.js";
 export { memoryHelpers };
 
 /**
+ * helpers for writing to and reading from wasm memory from JS
  *
  * @param p modulus
  * @param w word size
- * @param memory
+ * @param module wasm module
  */
 function memoryHelpers(
   p: bigint,

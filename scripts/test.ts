@@ -1,13 +1,12 @@
 // run with ts-node-esm
-import {
-  Field,
-  Scalar,
-  testDecomposeRandomScalar,
-} from "../src/concrete/bls12-381.js";
+import { Field, Scalar } from "../src/concrete/bls12-381.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modInverse } from "../src/ff-util.js";
-import { randomBaseFieldx2 } from "../src/concrete/bls12-381.params.js";
+import {
+  randomBaseFieldx2,
+  randomScalar,
+} from "../src/concrete/bls12-381.params.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
@@ -153,7 +152,7 @@ for (let i = 0; i < 20; i++) {
   test();
 }
 for (let i = 0; i < 100; i++) {
-  let ok = testDecomposeRandomScalar();
+  let ok = Scalar.testDecomposeScalar(randomScalar());
   if (!ok) throw Error("scalar decomposition");
 }
 

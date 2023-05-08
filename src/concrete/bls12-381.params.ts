@@ -6,6 +6,7 @@ export {
   beta,
   lambda,
   scalar,
+  randomScalar,
   randomScalars,
   randomBaseField,
   randomBaseFieldx2,
@@ -45,6 +46,15 @@ let scalar = {
     minusZ: bigintToBits(0xd201000000010000n, 64),
   },
 };
+
+function randomScalar() {
+  while (true) {
+    let bytes = randomBytes(32);
+    bytes[31] &= 0x7f;
+    let x = bigintFromBytes(bytes);
+    if (x < q) return x;
+  }
+}
 
 function randomScalars(n: number) {
   let N = n * 32 * 2;

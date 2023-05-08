@@ -11,10 +11,10 @@ import {
   toPackedBytes,
 } from "./wasm/field-helpers.js";
 import { montgomeryParams } from "./ff-util.js";
+import { UnwrapPromise } from "./types.js";
 
 export { createGlvScalar, GlvScalar };
 
-type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
 
 async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
