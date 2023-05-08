@@ -17,7 +17,7 @@ export {
 function bigintFromBytes(bytes: Uint8Array) {
   let x = 0n;
   let bitPosition = 0n;
-  for (var i = 0; i < bytes.length; i++) {
+  for (let i = 0, n = bytes.length; i < n; i++) {
     x += BigInt(bytes[i]) << bitPosition;
     bitPosition += 8n;
   }

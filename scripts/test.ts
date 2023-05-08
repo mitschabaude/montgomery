@@ -1,12 +1,8 @@
 // run with ts-node-esm
-import { Field, Scalar } from "../src/concrete/bls12-381.js";
+import { Field, Scalar, Random } from "../src/concrete/bls12-381.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modInverse } from "../src/field-util.js";
-import {
-  randomBaseFieldx2,
-  randomScalar,
-} from "../src/concrete/bls12-381.params.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
@@ -30,8 +26,8 @@ let R = mod(1n << BigInt(Field.w * Field.n), p);
 let Rinv = modInverse(R, p);
 
 function test() {
-  let x0 = randomBaseFieldx2();
-  let y0 = randomBaseFieldx2();
+  let x0 = Random.randomFieldx2();
+  let y0 = Random.randomFieldx2();
   toWasm(x0, x);
   toWasm(y0, y);
 
@@ -152,7 +148,7 @@ for (let i = 0; i < 20; i++) {
   test();
 }
 for (let i = 0; i < 100; i++) {
-  let ok = Scalar.testDecomposeScalar(randomScalar());
+  let ok = Scalar.testDecomposeScalar(Random.randomScalar());
   if (!ok) throw Error("scalar decomposition");
 }
 
@@ -164,7 +160,7 @@ function testBatchMontgomery() {
   let invX = Field.getPointers(n);
   let scratch = Field.getPointers(10);
   for (let i = 0; i < n; i++) {
-    let x0 = randomBaseFieldx2();
+    let x0 = Random.randomFieldx2();
     Field.writeBigint(X[i], x0);
     // compute inverses normally
     Field.inverse(scratch[0], invX[i], X[i]);

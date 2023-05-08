@@ -1,6 +1,6 @@
 import { Const, Module, call, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../src/extra/tictoc.js";
-import { p, randomBaseFieldx2 } from "../src/concrete/pasta.js";
+import { p, randomFieldx2 } from "../src/concrete/pasta.js";
 import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
 import { memoryHelpers } from "../src/wasm/helpers.js";
 import { writeWat } from "../src/wasm/wat-helpers.js";
@@ -81,8 +81,8 @@ for (let w of [29]) {
   let [scratch] = getPointers(10);
   let x = getPointer();
   let y = getPointer();
-  writeBigint(x, randomBaseFieldx2());
-  writeBigint(y, randomBaseFieldx2());
+  writeBigint(x, randomFieldx2());
+  writeBigint(y, randomFieldx2());
 
   console.log(`w=${w}, n=${n}, nw=${n * w}, op x ${N}\n`);
 
@@ -91,8 +91,8 @@ for (let w of [29]) {
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
 
-  writeBigint(x, randomBaseFieldx2());
-  writeBigint(y, randomBaseFieldx2());
+  writeBigint(x, randomFieldx2());
+  writeBigint(y, randomFieldx2());
 
   bench2("inverse", () => wasm.benchInverse(scratch, x, y, Ninv), {
     N: Ninv,

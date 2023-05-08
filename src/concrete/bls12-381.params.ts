@@ -1,17 +1,6 @@
-import { bigintFromBytes, bigintToBits, randomBytes } from "../util.js";
+import { bigintToBits } from "../util.js";
 
-export {
-  p,
-  q,
-  beta,
-  lambda,
-  scalar,
-  randomScalar,
-  randomScalars,
-  randomBaseField,
-  randomBaseFieldx2,
-  randomBaseFieldx4,
-};
+export { p, q, beta, lambda, asBits };
 
 const p =
   0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaabn;
@@ -38,70 +27,6 @@ const beta2 =
 const lambda = lambda2;
 const beta = beta2;
 
-let scalar = {
-  p: q,
-  minusZ,
-  bits: 255,
-  asBits: {
-    minusZ: bigintToBits(0xd201000000010000n, 64),
-  },
+let asBits = {
+  minusZ: bigintToBits(0xd201000000010000n, 64),
 };
-
-function randomScalar() {
-  while (true) {
-    let bytes = randomBytes(32);
-    bytes[31] &= 0x7f;
-    let x = bigintFromBytes(bytes);
-    if (x < q) return x;
-  }
-}
-
-function randomScalars(n: number) {
-  let N = n * 32 * 2;
-  let bytes = randomBytes(N);
-  let scalars: Uint8Array[] = Array(n);
-  for (let i = 0, j = 0; i < n; i++) {
-    while (true) {
-      if (j + 32 > N) {
-        bytes = randomBytes(N);
-        j = 0;
-      }
-      let bytes_ = bytes.slice(j, j + 32);
-      bytes_[31] &= 0x7f;
-      j += 32;
-      let x = bigintFromBytes(bytes_);
-      if (x < q) {
-        scalars[i] = bytes_;
-        break;
-      }
-    }
-  }
-  return scalars;
-}
-
-function randomBaseField() {
-  while (true) {
-    let bytes = randomBytes(48);
-    bytes[47] &= 0x1f;
-    let x = bigintFromBytes(bytes);
-    if (x < p) return x;
-  }
-}
-
-function randomBaseFieldx2() {
-  while (true) {
-    let bytes = randomBytes(48);
-    bytes[47] &= 0x3f;
-    let x = bigintFromBytes(bytes);
-    if (x < 2n * p) return x;
-  }
-}
-
-function randomBaseFieldx4() {
-  while (true) {
-    let bytes = randomBytes(48);
-    bytes[47] &= 0x7f;
-    let x = bigintFromBytes(bytes);
-    if (x < 4n * p) return x;
-  }
-}
