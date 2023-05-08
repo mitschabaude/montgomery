@@ -37,15 +37,8 @@ export { createCurveAffine };
  * ```
  */
 function createCurveAffine(Field: MsmField) {
-  const {
-    fieldSizeBytes: sizeField,
-    square,
-    multiply,
-    add,
-    subtract,
-    copy,
-    memoryBytes,
-  } = Field;
+  const { sizeField, square, multiply, add, subtract, copy, memoryBytes } =
+    Field;
 
   // an affine point is 2 field elements + 1 int32 for isNonZero flag
   let sizeAffine = 2 * sizeField + 4;

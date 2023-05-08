@@ -4,7 +4,7 @@ export { createCurveProjective };
 
 function createCurveProjective(Field: MsmField) {
   const {
-    fieldSizeBytes: sizeField,
+    sizeField,
     square,
     multiply,
     add,

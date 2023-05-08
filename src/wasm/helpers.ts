@@ -24,15 +24,16 @@ function memoryHelpers(
   }
 ) {
   let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
-  let nPackedBytes = Math.ceil(lengthP / 8);
+  let packedSizeField = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;
   let obj = {
     n,
     R,
+    // a field element has n limbs, each of which is an int32 (= 4 bytes)
+    sizeField: 4 * n,
+    packedSizeField,
     bitLength: lengthP,
-    fieldSizeBytes: 4 * n,
-    packedSizeBytes: nPackedBytes,
 
     writeBigint(x: number, x0: bigint) {
       let arr = new Uint32Array(memory.buffer, x, n);
@@ -170,7 +171,7 @@ function memoryHelpers(
     readBytes([bytesPtr]: number[], pointer: number) {
       toPackedBytes!(bytesPtr, pointer);
       return new Uint8Array(
-        memory.buffer.slice(bytesPtr, bytesPtr + nPackedBytes)
+        memory.buffer.slice(bytesPtr, bytesPtr + packedSizeField)
       );
     },
   };

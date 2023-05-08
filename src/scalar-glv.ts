@@ -67,7 +67,7 @@ async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
     let r = glvHelpers.readBytes([bytesPtr], scratchPtr);
     let l = glvHelpers.readBytes(
       [bytesPtr2],
-      scratchPtr + glvHelpers.fieldSizeBytes
+      scratchPtr + glvHelpers.sizeField
     );
     let r0 = bigintFromBytes(r);
     let l0 = bigintFromBytes(l);

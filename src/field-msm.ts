@@ -26,7 +26,7 @@ async function createMsmField(p: bigint, w: number, beta: bigint) {
   const Field = Object.assign(Field_, { multiply, square, leftShift });
 
   let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
-  let { addAffine, endomorphism, batchAddUnsafe } = curveOps(
+  let { addAffine, endomorphism } = curveOps(
     implicitMemory,
     Field,
     inverse,

@@ -20,7 +20,7 @@ const {
   addAffine,
   endomorphism,
   getPointers,
-  n,
+  sizeField,
   memoryBytes,
   getZeroPointers,
   writeBytes,
@@ -34,7 +34,7 @@ const {
   readBigint,
   getPointersInMemory,
   getEmptyPointersInMemory,
-  packedSizeBytes,
+  packedSizeField: packedSizeBytes,
   batchInverse,
 } = Field;
 
@@ -44,7 +44,7 @@ let {
   extractBitSlice,
   writeBytesDouble: writeBytesScalar,
   writeBigintDouble: writeBigintScalar,
-  fieldSizeBytes: scalarSize,
+  sizeField: sizeScalar,
   getPointer: getPointerScalar,
   resetPointers: resetPointersScalar,
   bitLength: scalarBitlength,
@@ -65,8 +65,6 @@ let {
 
 export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };
 
-let sizeField = 4 * n; // a field element has n limbs, each of which is an int32 (= 4 bytes)
-
 /**
  * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
  * n is the log-size of scalar and point inputs.
@@ -83,8 +81,7 @@ let cTable: Record<number, [number, number] | undefined> = {
 
 type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
 
-// perform MSM where input scalars and points are Rust-compatible byte arrays
-// (format specified for Zprize 2022)
+// MSM where input scalars and points are bigints
 function msmBigint(
   inputScalars: bigint[],
   inputPoints: BigintPoint[],
@@ -244,7 +241,7 @@ function msm(
   let sizeAffine2 = 2 * sizeAffine;
   let sizeAffine4 = 4 * sizeAffine;
   let pointPtr = getPointer(N * sizeAffine4);
-  let sizeScalar2 = 2 * scalarSize;
+  let sizeScalar2 = 2 * sizeScalar;
 
   let bucketCounts: number[][] = Array(K);
   for (let k = 0; k < K; k++) {
@@ -369,7 +366,7 @@ function msm(
       // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
       // creating such throw-away objects has a garbage collection cost
-      l = extractBitSlice(scalar + scalarSize, k * c, c) + carry1;
+      l = extractBitSlice(scalar + sizeScalar, k * c, c) + carry1;
 
       if (l > L) {
         l = doubleL - l;
@@ -472,7 +469,7 @@ function msm(
     // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
     let i = 0, point = pointPtr, scalar = scalarPtr;
     i < 2 * N;
-    i++, point += sizeAffine2, scalar += scalarSize
+    i++, point += sizeAffine2, scalar += sizeScalar
   ) {
     // a point `A` and it's negation `-A` are stored next to each other
     let negPoint = point + sizeAffine;
@@ -895,7 +892,7 @@ function toAffineOutputBigint(
 
 function bigintScalarsToMemory(inputScalars: bigint[]) {
   let N = inputScalars.length;
-  let sizeScalar2 = 2 * scalarSize;
+  let sizeScalar2 = 2 * sizeScalar;
   let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
   for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar2) {
     let inputScalar = inputScalars[i];
@@ -930,7 +927,7 @@ function bigintPointsToMemory(inputPoints: BigintPoint[]) {
 
 function bytesScalarsToMemory(inputScalars: Uint8Array[]) {
   let N = inputScalars.length;
-  let sizeScalar2 = 2 * scalarSize;
+  let sizeScalar2 = 2 * sizeScalar;
   let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
   for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar2) {
     let inputScalar = inputScalars[i];
