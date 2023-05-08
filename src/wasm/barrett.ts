@@ -1,7 +1,7 @@
 import { $, Func, Type, call, func, i32, i64, local } from "wasmati";
 import { bigintFromLimbs, bigintToLimbs } from "../util.js";
 import { forLoop1 } from "./wasm-util.js";
-import { montgomeryParams } from "../ff-util.js";
+import { montgomeryParams } from "../field-util.js";
 
 export { barrettReduction, multiplyBarrett, barrettError };
 

@@ -15,7 +15,7 @@ import {
   return_,
   unreachable,
 } from "wasmati";
-import { mod, montgomeryParams } from "../ff-util.js";
+import { mod, montgomeryParams } from "../field-util.js";
 import { ImplicitMemory } from "./wasm-util.js";
 import { FieldWithMultiply } from "./multiply-montgomery.js";
 

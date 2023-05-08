@@ -11,7 +11,7 @@ import {
   Input,
 } from "wasmati";
 import { bigintToBytes, bigintToLimbs as bigintToLimbs_ } from "../util.js";
-import { montgomeryParams } from "../ff-util.js";
+import { montgomeryParams } from "../field-util.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };

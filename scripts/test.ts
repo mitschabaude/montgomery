@@ -2,7 +2,7 @@
 import { Field, Scalar } from "../src/concrete/bls12-381.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
-import { mod, modInverse } from "../src/ff-util.js";
+import { mod, modInverse } from "../src/field-util.js";
 import {
   randomBaseFieldx2,
   randomScalar,

@@ -1,4 +1,4 @@
-import { montgomeryParams } from "../ff-util.js";
+import { montgomeryParams } from "../field-util.js";
 
 export { memoryHelpers };
 

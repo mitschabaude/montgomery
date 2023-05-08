@@ -9,7 +9,7 @@ import {
   fromPackedBytes,
   toPackedBytes,
 } from "./wasm/field-helpers.js";
-import { montgomeryParams } from "./ff-util.js";
+import { montgomeryParams } from "./field-util.js";
 import { UnwrapPromise } from "./types.js";
 
 export { createGlvScalar, GlvScalar, createSimpleScalar, SimpleScalar };
