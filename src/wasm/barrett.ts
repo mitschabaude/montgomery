@@ -3,7 +3,7 @@ import { bigintFromLimbs, bigintToLimbs } from "../util.js";
 import { forLoop1 } from "./wasm-util.js";
 import { montgomeryParams } from "../ff-util.js";
 
-export { barrettReduction, barrettError };
+export { barrettReduction, multiplyBarrett, barrettError };
 
 /**
  * barrett reduction modulo p (may be non-prime)
@@ -77,11 +77,7 @@ export { barrettReduction, barrettError };
  * with k = b-1, our previous condition b + 2s + 1 <= N with s=2 implies
  * b + 5 <= N
  */
-function barrettReduction(
-  p: bigint,
-  w: number,
-  multiply: Func<[i32, i32, i32], []>
-) {
+function barrettReduction(p: bigint, w: number) {
   let { n, lengthP, wordMax, wn } = montgomeryParams(p, w);
   let k = lengthP - 1;
   let N = n * w;
@@ -92,7 +88,7 @@ function barrettReduction(
 
   let nLocals = Array<Type<i64>>(n).fill(i64);
 
-  const barrett = func(
+  return func(
     { in: [i32], locals: [i64, ...nLocals, ...nLocals], out: [] },
     ([x], [tmp, ...rest]) => {
       let L = rest.splice(0, n);
@@ -163,25 +159,32 @@ function barrettReduction(
       }
     }
   );
+}
 
-  const multiplyBarrett = func(
+function multiplyBarrett(
+  p: bigint,
+  w: number,
+  multiply: Func<[i32, i32, i32], []>
+) {
+  const barrett = barrettReduction(p, w);
+
+  const modularMultiply = func(
     { in: [i32, i32, i32], locals: [], out: [] },
     ([xy, x, y]) => {
       call(multiply, [xy, x, y]);
       call(barrett, [xy]);
     }
   );
-
   const benchMultiply = func(
     { in: [i32, i32], locals: [i32], out: [] },
     ([x, N], [i]) => {
       forLoop1(i, 0, N, () => {
-        call(multiplyBarrett, [x, x, x]);
+        call(modularMultiply, [x, x, x]);
       });
     }
   );
 
-  return { barrett, multiplyBarrett, benchMultiply };
+  return { multiply: modularMultiply, benchMultiply };
 }
 
 // helpers

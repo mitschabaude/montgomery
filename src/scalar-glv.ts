@@ -2,7 +2,6 @@ import type * as W from "wasmati";
 import { Const, Module, global, memory } from "wasmati";
 import { barrettReduction } from "./wasm/barrett.js";
 import { glv } from "./wasm/glv.js";
-import { multiplySchoolbook } from "./wasm/multiply-schoolbook.js";
 import { bigintFromBytes } from "./util.js";
 import { memoryHelpers } from "./wasm/helpers.js";
 import {
@@ -13,16 +12,18 @@ import {
 import { montgomeryParams } from "./ff-util.js";
 import { UnwrapPromise } from "./types.js";
 
-export { createGlvScalar, GlvScalar };
+export { createGlvScalar, GlvScalar, createSimpleScalar, SimpleScalar };
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
+type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 
+/**
+ * scalar module for MSM with GLV
+ */
 async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w);
 
-  const { multiply } = multiplySchoolbook(lambda, w);
-  const { barrett } = barrettReduction(lambda, w, multiply);
-
+  const barrett = barrettReduction(lambda, w);
   const { decompose, decomposeNoMsb } = glv(q, lambda, w, barrett);
 
   let module = Module({
@@ -83,4 +84,27 @@ async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
     writeBigintDouble,
     testDecomposeScalar,
   };
+}
+
+/**
+ * simple scalar utils for MSM without GLV
+ */
+async function createSimpleScalar(q: bigint, w: number) {
+  const { n, nPackedBytes } = montgomeryParams(q, w);
+
+  let module = Module({
+    exports: {
+      fromPackedBytes: fromPackedBytes(w, n),
+      toPackedBytes: toPackedBytes(w, n, nPackedBytes),
+      extractBitSlice: extractBitSlice(w, n),
+      memory: memory({ min: 1 << 10 }),
+      dataOffset: global(Const.i32(0)),
+    },
+  });
+
+  let m = await module.instantiate();
+  const wasm = m.instance.exports;
+  const helpers = memoryHelpers(q, w, wasm);
+
+  return { ...helpers, ...wasm };
 }

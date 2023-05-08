@@ -5,7 +5,7 @@ import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
 import { memoryHelpers } from "../src/wasm/helpers.js";
 import { writeWat } from "../src/wasm/wat-helpers.js";
 import { multiplySchoolbook } from "../src/wasm/multiply-schoolbook.js";
-import { barrettReduction } from "../src/wasm/barrett.js";
+import { multiplyBarrett } from "../src/wasm/barrett.js";
 import { FieldWithArithmetic } from "../src/wasm/field-arithmetic.js";
 import { ImplicitMemory, forLoop1 } from "../src/wasm/wasm-util.js";
 import { fieldInverse } from "../src/wasm/inverse.js";
@@ -23,11 +23,12 @@ for (let w of [29]) {
   } = multiplyMontgomery(p, w, { countMultiplications: false });
   let { benchMultiply: benchSchoolbook, multiply: multiplySchoolbook_ } =
     multiplySchoolbook(p, w);
-  let { benchMultiply: benchBarrett } = barrettReduction(
+  let { benchMultiply: benchBarrett } = multiplyBarrett(
     p,
     w,
     multiplySchoolbook_
   );
+
   const Field = { ...FieldWithArithmetic(p, w), multiply, leftShift, square };
 
   const benchAdd = func(
