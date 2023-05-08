@@ -14,7 +14,7 @@ export { createMsmField, MsmField };
 
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
-async function createMsmField(p: bigint, w: number, beta: bigint) {
+async function createMsmField(p: bigint, beta: bigint, w: number) {
   let { K, R, lengthP: N, n, nPackedBytes } = montgomeryParams(p, w);
 
   let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
@@ -55,26 +55,21 @@ async function createMsmField(p: bigint, w: number, beta: bigint) {
       square,
       leftShift,
       // inverse
-      /**
-       * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
-       *
-       * needs 3 fields of scratch space
-       */
       inverse,
       makeOdd,
       batchInverse,
-      // helpers
-      isEqual,
-      isGreater,
-      isZero,
-      fromPackedBytes: fromPackedBytes(w, n),
-      toPackedBytes: toPackedBytes(w, n, nPackedBytes),
       // arithmetic
       add,
       subtract,
       subtractPositive,
       reduce,
       copy,
+      // helpers
+      isEqual,
+      isGreater,
+      isZero,
+      fromPackedBytes: fromPackedBytes(w, n),
+      toPackedBytes: toPackedBytes(w, n, nPackedBytes),
     },
   });
 
@@ -138,6 +133,12 @@ async function createMsmField(p: bigint, w: number, beta: bigint) {
      * @param d 1/(x2 - x1)
      */
     addAffine: wasm.addAffine,
+    /**
+     * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
+     *
+     * needs 3 fields of scratch space
+     */
+    inverse: wasm.inverse,
     ...helpers,
     constants,
     memoryBytes,
