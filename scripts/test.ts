@@ -110,6 +110,8 @@ function test() {
   Field.multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");
+  z0 = modInverse(x0, p);
+  if (mod(z0 * x0, p) !== 1n) throw Error("inverse");
 
   // makeOdd
   Field.writeBigint(x, 5n << 120n);

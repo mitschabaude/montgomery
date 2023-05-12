@@ -62,33 +62,42 @@ function modExp(a: bigint, n: bigint, { p }: { p: bigint }) {
 }
 
 /**
+ * Extended Euclidian algorithm
+ *
+ * Input: positive integers a, p
+ * Output: d = gcd(a, p) and x, y satisfying ax + yp = d
+ */
+function egcd(a: bigint, p: bigint): [d: bigint, x: bigint, y: bigint] {
+  // the algorithm below can assume a <= p
+  if (a > p) {
+    let [d, y, x] = egcd(p, a);
+    return [d, x, y];
+  }
+  // https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm#Pseudocode
+  let [r0, r1] = [p, a];
+  let [s0, s1] = [1n, 0n];
+  let [t0, t1] = [0n, 1n];
+  while (r1 !== 0n) {
+    let quotient = r0 / r1; // bigint division, cuts off remainder
+    [r0, r1] = [r1, r0 - quotient * r1];
+    [s0, s1] = [s1, s0 - quotient * s1];
+    [t0, t1] = [t1, t0 - quotient * t1];
+  }
+  let [d, y, x] = [r0, s0, t0];
+  return [d, x, y];
+}
+
+/**
  * inverting with EGCD, 1/a in Z_p
  *
  * @param a
- * @param  p
+ * @param p
  * @returns 1/a (mod p)
  */
 function modInverse(a: bigint, p: bigint) {
   if (a === 0n) throw Error("cannot invert 0");
-  a = mod(a, p);
-  let b = p;
-  let x = 0n;
-  let y = 1n;
-  let u = 1n;
-  let v = 0n;
-  while (a !== 0n) {
-    let q = b / a;
-    let r = mod(b, a);
-    let m = x - u * q;
-    let n = y - v * q;
-    b = a;
-    a = r;
-    x = u;
-    y = v;
-    u = m;
-    v = n;
-  }
-  if (b !== 1n) throw Error("inverting failed (no inverse)");
+  let [d, x, _y] = egcd(mod(a, p), p);
+  if (d !== 1n) throw Error("inverting failed (no inverse)");
   return mod(x, p);
 }
 
