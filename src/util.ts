@@ -12,6 +12,8 @@ export {
   mapRange,
   randomBytes,
   bytesEqual,
+  divide,
+  scale,
 };
 
 function bigintFromBytes(bytes: Uint8Array) {
@@ -117,6 +119,22 @@ function log2(n: number | bigint) {
   if (typeof n === "number") n = BigInt(n);
   if (n === 1n) return 0;
   return (n - 1n).toString(2).length;
+}
+
+/**
+ * divide two bigints to return a float of given precision
+ */
+function divide(x: bigint, y: bigint, prec = 10) {
+  let length = y.toString(10).length;
+  let exp = BigInt(length - prec);
+  return Number(x / 10n ** exp) / Number(y / 10n ** exp);
+}
+
+/**
+ * scale bigint by a float
+ */
+function scale(c: number, x: bigint, prec = 10) {
+  return (BigInt(Math.round(c * 10 ** prec)) * x) / 10n ** BigInt(prec);
 }
 
 /**
