@@ -4,7 +4,7 @@ import { abs, divide, log2, scale } from "../util.js";
 import assert from "node:assert";
 import { egcdStopEarly } from "./glv.js";
 
-let [[v00, v10], [v01, v11]] = egcdStopEarly(lambda, q);
+let [[v00, v01], [v10, v11]] = egcdStopEarly(lambda, q);
 
 console.log({
   v00: abs(v00).toString(16),
