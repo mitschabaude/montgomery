@@ -14,6 +14,8 @@ export {
   bytesEqual,
   divide,
   scale,
+  max,
+  abs,
 };
 
 function bigintFromBytes(bytes: Uint8Array) {
@@ -135,6 +137,14 @@ function divide(x: bigint, y: bigint, prec = 10) {
  */
 function scale(c: number, x: bigint, prec = 10) {
   return (BigInt(Math.round(c * 10 ** prec)) * x) / 10n ** BigInt(prec);
+}
+
+function max(a: bigint, b: bigint) {
+  return a > b ? a : b;
+}
+
+function abs(x: bigint) {
+  return x < 0n ? -x : x;
 }
 
 /**
