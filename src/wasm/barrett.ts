@@ -3,7 +3,7 @@ import { bigintFromLimbs, bigintToLimbs } from "../util.js";
 import { forLoop1 } from "./wasm-util.js";
 import { montgomeryParams } from "../field-util.js";
 
-export { barrettReduction, multiplyBarrett, barrettError };
+export { barrettReduction, multiplyBarrett, barrettError, findMsbCutoff };
 
 /**
  * barrett reduction modulo p (may be non-prime)
@@ -94,7 +94,7 @@ function barrettReduction(p: bigint, w: number) {
       let L = rest.splice(0, n);
       let LP = rest.splice(0, n);
 
-      // extract x_hi := highest k bits of x
+      // extract x_hi := x >> k = all bits of x except the lowest k
       // x_hi = x.slice(n-1, 2*n) <==> x >> (n - 1)*w
       // then we only have to do x_hi >>= k - (n - 1)*w
       let k0 = BigInt(k - (n - 1) * w);

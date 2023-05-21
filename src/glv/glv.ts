@@ -6,6 +6,7 @@ export { egcdStopEarly };
  * Extended Euclidian algorithm which stops when r1 < sqrt(p)
  *
  * Input: positive integers l, p
+ *
  * Output: matrix V = [[v00,v01],[v10,v11]] of field elements satisfying
  * (1, l)^T V = v0j + l*v1j = 0 (mod p) and |vij| ~ sqrt(p) for "random" l
  *
@@ -17,7 +18,10 @@ export { egcdStopEarly };
  * r1 * t0 - r1 * t1 * quotient - r0 * t1 + quotient * r1 * t1 =
  * r1 * t0 - r0 * t1 = -det
  */
-function egcdStopEarly(l: bigint, p: bigint) {
+function egcdStopEarly(
+  l: bigint,
+  p: bigint
+): [[bigint, bigint], [bigint, bigint]] {
   if (l > p) throw Error("a > p");
   let [r0, r1] = [p, l];
   let [s0, s1] = [1n, 0n];

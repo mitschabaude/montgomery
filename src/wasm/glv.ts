@@ -1,22 +1,198 @@
 import {
   $,
+  AnyFunc,
   Func,
+  Input,
+  Local,
+  Type,
   block,
   br_if,
   call,
   control,
+  drop,
   func,
   i32,
   i64,
   local,
 } from "wasmati";
-import { bigintToLimbs } from "../util.js";
-import { barrettError } from "./barrett.js";
+import {
+  abs,
+  assert,
+  bigintToLimbs,
+  divide,
+  log2,
+  max,
+  scale,
+} from "../util.js";
+import { barrettError, findMsbCutoff } from "./barrett.js";
 import { montgomeryParams } from "../field-util.js";
+import { egcdStopEarly } from "../glv/glv.js";
+import { createField } from "./field-helpers.js";
 
-export { glv };
+export { glvSpecial as glv, glvGeneral };
 
-function glv(q: bigint, lambda: bigint, w: number, barrett: Func<[i32], []>) {
+function glvGeneral(
+  q: bigint,
+  lambda: bigint,
+  w: number,
+  log: AnyFunc<[i32], []>
+) {
+  let Field = createField(q, w);
+  let { n, lengthP: lengthQ, wn } = montgomeryParams(q, w);
+  // n0 is the number of limbs we need for scalar halves and intermediate values
+  let n0 = Math.ceil(n / 2);
+  let m = BigInt(n0 * w);
+  let k = BigInt((n - n0) * w);
+  assert(k <= m);
+
+  // constants
+  let [[v00, v01], [v10, v11]] = egcdStopEarly(lambda, q);
+  let det = v00 * v11 - v10 * v01;
+  let m0 = ((1n << (m + k)) * -v11) / det;
+  let m1 = ((1n << (m + k)) * v10) / det;
+
+  // check that these fit into our halved number of limbs
+  let maxV = max(max(v00, v01), max(v10, v11));
+  let limbMax = 1n << m;
+  assert(maxV < limbMax);
+  assert(m0 < limbMax);
+  assert(m1 < limbMax);
+
+  let LAMBDA = bigintToLimbs(lambda, w, n);
+  let Q = bigintToLimbs(q, w, 2 * n);
+  let M0 = bigintToLimbs(m0, w, n0);
+  let M1 = bigintToLimbs(m1, w, n0);
+  let V00 = bigintToLimbs(v00, w, n0);
+  let V01 = bigintToLimbs(v01, w, n0);
+  let V10 = bigintToLimbs(v10, w, n0);
+  let V11 = bigintToLimbs(v11, w, n0);
+
+  console.log({ m0, M0 });
+  console.log({ m1, M1 });
+
+  let nLocals = Array<Type<i64>>(n).fill(i64);
+  let n0Locals = Array<Type<i64>>(n0).fill(i64);
+
+  const decompose = func(
+    {
+      in: [i32, i32, i32],
+      locals: [i64, ...nLocals, ...n0Locals, ...n0Locals],
+      out: [],
+    },
+    ([s0, s1, s], [tmp, ...rest]) => {
+      // algorithm at a high level:
+      // let x0 = (m0 * (s >> k)) >> m;
+      // let x1 = (m1 * (s >> k)) >> m;
+      // let s0 = v00 * x0 + v01 * x1 + s;
+      // let s1 = v10 * x0 + v11 * x1;
+
+      let S = rest.splice(0, n);
+      // s_hi := s >> k = highest n0 limbs of s
+      let SHi = S.slice(n - n0, n);
+
+      let X0 = rest.splice(0, n0);
+      let X1 = rest.splice(0, n0);
+
+      Field.load(s, S);
+
+      // x0 = ((s >> k) * m0) >> m
+      // x1 = ((s >> k) * m1) >> m
+      let nSafeTerms = 2 ** (64 - 2 * w);
+      assert(nSafeTerms >= n0);
+      multiplyMsb(X0, SHi, M0, tmp, n0, 0);
+      multiplyMsb(X1, SHi, M1, tmp, n0, 0);
+
+      // let s0 = v00 * x0 + v01 * x1 + s;
+      // let s1 = v10 * x0 + v11 * x1;
+      /**
+       * z = (x*y)[0..n], where x, y, z all have n limbs
+       */
+      assert(nSafeTerms >= 2 * n0 + 1);
+      for (let i = 0; i < n0; i++) {
+        for (let j = 0; j <= i; j++) {
+          i64.mul(X0[j], V00[i - j]);
+          if (!(j === 0 && i === 0)) i64.add();
+          i64.mul(X1[j], V01[i - j]);
+          i64.add();
+        }
+        i64.add($, S[i]);
+        // put carry on the stack
+        local.set(tmp, $);
+        local.get(tmp);
+        i64.shr_s($, wn);
+        // mod 2^w the current result
+        i64.and(tmp, Field.wordMax);
+        Field.storeLimb(s0, i, $);
+      }
+      drop();
+      for (let i = 0; i < n0; i++) {
+        for (let j = 0; j <= i; j++) {
+          i64.mul(X0[j], V10[i - j]);
+          if (!(j === 0 && i === 0)) i64.add();
+          i64.mul(X1[j], V11[i - j]);
+          i64.add();
+        }
+        Field.carrySigned($, tmp);
+        Field.storeLimb(s1, i, $);
+      }
+      drop();
+    }
+  );
+
+  /**
+   * z = x*y >> 2^(n*w), where x, y, z all have n limbs
+   *
+   * can use x === z
+   */
+  function multiplyMsb(
+    Z: Local<i64>[],
+    X: Input<i64>[],
+    Y: Input<i64>[],
+    tmp: Local<i64>,
+    n: number,
+    n0 = 0
+  ) {
+    for (let i = n0; i < 2 * n - 1; i++) {
+      for (let j = Math.max(0, i - n + 1); j < Math.min(i + 1, n); j++) {
+        i64.mul(X[j], Y[i - j]);
+        if (!(i === n0 && j === 0)) i64.add();
+      }
+      if (i < n) i64.shr_u($, wn);
+      if (i >= n) {
+        local.tee(tmp);
+        i64.and($, Field.wordMax);
+        local.set(Z[i - n]);
+        i64.shr_u(tmp, wn);
+      }
+    }
+    local.set(Z[n - 1]);
+  }
+
+  // compute s0, s1 upper bounds
+  // s0, s1 upper bounds
+  let m0Residual = ((1n << (m + k)) * -v11) % det;
+  let m1Residual = ((1n << (m + k)) * v10) % det;
+  let m0Error = Math.abs(divide(m0Residual, det));
+  let m1Error = Math.abs(divide(m1Residual, det));
+  let x0Error = 1 + divide(m0, 1n << m) + m0Error * divide(q, 1n << (m + k));
+  let x1Error = 1 + divide(m1, 1n << m) + m1Error * divide(q, 1n << (m + k));
+  let maxS0 = scale(x0Error, abs(v00)) + scale(x1Error, abs(v01));
+  let maxS1 = scale(x0Error, abs(v10)) + scale(x1Error, abs(v11));
+  let maxBits = Math.max(log2(maxS0), log2(maxS1));
+
+  return { decompose, maxBits, n0 };
+}
+
+/**
+ * GLV decomposition in the special case that the cube root of unity lambda has only half the bit length of the scalar field modulus,
+ * and we can just use barrett reduction s = s0 + s1*lambda to get small s0, s1
+ */
+function glvSpecial(
+  q: bigint,
+  lambda: bigint,
+  w: number,
+  barrett: Func<[i32], []>
+) {
   let { n, wordMax, lengthP, wn } = montgomeryParams(lambda, w);
   let k = lengthP - 1;
   let N = n * w;

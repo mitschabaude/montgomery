@@ -36,16 +36,16 @@ function memoryHelpers(
     packedSizeField,
     bitLength: lengthP,
 
-    writeBigint(x: number, x0: bigint) {
-      let arr = new Uint32Array(memory.buffer, x, n);
-      for (let i = 0; i < n; i++) {
+    writeBigint(x: number, x0: bigint, length = n) {
+      let arr = new Uint32Array(memory.buffer, x, length);
+      for (let i = 0; i < length; i++) {
         arr[i] = Number(x0 & wordMax);
         x0 >>= wn;
       }
     },
 
-    readBigint(x: number, length = 1) {
-      let arr = new Uint32Array(memory.buffer.slice(x, x + n * 4 * length));
+    readBigint(x: number, length = n) {
+      let arr = new Uint32Array(memory.buffer.slice(x, x + 4 * length));
       let x0 = 0n;
       let bitPosition = 0n;
       for (let i = 0; i < arr.length; i++) {

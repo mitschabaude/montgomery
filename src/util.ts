@@ -16,6 +16,7 @@ export {
   scale,
   max,
   abs,
+  assert,
 };
 
 function bigintFromBytes(bytes: Uint8Array) {
@@ -197,4 +198,13 @@ function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
     if (b1[i] !== b2[i]) return false;
   }
   return true;
+}
+
+function assert(condition: boolean, message?: string) {
+  if (!condition)
+    throw Error(
+      message === undefined
+        ? "Assertion failed"
+        : `Assertion failed: ${message}`
+    );
 }

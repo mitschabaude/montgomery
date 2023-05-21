@@ -3,6 +3,9 @@ import { mod, montgomeryParams } from "../field-util.js";
 import { abs, divide, log2, scale } from "../util.js";
 import assert from "node:assert";
 import { egcdStopEarly } from "./glv.js";
+import { createGeneralGlvScalar } from "../scalar-glv.js";
+
+let Scalar = await createGeneralGlvScalar(q, lambda, 29);
 
 let [[v00, v01], [v10, v11]] = egcdStopEarly(lambda, q);
 
@@ -34,8 +37,8 @@ const w = 29;
 let { n, lengthP: lengthQ } = montgomeryParams(q, w);
 let n0 = Math.ceil(n / 2);
 let m = BigInt(n0 * w);
-// let k = BigInt((n - n0) * w);
-let k = BigInt(lengthQ) - m;
+let k = BigInt((n - n0) * w);
+// let k = BigInt(lengthQ) - m;
 
 let det = v00 * v11 - v10 * v01;
 let m0 = ((1n << (m + k)) * -v11) / det;
@@ -77,10 +80,12 @@ console.log({
   maxBitsS1: log2(maxS1Est),
 });
 
-const Ntest = 100000;
+const Ntest = 1000000;
 let maxS0 = 0n;
 let maxS1 = 0n;
 let maxX = 0n;
+
+let scratch = Scalar.getPointers(20);
 
 for (let i = 0; i < Ntest; i++) {
   // random scalar
@@ -93,6 +98,18 @@ for (let i = 0; i < Ntest; i++) {
   let s1 = v10 * x0 + v11 * x1;
 
   assert(mod(s0 + s1 * lambda, q) === s);
+
+  let [sPtr, s0Ptr, s1Ptr] = scratch;
+
+  Scalar.writeBigint(sPtr, s);
+  Scalar.decompose(s0Ptr, s1Ptr, sPtr);
+
+  let s0_ = Scalar.readBigint(s0Ptr, n0);
+  let s1_ = Scalar.readBigint(s1Ptr, n0);
+
+  console.log({ s0, s0_, s1, s1_ });
+
+  assert(mod(s0_ + s1_ * lambda, q) === s);
 
   if (abs(s0) > maxS0) maxS0 = abs(s0);
   if (abs(s1) > maxS1) maxS1 = abs(s1);
