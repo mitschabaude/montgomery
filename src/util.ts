@@ -87,9 +87,6 @@ function bigintToBits(x: bigint, bitLength: number): boolean[] {
  * @param n number of limbs
  */
 function bigintToLimbs(x0: bigint, w: number, n: number) {
-  /**
-   * @type {bigint[]}
-   */
   let limbs: bigint[] = Array(n);
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
@@ -99,6 +96,34 @@ function bigintToLimbs(x0: bigint, w: number, n: number) {
   }
   return limbs;
 }
+
+/**
+ * Split bigint into n w-bit limbs, which are also bigints
+ * @param x
+ * @param w word size
+ * @param n number of limbs
+ */
+function bigintToLimbsSigned(x: bigint, w: number, n: number) {
+  let limbs: bigint[] = Array(n);
+  let wn = BigInt(w);
+  let max = 1n << wn;
+  let halfMax = 1n << (wn - 1n);
+  for (let i = 0; i < n; i++) {
+    let limb = x & (max - 1n);
+    if (limb >= halfMax) {
+      limb -= max;
+      x += max;
+    }
+    limbs[i] = limb;
+    x >>= wn;
+  }
+  assert(x === 0n, `input too large`);
+  return limbs;
+}
+let X = 2n ** 29n;
+console.log(
+  bigintToLimbsSigned(((X / 2n - 1n) * (X ** 9n - 1n)) / (X - 1n), 29, 9)
+);
 
 function bigintFromLimbs(x: BigUint64Array, w: number, n: number) {
   let wn = BigInt(w);
