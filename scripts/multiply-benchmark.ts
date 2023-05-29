@@ -76,7 +76,19 @@ for (let w of [29]) {
   );
 
   let wasm = (await module.instantiate()).instance.exports;
-  let { writeBigint, getPointer, getPointers, n } = memoryHelpers(p, w, wasm);
+  let { writeBigint, readBigint, getPointer, getPointers, n } = memoryHelpers(
+    p,
+    w,
+    wasm
+  );
+
+  function benchMultiplyBigint(x0: number, N: number) {
+    let x = readBigint(x0);
+    for (let i = 0; i < N; i++) {
+      x = (x * x) % p;
+    }
+    return x;
+  }
 
   let [scratch] = getPointers(10);
   let x = getPointer();
@@ -90,6 +102,7 @@ for (let w of [29]) {
   bench("multiply barrett", wasm.benchBarrett, { x, N });
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
+  bench("multiply bigint", benchMultiplyBigint, { x, N });
 
   writeBigint(x, randomFieldx2());
   writeBigint(y, randomFieldx2());
