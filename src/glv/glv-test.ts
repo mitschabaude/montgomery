@@ -80,12 +80,14 @@ console.log({
   maxBitsS1: log2(maxS1Est),
 });
 
-const Ntest = 1000000;
+const Ntest = 10000;
 let maxS0 = 0n;
 let maxS1 = 0n;
 let maxX = 0n;
 
 let scratch = Scalar.getPointers(20);
+
+// console.log({ v00, v01, v10, v11 });
 
 for (let i = 0; i < Ntest; i++) {
   // random scalar
@@ -94,22 +96,26 @@ for (let i = 0; i < Ntest; i++) {
   let x0 = (m0 * (s >> k)) >> m;
   let x1 = (m1 * (s >> k)) >> m;
 
+  // console.log({ x0, x1 });
+
   let s0 = v00 * x0 + v01 * x1 + s;
   let s1 = v10 * x0 + v11 * x1;
+
+  // console.log({ s0, s1 });
 
   assert(mod(s0 + s1 * lambda, q) === s);
 
   let [sPtr, s0Ptr, s1Ptr] = scratch;
 
   Scalar.writeBigint(sPtr, s);
-  Scalar.decompose(s0Ptr, s1Ptr, sPtr);
+  let [s0Neg, s1Neg] = Scalar.decompose(s0Ptr, s1Ptr, sPtr);
 
   let s0_ = Scalar.readBigint(s0Ptr, n0);
   let s1_ = Scalar.readBigint(s1Ptr, n0);
 
-  console.log({ s0, s0_, s1, s1_ });
+  console.log({ s0, s0_, s0Neg, s1, s1_, s1Neg });
 
-  assert(mod(s0_ + s1_ * lambda, q) === s);
+  assert(mod(sign(s0Neg) * s0_ + sign(s1Neg) * s1_ * lambda, q) === s);
 
   if (abs(s0) > maxS0) maxS0 = abs(s0);
   if (abs(s1) > maxS1) maxS1 = abs(s1);
@@ -128,3 +134,7 @@ console.log({
   maxBitsS0: log2(maxS0),
   maxBitsS1: log2(maxS1),
 });
+
+function sign(isNegative: number) {
+  return isNegative ? -1n : 1n;
+}

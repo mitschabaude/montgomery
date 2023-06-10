@@ -60,12 +60,12 @@ function glvGeneral(
 
   let LAMBDA = bigintToLimbs(lambda, w, n);
   let Q = bigintToLimbs(q, w, 2 * n);
-  let M0 = bigintToLimbs(m0, w, n0);
-  let M1 = bigintToLimbs(m1, w, n0);
-  let V00 = bigintToLimbs(v00, w, n0);
-  let V01 = bigintToLimbs(v01, w, n0);
-  let V10 = bigintToLimbs(v10, w, n0);
-  let V11 = bigintToLimbs(v11, w, n0);
+  let [m0Sign, M0] = bigintToLimbsPositive(m0, w, n0);
+  let [m1Sign, M1] = bigintToLimbsPositive(m1, w, n0);
+  let [v00Sign, V00] = bigintToLimbsPositive(v00, w, n0);
+  let [v01Sign, V01] = bigintToLimbsPositive(v01, w, n0);
+  let [v10Sign, V10] = bigintToLimbsPositive(v10, w, n0);
+  let [v11Sign, V11] = bigintToLimbsPositive(v11, w, n0);
 
   console.log({ m0, M0 });
   console.log({ m1, M1 });
@@ -77,7 +77,7 @@ function glvGeneral(
     {
       in: [i32, i32, i32],
       locals: [i64, ...nLocals, ...n0Locals, ...n0Locals],
-      out: [],
+      out: [i32, i32],
     },
     ([s0, s1, s], [tmp, ...rest]) => {
       // algorithm at a high level:
@@ -98,9 +98,13 @@ function glvGeneral(
       // x0 = ((s >> k) * m0) >> m
       // x1 = ((s >> k) * m1) >> m
       let nSafeTerms = 2 ** (64 - 2 * w);
+      let nSafeTermsSigned = 2 ** (63 - 2 * w);
       assert(nSafeTerms >= n0);
+      assert(nSafeTermsSigned >= n0);
       multiplyMsb(X0, SHi, M0, tmp, n0, 0);
       multiplyMsb(X1, SHi, M1, tmp, n0, 0);
+      let x0Sign = m0Sign;
+      let x1Sign = m1Sign;
 
       // let s0 = v00 * x0 + v01 * x1 + s;
       // let s1 = v10 * x0 + v11 * x1;
@@ -108,34 +112,36 @@ function glvGeneral(
        * z = (x*y)[0..n], where x, y, z all have n limbs
        */
       assert(nSafeTerms >= 2 * n0 + 1);
+      assert(nSafeTermsSigned >= 2 * n0 + 1);
       for (let i = 0; i < n0; i++) {
+        local.get(S[i]);
+        if (i !== 0) i64.add();
         for (let j = 0; j <= i; j++) {
           i64.mul(X0[j], V00[i - j]);
-          if (!(j === 0 && i === 0)) i64.add();
+          addSigned(x0Sign * v00Sign);
           i64.mul(X1[j], V01[i - j]);
-          i64.add();
+          addSigned(x1Sign * v01Sign);
         }
-        i64.add($, S[i]);
-        // put carry on the stack
-        local.set(tmp, $);
-        local.get(tmp);
-        i64.shr_s($, wn);
-        // mod 2^w the current result
-        i64.and(tmp, Field.wordMax);
+        Field.carrySigned($, tmp);
         Field.storeLimb(s0, i, $);
       }
-      drop();
+      // final value on the stack is 0 or -1; turn it into a sign flag
+      i64.eq($, -1n);
+
       for (let i = 0; i < n0; i++) {
+        i64.const(0n);
+        if (i !== 0) i64.add();
         for (let j = 0; j <= i; j++) {
           i64.mul(X0[j], V10[i - j]);
-          if (!(j === 0 && i === 0)) i64.add();
+          addSigned(x0Sign * v10Sign);
           i64.mul(X1[j], V11[i - j]);
-          i64.add();
+          addSigned(x1Sign * v11Sign);
         }
         Field.carrySigned($, tmp);
         Field.storeLimb(s1, i, $);
       }
-      drop();
+      // final value on the stack is 0 or -1; turn it into a sign flag
+      i64.eq($, -1n);
     }
   );
 
@@ -181,6 +187,19 @@ function glvGeneral(
   let maxBits = Math.max(log2(maxS0), log2(maxS1));
 
   return { decompose, maxBits, n0 };
+}
+
+function addSigned(sign: number) {
+  return sign === -1 ? i64.sub() : i64.add();
+}
+
+function bigintToLimbsPositive(
+  x: bigint,
+  w: number,
+  n: number
+): [sign: 1 | -1, limbs: bigint[]] {
+  if (x >= 0) return [1, bigintToLimbs(x, w, n)];
+  return [-1, bigintToLimbs(-x, w, n)];
 }
 
 /**

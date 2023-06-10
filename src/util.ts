@@ -120,10 +120,10 @@ function bigintToLimbsSigned(x: bigint, w: number, n: number) {
   assert(x === 0n, `input too large`);
   return limbs;
 }
-let X = 2n ** 29n;
-console.log(
-  bigintToLimbsSigned(((X / 2n - 1n) * (X ** 9n - 1n)) / (X - 1n), 29, 9)
-);
+// let X = 2n ** 29n;
+// console.log(
+//   bigintToLimbsSigned(((X / 2n - 1n) * (X ** 9n - 1n)) / (X - 1n), 29, 9)
+// );
 
 function bigintFromLimbs(x: BigUint64Array, w: number, n: number) {
   let wn = BigInt(w);
