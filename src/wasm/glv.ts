@@ -33,12 +33,7 @@ import { createField } from "./field-helpers.js";
 
 export { glvSpecial as glv, glvGeneral };
 
-function glvGeneral(
-  q: bigint,
-  lambda: bigint,
-  w: number,
-  log: AnyFunc<[i32], []>
-) {
+function glvGeneral(q: bigint, lambda: bigint, w: number) {
   let Field = createField(q, w);
   let { n, lengthP: lengthQ, wn } = montgomeryParams(q, w);
   // n0 is the number of limbs we need for scalar halves and intermediate values

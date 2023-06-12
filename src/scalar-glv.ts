@@ -1,6 +1,5 @@
 import type * as W from "wasmati";
-import { Const, Module, global, memory, importFunc, i32 } from "wasmati";
-import { barrettReduction } from "./wasm/barrett.js";
+import { Const, Module, global, memory } from "wasmati";
 import { glv, glvGeneral } from "./wasm/glv.js";
 import { bigintFromBytes } from "./util.js";
 import { memoryHelpers } from "./wasm/helpers.js";
@@ -29,12 +28,7 @@ type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
  */
 async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n } = montgomeryParams(q, w);
-
-  const logBigint = importFunc({ in: [i32], out: [] }, (ptr: number) => {
-    console.log(glvHelpers.readBigint(ptr));
-  });
-
-  const { decompose, n0 } = glvGeneral(q, lambda, w, logBigint);
+  const { decompose, n0 } = glvGeneral(q, lambda, w);
 
   let module = Module({
     exports: {
