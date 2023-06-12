@@ -1,5 +1,5 @@
 // run with ts-node-esm
-import { Field, Scalar, Random } from "../src/concrete/bls12-381.js";
+import { Field, Scalar, Random } from "../src/concrete/pasta.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modInverse } from "../src/field-util.js";
@@ -21,6 +21,7 @@ function ofWasm([tmp]: number[], x: number) {
 }
 
 let [x, y, z, z_hi, ...scratch] = Field.getPointers(10);
+let scratchScalar = Scalar.getPointers(10);
 
 let R = mod(1n << BigInt(Field.w * Field.n), p);
 let Rinv = modInverse(R, p);
@@ -134,7 +135,7 @@ function test() {
 
   // extractBitSlice (wasm)
   let s = Scalar.getPointer();
-  Scalar.writeBytesDouble(s, arr);
+  Scalar.writeBytes(scratchScalar, s, arr);
   const { extractBitSlice } = Scalar;
   e = Error("extractBitSlice (wasm)");
   if (extractBitSlice(s, 2, 4) !== 0b10_01) throw e;

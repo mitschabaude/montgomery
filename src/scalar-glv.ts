@@ -1,7 +1,6 @@
 import type * as W from "wasmati";
 import { Const, Module, global, memory } from "wasmati";
-import { barrettReduction } from "./wasm/barrett.js";
-import { glv } from "./wasm/glv.js";
+import { glv, glvGeneral } from "./wasm/glv.js";
 import { bigintFromBytes } from "./util.js";
 import { memoryHelpers } from "./wasm/helpers.js";
 import {
@@ -9,10 +8,17 @@ import {
   fromPackedBytes,
   toPackedBytes,
 } from "./wasm/field-helpers.js";
-import { montgomeryParams } from "./field-util.js";
+import { mod, montgomeryParams } from "./field-util.js";
 import { UnwrapPromise } from "./types.js";
+// import { writeWat } from "./wasm/wat-helpers.js";
 
-export { createGlvScalar, GlvScalar, createSimpleScalar, SimpleScalar };
+export {
+  createGlvScalar,
+  createGeneralGlvScalar,
+  GlvScalar,
+  createSimpleScalar,
+  SimpleScalar,
+};
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
 type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
@@ -20,11 +26,62 @@ type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 /**
  * scalar module for MSM with GLV
  */
+async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
+  const { n } = montgomeryParams(q, w);
+  const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
+
+  let module = Module({
+    exports: {
+      decompose,
+      fromPackedBytesSmall: fromPackedBytes(w, n0),
+      fromPackedBytes: fromPackedBytes(w, n),
+      extractBitSlice: extractBitSlice(w, n0),
+      memory: memory({ min: 1 << 10 }),
+      dataOffset: global(Const.i32(0)),
+    },
+  });
+
+  let m = await module.instantiate();
+  const glvWasm = m.instance.exports;
+
+  const glvHelpers = memoryHelpers(q, w, glvWasm);
+
+  let scratch = glvHelpers.getStablePointers(10);
+  let [scratchPtr, scratchPtr2, scratchPtr3] = scratch;
+
+  function testDecomposeScalar(scalar: bigint) {
+    glvHelpers.writeBigint(scratchPtr, scalar);
+    let negateFlags = glvWasm.decompose(scratchPtr2, scratchPtr3, scratchPtr);
+    let s0Sign = negateFlags & 1 ? -1n : 1n;
+    let s1Sign = negateFlags >> 1 ? -1n : 1n;
+
+    let s0 = s0Sign * glvHelpers.readBigint(scratchPtr2, n0);
+    let s1 = s1Sign * glvHelpers.readBigint(scratchPtr3, n0);
+
+    let isCorrect = mod(s0 + s1 * lambda, q) === scalar;
+    return isCorrect;
+  }
+
+  // await writeWat(
+  //   import.meta.url.slice(7).replace(".ts", ".wat"),
+  //   module.toBytes()
+  // );
+
+  return {
+    ...glvHelpers,
+    ...glvWasm,
+    scratch,
+    maxBits,
+    testDecomposeScalar,
+  };
+}
+
+/**
+ * scalar module for MSM with GLV
+ */
 async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w);
-
-  const barrett = barrettReduction(lambda, w);
-  const { decompose, decomposeNoMsb } = glv(q, lambda, w, barrett);
+  const { decompose, decomposeNoMsb } = glv(q, lambda, w);
 
   let module = Module({
     exports: {

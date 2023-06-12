@@ -1,11 +1,18 @@
 import { randomGenerators } from "../field-util.js";
+import { p, q, beta, lambda } from "./pasta.params.js";
+import { createMsmField } from "../field-msm.js";
+import { createGeneralGlvScalar } from "../scalar-glv.js";
+import { createCurveAffine } from "../curve-affine.js";
+import { createCurveProjective } from "../curve-projective.js";
 
-export { p, q, nBits, nBytes, randomField, randomFieldx2 };
+export { Field, Scalar, CurveAffine, CurveProjective, Random };
 
-const p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001n;
-const q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001n;
+const Field = await createMsmField(p, beta, 30);
+const Scalar = await createGeneralGlvScalar(q, lambda, 29);
+const CurveAffine = createCurveAffine(Field);
+const CurveProjective = createCurveProjective(Field);
 
-const nBits = 255;
-const nBytes = 32;
+const { randomField: randomScalar, randomFields: randomScalars } =
+  randomGenerators(q);
 
-const { randomField, randomFieldx2 } = randomGenerators(p);
+const Random = { ...randomGenerators(p), randomScalar, randomScalars };

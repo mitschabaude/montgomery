@@ -6,7 +6,7 @@ import {
   CurveProjective,
   Field,
   Scalar,
-} from "./concrete/bls12-381.js";
+} from "./concrete/pasta.js";
 import { log2 } from "./util.js";
 
 const {
@@ -40,15 +40,12 @@ const {
 
 let {
   decompose,
-  decomposeNoMsb,
   extractBitSlice,
-  writeBytesDouble: writeBytesScalar,
-  writeBigintDouble: writeBigintScalar,
   sizeField: sizeScalar,
   getPointer: getPointerScalar,
   resetPointers: resetPointersScalar,
-  bitLength: scalarBitlength,
 } = Scalar;
+const scalarBitlength = Scalar.maxBits;
 
 let { sizeAffine, doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } =
   CurveAffine;
@@ -215,7 +212,7 @@ function msmBytesInput(
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function msm(
-  scalarPtr: number,
+  scalarPtr0: number,
   pointPtr0: number,
   N: number,
   {
@@ -233,8 +230,7 @@ function msm(
   if (c_) c = c_;
   if (c0_) c0 = c0_;
 
-  let K = Math.ceil(scalarBitlength / c); // number of partitions
-  let dividesEvenly = K * c === scalarBitlength;
+  let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
   let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
   let doubleL = 2 * L;
 
@@ -242,6 +238,7 @@ function msm(
   let sizeAffine4 = 4 * sizeAffine;
   let pointPtr = getPointer(N * sizeAffine4);
   let sizeScalar2 = 2 * sizeScalar;
+  let scalarPtr = getPointer(N * sizeScalar2);
 
   let bucketCounts: number[][] = Array(K);
   for (let k = 0; k < K; k++) {
@@ -290,24 +287,24 @@ function msm(
    * by the architecture and can't be significantly reduced.
    */
   for (
-    let i = 0, point0 = pointPtr0, point = pointPtr, scalar = scalarPtr;
+    let i = 0,
+      point0 = pointPtr0,
+      point = pointPtr,
+      scalarInput = scalarPtr0,
+      scalar = scalarPtr;
     i < N;
-    i++, point0 += sizeAffine, point += sizeAffine4, scalar += sizeScalar2
+    i++,
+      point0 += sizeAffine,
+      point += sizeAffine4,
+      scalarInput += sizeScalar,
+      scalar += sizeScalar2
   ) {
     // load scalar and decompose from one 32-byte into two 16-byte chunks
-    let negateFlags = 0;
-    /**
-     * if the window size exactly divides the scalar bit length, we have to make sure that neither
-     * of the two scalar halves has its MSB set, otherwise the NAF transformation below doesn't work --
-     * there'd be a final carry bit that's not accounted for.
-     */
-    if (dividesEvenly) {
-      negateFlags = decomposeNoMsb(scalar);
-    } else {
-      decompose(scalar);
-    }
-    let negateFirst = negateFlags & 1;
-    let negateSecond = negateFlags >> 1;
+    let scalar0 = scalar;
+    let scalar1 = scalar + sizeScalar;
+    let negateFlags = decompose(scalar0, scalar1, scalarInput);
+    let scalar0Negative = negateFlags & 1;
+    let scalar1Negative = negateFlags >> 1;
 
     let x = point;
     let y = point + sizeField;
@@ -331,13 +328,13 @@ function msm(
     copy(negEndoPoint, endoPoint);
     memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
 
-    if (negateFirst) {
+    if (scalar0Negative) {
       copy(negPoint + sizeField, y);
       subtract(y, constants.p, y);
     } else {
       subtract(negPoint + sizeField, constants.p, y);
     }
-    if (negateSecond === negateFirst) {
+    if (scalar1Negative === scalar0Negative) {
       copy(endoPoint + sizeField, y);
       copy(negEndoPoint + sizeField, negPoint + sizeField);
     } else {
@@ -348,7 +345,7 @@ function msm(
     // partition each 16-byte scalar into c-bit slices
     for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
       // compute kth slice from first half scalar
-      let l = extractBitSlice(scalar, k * c, c) + carry0;
+      let l = extractBitSlice(scalar0, k * c, c) + carry0;
 
       if (l > L) {
         l = doubleL - l;
@@ -366,7 +363,7 @@ function msm(
       // note: we repeat this code instead of merging both into a loop of size 2,
       // because the latter would imply creating a throw-away array of size two for the scalars.
       // creating such throw-away objects has a garbage collection cost
-      l = extractBitSlice(scalar + sizeScalar, k * c, c) + carry1;
+      l = extractBitSlice(scalar1, k * c, c) + carry1;
 
       if (l > L) {
         l = doubleL - l;
@@ -892,11 +889,10 @@ function toAffineOutputBigint(
 
 function bigintScalarsToMemory(inputScalars: bigint[]) {
   let N = inputScalars.length;
-  let sizeScalar2 = 2 * sizeScalar;
-  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
-  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar2) {
+  let scalarPtr = getPointerScalar(N * sizeScalar);
+  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar) {
     let inputScalar = inputScalars[i];
-    writeBigintScalar(scalar, inputScalar);
+    Scalar.writeBigint(scalar, inputScalar);
   }
   return scalarPtr;
 }
@@ -927,11 +923,11 @@ function bigintPointsToMemory(inputPoints: BigintPoint[]) {
 
 function bytesScalarsToMemory(inputScalars: Uint8Array[]) {
   let N = inputScalars.length;
-  let sizeScalar2 = 2 * sizeScalar;
-  let scalarPtr = getPointerScalar(2 * N * sizeScalar2);
-  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar2) {
+  let scratch = [getPointerScalar()];
+  let scalarPtr = getPointerScalar(N * sizeScalar);
+  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar) {
     let inputScalar = inputScalars[i];
-    writeBytesScalar(scalar, inputScalar);
+    Scalar.writeBytes(scratch, scalar, inputScalar);
   }
   return scalarPtr;
 }

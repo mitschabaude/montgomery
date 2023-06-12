@@ -12,6 +12,12 @@ export {
   mapRange,
   randomBytes,
   bytesEqual,
+  divide,
+  scale,
+  max,
+  abs,
+  sign,
+  assert,
 };
 
 function bigintFromBytes(bytes: Uint8Array) {
@@ -82,9 +88,6 @@ function bigintToBits(x: bigint, bitLength: number): boolean[] {
  * @param n number of limbs
  */
 function bigintToLimbs(x0: bigint, w: number, n: number) {
-  /**
-   * @type {bigint[]}
-   */
   let limbs: bigint[] = Array(n);
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
@@ -95,7 +98,35 @@ function bigintToLimbs(x0: bigint, w: number, n: number) {
   return limbs;
 }
 
-function bigintFromLimbs(x: BigUint64Array, w: number, n: number) {
+/**
+ * Split bigint into n w-bit limbs, which are also bigints
+ * @param x
+ * @param w word size
+ * @param n number of limbs
+ */
+function bigintToLimbsSigned(x: bigint, w: number, n: number) {
+  let limbs: bigint[] = Array(n);
+  let wn = BigInt(w);
+  let max = 1n << wn;
+  let halfMax = 1n << (wn - 1n);
+  for (let i = 0; i < n; i++) {
+    let limb = x & (max - 1n);
+    if (limb >= halfMax) {
+      limb -= max;
+      x += max;
+    }
+    limbs[i] = limb;
+    x >>= wn;
+  }
+  assert(x === 0n, `input too large`);
+  return limbs;
+}
+// let X = 2n ** 29n;
+// console.log(
+//   bigintToLimbsSigned(((X / 2n - 1n) * (X ** 9n - 1n)) / (X - 1n), 29, 9)
+// );
+
+function bigintFromLimbs(x: BigUint64Array | bigint[], w: number, n: number) {
   let wn = BigInt(w);
   let x0 = x[n - 1];
   for (let i = n - 2; i >= 0; i--) {
@@ -117,6 +148,34 @@ function log2(n: number | bigint) {
   if (typeof n === "number") n = BigInt(n);
   if (n === 1n) return 0;
   return (n - 1n).toString(2).length;
+}
+
+/**
+ * divide two bigints to return a float of given precision
+ */
+function divide(x: bigint, y: bigint, prec = 10) {
+  let length = y.toString(10).length;
+  let exp = BigInt(length - prec);
+  return Number(x / 10n ** exp) / Number(y / 10n ** exp);
+}
+
+/**
+ * scale bigint by a float
+ */
+function scale(c: number, x: bigint, prec = 10) {
+  return (BigInt(Math.round(c * 10 ** prec)) * x) / 10n ** BigInt(prec);
+}
+
+function max(a: bigint, b: bigint) {
+  return a > b ? a : b;
+}
+
+function abs(x: bigint) {
+  return x < 0n ? -x : x;
+}
+
+function sign(x: bigint) {
+  return x >= 0 ? 1n : -1n;
 }
 
 /**
@@ -169,4 +228,13 @@ function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
     if (b1[i] !== b2[i]) return false;
   }
   return true;
+}
+
+function assert(condition: boolean, message?: string) {
+  if (!condition)
+    throw Error(
+      message === undefined
+        ? "Assertion failed"
+        : `Assertion failed: ${message}`
+    );
 }
