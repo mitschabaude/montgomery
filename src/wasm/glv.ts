@@ -13,7 +13,9 @@ import {
   func,
   i32,
   i64,
+  if_,
   local,
+  unreachable,
 } from "wasmati";
 import {
   abs,
@@ -39,6 +41,7 @@ function glvGeneral(
 ) {
   let Field = createField(q, w);
   let { n, lengthP: lengthQ, wn } = montgomeryParams(q, w);
+  let wordMax = BigInt(Field.wordMax);
   // n0 is the number of limbs we need for scalar halves and intermediate values
   let n0 = Math.ceil(n / 2);
   let m = BigInt(n0 * w);
@@ -58,14 +61,13 @@ function glvGeneral(
   assert(m0 < limbMax);
   assert(m1 < limbMax);
 
-  let LAMBDA = bigintToLimbs(lambda, w, n);
-  let Q = bigintToLimbs(q, w, 2 * n);
-  let [m0Sign, M0] = bigintToLimbsPositive(m0, w, n0);
-  let [m1Sign, M1] = bigintToLimbsPositive(m1, w, n0);
-  let [v00Sign, V00] = bigintToLimbsPositive(v00, w, n0);
-  let [v01Sign, V01] = bigintToLimbsPositive(v01, w, n0);
-  let [v10Sign, V10] = bigintToLimbsPositive(v10, w, n0);
-  let [v11Sign, V11] = bigintToLimbsPositive(v11, w, n0);
+  // TODO make these work with an n0 limb representation
+  let [m0Sign, M0] = bigintToLimbsPositive(m0, w, n);
+  let [m1Sign, M1] = bigintToLimbsPositive(m1, w, n);
+  let [v00Sign, V00] = bigintToLimbsPositive(v00, w, n);
+  let [v01Sign, V01] = bigintToLimbsPositive(v01, w, n);
+  let [v10Sign, V10] = bigintToLimbsPositive(v10, w, n);
+  let [v11Sign, V11] = bigintToLimbsPositive(v11, w, n);
 
   console.log({ m0, M0 });
   console.log({ m1, M1 });
@@ -76,7 +78,8 @@ function glvGeneral(
   const decompose = func(
     {
       in: [i32, i32, i32],
-      locals: [i64, ...nLocals, ...n0Locals, ...n0Locals],
+      // TODO X0, X1 should be n0 limbs
+      locals: [i64, ...nLocals, ...nLocals, ...nLocals],
       out: [i32, i32],
     },
     ([s0, s1, s], [tmp, ...rest]) => {
@@ -90,8 +93,9 @@ function glvGeneral(
       // s_hi := s >> k = highest n0 limbs of s
       let SHi = S.slice(n - n0, n);
 
-      let X0 = rest.splice(0, n0);
-      let X1 = rest.splice(0, n0);
+      // TODO
+      let X0 = rest.splice(0, n);
+      let X1 = rest.splice(0, n);
 
       Field.load(s, S);
 
@@ -113,7 +117,8 @@ function glvGeneral(
        */
       assert(nSafeTerms >= 2 * n0 + 1);
       assert(nSafeTermsSigned >= 2 * n0 + 1);
-      for (let i = 0; i < n0; i++) {
+      // TODO
+      for (let i = 0; i < n; i++) {
         local.get(S[i]);
         if (i !== 0) i64.add();
         for (let j = 0; j <= i; j++) {
@@ -125,10 +130,23 @@ function glvGeneral(
         Field.carrySigned($, tmp);
         Field.storeLimb(s0, i, $);
       }
-      // final value on the stack is 0 or -1; turn it into a sign flag
-      i64.eq($, -1n);
 
-      for (let i = 0; i < n0; i++) {
+      // if final value on the stack -1, we have to sign-flip the representation
+      local.set(tmp);
+      i64.ne(tmp, 0n);
+      if_(
+        { out: [i32] },
+        () => {
+          i64.ne(tmp, -1n);
+          if_(null, () => unreachable());
+          // TODO n0
+          flipSign(s0, tmp, n);
+          i32.const(1); // return isNegative flag
+        },
+        () => i32.const(0)
+      );
+
+      for (let i = 0; i < n; i++) {
         i64.const(0n);
         if (i !== 0) i64.add();
         for (let j = 0; j <= i; j++) {
@@ -140,13 +158,37 @@ function glvGeneral(
         Field.carrySigned($, tmp);
         Field.storeLimb(s1, i, $);
       }
-      // final value on the stack is 0 or -1; turn it into a sign flag
-      i64.eq($, -1n);
+
+      // if final value on the stack -1, we have to sign-flip the representation
+      local.set(tmp);
+      i64.ne(tmp, 0n);
+      if_(
+        { out: [i32] },
+        () => {
+          i64.ne(tmp, -1n);
+          if_(null, () => unreachable());
+          // TODO n0
+          flipSign(s1, tmp, n);
+          i32.const(1); // return isNegative flag
+        },
+        () => i32.const(0)
+      );
     }
   );
 
+  function flipSign(x: Local<i32>, xi: Local<i64>, n: number) {
+    i64.const(1n);
+    for (let i = 0; i < n; i++) {
+      i64.sub(wordMax, Field.loadLimb(x, i));
+      i64.add();
+      Field.carrySigned($, xi);
+      Field.storeLimb(x, i, $);
+    }
+    drop();
+  }
+
   /**
-   * z = x*y >> 2^(n*w), where x, y, z all have n limbs
+   * z = x*y >> n*w, where x, y, z all have n limbs
    *
    * can use x === z
    */
