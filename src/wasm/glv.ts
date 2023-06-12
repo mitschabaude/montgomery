@@ -26,7 +26,7 @@ import {
   max,
   scale,
 } from "../util.js";
-import { barrettError, findMsbCutoff } from "./barrett.js";
+import { barrettError, barrettReduction, findMsbCutoff } from "./barrett.js";
 import { montgomeryParams } from "../field-util.js";
 import { egcdStopEarly } from "../glv/glv.js";
 import { createField } from "./field-helpers.js";
@@ -41,7 +41,6 @@ function glvGeneral(
 ) {
   let Field = createField(q, w);
   let { n, lengthP: lengthQ, wn } = montgomeryParams(q, w);
-  let wordMax = BigInt(Field.wordMax);
   // n0 is the number of limbs we need for scalar halves and intermediate values
   let n0 = Math.ceil(n / 2);
   let m = BigInt(n0 * w);
@@ -105,8 +104,10 @@ function glvGeneral(
       let nSafeTermsSigned = 2 ** (63 - 2 * w);
       assert(nSafeTerms >= n0);
       assert(nSafeTermsSigned >= n0);
+
       multiplyMsb(X0, SHi, M0, tmp, n0, 0);
       multiplyMsb(X1, SHi, M1, tmp, n0, 0);
+
       let x0Sign = m0Sign;
       let x1Sign = m1Sign;
 
@@ -179,7 +180,7 @@ function glvGeneral(
   function flipSign(x: Local<i32>, xi: Local<i64>, n: number) {
     i64.const(1n);
     for (let i = 0; i < n; i++) {
-      i64.sub(wordMax, Field.loadLimb(x, i));
+      i64.sub(Field.wordMax, Field.loadLimb(x, i));
       i64.add();
       Field.carrySigned($, xi);
       Field.storeLimb(x, i, $);
@@ -207,10 +208,8 @@ function glvGeneral(
       }
       if (i < n) i64.shr_u($, wn);
       if (i >= n) {
-        local.tee(tmp);
-        i64.and($, Field.wordMax);
+        Field.carry($, tmp);
         local.set(Z[i - n]);
-        i64.shr_u(tmp, wn);
       }
     }
     local.set(Z[n - 1]);
@@ -248,12 +247,7 @@ function bigintToLimbsPositive(
  * GLV decomposition in the special case that the cube root of unity lambda has only half the bit length of the scalar field modulus,
  * and we can just use barrett reduction s = s0 + s1*lambda to get small s0, s1
  */
-function glvSpecial(
-  q: bigint,
-  lambda: bigint,
-  w: number,
-  barrett: Func<[i32], []>
-) {
+function glvSpecial(q: bigint, lambda: bigint, w: number) {
   let { n, wordMax, lengthP, wn } = montgomeryParams(lambda, w);
   let k = lengthP - 1;
   let N = n * w;
@@ -261,6 +255,8 @@ function glvSpecial(
   let LAMBDA = bigintToLimbs(lambda, w, n);
   let Q = bigintToLimbs(q, w, 2 * n);
   let sizeScalar = 4 * n;
+
+  const barrett = barrettReduction(lambda, w);
 
   // let's compute the maximum error in barrett reduction
   // scalars are < q, which is slightly larger than lambda^2
@@ -412,5 +408,5 @@ function glvSpecial(
     }
   );
 
-  return { decompose, decomposeNoMsb };
+  return { decompose, decomposeNoMsb, barrett };
 }

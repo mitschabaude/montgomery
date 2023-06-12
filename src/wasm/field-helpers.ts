@@ -9,8 +9,15 @@ import {
   Local,
   StackVar,
   Input,
+  importFunc,
+  Type,
+  call,
 } from "wasmati";
-import { bigintToBytes, bigintToLimbs as bigintToLimbs_ } from "../util.js";
+import {
+  bigintFromLimbs,
+  bigintToBytes,
+  bigintToLimbs as bigintToLimbs_,
+} from "../util.js";
 import { montgomeryParams } from "../field-util.js";
 
 export { createField, Field };
@@ -72,6 +79,22 @@ function createField(p: bigint, w: number) {
     }
     i32.wrap_i64(X[n - 1]);
     i32.store({ offset: 4 * (n - 1) }, x, $);
+  }
+
+  // TODO wasmati optimizes for TS tuples, should be easier to work with TS arrays
+  let limbsType: Tuple<Type<i64>> = [i64, ...Array(n - 1).fill(i64)];
+
+  let logLocalsImport = importFunc(
+    { in: limbsType, out: [] },
+    (...limbs: bigint[]) => {
+      let x = bigintFromLimbs(limbs, w, n);
+      console.log("logging from wasm (limbs)", limbs);
+      console.log("logging from wasm", x);
+    }
+  );
+
+  function logLocals(X: Local<i64>[]) {
+    call(logLocalsImport, X as Tuple<Local<i64>>);
   }
 
   /**
@@ -141,6 +164,7 @@ function createField(p: bigint, w: number) {
     carryAndStore,
     optionalCarry,
     optionalCarryAdd,
+    logLocals,
   };
 }
 
@@ -290,3 +314,5 @@ function extractBitSlice(w: number, n: number) {
     }
   );
 }
+
+type Tuple<T> = [T, ...T[]];

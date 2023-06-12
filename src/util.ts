@@ -16,6 +16,7 @@ export {
   scale,
   max,
   abs,
+  sign,
   assert,
 };
 
@@ -125,7 +126,7 @@ function bigintToLimbsSigned(x: bigint, w: number, n: number) {
 //   bigintToLimbsSigned(((X / 2n - 1n) * (X ** 9n - 1n)) / (X - 1n), 29, 9)
 // );
 
-function bigintFromLimbs(x: BigUint64Array, w: number, n: number) {
+function bigintFromLimbs(x: BigUint64Array | bigint[], w: number, n: number) {
   let wn = BigInt(w);
   let x0 = x[n - 1];
   for (let i = n - 2; i >= 0; i--) {
@@ -171,6 +172,10 @@ function max(a: bigint, b: bigint) {
 
 function abs(x: bigint) {
   return x < 0n ? -x : x;
+}
+
+function sign(x: bigint) {
+  return x >= 0 ? 1n : -1n;
 }
 
 /**

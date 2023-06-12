@@ -82,9 +82,7 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
  */
 async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w);
-
-  const barrett = barrettReduction(lambda, w);
-  const { decompose, decomposeNoMsb } = glv(q, lambda, w, barrett);
+  const { decompose, decomposeNoMsb } = glv(q, lambda, w);
 
   let module = Module({
     exports: {

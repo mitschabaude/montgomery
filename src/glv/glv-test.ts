@@ -1,6 +1,6 @@
 import { lambda, q, randomScalar } from "../concrete/pasta.js";
 import { mod, montgomeryParams } from "../field-util.js";
-import { abs, divide, log2, scale } from "../util.js";
+import { abs, divide, log2, scale, sign } from "../util.js";
 import assert from "node:assert";
 import { egcdStopEarly } from "./glv.js";
 import { createGeneralGlvScalar } from "../scalar-glv.js";
@@ -83,8 +83,6 @@ console.log({
 const Ntest = 10000;
 let maxS0 = 0n;
 let maxS1 = 0n;
-let maxS0_ = 0n;
-let maxS1_ = 0n;
 let maxX = 0n;
 
 let scratch = Scalar.getPointers(20);
@@ -95,55 +93,45 @@ for (let i = 0; i < Ntest; i++) {
   // random scalar
   let s = randomScalar();
 
-  let x0 = (m0 * (s >> k)) >> m;
-  let x1 = (m1 * (s >> k)) >> m;
-
-  // console.log({ x0, x1 });
+  let x0 = sign(m0) * ((abs(m0) * (s >> k)) >> m);
+  let x1 = sign(m0) * ((abs(m1) * (s >> k)) >> m);
 
   let s0 = v00 * x0 + v01 * x1 + s;
   let s1 = v10 * x0 + v11 * x1;
 
-  // console.log({ s0, s1 });
-
-  assert(mod(s0 + s1 * lambda, q) === s);
+  assert(mod(s0 + s1 * lambda, q) === s, "bigint impl is valid decomposition");
 
   let [sPtr, s0Ptr, s1Ptr] = scratch;
 
   Scalar.writeBigint(sPtr, s);
   let [s0Neg, s1Neg] = Scalar.decompose(s0Ptr, s1Ptr, sPtr);
 
-  let s0_ = Scalar.readBigint(s0Ptr, n);
-  let s1_ = Scalar.readBigint(s1Ptr, n);
+  let s0_ = signFromFlag(s0Neg) * Scalar.readBigint(s0Ptr, n);
+  let s1_ = signFromFlag(s1Neg) * Scalar.readBigint(s1Ptr, n);
 
-  // console.log({ s0, s0_, s0Neg, s1, s1_, s1Neg });
+  assert(mod(s0_ + s1_ * lambda, q) === s, "wasm impl is valid decomposition");
 
-  assert(mod(sign(s0Neg) * s0_ + sign(s1Neg) * s1_ * lambda, q) === s);
+  assert(s0_ === s0, "same s0");
+  assert(s1_ === s1, "same s1");
 
   if (abs(s0) > maxS0) maxS0 = abs(s0);
   if (abs(s1) > maxS1) maxS1 = abs(s1);
   if (abs(x0) > maxX) maxX = abs(x0);
   if (abs(x1) > maxX) maxX = abs(x1);
-
-  if (abs(s0_) > maxS0_) maxS0_ = abs(s0_);
-  if (abs(s1_) > maxS1_) maxS1_ = abs(s1_);
 }
 assert(maxS0 < maxS0Est);
 assert(maxS1 < maxS1Est);
 console.log({
   maxS0: maxS0.toString(16),
   maxS1: maxS1.toString(16),
-  maxS0_: maxS0_.toString(16),
-  maxS1_: maxS1_.toString(16),
   maxX: maxX.toString(16),
 });
 console.log({
   maxBitsX: log2(maxX),
   maxBitsS0: log2(maxS0),
   maxBitsS1: log2(maxS1),
-  maxBitsS0_: log2(maxS0_),
-  maxBitsS1_: log2(maxS1_),
 });
 
-function sign(isNegative: number) {
+function signFromFlag(isNegative: number) {
   return isNegative ? -1n : 1n;
 }
