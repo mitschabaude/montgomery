@@ -100,7 +100,9 @@ for (let i = 0; i < Ntest; i++) {
   let [sPtr, s0Ptr, s1Ptr] = scratch;
 
   Scalar.writeBigint(sPtr, s);
-  let [s0Neg, s1Neg] = Scalar.decompose(s0Ptr, s1Ptr, sPtr);
+  let flags = Scalar.decompose(s0Ptr, s1Ptr, sPtr);
+  let s0Neg = flags & 1;
+  let s1Neg = flags >> 1;
 
   let s0_ = signFromFlag(s0Neg) * Scalar.readBigint(s0Ptr, n);
   let s1_ = signFromFlag(s1Neg) * Scalar.readBigint(s1Ptr, n);

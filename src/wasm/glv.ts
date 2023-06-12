@@ -71,7 +71,7 @@ function glvGeneral(q: bigint, lambda: bigint, w: number) {
       in: [i32, i32, i32],
       // TODO X0, X1 should be n0 limbs
       locals: [i64, ...nLocals, ...n0Locals, ...n0Locals],
-      out: [i32, i32],
+      out: [i32],
     },
     ([s0, s1, s], [tmp, ...rest]) => {
       // algorithm at a high level:
@@ -162,6 +162,10 @@ function glvGeneral(q: bigint, lambda: bigint, w: number) {
         },
         () => i32.const(0)
       );
+
+      // combine the two isNegative flags on the stack into one i32 to avoid returning an array
+      i32.shl($, 1);
+      i32.or();
     }
   );
 
