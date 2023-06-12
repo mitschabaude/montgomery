@@ -28,7 +28,7 @@ type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
  */
 async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n } = montgomeryParams(q, w);
-  const { decompose, n0 } = glvGeneral(q, lambda, w);
+  const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
 
   let module = Module({
     exports: {
@@ -46,14 +46,17 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
 
   const glvHelpers = memoryHelpers(q, w, glvWasm);
 
-  let [scratchPtr, scratchPtr2, scratchPtr3] = glvHelpers.getStablePointers(3);
+  let scratch = glvHelpers.getStablePointers(10);
+  let [scratchPtr, scratchPtr2, scratchPtr3] = scratch;
 
   function testDecomposeScalar(scalar: bigint) {
     glvHelpers.writeBigint(scratchPtr, scalar);
-    glvWasm.decompose(scratchPtr2, scratchPtr3, scratchPtr);
+    let negateFlags = glvWasm.decompose(scratchPtr2, scratchPtr3, scratchPtr);
+    let s0Sign = negateFlags & 1 ? -1n : 1n;
+    let s1Sign = negateFlags >> 1 ? -1n : 1n;
 
-    let s0 = glvHelpers.readBigint(scratchPtr2, n0);
-    let s1 = glvHelpers.readBigint(scratchPtr3, n0);
+    let s0 = s0Sign * glvHelpers.readBigint(scratchPtr2, n0);
+    let s1 = s1Sign * glvHelpers.readBigint(scratchPtr3, n0);
 
     let isCorrect = mod(s0 + s1 * lambda, q) === scalar;
     return isCorrect;
@@ -67,6 +70,8 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
   return {
     ...glvHelpers,
     ...glvWasm,
+    scratch,
+    maxBits,
     testDecomposeScalar,
   };
 }
