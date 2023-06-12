@@ -66,21 +66,19 @@ let m1Error = Math.abs(divide(m1Residual, det));
 
 console.log({ m0Error, m1Error });
 
-let x0Error = 1 + divide(m0, 1n << m) + m0Error * divide(q, 1n << (m + k));
-let x1Error = 1 + divide(m1, 1n << m) + m1Error * divide(q, 1n << (m + k));
+let x0Error = 0.5 + divide(m0, 1n << m) + m0Error * divide(q, 1n << (m + k));
+let x1Error = 0.5 + divide(m1, 1n << m) + m1Error * divide(q, 1n << (m + k));
 
 console.log({ x0Error, x1Error });
 
 let maxS0Est = scale(x0Error, abs(v00)) + scale(x1Error, abs(v01));
 let maxS1Est = scale(x0Error, abs(v10)) + scale(x1Error, abs(v11));
 
+console.log("upper bounds:");
 console.log({ maxS0: maxS0Est.toString(16), maxS1: maxS1Est.toString(16) });
-console.log({
-  maxBitsS0: log2(maxS0Est),
-  maxBitsS1: log2(maxS1Est),
-});
+console.log({ maxBitsS0: log2(maxS0Est), maxBitsS1: log2(maxS1Est) });
 
-const Ntest = 10000;
+const Ntest = 100000;
 let maxS0 = 0n;
 let maxS1 = 0n;
 let maxX = 0n;
@@ -93,8 +91,8 @@ for (let i = 0; i < Ntest; i++) {
   // random scalar
   let s = randomScalar();
 
-  let x0 = sign(m0) * ((abs(m0) * (s >> k)) >> m);
-  let x1 = sign(m0) * ((abs(m1) * (s >> k)) >> m);
+  let x0 = sign(m0) * dividePower2AndRound(abs(m0) * (s >> k), m);
+  let x1 = sign(m0) * dividePower2AndRound(abs(m1) * (s >> k), m);
 
   let s0 = v00 * x0 + v01 * x1 + s;
   let s1 = v10 * x0 + v11 * x1;
@@ -121,6 +119,8 @@ for (let i = 0; i < Ntest; i++) {
 }
 assert(maxS0 < maxS0Est);
 assert(maxS1 < maxS1Est);
+
+console.log("actual results:");
 console.log({
   maxS0: maxS0.toString(16),
   maxS1: maxS1.toString(16),
@@ -134,4 +134,12 @@ console.log({
 
 function signFromFlag(isNegative: number) {
   return isNegative ? -1n : 1n;
+}
+
+// round(x / 2^m)
+function dividePower2AndRound(x: bigint, m: bigint) {
+  let roundUp = (x & (1n << (m - 1n))) !== 0n;
+  x = x >> m;
+  if (roundUp) x++;
+  return x;
 }

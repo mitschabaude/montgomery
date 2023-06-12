@@ -63,13 +63,10 @@ function glvGeneral(
   // TODO make these work with an n0 limb representation
   let [m0Sign, M0] = bigintToLimbsPositive(m0, w, n);
   let [m1Sign, M1] = bigintToLimbsPositive(m1, w, n);
-  let [v00Sign, V00] = bigintToLimbsPositive(v00, w, n);
-  let [v01Sign, V01] = bigintToLimbsPositive(v01, w, n);
-  let [v10Sign, V10] = bigintToLimbsPositive(v10, w, n);
-  let [v11Sign, V11] = bigintToLimbsPositive(v11, w, n);
-
-  console.log({ m0, M0 });
-  console.log({ m1, M1 });
+  let [v00Sign, V00] = bigintToLimbsPositive(v00, w, n0);
+  let [v01Sign, V01] = bigintToLimbsPositive(v01, w, n0);
+  let [v10Sign, V10] = bigintToLimbsPositive(v10, w, n0);
+  let [v11Sign, V11] = bigintToLimbsPositive(v11, w, n0);
 
   let nLocals = Array<Type<i64>>(n).fill(i64);
   let n0Locals = Array<Type<i64>>(n0).fill(i64);
@@ -78,7 +75,7 @@ function glvGeneral(
     {
       in: [i32, i32, i32],
       // TODO X0, X1 should be n0 limbs
-      locals: [i64, ...nLocals, ...nLocals, ...nLocals],
+      locals: [i64, ...nLocals, ...n0Locals, ...n0Locals],
       out: [i32, i32],
     },
     ([s0, s1, s], [tmp, ...rest]) => {
@@ -92,9 +89,8 @@ function glvGeneral(
       // s_hi := s >> k = highest n0 limbs of s
       let SHi = S.slice(n - n0, n);
 
-      // TODO
-      let X0 = rest.splice(0, n);
-      let X1 = rest.splice(0, n);
+      let X0 = rest.splice(0, n0);
+      let X1 = rest.splice(0, n0);
 
       Field.load(s, S);
 
@@ -116,23 +112,22 @@ function glvGeneral(
       /**
        * z = (x*y)[0..n], where x, y, z all have n limbs
        */
-      assert(nSafeTerms >= 2 * n0 + 1);
-      assert(nSafeTermsSigned >= 2 * n0 + 1);
-      // TODO
+      assert(nSafeTerms >= 2 * n + 1);
+      assert(nSafeTermsSigned >= 2 * n + 1);
       for (let i = 0; i < n; i++) {
         local.get(S[i]);
         if (i !== 0) i64.add();
         for (let j = 0; j <= i; j++) {
-          i64.mul(X0[j], V00[i - j]);
+          i64.mul(X0[j] ?? 0n, V00[i - j] ?? 0n);
           addSigned(x0Sign * v00Sign);
-          i64.mul(X1[j], V01[i - j]);
+          i64.mul(X1[j] ?? 0n, V01[i - j] ?? 0n);
           addSigned(x1Sign * v01Sign);
         }
         Field.carrySigned($, tmp);
         Field.storeLimb(s0, i, $);
       }
 
-      // if final value on the stack -1, we have to sign-flip the representation
+      // if final value on the stack is -1, we have to sign-flip the representation
       local.set(tmp);
       i64.ne(tmp, 0n);
       if_(
@@ -140,7 +135,6 @@ function glvGeneral(
         () => {
           i64.ne(tmp, -1n);
           if_(null, () => unreachable());
-          // TODO n0
           flipSign(s0, tmp, n);
           i32.const(1); // return isNegative flag
         },
@@ -151,16 +145,16 @@ function glvGeneral(
         i64.const(0n);
         if (i !== 0) i64.add();
         for (let j = 0; j <= i; j++) {
-          i64.mul(X0[j], V10[i - j]);
+          i64.mul(X0[j] ?? 0n, V10[i - j] ?? 0n);
           addSigned(x0Sign * v10Sign);
-          i64.mul(X1[j], V11[i - j]);
+          i64.mul(X1[j] ?? 0n, V11[i - j] ?? 0n);
           addSigned(x1Sign * v11Sign);
         }
         Field.carrySigned($, tmp);
         Field.storeLimb(s1, i, $);
       }
 
-      // if final value on the stack -1, we have to sign-flip the representation
+      // if final value on the stack is -1, we have to sign-flip the representation
       local.set(tmp);
       i64.ne(tmp, 0n);
       if_(
@@ -168,7 +162,6 @@ function glvGeneral(
         () => {
           i64.ne(tmp, -1n);
           if_(null, () => unreachable());
-          // TODO n0
           flipSign(s1, tmp, n);
           i32.const(1); // return isNegative flag
         },
@@ -189,7 +182,7 @@ function glvGeneral(
   }
 
   /**
-   * z = x*y >> n*w, where x, y, z all have n limbs
+   * z = round(x*y / 2^n*w), where x, y, z all have n limbs
    *
    * can use x === z
    */
@@ -206,7 +199,14 @@ function glvGeneral(
         i64.mul(X[j], Y[i - j]);
         if (!(i === n0 && j === 0)) i64.add();
       }
-      if (i < n) i64.shr_u($, wn);
+      if (i < n - 1) i64.shr_u($, wn);
+      if (i === n - 1) {
+        // test (nw)-1th = ((n-1)w + w-1)th bit of x*y; if set, round up instead of down
+        Field.carry($, tmp);
+        i64.and($, 1n << (Field.wn - 1n));
+        i64.extend_i32_u(i64.ne($, 0n));
+        i64.add(); // add 0 or 1 to the carry bit
+      }
       if (i >= n) {
         Field.carry($, tmp);
         local.set(Z[i - n]);
@@ -221,8 +221,8 @@ function glvGeneral(
   let m1Residual = ((1n << (m + k)) * v10) % det;
   let m0Error = Math.abs(divide(m0Residual, det));
   let m1Error = Math.abs(divide(m1Residual, det));
-  let x0Error = 1 + divide(m0, 1n << m) + m0Error * divide(q, 1n << (m + k));
-  let x1Error = 1 + divide(m1, 1n << m) + m1Error * divide(q, 1n << (m + k));
+  let x0Error = 0.5 + divide(m0, 1n << m) + m0Error * divide(q, 1n << (m + k));
+  let x1Error = 0.5 + divide(m1, 1n << m) + m1Error * divide(q, 1n << (m + k));
   let maxS0 = scale(x0Error, abs(v00)) + scale(x1Error, abs(v01));
   let maxS1 = scale(x0Error, abs(v10)) + scale(x1Error, abs(v11));
   let maxBits = Math.max(log2(maxS0), log2(maxS1));
