@@ -112,7 +112,7 @@ function msmBigint(
 
 type BytesPoint = [xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean];
 
-// perform MSM where input scalars and points are Rust-compatible byte arrays
+// MSM where input scalars and points are Rust-compatible byte arrays
 // (format specified for Zprize 2022)
 function msmBytesInput(
   inputScalars: Uint8Array[],
