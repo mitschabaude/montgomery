@@ -115,6 +115,84 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
 
   let memoryBytes = new Uint8Array(wasm.memory.buffer);
 
+  // higher level finite field algorithms
+
+  /**
+   * z = x^n mod p
+   */
+  function power(x0: number, z: number, x: number, n: bigint) {
+    wasm.copy(z, constants.mg1);
+    wasm.copy(x0, x);
+    const { multiply, square } = wasm;
+    for (; n > 0n; n >>= 1n) {
+      if (n & 1n) multiply(z, z, x0);
+      square(x0, x0);
+    }
+  }
+
+  // precomputed constants for tonelli-shanks
+
+  let [z, c] = helpers.getStablePointers(2);
+
+  let t = p - 1n;
+  let S = 0n;
+  while ((t & 1n) === 0n) {
+    t >>= 1n;
+    S++;
+  }
+  let t0 = (p - 1n) >> 1n;
+
+  // find z = non square
+  // start with z = 2
+  wasm.copy(z, constants.mg2);
+  let z0 = 2;
+  let scratch = helpers.getPointers(2);
+
+  while (true) {
+    // Euler's criterion, test z^(p-1)/2 = 1
+    power(scratch[0], scratch[1], z, t0);
+    wasm.reduce(scratch[1]);
+    let isSquare = wasm.isEqual(scratch[1], constants.mg1);
+    if (isSquare) break;
+
+    // z++
+    z0++;
+    wasm.add(z, z, constants.mg1);
+  }
+  fromMontgomery(z);
+  console.log({ z0, z: helpers.readBigint(z) });
+
+  // c0 = z^t
+  power(scratch[0], c, z, t);
+
+  // function sqrt(n: bigint, p: bigint, Q: bigint, z: bigint) {
+  //   // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
+  //   // variable naming is the same as in that link ^
+  //   // Q is what we call `t` elsewhere - the odd factor in p - 1
+  //   // z is a known non-square mod p. we pass in the primitive root of unity
+  //   let M = 32n;
+  //   // TODO: can we save work by sharing computation between t and R?
+  //   let t = power(n, Q, p); // n^Q
+  //   let R = power(n, (Q + 1n) / 2n, p); // n^((Q + 1)/2)
+  //   while (true) {
+  //     if (t === 0n) return 0n;
+  //     if (t === 1n) return R;
+  //     // use repeated squaring to find the least i, 0 < i < M, such that t^(2^i) = 1
+  //     let i = 0n;
+  //     let s = t;
+  //     while (s !== 1n) {
+  //       s = mod(s * s, p);
+  //       i = i + 1n;
+  //     }
+  //     if (i === M) return undefined; // no solution
+  //     let b = power(c, 1n << (M - i - 1n), p); // c^(2^(M-i-1))
+  //     M = i;
+  //     c = mod(b * b, p);
+  //     t = mod(t * c, p);
+  //     R = mod(R * b, p);
+  //   }
+  // }
+
   return {
     p,
     w,
