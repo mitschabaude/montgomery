@@ -153,7 +153,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     power(scratch[0], scratch[1], z, t0);
     wasm.reduce(scratch[1]);
     let isSquare = wasm.isEqual(scratch[1], constants.mg1);
-    if (isSquare) break;
+    if (!isSquare) break;
 
     // z++
     z0++;
