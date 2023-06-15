@@ -120,7 +120,8 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   /**
    * z = x^n mod p
    */
-  function power(x0: number, z: number, x: number, n: bigint) {
+  function power(scratch: number, z: number, x: number, n: bigint) {
+    let x0 = scratch;
     wasm.copy(z, constants.mg1);
     wasm.copy(x0, x);
     const { multiply, square } = wasm;
@@ -162,36 +163,42 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   fromMontgomery(z);
   console.log({ z0, z: helpers.readBigint(z) });
 
-  // c0 = z^t
+  // c = z^t
   power(scratch[0], c, z, t);
+  let Q = t;
 
-  // function sqrt(n: bigint, p: bigint, Q: bigint, z: bigint) {
-  //   // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
-  //   // variable naming is the same as in that link ^
-  //   // Q is what we call `t` elsewhere - the odd factor in p - 1
-  //   // z is a known non-square mod p. we pass in the primitive root of unity
-  //   let M = 32n;
-  //   // TODO: can we save work by sharing computation between t and R?
-  //   let t = power(n, Q, p); // n^Q
-  //   let R = power(n, (Q + 1n) / 2n, p); // n^((Q + 1)/2)
-  //   while (true) {
-  //     if (t === 0n) return 0n;
-  //     if (t === 1n) return R;
-  //     // use repeated squaring to find the least i, 0 < i < M, such that t^(2^i) = 1
-  //     let i = 0n;
-  //     let s = t;
-  //     while (s !== 1n) {
-  //       s = mod(s * s, p);
-  //       i = i + 1n;
-  //     }
-  //     if (i === M) return undefined; // no solution
-  //     let b = power(c, 1n << (M - i - 1n), p); // c^(2^(M-i-1))
-  //     M = i;
-  //     c = mod(b * b, p);
-  //     t = mod(t * c, p);
-  //     R = mod(R * b, p);
-  //   }
-  // }
+  function sqrt([t, s, b, scratch]: number[], sqrtx: number, x: number) {
+    // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
+    // variable naming is the same as in that link ^
+    // Q is what we call `t` elsewhere - the odd factor in p - 1
+    // z is a known non-square mod p. we pass in the primitive root of unity
+    let M = 32n;
+    // TODO: can we save work by sharing computation between t and R?
+    power(scratch, t, x, Q); // t = x^Q
+    power(scratch, sqrtx, x, (Q + 1n) / 2n); // sqrtx = x^((Q + 1)/2)
+    while (true) {
+      if (wasm.isEqual(t, constants.zero)) {
+        wasm.copy(sqrtx, constants.zero);
+        return true;
+      }
+      if (wasm.isEqual(t, constants.mg1)) {
+        return true;
+      }
+      // use repeated squaring to find the least i, 0 < i < M, such that t^(2^i) = 1
+      let i = 0n;
+      wasm.copy(s, t);
+      while (!wasm.isEqual(s, constants.mg1)) {
+        wasm.square(s, s);
+        i = i + 1n;
+      }
+      if (i === M) return false; // no solution
+      power(scratch, b, c, 1n << (M - i - 1n)); // b = c^(2^(M-i-1))
+      M = i;
+      wasm.square(c, b);
+      wasm.multiply(t, t, c);
+      wasm.multiply(sqrtx, sqrtx, b);
+    }
+  }
 
   return {
     p,
@@ -222,5 +229,6 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     memoryBytes,
     toMontgomery,
     fromMontgomery,
+    sqrt,
   };
 }

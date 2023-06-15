@@ -113,6 +113,18 @@ function test() {
   z0 = modInverse(x0, p);
   if (mod(z0 * x0, p) !== 1n) throw Error("inverse");
 
+  // sqrt
+  let exists = Field.sqrt(scratch, z, x);
+  if (exists) {
+    console.log("yes");
+    Field.square(z, z);
+    z0 = ofWasm(scratch, z);
+    console.log({ z0, x0 });
+    if (z0 !== x0) throw Error("sqrt");
+  } else {
+    console.log("no");
+  }
+
   // makeOdd
   Field.writeBigint(x, 5n << 120n);
   Field.writeBigint(z, 3n);
