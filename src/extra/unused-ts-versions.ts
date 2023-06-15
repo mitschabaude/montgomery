@@ -11,7 +11,7 @@ function batchInverseJs(
   invX: number,
   X: number,
   n: number,
-  { multiply, inverse, fieldSizeBytes: size }: MsmField
+  { multiply, inverse, sizeField: size }: MsmField
 ) {
   if (n === 0) return;
   if (n === 1) {

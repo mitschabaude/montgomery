@@ -10,7 +10,7 @@ export { Field, Scalar, CurveAffine, CurveProjective, Random };
 
 const Field = await createMsmField(p, beta, 30);
 const Scalar = await createGlvScalar(q, lambda, 29);
-const CurveAffine = createCurveAffine(Field);
+const CurveAffine = createCurveAffine(Field, 4n);
 const CurveProjective = createCurveProjective(Field);
 
 let { randomField: randomScalar, randomFields: randomScalars } =

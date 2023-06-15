@@ -1,5 +1,6 @@
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
+import { randomGenerators } from "./field-util.js";
 
 export { createCurveAffine };
 
@@ -36,7 +37,15 @@ export { createCurveAffine };
  * isNonZero = p + 3*sizeField
  * ```
  */
-function createCurveAffine(Field: MsmField) {
+
+/**
+ * create arithmetic for elliptic curve
+ *
+ * y^2 = x^3 + b
+ *
+ * over the `Field`
+ */
+function createCurveAffine(Field: MsmField, b: bigint) {
   const { sizeField, square, multiply, add, subtract, copy, memoryBytes } =
     Field;
 
@@ -80,6 +89,51 @@ function createCurveAffine(Field: MsmField) {
     copy(yOut, y2);
   }
 
+  let { randomFields } = randomGenerators(Field.p);
+
+  let [bPtr] = Field.getStablePointers(1);
+  Field.writeBigint(bPtr, b);
+  Field.toMontgomery(bPtr);
+
+  /**
+   * sample random curve points
+   *
+   * expects the points as an array of pointers which can hold an affine point
+   *
+   * strategy: try random x coordinates until one of them fits the curve equation
+   * if one doesn't work, increment until it does
+   * just use the returned square root
+   *
+   * doesn't do any cofactor clearing
+   */
+  function randomCurvePoints(scratch: number[], points: number[]) {
+    let n = points.length;
+    let xs = randomFields(n);
+
+    for (let i = 0; i < n; i++) {
+      let x0 = xs[i];
+      let x = points[i];
+      let y = x + sizeField;
+
+      // copy x into memory
+      Field.writeBigint(x, x0);
+
+      while (true) {
+        // compute sqrt(x^3 + b), store in y
+        Field.square(y, x);
+        Field.multiply(y, y, x);
+        Field.add(y, y, bPtr);
+        let isSquare = Field.sqrt(scratch, y, y);
+
+        // if we didn't find a square root, try again with x+1
+        if (isSquare) break;
+        Field.add(x, x, Field.constants.mg1);
+      }
+      setIsNonZeroAffine(x, true);
+    }
+    return points;
+  }
+
   function isZeroAffine(pointer: number) {
     return !memoryBytes[pointer + 2 * sizeField];
   }
@@ -103,5 +157,6 @@ function createCurveAffine(Field: MsmField) {
     copyAffine,
     affineCoords,
     setIsNonZeroAffine,
+    randomCurvePoints,
   };
 }

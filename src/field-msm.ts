@@ -166,6 +166,13 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   power(scratch[0], c0, z, t);
   let Q = t;
 
+  /**
+   * square root, sqrtx^2 === x mod p
+   *
+   * returns boolean that indicates whether the square root exists
+   *
+   * can use the same pointer for sqrtx and x
+   */
   function sqrt([t, s, b, c, scratch]: number[], sqrtx: number, x: number) {
     // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
     // variable naming is the same as in that link ^
