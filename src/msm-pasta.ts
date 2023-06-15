@@ -60,7 +60,15 @@ let {
   projectiveCoords,
 } = CurveProjective;
 
-export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };
+export {
+  msmBytesInput,
+  msmBigint,
+  msm,
+  batchAdd,
+  BytesPoint,
+  bigintScalarsToMemory,
+  toAffineOutputBigint,
+};
 
 /**
  * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
