@@ -133,7 +133,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
 
   // precomputed constants for tonelli-shanks
 
-  let [z, c] = helpers.getStablePointers(2);
+  let [z, c0] = helpers.getStablePointers(2);
 
   let t = p - 1n;
   let S = 0n;
@@ -161,18 +161,18 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     wasm.add(z, z, constants.mg1);
   }
   fromMontgomery(z);
-  console.log({ z0, z: helpers.readBigint(z) });
 
   // c = z^t
-  power(scratch[0], c, z, t);
+  power(scratch[0], c0, z, t);
   let Q = t;
 
-  function sqrt([t, s, b, scratch]: number[], sqrtx: number, x: number) {
+  function sqrt([t, s, b, c, scratch]: number[], sqrtx: number, x: number) {
     // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
     // variable naming is the same as in that link ^
     // Q is what we call `t` elsewhere - the odd factor in p - 1
     // z is a known non-square mod p. we pass in the primitive root of unity
-    let M = 32n;
+    let M = S;
+    wasm.copy(c, c0);
     // TODO: can we save work by sharing computation between t and R?
     power(scratch, t, x, Q); // t = x^Q
     power(scratch, sqrtx, x, (Q + 1n) / 2n); // sqrtx = x^((Q + 1)/2)

@@ -2,7 +2,7 @@
 import { Field, Scalar, Random } from "../src/concrete/bls12-381.js";
 import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
-import { mod, modInverse } from "../src/field-util.js";
+import { mod, modExp, modInverse } from "../src/field-util.js";
 
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
@@ -114,15 +114,15 @@ function test() {
   if (mod(z0 * x0, p) !== 1n) throw Error("inverse");
 
   // sqrt
-  let exists = Field.sqrt(scratch, z, x);
-  if (exists) {
-    console.log("yes");
+  let exists0 = modExp(x0, (p - 1n) >> 1n, { p }) === 1n;
+  let exists1 = Field.sqrt(scratch, z, x);
+  if (exists0 !== exists1) throw Error("isSquare");
+  if (exists0) {
+    let zsqrt = ofWasm(scratch, z);
     Field.square(z, z);
     z0 = ofWasm(scratch, z);
-    console.log({ z0, x0 });
-    if (z0 !== x0) throw Error("sqrt");
-  } else {
-    console.log("no");
+    if (mod(zsqrt * zsqrt - x0, p) !== 0n) throw Error("sqrt");
+    if (mod(z0 - x0, p) !== 0n) throw Error("sqrt");
   }
 
   // makeOdd
@@ -158,7 +158,7 @@ function test() {
   if (extractBitSlice(s, 16, 10) !== 0b1111_1111) throw e;
 }
 
-for (let i = 0; i < 20; i++) {
+for (let i = 0; i < 100; i++) {
   test();
 }
 for (let i = 0; i < 100; i++) {
