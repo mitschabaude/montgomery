@@ -167,8 +167,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     wasm.square(roots[i], roots[i - 1]);
   }
 
-  let Q = t;
-  let Q0 = (Q - 1n) / 2n;
+  let Q0 = (t - 1n) / 2n;
 
   /**
    * square root, sqrtx^2 === x mod p
@@ -177,23 +176,16 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
    *
    * can use the same pointer for sqrtx and x
    */
-  function sqrt(
-    [t, s, b, b2, x0, scratch]: number[],
-    sqrtx: number,
-    x: number
-  ) {
+  function sqrt([t, s, scratch]: number[], sqrtx: number, x: number) {
     // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
     // variable naming is the same as in that link ^
-    // Q is what we call `t` elsewhere - the odd factor in p - 1
-    // z is a known non-square mod p. we pass in the primitive root of unity
+    // Q0 is (Q-1)/2, where Q is the odd factor in p-1
     let M = S;
     let rootIdx = 0;
-    wasm.copy(x0, x);
 
-    power(scratch, t, x0, Q0); // t = x^((Q-1)/2)
-    wasm.multiply(sqrtx, t, x0); // sqrtx = x^((Q+1)/2) = tx
-    wasm.square(t, t); // t = x^(Q-1) = t^2
-    wasm.multiply(t, t, x0); // t = x^Q = tx
+    power(scratch, t, x, Q0); // t = x^((Q-1)/2)
+    wasm.multiply(sqrtx, t, x); // sqrtx = x^((Q+1)/2) = tx
+    wasm.multiply(t, t, sqrtx); // t = x^Q = x^((Q-1)/2) * x^((Q+1)/2) = t * sqrtx
     while (true) {
       if (wasm.isZero(t)) {
         wasm.copy(sqrtx, constants.zero);
@@ -210,13 +202,10 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
         i++;
       }
       if (i === M) return false; // no solution
-      wasm.copy;
       rootIdx += M - i; // > 0
       M = i;
-      wasm.copy(b, roots[rootIdx - 1]); // b = c^(2^(M-i-1))
-      wasm.copy(b2, roots[rootIdx]);
-      wasm.multiply(t, t, b2);
-      wasm.multiply(sqrtx, sqrtx, b);
+      wasm.multiply(sqrtx, sqrtx, roots[rootIdx - 1]); // sqrtx *= b = w^(2^(M-i-1))
+      wasm.multiply(t, t, roots[rootIdx]); // t *= b^2
     }
   }
 
