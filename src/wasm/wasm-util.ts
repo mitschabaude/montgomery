@@ -85,6 +85,13 @@ function forLoop4(
 ) {
   forLoop({ incr: 4, i, start, end }, callback);
 }
+/**
+ *
+ * @param i
+ * @param start
+ * @param end not inclusive
+ * @param callback
+ */
 function forLoop1(
   i: Local<i32>,
   start: number | Local<i32>,

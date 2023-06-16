@@ -104,7 +104,7 @@ for (let w of [29]) {
 
   function benchPow(scratch: number, x: number, N: number) {
     for (let i = 0; i < N; i++) {
-      Field0.power(scratch, x, x, t1);
+      Field0.power(scratch, x, x, Field0.constants.t1);
     }
     return x;
   }
