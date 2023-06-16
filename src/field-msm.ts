@@ -180,7 +180,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
    * Algorithm: https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
    *
    * note: it's tempting to try to optimize the second part of the algorithm
-   * with more caching and other tricks, but in fact the exponentiation u^(t-1)/2 dominates
+   * with more caching and other tricks, but in fact the exponentiation x^(t-1)/2 dominates
    * the cost (~80%) and seems hard to improve
    */
   function sqrt([u, s, scratch]: number[], sqrtx: number, x: number) {
