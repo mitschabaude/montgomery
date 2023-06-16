@@ -66,6 +66,7 @@ export {
   msm,
   batchAdd,
   BytesPoint,
+  BigintPoint,
   bigintScalarsToMemory,
   toAffineOutputBigint,
 };

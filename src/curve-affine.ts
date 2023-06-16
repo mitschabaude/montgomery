@@ -150,7 +150,21 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     memoryBytes[pointer + 2 * sizeField] = Number(isNonZero);
   }
 
+  function toBigint(point: number): BigintPoint {
+    let isZero = isZeroAffine(point);
+    if (isZero) return BigintPoint.zero;
+    let [x, y] = affineCoords(point);
+    Field.fromMontgomery(x);
+    Field.fromMontgomery(y);
+    return {
+      x: Field.readBigint(x),
+      y: Field.readBigint(y),
+      isInfinity: false,
+    };
+  }
+
   return {
+    b,
     sizeAffine,
     doubleAffine,
     isZeroAffine,
@@ -158,5 +172,11 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     affineCoords,
     setIsNonZeroAffine,
     randomCurvePoints,
+    toBigint,
   };
 }
+
+type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
+const BigintPoint = {
+  zero: { x: 0n, y: 0n, isInfinity: true },
+};

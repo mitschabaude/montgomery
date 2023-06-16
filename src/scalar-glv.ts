@@ -27,7 +27,7 @@ type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
  * scalar module for MSM with GLV
  */
 async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
-  const { n } = montgomeryParams(q, w);
+  const { n, lengthP } = montgomeryParams(q, w);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
 
   let module = Module({
@@ -71,6 +71,7 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
     ...glvHelpers,
     ...glvWasm,
     scratch,
+    sizeInBits: lengthP,
     maxBits,
     testDecomposeScalar,
   };

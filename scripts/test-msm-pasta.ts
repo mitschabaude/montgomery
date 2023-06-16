@@ -1,16 +1,18 @@
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { Field, CurveAffine, Random } from "../src/concrete/pasta.js";
+import { Field, CurveAffine, Random, Scalar } from "../src/concrete/pasta.js";
 import {
   msm,
   bigintScalarsToMemory,
   toAffineOutputBigint,
 } from "../src/msm-pasta.js";
+import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
+import { assert } from "../src/util.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
 
-let n = Number(process.argv[2] ?? 14);
+let n = Number(process.argv[2] ?? 8);
 let N = 1 << n;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
@@ -23,9 +25,21 @@ let scalars = Random.randomScalars(N);
 let scalarPtr = bigintScalarsToMemory(scalars);
 toc();
 
-tic("msm (ours)");
-let result = msm(scalarPtr, points[0], N);
-let S = toAffineOutputBigint(scratch, result);
+tic("convert points to bigint");
+let pointsBigint = points.map((gPtr) => {
+  let g = CurveAffine.toBigint(gPtr);
+  assert(checkOnCurve(g, Field.p, CurveAffine.b), "point on curve");
+  return g;
+});
 toc();
 
-console.log({ S });
+tic("msm (ours)");
+let s0 = msm(scalarPtr, points[0], N);
+let s = toAffineOutputBigint(scratch, s0);
+toc();
+
+tic("msm (simple, slow bigint impl)");
+let sBigint = msmDumbAffine(scalars, pointsBigint, Scalar, Field);
+toc();
+
+console.log({ s, sBigint });
