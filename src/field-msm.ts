@@ -187,7 +187,6 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     // Q is what we call `t` elsewhere - the odd factor in p - 1
     // z is a known non-square mod p. we pass in the primitive root of unity
     let M = S;
-    wasm.copy(b2, roots[0]);
     let rootIdx = 0;
     wasm.copy(x0, x);
 
@@ -212,7 +211,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       }
       if (i === M) return false; // no solution
       wasm.copy;
-      rootIdx += M - i;
+      rootIdx += M - i; // > 0
       M = i;
       wasm.copy(b, roots[rootIdx - 1]); // b = c^(2^(M-i-1))
       wasm.copy(b2, roots[rootIdx]);
