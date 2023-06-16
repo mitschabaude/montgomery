@@ -9,6 +9,7 @@ import { curveOps } from "./wasm/curve.js";
 import { memoryHelpers } from "./wasm/helpers.js";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
 import { UnwrapPromise } from "./types.js";
+import { assert } from "./util.js";
 
 export { createMsmField, MsmField };
 
@@ -167,7 +168,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     wasm.square(roots[i], roots[i - 1]);
   }
 
-  let Q0 = (t - 1n) / 2n;
+  let t1 = (t - 1n) / 2n;
 
   /**
    * square root, sqrtx^2 === x mod p
@@ -175,37 +176,36 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
    * returns boolean that indicates whether the square root exists
    *
    * can use the same pointer for sqrtx and x
+   *
+   * Algorithm: https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
    */
-  function sqrt([t, s, scratch]: number[], sqrtx: number, x: number) {
-    // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
-    // variable naming is the same as in that link ^
-    // Q0 is (Q-1)/2, where Q is the odd factor in p-1
-    let M = S;
-    let rootIdx = 0;
+  function sqrt([u, s, scratch]: number[], sqrtx: number, x: number) {
+    if (wasm.isZero(x)) {
+      wasm.copy(sqrtx, constants.zero);
+      return true;
+    }
+    // t1 is (t-1)/2, where t is the odd factor in p-1
+    let i = S;
+    power(scratch, u, x, t1); // u = x^((t-1)/2)
+    wasm.multiply(sqrtx, u, x); // sqrtx = x^((t+1)/2) = u * x
+    wasm.multiply(u, u, sqrtx); // u = x^t = x^((t-1)/2) * x^((t+1)/2) = u * sqrtx
 
-    power(scratch, t, x, Q0); // t = x^((Q-1)/2)
-    wasm.multiply(sqrtx, t, x); // sqrtx = x^((Q+1)/2) = tx
-    wasm.multiply(t, t, sqrtx); // t = x^Q = x^((Q-1)/2) * x^((Q+1)/2) = t * sqrtx
     while (true) {
-      if (wasm.isZero(t)) {
-        wasm.copy(sqrtx, constants.zero);
-        return true;
-      }
-      if (wasm.isEqual(t, constants.mg1)) {
-        return true;
-      }
-      // use repeated squaring to find the least i, 0 < i < M, such that t^(2^i) = 1
-      let i = 0;
-      wasm.copy(s, t);
+      // if u === 1, we're done
+      if (wasm.isEqual(u, constants.mg1)) return true;
+
+      // use repeated squaring to find the least i', 0 < i' < i, such that u^(2^i') = 1
+      let i_ = 1;
+      wasm.square(s, u);
       while (!wasm.isEqual(s, constants.mg1)) {
         wasm.square(s, s);
-        i++;
+        i_++;
       }
-      if (i === M) return false; // no solution
-      rootIdx += M - i; // > 0
-      M = i;
-      wasm.multiply(sqrtx, sqrtx, roots[rootIdx - 1]); // sqrtx *= b = w^(2^(M-i-1))
-      wasm.multiply(t, t, roots[rootIdx]); // t *= b^2
+      if (i_ === i) return false; // no solution
+      assert(i_ < i); // by construction
+      i = i_;
+      wasm.multiply(sqrtx, sqrtx, roots[S - i - 1]); // sqrtx *= b = w^(2^(S - i - 1))
+      wasm.multiply(u, u, roots[S - i]); // u *= b^2
     }
   }
 
