@@ -1,6 +1,6 @@
 import { Const, Module, call, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../src/extra/tictoc.js";
-import { p, randomFieldx2 } from "../src/concrete/pasta.js";
+import { Field as Field0, Random } from "../src/concrete/pasta.js";
 import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
 import { memoryHelpers } from "../src/wasm/helpers.js";
 import { writeWat } from "../src/wasm/wat-helpers.js";
@@ -11,7 +11,9 @@ import { ImplicitMemory, forLoop1 } from "../src/wasm/wasm-util.js";
 import { fieldInverse } from "../src/wasm/inverse.js";
 
 let N = 1e7;
-let Ninv = 1e5;
+let Ninv = 3e4;
+let { p } = Field0;
+let { randomFieldx2 } = Random;
 
 for (let w of [29]) {
   let {
@@ -90,7 +92,24 @@ for (let w of [29]) {
     return x;
   }
 
-  let [scratch] = getPointers(10);
+  function benchSqrt(scratch: number[], x: number, y: number, N: number) {
+    for (let i = 0; i < N; i++) {
+      Field0.add(x, x, y);
+      Field0.sqrt(scratch, x, x);
+    }
+    return x;
+  }
+
+  let t1 = (Field0.t - 1n) / 2n;
+
+  function benchPow(scratch: number, x: number, N: number) {
+    for (let i = 0; i < N; i++) {
+      Field0.power(scratch, x, x, t1);
+    }
+    return x;
+  }
+
+  let [scratch, ...scratches] = getPointers(10);
   let x = getPointer();
   let y = getPointer();
   writeBigint(x, randomFieldx2());
@@ -108,6 +127,14 @@ for (let w of [29]) {
   writeBigint(y, randomFieldx2());
 
   bench2("inverse", () => wasm.benchInverse(scratch, x, y, Ninv), {
+    N: Ninv,
+    tMul,
+  });
+  bench2("sqrt", () => benchSqrt(scratches, x, y, Ninv), {
+    N: Ninv,
+    tMul,
+  });
+  bench2("pow", () => benchPow(scratch, x, Ninv), {
     N: Ninv,
     tMul,
   });

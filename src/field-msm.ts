@@ -212,6 +212,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   return {
     p,
     w,
+    t,
     ...wasm,
     /**
      * affine EC addition, G3 = G1 + G2
@@ -239,6 +240,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     memoryBytes,
     toMontgomery,
     fromMontgomery,
+    power,
     sqrt,
     toBigint(x: number) {
       fromMontgomery(x);
