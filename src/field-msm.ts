@@ -120,7 +120,8 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   /**
    * z = x^n mod p
    */
-  function power(scratch: number, z: number, x: number, n: bigint) {
+  function power(scratch: number, z: number, x: number, n: bigint | number) {
+    n = BigInt(n);
     let x0 = scratch;
     wasm.copy(z, constants.mg1);
     wasm.copy(x0, x);
@@ -132,11 +133,8 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   }
 
   // precomputed constants for tonelli-shanks
-
-  let [z, c] = helpers.getStablePointers(2);
-
   let t = p - 1n;
-  let S = 0n;
+  let S = 0;
   while ((t & 1n) === 0n) {
     t >>= 1n;
     S++;
@@ -145,6 +143,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
 
   // find z = non square
   // start with z = 2
+  let [z] = helpers.getStablePointers(1);
   wasm.copy(z, constants.mg2);
   let z0 = 2;
   let scratch = helpers.getPointers(2);
@@ -161,8 +160,13 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     wasm.add(z, z, constants.mg1);
   }
 
-  // c = z^t
-  power(scratch[0], c, z, t);
+  // roots of unity w = z^t, w^2, ..., w^(2^(S-1)) = -1
+  let roots = helpers.getStablePointers(S);
+  power(scratch[0], roots[0], z, t);
+  for (let i = 1; i < S; i++) {
+    wasm.square(roots[i], roots[i - 1]);
+  }
+
   let Q = t;
   let Q0 = (Q - 1n) / 2n;
 
@@ -183,7 +187,8 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     // Q is what we call `t` elsewhere - the odd factor in p - 1
     // z is a known non-square mod p. we pass in the primitive root of unity
     let M = S;
-    wasm.copy(b2, c);
+    wasm.copy(b2, roots[0]);
+    let rootIdx = 0;
     wasm.copy(x0, x);
 
     power(scratch, t, x0, Q0); // t = x^((Q-1)/2)
@@ -191,7 +196,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     wasm.square(t, t); // t = x^(Q-1) = t^2
     wasm.multiply(t, t, x0); // t = x^Q = tx
     while (true) {
-      if (wasm.isEqual(t, constants.zero)) {
+      if (wasm.isZero(t)) {
         wasm.copy(sqrtx, constants.zero);
         return true;
       }
@@ -199,16 +204,18 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
         return true;
       }
       // use repeated squaring to find the least i, 0 < i < M, such that t^(2^i) = 1
-      let i = 0n;
+      let i = 0;
       wasm.copy(s, t);
       while (!wasm.isEqual(s, constants.mg1)) {
         wasm.square(s, s);
-        i = i + 1n;
+        i++;
       }
       if (i === M) return false; // no solution
-      power(scratch, b, b2, 1n << (M - i - 1n)); // b = c^(2^(M-i-1))
+      wasm.copy;
+      rootIdx += M - i;
       M = i;
-      wasm.square(b2, b);
+      wasm.copy(b, roots[rootIdx - 1]); // b = c^(2^(M-i-1))
+      wasm.copy(b2, roots[rootIdx]);
       wasm.multiply(t, t, b2);
       wasm.multiply(sqrtx, sqrtx, b);
     }
@@ -240,6 +247,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     inverse: wasm.inverse,
     ...helpers,
     constants,
+    roots,
     memoryBytes,
     toMontgomery,
     fromMontgomery,

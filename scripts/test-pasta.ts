@@ -126,6 +126,10 @@ function test() {
     if (mod(z0 - x0, p) !== 0n) throw Error("sqrt");
   }
 
+  // roots
+  let minus1 = Field.roots.at(-1)!;
+  if (Field.toBigint(minus1) !== p - 1n) throw Error("roots");
+
   // makeOdd
   Field.writeBigint(x, 5n << 120n);
   Field.writeBigint(z, 3n);
