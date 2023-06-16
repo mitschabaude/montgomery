@@ -133,7 +133,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
 
   // precomputed constants for tonelli-shanks
 
-  let [z, c0] = helpers.getStablePointers(2);
+  let [z, c] = helpers.getStablePointers(2);
 
   let t = p - 1n;
   let S = 0n;
@@ -162,8 +162,9 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   }
 
   // c = z^t
-  power(scratch[0], c0, z, t);
+  power(scratch[0], c, z, t);
   let Q = t;
+  let Q0 = (Q - 1n) / 2n;
 
   /**
    * square root, sqrtx^2 === x mod p
@@ -172,17 +173,23 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
    *
    * can use the same pointer for sqrtx and x
    */
-  function sqrt([t, s, b, c, x0, scratch]: number[], sqrtx: number, x: number) {
+  function sqrt(
+    [t, s, b, b2, x0, scratch]: number[],
+    sqrtx: number,
+    x: number
+  ) {
     // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
     // variable naming is the same as in that link ^
     // Q is what we call `t` elsewhere - the odd factor in p - 1
     // z is a known non-square mod p. we pass in the primitive root of unity
     let M = S;
-    wasm.copy(c, c0);
+    wasm.copy(b2, c);
     wasm.copy(x0, x);
-    // TODO: can we save work by sharing computation between t and R?
-    power(scratch, t, x0, Q); // t = x^Q
-    power(scratch, sqrtx, x0, (Q + 1n) / 2n); // sqrtx = x^((Q + 1)/2)
+
+    power(scratch, t, x0, Q0); // t = x^((Q-1)/2)
+    wasm.multiply(sqrtx, t, x0); // sqrtx = x^((Q+1)/2) = tx
+    wasm.square(t, t); // t = x^(Q-1) = t^2
+    wasm.multiply(t, t, x0); // t = x^Q = tx
     while (true) {
       if (wasm.isEqual(t, constants.zero)) {
         wasm.copy(sqrtx, constants.zero);
@@ -199,10 +206,10 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
         i = i + 1n;
       }
       if (i === M) return false; // no solution
-      power(scratch, b, c, 1n << (M - i - 1n)); // b = c^(2^(M-i-1))
+      power(scratch, b, b2, 1n << (M - i - 1n)); // b = c^(2^(M-i-1))
       M = i;
-      wasm.square(c, b);
-      wasm.multiply(t, t, c);
+      wasm.square(b2, b);
+      wasm.multiply(t, t, b2);
       wasm.multiply(sqrtx, sqrtx, b);
     }
   }
