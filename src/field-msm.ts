@@ -160,7 +160,6 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     z0++;
     wasm.add(z, z, constants.mg1);
   }
-  fromMontgomery(z);
 
   // c = z^t
   power(scratch[0], c0, z, t);
@@ -173,16 +172,17 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
    *
    * can use the same pointer for sqrtx and x
    */
-  function sqrt([t, s, b, c, scratch]: number[], sqrtx: number, x: number) {
+  function sqrt([t, s, b, c, x0, scratch]: number[], sqrtx: number, x: number) {
     // https://en.wikipedia.org/wiki/Tonelli-Shanks_algorithm#The_algorithm
     // variable naming is the same as in that link ^
     // Q is what we call `t` elsewhere - the odd factor in p - 1
     // z is a known non-square mod p. we pass in the primitive root of unity
     let M = S;
     wasm.copy(c, c0);
+    wasm.copy(x0, x);
     // TODO: can we save work by sharing computation between t and R?
-    power(scratch, t, x, Q); // t = x^Q
-    power(scratch, sqrtx, x, (Q + 1n) / 2n); // sqrtx = x^((Q + 1)/2)
+    power(scratch, t, x0, Q); // t = x^Q
+    power(scratch, sqrtx, x0, (Q + 1n) / 2n); // sqrtx = x^((Q + 1)/2)
     while (true) {
       if (wasm.isEqual(t, constants.zero)) {
         wasm.copy(sqrtx, constants.zero);
@@ -237,5 +237,11 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     toMontgomery,
     fromMontgomery,
     sqrt,
+    toBigint(x: number) {
+      fromMontgomery(x);
+      let x0 = helpers.readBigint(x);
+      toMontgomery(x);
+      return x0;
+    },
   };
 }

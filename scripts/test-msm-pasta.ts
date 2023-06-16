@@ -7,7 +7,7 @@ import {
   toAffineOutputBigint,
 } from "../src/msm-pasta.js";
 import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
-import { assert } from "../src/util.js";
+import assert from "node:assert/strict";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
@@ -25,7 +25,7 @@ let scalars = Random.randomScalars(N);
 let scalarPtr = bigintScalarsToMemory(scalars);
 toc();
 
-tic("convert points to bigint");
+tic("convert points to bigint & check");
 let pointsBigint = points.map((gPtr) => {
   let g = CurveAffine.toBigint(gPtr);
   assert(checkOnCurve(g, Field.p, CurveAffine.b), "point on curve");
@@ -38,8 +38,10 @@ let s0 = msm(scalarPtr, points[0], N);
 let s = toAffineOutputBigint(scratch, s0);
 toc();
 
-tic("msm (simple, slow bigint impl)");
-let sBigint = msmDumbAffine(scalars, pointsBigint, Scalar, Field);
-toc();
-
-console.log({ s, sBigint });
+if (n < 12) {
+  tic("msm (simple, slow bigint impl)");
+  let sBigint = msmDumbAffine(scalars, pointsBigint, Scalar, Field);
+  toc();
+  assert.deepEqual(s, sBigint, "consistent results");
+  console.log("results are consistent!");
+}

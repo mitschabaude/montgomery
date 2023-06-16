@@ -46,7 +46,7 @@ export { createCurveAffine };
  * over the `Field`
  */
 function createCurveAffine(Field: MsmField, b: bigint) {
-  const { sizeField, square, multiply, add, subtract, copy, memoryBytes } =
+  const { sizeField, square, multiply, add, subtract, copy, memoryBytes, p } =
     Field;
 
   // an affine point is 2 field elements + 1 int32 for isNonZero flag
@@ -89,7 +89,7 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     copy(yOut, y2);
   }
 
-  let { randomFields } = randomGenerators(Field.p);
+  let { randomFields } = randomGenerators(p);
 
   let [bPtr] = Field.getStablePointers(1);
   Field.writeBigint(bPtr, b);
@@ -117,17 +117,18 @@ function createCurveAffine(Field: MsmField, b: bigint) {
 
       // copy x into memory
       Field.writeBigint(x, x0);
+      Field.toMontgomery(x);
 
       while (true) {
         // compute sqrt(x^3 + b), store in y
-        Field.square(y, x);
-        Field.multiply(y, y, x);
-        Field.add(y, y, bPtr);
+        square(y, x);
+        multiply(y, y, x);
+        add(y, y, bPtr);
         let isSquare = Field.sqrt(scratch, y, y);
 
         // if we didn't find a square root, try again with x+1
         if (isSquare) break;
-        Field.add(x, x, Field.constants.mg1);
+        add(x, x, Field.constants.mg1);
       }
       setIsNonZeroAffine(x, true);
     }
@@ -156,11 +157,14 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     let [x, y] = affineCoords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
-    return {
+    let pointBigint = {
       x: Field.readBigint(x),
       y: Field.readBigint(y),
       isInfinity: false,
     };
+    Field.toMontgomery(x);
+    Field.toMontgomery(y);
+    return pointBigint;
   }
 
   return {
