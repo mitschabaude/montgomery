@@ -170,6 +170,17 @@ function createSqrt(
   let rhs = helpers.getStablePointers(N);
   let solutionDigits = Array<number>(N).fill(0);
 
+  /**
+   * square root, sqrtx^2 === x mod p
+   *
+   * returns boolean that indicates whether the square root exists
+   *
+   * can use the same pointer for sqrtx and x
+   *
+   * Algorithm: Tonelli-Shanks optimized by Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
+   * Optimization consists of cashing roots of 1 to speed up the discrete log part.
+   * This makes the exponentation x^(t-1)/2 at the beginning by far the dominant part (~80%).
+   */
   function fastSqrt([u, scratch]: number[], sqrtx: number, x: number) {
     if (wasm.isZero(x)) {
       wasm.copy(sqrtx, constants.zero);
