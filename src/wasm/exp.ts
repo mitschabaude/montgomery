@@ -6,6 +6,8 @@ import { FieldWithMultiply } from "./multiply-montgomery.js";
 
 export { fieldExp };
 
+type fieldExp = ReturnType<typeof fieldExp>;
+
 function fieldExp(Field: FieldWithMultiply) {
   let { copy, multiply, square, p, w, R } = Field;
   let mgOne = Field.i32.bigintToLimbs(mod(R, p));

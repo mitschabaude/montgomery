@@ -9,6 +9,7 @@ import { multiplyBarrett } from "../src/wasm/barrett.js";
 import { FieldWithArithmetic } from "../src/wasm/field-arithmetic.js";
 import { ImplicitMemory, forLoop1 } from "../src/wasm/wasm-util.js";
 import { fieldInverse } from "../src/wasm/inverse.js";
+import { fieldExp } from "../src/wasm/exp.js";
 
 let N = 1e7;
 let Ninv = 3e4;
@@ -68,6 +69,7 @@ for (let w of [29]) {
       benchSquare,
       benchAdd,
       benchInverse,
+      exp: fieldExp(Field),
       memory: implicitMemory.memory,
       dataOffset: global(Const.i32(implicitMemory.dataOffset)),
     },
@@ -92,7 +94,8 @@ for (let w of [29]) {
     return x;
   }
 
-  function benchSqrt(scratch: number[], x: number, y: number, N: number) {
+  function benchSqrt(x: number, y: number, N: number) {
+    let scratch = Field0.getPointers(5);
     for (let i = 0; i < N; i++) {
       Field0.add(x, x, y);
       Field0.sqrt(scratch, x, x);
@@ -100,16 +103,18 @@ for (let w of [29]) {
     return x;
   }
 
-  let t1 = (Field0.t - 1n) / 2n;
+  let t1 = getPointer();
+  writeBigint(t1, (Field0.t - 1n) / 2n);
 
-  function benchPow(scratch: number, x: number, N: number) {
+  function benchPow(x: number, N: number) {
+    let scratch = getPointer();
     for (let i = 0; i < N; i++) {
-      Field0.power(scratch, x, x, Field0.constants.t1);
+      wasm.exp(scratch, x, x, t1);
     }
     return x;
   }
 
-  let [scratch, ...scratches] = getPointers(10);
+  let [scratch] = getPointers(2);
   let x = getPointer();
   let y = getPointer();
   writeBigint(x, randomFieldx2());
@@ -122,6 +127,7 @@ for (let w of [29]) {
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
   bench("multiply bigint", benchMultiplyBigint, { x, N });
+  bench("add x3", wasm.benchAdd, { x, N });
 
   writeBigint(x, randomFieldx2());
   writeBigint(y, randomFieldx2());
@@ -130,16 +136,14 @@ for (let w of [29]) {
     N: Ninv,
     tMul,
   });
-  bench2("sqrt", () => benchSqrt(scratches, x, y, Ninv), {
-    N: Ninv,
-    tMul,
-  });
-  bench2("pow", () => benchPow(scratch, x, Ninv), {
-    N: Ninv,
-    tMul,
-  });
+  bench2("pow", () => benchPow(x, Ninv), { N: Ninv, tMul });
 
-  bench("add x3", wasm.benchAdd, { x, N });
+  let x_ = Field0.getPointer();
+  let y_ = Field0.getPointer();
+  Field0.writeBigint(x_, randomFieldx2());
+  Field0.writeBigint(y_, randomFieldx2());
+
+  bench2("sqrt", () => benchSqrt(x_, y_, Ninv), { N: Ninv, tMul });
 }
 
 function bench(

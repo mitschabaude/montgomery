@@ -1,6 +1,8 @@
 import { montgomeryParams } from "../field-util.js";
 
-export { memoryHelpers };
+export { memoryHelpers, MemoryHelpers };
+
+type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 
 /**
  * helpers for writing to and reading from wasm memory from JS
