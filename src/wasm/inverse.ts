@@ -140,16 +140,10 @@ function fieldInverse(
       local.set(s, i32.add(v, Field.size));
 
       // u = p, v = a, r = 0, s = 1
-      Field.forEach((i) => {
-        Field.storeLimb32(u, i, Number(Field.P[i]));
-      });
+      Field.i32.store(u, Field.i32.P);
       Field.copyInline(v, a);
-      Field.forEach((i) => {
-        Field.storeLimb32(r, i, 0);
-      });
-      Field.forEach((i) => {
-        Field.storeLimb32(s, i, i === 0 ? 1 : 0);
-      });
+      Field.i32.store(r, Field.i32.Zero);
+      Field.i32.store(s, Field.i32.One);
 
       // main algorithm
       call(makeOdd, [u, s]);

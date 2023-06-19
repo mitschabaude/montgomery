@@ -47,6 +47,9 @@ function createField(p: bigint, w: number) {
   function bigintToLimbs(x: bigint) {
     return bigintToLimbs_(x, w, n);
   }
+  function bigintToLimbs32(x: bigint) {
+    return bigintToLimbs_(x, w, n).map(Number);
+  }
 
   function bigintToData(x: bigint) {
     return bigintToLimbs(x).flatMap((xi) => [...bigintToBytes(xi, 4)]);
@@ -70,6 +73,23 @@ function createField(p: bigint, w: number) {
       local.set(X[i]);
     }
   }
+  function load32(x: Local<i32>, X: Local<i32>[]) {
+    for (let i = 0; i < n; i++) {
+      local.set(X[i], i32.load({ offset: i * 4 }, x));
+    }
+  }
+
+  function store(x: Local<i32>, X: Input<i64>[]) {
+    for (let j = 0; j < n; j++) {
+      i32.store({ offset: 4 * j }, x, i32.wrap_i64(X[j]));
+    }
+  }
+  function store32(x: Local<i32>, X: Input<i32>[]) {
+    for (let j = 0; j < n; j++) {
+      i32.store({ offset: 4 * j }, x, X[j]);
+    }
+  }
+
   function carryAndStore(x: Local<i32>, X: Local<i64>[]) {
     for (let j = 1; j < n; j++) {
       i32.wrap_i64(i64.and(X[j - 1], wordMax));
@@ -151,9 +171,7 @@ function createField(p: bigint, w: number) {
     P2,
     size,
     loadLimb,
-    loadLimb32,
     storeLimb,
-    storeLimb32,
     bigintToLimbs,
     bigintToData,
     carry,
@@ -161,10 +179,21 @@ function createField(p: bigint, w: number) {
     forEach,
     forEachReversed,
     load,
+    store,
     carryAndStore,
     optionalCarry,
     optionalCarryAdd,
     logLocals,
+    i32: {
+      loadLimb: loadLimb32,
+      storeLimb: storeLimb32,
+      bigintToLimbs: bigintToLimbs32,
+      load: load32,
+      store: store32,
+      P: P.map(Number),
+      One: bigintToLimbs32(1n),
+      Zero: bigintToLimbs32(0n),
+    },
   };
 }
 

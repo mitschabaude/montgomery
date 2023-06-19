@@ -1,15 +1,16 @@
 import type * as W from "wasmati"; // for type names
-import { Module, func, i32, memory, call, if_, local } from "wasmati";
+import { Module, memory } from "wasmati";
 import { FieldWithArithmetic } from "./wasm/field-arithmetic.js";
 import { fieldInverse } from "./wasm/inverse.js";
 import { multiplyMontgomery } from "./wasm/multiply-montgomery.js";
-import { ImplicitMemory, forLoop1 } from "./wasm/wasm-util.js";
+import { ImplicitMemory } from "./wasm/wasm-util.js";
 import { mod, montgomeryParams } from "./field-util.js";
 import { curveOps } from "./wasm/curve.js";
 import { memoryHelpers } from "./wasm/helpers.js";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
 import { UnwrapPromise } from "./types.js";
 import { assert } from "./util.js";
+import { fieldExp } from "./wasm/exp.js";
 
 export { createMsmField, MsmField };
 
@@ -27,6 +28,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   const Field = Object.assign(Field_, { multiply, square, leftShift });
 
   let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
+  let exp = fieldExp(Field);
   let { addAffine, endomorphism } = curveOps(
     implicitMemory,
     Field,
@@ -45,31 +47,6 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     copy,
   } = Field;
 
-  let mg1 = implicitMemory.data(Field.bigintToData(mod(1n * R, p)));
-
-  /**
-   * z = x^n mod p
-   *
-   * z, x are passed in montgomery form, n as a plain field element
-   */
-  const power = func(
-    { in: [i32, i32, i32, i32], locals: [i32, i32], out: [] },
-    ([x, z, xIn, n], [j, ni]) => {
-      call(copy, [z, mg1]);
-      call(copy, [x, xIn]);
-      Field.forEach((i) => {
-        local.set(ni, Field.loadLimb32(n, i));
-        forLoop1(j, 0, w, () => {
-          i32.and(ni, i32.shl(1, j));
-          if_(null, () => {
-            call(multiply, [z, z, x]);
-          });
-          call(square, [x, x]);
-        });
-      });
-    }
-  );
-
   let module = Module({
     exports: {
       ...implicitMemory.getExports(),
@@ -80,7 +57,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       multiply,
       square,
       leftShift,
-      power,
+      exp,
       // inverse
       inverse,
       makeOdd,
@@ -163,7 +140,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     n: bigint | number
   ) {
     helpers.writeBigint(n0, BigInt(n));
-    wasm.power(scratch, z, x, n0);
+    wasm.exp(scratch, z, x, n0);
   }
 
   // find z = non square
@@ -207,7 +184,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     }
     let i = S;
     // t1 is (t-1)/2, where t is the odd factor in p-1
-    wasm.power(scratch, u, x, constants.t1); // u = x^((t-1)/2)
+    wasm.exp(scratch, u, x, constants.t1); // u = x^((t-1)/2)
     wasm.multiply(sqrtx, u, x); // sqrtx = x^((t+1)/2) = u * x
     wasm.multiply(u, u, sqrtx); // u = x^t = x^((t-1)/2) * x^((t+1)/2) = u * sqrtx
 

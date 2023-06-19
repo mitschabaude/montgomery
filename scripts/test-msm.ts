@@ -48,13 +48,6 @@ let yRefProj = bigintFromBytes(yRefBytes);
 let zRefProj = bigintFromBytes(zRefBytes);
 let [xRef, yRef] = toAffineFromJacobi(xRefProj, yRefProj, zRefProj);
 
-let xBigint, yBigint;
-if (runSlowMsm) {
-  tic("msm (dumb)");
-  [xBigint, yBigint] = msmDumbAffine(scalars, points);
-  toc();
-}
-
 tic("msm (projective)");
 let resultProj = msmProjective(scalars, points);
 toc();
@@ -82,11 +75,6 @@ let resultBigint = msmBigint(scalarsBigint, pointsBigint);
 toc();
 let { x: xBig, y: yBig, isInfinity } = resultBigint;
 
-if (runSlowMsm) {
-  console.log("big === ref", { x: xRef === xBigint, y: yRef === yBigint });
-  console.log("big === proj", { x: xBigint === xProj, y: yBigint === yProj });
-  console.log("big === aff", { x: xBigint === xAff, y: yBigint === yAff });
-}
 console.log("ref === proj", { x: xRef === xProj, y: yRef === yProj });
 console.log("ref === aff", { x: xRef === xAff, y: yRef === yAff });
 console.log("ref === big", { x: xRef === xBig, y: yRef === yBig });
