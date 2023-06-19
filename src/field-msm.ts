@@ -106,7 +106,12 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   }
 
   let memoryBytes = new Uint8Array(wasm.memory.buffer);
-  let { sqrt, t, roots } = createSqrt(Field, wasm, helpers, constants);
+  let { sqrt, fastSqrt, t, roots } = createSqrt(
+    Field,
+    wasm,
+    helpers,
+    constants
+  );
 
   return {
     p,
@@ -140,6 +145,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     toMontgomery,
     fromMontgomery,
     sqrt,
+    fastSqrt,
     toBigint(x: number) {
       fromMontgomery(x);
       let x0 = helpers.readBigint(x);

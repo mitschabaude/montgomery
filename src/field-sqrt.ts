@@ -7,7 +7,7 @@ import { Func, i32 } from "wasmati";
 export { createSqrt };
 
 function createSqrt(
-  { p }: FieldWithMultiply,
+  { p, n }: FieldWithMultiply,
   wasm: WasmField,
   helpers: MemoryHelpers,
   constants: {
@@ -155,20 +155,22 @@ function createSqrt(
   let view = new DataView(helpers.memoryBytes.buffer);
 
   for (let j = 0; j < L; j++) {
-    let ptr = helpers.memoryBytes[LthRoots[j]];
-    let low = view.getInt32(ptr, true);
+    let low = view.getInt32(LthRoots[j], true);
     LthRootLookup[low] = j;
   }
-  // assert that all the Lth roots have different low limbs
+  // assert that all the Lth roots have different low limbs (they should be ~random)
+  // console.log(LthRootLookup);
   assert(Object.keys(LthRootLookup).length === L);
-  console.log(LthRootLookup);
 
   // lth root v_j --> j
   function lookupLthRoot(ptr: number) {
     return LthRootLookup[view.getInt32(ptr, true)];
   }
+  // scratch pointers that we use as RHS
+  let rhs = helpers.getStablePointers(N);
+  let solutionDigits = Array<number>(N).fill(0);
 
-  function fastSqrt([u, s, scratch]: number[], sqrtx: number, x: number) {
+  function fastSqrt([u, scratch]: number[], sqrtx: number, x: number) {
     if (wasm.isZero(x)) {
       wasm.copy(sqrtx, constants.zero);
       return true;
@@ -178,13 +180,62 @@ function createSqrt(
     wasm.multiply(sqrtx, u, x); // sqrtx = x^((t+1)/2) = u * x
     wasm.multiply(u, u, sqrtx); // u = x^t = x^((t-1)/2) * x^((t+1)/2) = u * sqrtx
 
-    // we know that u is a 2^Mth root of 1, so x^t = u = w^e
+    // we know that x^t is a 2^Mth root of 1, so u = x^t = w^e
     // e is even <==> x is a square
     // the goal is to find e and then compute sqrtx =  x^((t+1)/2)w^(-e/2), so that
     // sqrtx^2 = x^(1 + t)w^(-e) = x w^e w^(-e) = x
+
+    // to find e, we write it as
+    // e = sum_j e_j 2^(jc)
+    // this leads to an upper triangle system of equations in the exponent (multiplying by 2^(ic))
+    // sum_{j=0}^{N-1-i} e_j 2^((i+j)c) = 2^(ic) e
+
+    // step 1: compute rhs 2^(ic)e, i=0,...,N-1, with (N-1)c squarings
+    wasm.copy(rhs[0], u);
+    for (let i = 1; i < N; i++) {
+      // square c times to go from 2^((i-1)c)e to 2^(ic)e in the exponent
+      wasm.square(rhs[i], rhs[i - 1]);
+      for (let j = 1; j < c; j++) {
+        wasm.square(rhs[i], rhs[i]);
+      }
+    }
+
+    // step 2: solve the equations for 2^((N-1)c)e_(N-1-i), from bottom to top, in N(N-1)/2 muls
+    // at each iteration, look up the digit e_i in our table
+
+    // look up e_0 from 2^((N-1)c)e_0 and return early if it's odd (<=> there is no square root)
+    solutionDigits[0] = lookupLthRoot(rhs[N - 1]);
+    if (solutionDigits[0] & 1) return false;
+
+    for (let i = N - 2; i >= 0; i--) {
+      // 2^((N-1)c)e_(N-1-i) = 2^(ic)e + sum_{j=0}^{N-2-i} (-e_j 2^((i+j)c))
+      let solution = rhs[i];
+      for (let j = 0; j < N - 1 - i; j++) {
+        // add precomputed number -e_j 2^((i+j)c) ~= w_{i+j}{e_j} in the exponent
+        let ej = solutionDigits[j];
+        wasm.multiply(solution, solution, inverseRoots[i + j][ej]);
+      }
+      // look up solution and store
+      solutionDigits[N - 1 - i] = lookupLthRoot(solution);
+    }
+
+    // step 3: compute e/2 by shifting down each digit e_i by 1 bit
+    solutionDigits[0] >>= 1;
+    for (let i = 1; i < N; i++) {
+      solutionDigits[i - 1] &= (solutionDigits[i] & 1) >> (c - 1);
+      solutionDigits[i] >>= 1;
+    }
+
+    // step 4: multiply sqrtx by w^(-e/2)
+    for (let i = 0; i < N; i++) {
+      // add precomputed number -e_i 2^(ic) ~= w_{i}{e_i} in the exponent
+      let ei = solutionDigits[i];
+      wasm.multiply(sqrtx, sqrtx, inverseRoots[i][ei]);
+    }
+    return true;
   }
 
-  return { sqrt, t, roots };
+  return { sqrt, fastSqrt, t, roots };
 }
 
 // wasm API we need
