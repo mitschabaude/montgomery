@@ -222,7 +222,7 @@ function createSqrt(
     // step 3: compute e/2 by shifting down each digit e_i by 1 bit
     solutionDigits[0] >>= 1;
     for (let i = 1; i < N; i++) {
-      solutionDigits[i - 1] &= (solutionDigits[i] & 1) >> (c - 1);
+      solutionDigits[i - 1] |= (solutionDigits[i] & 1) << (c - 1);
       solutionDigits[i] >>= 1;
     }
 
