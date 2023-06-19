@@ -6,13 +6,14 @@ import { multiplyMontgomery } from "./wasm/multiply-montgomery.js";
 import { ImplicitMemory } from "./wasm/wasm-util.js";
 import { mod, montgomeryParams } from "./field-util.js";
 import { curveOps } from "./wasm/curve.js";
-import { memoryHelpers } from "./wasm/helpers.js";
+import { MemoryHelpers, memoryHelpers } from "./wasm/helpers.js";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
 import { UnwrapPromise } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
 
 export { createMsmField, MsmField };
+export { createConstants };
 
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
@@ -82,7 +83,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
 
   // put some constants in wasm memory
 
-  let constantsBigint = {
+  let constants = createConstants(helpers, {
     zero: 0n,
     one: 1n,
     p,
@@ -94,20 +95,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     mg2: mod(2n * R, p),
     mg4: mod(4n * R, p),
     mg8: mod(8n * R, p),
-  };
-  let constantsKeys = Object.keys(constantsBigint);
-  let constantsPointers = helpers.getStablePointers(constantsKeys.length);
-
-  let constants = Object.fromEntries(
-    constantsKeys.map((key, i) => {
-      let pointer = constantsPointers[i];
-      helpers.writeBigint(
-        pointer,
-        constantsBigint[key as keyof typeof constantsBigint]
-      );
-      return [key, pointer];
-    })
-  ) as Record<keyof typeof constantsBigint, number>;
+  });
 
   function fromMontgomery(x: number) {
     wasm.multiply(x, x, constants.one);
@@ -159,4 +147,23 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       return x0;
     },
   };
+}
+
+function createConstants<const T extends Record<string, bigint>>(
+  helpers: MemoryHelpers,
+  constantsBigint: T
+): Record<keyof T, number> {
+  let constantsKeys = Object.keys(constantsBigint);
+  let constantsPointers = helpers.getStablePointers(constantsKeys.length);
+
+  return Object.fromEntries(
+    constantsKeys.map((key, i) => {
+      let pointer = constantsPointers[i];
+      helpers.writeBigint(
+        pointer,
+        constantsBigint[key as keyof typeof constantsBigint]
+      );
+      return [key, pointer];
+    })
+  ) as Record<keyof T, number>;
 }

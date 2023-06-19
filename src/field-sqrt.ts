@@ -11,7 +11,11 @@ function createSqrt(
   { p }: FieldWithMultiply,
   wasm: WasmField,
   helpers: MemoryHelpers,
-  constants: MsmField["constants"]
+  constants: {
+    zero: number;
+    mg1: number;
+    mg2: number;
+  }
 ) {
   function pow(
     [scratch, n0]: number[],

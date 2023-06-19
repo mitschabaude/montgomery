@@ -10,10 +10,13 @@ import { FieldWithArithmetic } from "../src/wasm/field-arithmetic.js";
 import { ImplicitMemory, forLoop1 } from "../src/wasm/wasm-util.js";
 import { fieldInverse } from "../src/wasm/inverse.js";
 import { fieldExp } from "../src/wasm/exp.js";
+import { createSqrt } from "../src/field-sqrt.js";
+import { createConstants } from "../src/field-msm.js";
+import { mod } from "../src/field-util.js";
 
 let N = 1e7;
 let Ninv = 3e4;
-let { p } = Field0;
+let { p, t } = Field0;
 let { randomFieldx2 } = Random;
 
 for (let w of [29]) {
@@ -70,8 +73,18 @@ for (let w of [29]) {
       benchAdd,
       benchInverse,
       exp: fieldExp(Field),
+
       memory: implicitMemory.memory,
       dataOffset: global(Const.i32(implicitMemory.dataOffset)),
+
+      // stuff needed for sqrt
+      copy: Field.copy,
+      add: Field.add,
+      reduce: Field.reduce,
+      isEqual: Field.isEqual,
+      isZero: Field.isZero,
+      multiply: Field.multiply,
+      square: Field.square,
     },
   });
   await writeWat(
@@ -80,11 +93,8 @@ for (let w of [29]) {
   );
 
   let wasm = (await module.instantiate()).instance.exports;
-  let { writeBigint, readBigint, getPointer, getPointers, n } = memoryHelpers(
-    p,
-    w,
-    wasm
-  );
+  let helpers = memoryHelpers(p, w, wasm);
+  let { writeBigint, readBigint, getPointer, getPointers, n } = helpers;
 
   function benchMultiplyBigint(x0: number, N: number) {
     let x = readBigint(x0);
@@ -94,17 +104,24 @@ for (let w of [29]) {
     return x;
   }
 
+  let constants = createConstants(helpers, {
+    zero: 0n,
+    mg1: mod(1n * Field.R, p),
+    mg2: mod(2n * Field.R, p),
+  });
+  let { sqrt } = createSqrt(Field, wasm, helpers, constants);
+
   function benchSqrt(x: number, y: number, N: number) {
-    let scratch = Field0.getPointers(5);
+    let scratch = getPointers(5);
     for (let i = 0; i < N; i++) {
-      Field0.add(x, x, y);
-      Field0.sqrt(scratch, x, x);
+      wasm.add(x, x, y);
+      sqrt(scratch, x, x);
     }
     return x;
   }
 
   let t1 = getPointer();
-  writeBigint(t1, (Field0.t - 1n) / 2n);
+  writeBigint(t1, (t - 1n) / 2n);
 
   function benchPow(x: number, N: number) {
     let scratch = getPointer();
@@ -137,13 +154,7 @@ for (let w of [29]) {
     tMul,
   });
   bench2("pow", () => benchPow(x, Ninv), { N: Ninv, tMul });
-
-  let x_ = Field0.getPointer();
-  let y_ = Field0.getPointer();
-  Field0.writeBigint(x_, randomFieldx2());
-  Field0.writeBigint(y_, randomFieldx2());
-
-  bench2("sqrt", () => benchSqrt(x_, y_, Ninv), { N: Ninv, tMul });
+  bench2("sqrt", () => benchSqrt(x, y, Ninv), { N: Ninv, tMul });
 }
 
 function bench(

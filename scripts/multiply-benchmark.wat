@@ -4396,6 +4396,107 @@
     local.get 1
     i32.const 36
     memory.copy)
+  (func (;23;) (type 6) (param i32 i32) (result i32)
+    local.get 0
+    i32.load
+    i64.extend_i32_u
+    local.get 1
+    i32.load
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=4
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=4
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=8
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=8
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=12
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=12
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=16
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=16
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=20
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=20
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=24
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=24
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=28
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=28
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    local.get 0
+    i32.load offset=32
+    i64.extend_i32_u
+    local.get 1
+    i32.load offset=32
+    i64.extend_i32_u
+    i64.ne
+    if  ;; label = @1
+      i32.const 0
+      return
+    end
+    i32.const 1)
   (memory (;0;) 100)
   (global (;0;) i32 (i32.const 36))
   (global (;1;) i32 (i32.const 0))
@@ -4409,5 +4510,12 @@
   (export "exp" (func 21))
   (export "memory" (memory 0))
   (export "dataOffset" (global 2))
+  (export "copy" (func 22))
+  (export "add" (func 10))
+  (export "reduce" (func 13))
+  (export "isEqual" (func 23))
+  (export "isZero" (func 14))
+  (export "multiply" (func 1))
+  (export "square" (func 8))
   (data (;0;) (i32.const 0) "}%m\07\c8%a\18Bn\1f\14BE\ed\0bJ\e74\164FW\12\877S\0fyGq\0b\ce\bd\17\00")
   (data (;1;) (i32.const 36) "\01\00\00\00h\87i\09\e6F>\13\12\f81\0d$\02\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00@\00"))
