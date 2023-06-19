@@ -85,6 +85,7 @@ for (let w of [29]) {
       isZero: Field.isZero,
       multiply: Field.multiply,
       square: Field.square,
+      inverse,
     },
   });
   await writeWat(

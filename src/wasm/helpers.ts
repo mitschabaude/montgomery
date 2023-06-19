@@ -31,6 +31,7 @@ function memoryHelpers(
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;
   let obj = {
+    memoryBytes,
     n,
     R,
     // a field element has n limbs, each of which is an int32 (= 4 bytes)
