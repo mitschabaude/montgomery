@@ -235,7 +235,7 @@ function createSqrt(
     return true;
   }
 
-  return { sqrt, fastSqrt, t, roots };
+  return { slowSqrt: sqrt, sqrt: fastSqrt, t, roots };
 }
 
 // wasm API we need

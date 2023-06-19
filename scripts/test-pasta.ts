@@ -116,10 +116,8 @@ function test() {
 
   // sqrt
   let exists0 = modExp(x0, (p - 1n) >> 1n, { p }) === 1n;
-  // let exists1 = Field.sqrt(scratch, z, x);
-  let exists2 = Field.fastSqrt(scratch, z, x);
-  // if (exists0 !== exists1) throw Error("isSquare");
-  if (exists0 !== exists2) throw Error("isSquare");
+  let exists1 = Field.sqrt(scratch, z, x);
+  if (exists0 !== exists1) throw Error("isSquare");
   if (exists0) {
     let zsqrt = ofWasm(scratch, z);
     Field.square(z, z);

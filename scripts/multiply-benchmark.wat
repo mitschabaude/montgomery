@@ -4517,5 +4517,6 @@
   (export "isZero" (func 14))
   (export "multiply" (func 1))
   (export "square" (func 8))
+  (export "inverse" (func 12))
   (data (;0;) (i32.const 0) "}%m\07\c8%a\18Bn\1f\14BE\ed\0bJ\e74\164FW\12\877S\0fyGq\0b\ce\bd\17\00")
   (data (;1;) (i32.const 36) "\01\00\00\00h\87i\09\e6F>\13\12\f81\0d$\02\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00@\00"))
