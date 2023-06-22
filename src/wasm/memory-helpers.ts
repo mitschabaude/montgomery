@@ -160,6 +160,10 @@ function memoryHelpers(
       return obj.offset;
     },
 
+    setOffset(offset: number) {
+      obj.offset = offset;
+    },
+
     /**
      * write field element from packed bytes representation
      */

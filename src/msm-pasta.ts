@@ -81,7 +81,7 @@ export {
  */
 let cTable: Record<number, [number, number] | undefined> = {
   [14]: [13, 7],
-  [16]: [15, 8],
+  [16]: [14, 8],
   [18]: [16, 8],
 };
 
@@ -230,6 +230,8 @@ function msm(
     useSafeAdditions = false,
   }: { c?: number; c0?: number; useSafeAdditions?: boolean } | undefined = {}
 ) {
+  let result = getPointer(sizeProjective);
+  let memoryOffset = Field.getOffset();
   let n = log2(N);
   let c = n - 1;
   if (c < 1) c = 1;
@@ -557,10 +559,9 @@ function msm(
     let partialSum = partialSums[k];
     addAssignProjective(scratch, finalSum, partialSum);
   }
-
-  // TODO: reset memory to start, copy final sum into new pointer
-
-  return finalSum;
+  copyProjective(result, finalSum);
+  Field.setOffset(memoryOffset);
+  return result;
 }
 
 /**

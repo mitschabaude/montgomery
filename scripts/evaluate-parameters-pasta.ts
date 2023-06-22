@@ -31,9 +31,9 @@ let N = [14, 16, 18];
 
 // window width's difference to n-1 to test
 // n-1 is thought to be the optimal default
-let C = [-3, -2, -1, 0];
+let C = [-2, -1, 0, 1];
 // sub bucket log-size, diff to c >> 1 which is thought to be a good default
-let C0 = [-1, 0, 1, 2, 3];
+let C0 = [-1, 0, 1, 2];
 
 let times: Record<
   number,
@@ -60,7 +60,7 @@ for (let n of N) {
       let times_: number[] = [];
       for (let i = 0; i < REPEAT; i++) {
         tic();
-        msm(scalarPtr, points[0], n, { c, c0 });
+        msm(scalarPtr, points[0], 1 << n, { c, c0 });
         let time = toc();
         times_.push(time);
       }
