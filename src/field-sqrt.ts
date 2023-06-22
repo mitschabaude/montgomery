@@ -106,7 +106,7 @@ function createSqrt(
   // after Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
 
   // parameters for windowed representation of epxonents in roots subgroup
-  let c = 4; // window/limb size
+  let c = Math.min(4, M); // window/limb size
   let L = 1 << c;
   let N = Math.ceil(M / c); // number of windows/limbs
 
@@ -246,7 +246,7 @@ function createSqrt(
     return true;
   }
 
-  return { slowSqrt: sqrt, sqrt: fastSqrt, t, roots };
+  return { slowSqrt: sqrt, sqrt: M > 4 ? fastSqrt : sqrt, t, roots };
 }
 
 // wasm API we need
