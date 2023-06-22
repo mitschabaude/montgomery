@@ -2,7 +2,7 @@ import type * as W from "wasmati";
 import { Const, Module, global, memory } from "wasmati";
 import { glv, glvGeneral } from "./wasm/glv.js";
 import { bigintFromBytes } from "./util.js";
-import { memoryHelpers } from "./wasm/helpers.js";
+import { memoryHelpers } from "./wasm/memory-helpers.js";
 import {
   extractBitSlice,
   fromPackedBytes,

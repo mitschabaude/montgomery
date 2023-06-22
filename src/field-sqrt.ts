@@ -1,7 +1,7 @@
 import { assert, mapRange } from "./util.js";
 import type { WasmFunctions } from "./types.js";
 import type { FieldWithMultiply } from "./wasm/multiply-montgomery.js";
-import type { MemoryHelpers } from "./wasm/helpers.js";
+import type { MemoryHelpers } from "./wasm/memory-helpers.js";
 import { Func, i32 } from "wasmati";
 
 export { createSqrt };
