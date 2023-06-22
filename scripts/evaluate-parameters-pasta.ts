@@ -35,8 +35,14 @@ let C = [-3, -2, -1, 0];
 // sub bucket log-size, diff to c >> 1 which is thought to be a good default
 let C0 = [-1, 0, 1, 2, 3];
 
-let times = {}; // { n: { c: { c0: { time, std } } } }
-let best = {}; // { n: { time, std, c, c0 } }
+let times: Record<
+  number,
+  Record<number, Record<number, { time: number; std: number }>>
+> = {}; // { n: { c: { c0: { time, std } } } }
+let best: Record<
+  number,
+  { time: number; std?: number; c?: number; c0?: number }
+> = {}; // { n: { time, std, c, c0 } }
 
 for (let n of N) {
   times[n] = {};

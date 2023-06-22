@@ -2,7 +2,7 @@ import { Const, Module, call, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { Field as Field0, Random } from "../src/concrete/pasta.js";
 import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
-import { memoryHelpers } from "../src/wasm/helpers.js";
+import { memoryHelpers } from "../src/wasm/memory-helpers.js";
 import { writeWat } from "../src/wasm/wat-helpers.js";
 import { multiplySchoolbook } from "../src/wasm/multiply-schoolbook.js";
 import { multiplyBarrett } from "../src/wasm/barrett.js";

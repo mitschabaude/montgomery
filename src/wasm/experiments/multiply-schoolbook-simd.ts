@@ -2,7 +2,7 @@ import type * as W from "wasmati";
 import { $, Type, call, func, i32, i64, i64x2, local, v128 } from "wasmati";
 import { forLoop1, forLoop4 } from "../wasm-util.js";
 import { Local } from "wasmati";
-import { montgomeryParams } from "../../finite-field-js.js";
+import { montgomeryParams } from "../../field-util.js";
 
 /**
  * this is a failed experiment of using simd for i64x2 mults

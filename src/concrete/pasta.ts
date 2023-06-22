@@ -1,3 +1,4 @@
+import type * as W from "wasmati";
 import { randomGenerators } from "../field-util.js";
 import { p, q, beta, lambda } from "./pasta.params.js";
 import { createMsmField } from "../field-msm.js";
