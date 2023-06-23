@@ -1,5 +1,5 @@
 import { mod, modInverse } from "../field-util.js";
-import type { BigintPoint } from "../msm-pasta.js";
+import type { BigintPoint } from "../msm.js";
 import { bigintToBits } from "../util.js";
 
 export { msmDumbAffine, doubleAffine, addAffine, scale, checkOnCurve };

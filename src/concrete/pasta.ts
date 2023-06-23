@@ -5,7 +5,7 @@ import { createMsmField } from "../field-msm.js";
 import { createGeneralGlvScalar } from "../scalar-glv.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { createCurveProjective } from "../curve-projective.js";
-import { createMsm } from "../msm-pasta.js";
+import { createMsm } from "../msm.js";
 
 export { Field, Scalar, CurveAffine, CurveProjective, Random };
 export { msm, msmBigint, msmBytesInput, msmUtil };
