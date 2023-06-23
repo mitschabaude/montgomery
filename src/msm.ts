@@ -106,18 +106,15 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     sizeField,
     memoryBytes,
     getZeroPointers,
-    writeBytes,
     writeBigint,
     toMontgomery,
     resetPointers,
     constants,
     fromMontgomery,
     getPointer,
-    readBytes,
     readBigint,
     getPointersInMemory,
     getEmptyPointersInMemory,
-    packedSizeField: packedSizeBytes,
     batchInverse,
   } = Field;
 
@@ -175,36 +172,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     resetPointersScalar();
 
     return result;
-  }
-
-  // MSM where input scalars and points are Rust-compatible byte arrays
-  // (format specified for Zprize 2022)
-  function msmBytesInput(
-    inputScalars: Uint8Array[],
-    inputPoints: BytesPoint[],
-    options:
-      | { c?: number; c0?: number; useSafeAdditions?: boolean }
-      | undefined = {}
-  ) {
-    let N = inputPoints.length;
-    if (inputScalars.length !== N) {
-      throw Error("Mismatch of scalar/point array length");
-    }
-
-    // transfer scalars to wasm memory
-    let scalarPtr = bytesScalarsToMemory(inputScalars);
-    // transfer points to wasm memory
-    let pointPtr = bytesPointsToMemory(inputPoints);
-
-    let finalSum = msm(scalarPtr, pointPtr, N, options);
-
-    // convert final sum back to affine point
-    let result = toAffineOutput(getPointers(4), finalSum);
-
-    resetPointers();
-    resetPointersScalar();
-
-    return { result };
   }
 
   function msm(
@@ -835,34 +802,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   /**
    * converts projective point back to affine, and into the `InputPoint` format expected from the MSM
    *
-   * @param {number[]} scratch at least 4 fields
-   * @param {number} point projective representation
-   * @returns {BytesPoint}
-   */
-  function toAffineOutput(
-    [zinv, ...scratch]: number[],
-    point: number
-  ): BytesPoint {
-    if (isZeroProjective(point)) {
-      return [
-        new Uint8Array(packedSizeBytes),
-        new Uint8Array(packedSizeBytes),
-        true,
-      ];
-    }
-    let [x, y, z] = projectiveCoords(point);
-    // return x/z, y/z
-    inverse(scratch[0], zinv, z);
-    multiply(x, x, zinv);
-    multiply(y, y, zinv);
-    fromMontgomery(x);
-    fromMontgomery(y);
-    return [readBytes(scratch, x), readBytes(scratch, y), false];
-  }
-
-  /**
-   * converts projective point back to affine, and into the `InputPoint` format expected from the MSM
-   *
    * @param {number[]} scratch toAffineOutputBigint
    * @param {number} point projective representation
    * @returns {InputPoint}
@@ -918,46 +857,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     return pointPtr;
   }
 
-  function bytesScalarsToMemory(inputScalars: Uint8Array[]) {
-    let N = inputScalars.length;
-    let scratch = [getPointerScalar()];
-    let scalarPtr = getPointerScalar(N * sizeScalar);
-    for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar) {
-      let inputScalar = inputScalars[i];
-      Scalar.writeBytes(scratch, scalar, inputScalar);
-    }
-    return scalarPtr;
-  }
-
-  function bytesPointsToMemory(inputPoints: BytesPoint[]) {
-    let N = inputPoints.length;
-    let scratch = getPointers(5);
-    let pointPtr = getPointer(N * sizeAffine);
-
-    for (let i = 0, point = pointPtr; i < N; i++, point += sizeAffine) {
-      let inputPoint = inputPoints[i];
-      /**
-       * store point in n-limb format and convert to montgomery representation.
-       * see {@link sizeField} for the memory layout.
-       */
-      let x = point;
-      let y = point + sizeField;
-      writeBytes(scratch, x, inputPoint[0]);
-      writeBytes(scratch, y, inputPoint[1]);
-      let isNonZero = Number(!inputPoint[2]);
-      memoryBytes[point + 2 * sizeField] = isNonZero;
-
-      // do one multiplication on each coordinate to bring it into montgomery form
-      toMontgomery(x);
-      toMontgomery(y);
-    }
-    return pointPtr;
-  }
-
   return {
-    msmBytesInput,
-    msmBigint,
     msm,
+    msmBigint,
     batchAdd,
     bigintScalarsToMemory,
     toAffineOutputBigint,
