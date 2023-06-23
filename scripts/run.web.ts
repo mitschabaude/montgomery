@@ -1,6 +1,6 @@
 import { tic, toc } from "../src/extra/tictoc.web.js";
 import { load } from "./store-inputs.web.js";
-import { msmAffine } from "../src/msm.js";
+import { msmAffine } from "../src/msm-bls12-zprize.js";
 
 let n = 16;
 console.log(`running msm with 2^${n} inputs`);

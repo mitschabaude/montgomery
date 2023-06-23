@@ -1,7 +1,7 @@
 import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
 import { webcrypto } from "node:crypto";
-import { msmBigint } from "../src/msm.js";
+import { msmBigint } from "../src/msm-bls12-zprize.js";
 import { bigintFromBytes } from "../src/util.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)

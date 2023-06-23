@@ -6,7 +6,7 @@ import {
   PointVectorInput,
   ScalarVectorInput,
 } from "../src/extra/reference.node.js";
-import { BytesPoint } from "../src/msm.js";
+import { BytesPoint } from "../src/msm-bls12-zprize.js";
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
 

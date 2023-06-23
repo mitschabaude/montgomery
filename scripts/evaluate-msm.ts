@@ -1,7 +1,7 @@
 import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
 import { webcrypto } from "node:crypto";
-import { msmAffine } from "../src/msm.js";
+import { msmAffine } from "../src/msm-bls12-zprize.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;

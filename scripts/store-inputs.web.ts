@@ -1,4 +1,4 @@
-import { BytesPoint } from "../src/msm.js";
+import { BytesPoint } from "../src/msm-bls12-zprize.js";
 import { log2 } from "../src/util.js";
 export { load };
 
