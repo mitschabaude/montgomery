@@ -180,7 +180,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     {
       c: c_,
       c0: c0_,
-      useSafeAdditions = false,
+      useSafeAdditions = true,
     }: { c?: number; c0?: number; useSafeAdditions?: boolean } | undefined = {}
   ) {
     let result = getPointer(sizeProjective);
@@ -824,6 +824,12 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
   return {
     msm,
+    msmUnsafe: (
+      s: number,
+      p: number,
+      N: number,
+      o?: { c?: number; c0?: number }
+    ) => msm(s, p, N, { ...o, useSafeAdditions: false }),
     msmBigint,
     batchAdd,
     toAffineOutputBigint,

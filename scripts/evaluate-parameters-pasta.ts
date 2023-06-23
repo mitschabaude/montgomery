@@ -2,7 +2,7 @@
 
 import { tic, toc } from "../src/extra/tictoc.js";
 import {
-  msm,
+  msmUnsafe,
   Field,
   Scalar,
   CurveAffine,
@@ -27,7 +27,7 @@ let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();
 
 tic("warm-up JIT compiler with fixed set of points");
-msm(scalarPtr, points[0], 1 << 14);
+msmUnsafe(scalarPtr, points[0], 1 << 14);
 toc();
 
 // input log-sizes to test
@@ -39,4 +39,4 @@ let C = [-2, -1, 0, 1];
 // sub bucket log-size, diff to c >> 1 which is thought to be a good default
 let C0 = [-1, 0, 1, 2];
 
-evaluateParameters(msm, scalarPtr, points[0], N, C, C0);
+evaluateParameters(msmUnsafe, scalarPtr, points[0], N, C, C0);

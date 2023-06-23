@@ -8,14 +8,14 @@ import { createCurveProjective } from "../curve-projective.js";
 import { createMsm } from "../msm.js";
 
 export { Field, Scalar, CurveAffine, CurveProjective, Random };
-export { msm, msmBigint, msmUtil };
+export { msm, msmUnsafe, msmBigint, msmUtil };
 
 const Field = await createMsmField(p, beta, 30);
 const Scalar = await createGeneralGlvScalar(q, lambda, 29);
 const CurveAffine = createCurveAffine(Field, b);
 const CurveProjective = createCurveProjective(Field);
 
-const { msm, msmBigint, ...msmUtil } = createMsm({
+const { msm, msmUnsafe, msmBigint, ...msmUtil } = createMsm({
   Field,
   Scalar,
   CurveAffine,

@@ -2,7 +2,7 @@
 
 import { tic, toc } from "../src/extra/tictoc.js";
 import {
-  msm,
+  msmUnsafe,
   Field,
   Scalar,
   CurveAffine,
@@ -30,11 +30,11 @@ let pointPtr = points[0];
 toc();
 
 tic("warm-up JIT compiler with fixed set of points");
-msm(scalarPtr, pointPtr, 1 << 14);
+msmUnsafe(scalarPtr, pointPtr, 1 << 14);
 await new Promise((r) => setTimeout(r, 100));
-msm(scalarPtr, pointPtr, 1 << 14);
+msmUnsafe(scalarPtr, pointPtr, 1 << 14);
 await new Promise((r) => setTimeout(r, 100));
 toc();
 
-let times = evaluate(msm, scalarPtr, pointPtr, N);
+let times = evaluate(msmUnsafe, scalarPtr, pointPtr, N);
 console.dir(times, { depth: Infinity });
