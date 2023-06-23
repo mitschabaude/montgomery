@@ -4,6 +4,8 @@ import { randomGenerators } from "./field-util.js";
 
 export { createCurveAffine, CurveAffine };
 
+export { getSizeAffine };
+
 /**
  * Memory layout of curve points
  * -------------
@@ -180,6 +182,10 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     randomCurvePoints,
     toBigint,
   };
+}
+
+function getSizeAffine(sizeField: number) {
+  return 2 * sizeField + 4;
 }
 
 type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };

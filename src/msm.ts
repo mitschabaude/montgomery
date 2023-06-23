@@ -1,13 +1,15 @@
 /**
  * The main MSM implementation, based on batched-affine additions
  */
-import { CurveAffine } from "./curve-affine.js";
+import { CurveAffine, getSizeAffine } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
 import { MsmField } from "./field-msm.js";
 import { GeneralGlvScalar } from "./scalar-glv.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve, BigintPoint, BytesPoint };
+
+export { bigintPointsToMemory, bigintScalarsToMemory };
 
 type MsmCurve = {
   Field: MsmField;
@@ -106,8 +108,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     sizeField,
     memoryBytes,
     getZeroPointers,
-    writeBigint,
-    toMontgomery,
     resetPointers,
     constants,
     fromMontgomery,
@@ -122,7 +122,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     decompose,
     extractBitSlice,
     sizeField: sizeScalar,
-    getPointer: getPointerScalar,
     resetPointers: resetPointersScalar,
   } = Scalar;
   const scalarBitlength = Scalar.maxBits;
@@ -159,9 +158,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
 
     // transfer scalars to wasm memory
-    let scalarPtr = bigintScalarsToMemory(inputScalars);
+    let scalarPtr = bigintScalarsToMemory(Scalar, inputScalars);
     // transfer points to wasm memory
-    let pointPtr = bigintPointsToMemory(inputPoints);
+    let pointPtr = bigintPointsToMemory(Field, inputPoints);
 
     let finalSum = msm(scalarPtr, pointPtr, N, options);
 
@@ -823,47 +822,53 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     return { x: readBigint(x), y: readBigint(y), isInfinity: false };
   }
 
-  function bigintScalarsToMemory(inputScalars: bigint[]) {
-    let N = inputScalars.length;
-    let scalarPtr = getPointerScalar(N * sizeScalar);
-    for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar) {
-      let inputScalar = inputScalars[i];
-      Scalar.writeBigint(scalar, inputScalar);
-    }
-    return scalarPtr;
-  }
-
-  function bigintPointsToMemory(inputPoints: BigintPoint[]) {
-    let N = inputPoints.length;
-    let pointPtr = getPointer(N * sizeAffine);
-
-    for (let i = 0, point = pointPtr; i < N; i++, point += sizeAffine) {
-      let inputPoint = inputPoints[i];
-      /**
-       * store point in n-limb format and convert to montgomery representation.
-       * see {@link sizeField} for the memory layout.
-       */
-      let x = point;
-      let y = point + sizeField;
-      writeBigint(x, inputPoint.x);
-      writeBigint(y, inputPoint.y);
-      let isNonZero = Number(!inputPoint.isInfinity);
-      memoryBytes[point + 2 * sizeField] = isNonZero;
-
-      // do one multiplication on each coordinate to bring it into montgomery form
-      toMontgomery(x);
-      toMontgomery(y);
-    }
-    return pointPtr;
-  }
-
   return {
     msm,
     msmBigint,
     batchAdd,
-    bigintScalarsToMemory,
     toAffineOutputBigint,
   };
+}
+
+function bigintPointsToMemory(
+  { getPointer, sizeField, writeBigint, memoryBytes, toMontgomery }: MsmField,
+  inputPoints: BigintPoint[]
+) {
+  let N = inputPoints.length;
+  let sizeAffine = getSizeAffine(sizeField);
+  let pointPtr = getPointer(N * sizeAffine);
+
+  for (let i = 0, point = pointPtr; i < N; i++, point += sizeAffine) {
+    let inputPoint = inputPoints[i];
+    /**
+     * store point in n-limb format and convert to montgomery representation.
+     * see {@link sizeField} for the memory layout.
+     */
+    let x = point;
+    let y = point + sizeField;
+    writeBigint(x, inputPoint.x);
+    writeBigint(y, inputPoint.y);
+    let isNonZero = Number(!inputPoint.isInfinity);
+    memoryBytes[point + 2 * sizeField] = isNonZero;
+
+    // do one multiplication on each coordinate to bring it into montgomery form
+    toMontgomery(x);
+    toMontgomery(y);
+  }
+  return pointPtr;
+}
+
+function bigintScalarsToMemory(
+  { sizeField: sizeScalar, getPointer, writeBigint }: GeneralGlvScalar,
+  inputScalars: bigint[]
+) {
+  let N = inputScalars.length;
+  let scalarPtr = getPointer(N * sizeScalar);
+  for (let i = 0, scalar = scalarPtr; i < N; i++, scalar += sizeScalar) {
+    let inputScalar = inputScalars[i];
+    writeBigint(scalar, inputScalar);
+  }
+  return scalarPtr;
 }
 
 /**

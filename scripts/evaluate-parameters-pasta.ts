@@ -3,11 +3,12 @@
 import { tic, toc } from "../src/extra/tictoc.js";
 import {
   msm,
-  msmUtil,
   Field,
+  Scalar,
   CurveAffine,
   Random,
 } from "../src/concrete/pasta.js";
+import { bigintScalarsToMemory } from "../src/msm.js";
 import { webcrypto } from "node:crypto";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) {
@@ -21,7 +22,7 @@ let points = Field.getZeroPointers(Nmax, CurveAffine.sizeAffine);
 let scratch = Field.getPointers(20);
 CurveAffine.randomCurvePoints(scratch, points);
 let scalars = Random.randomScalars(Nmax);
-let scalarPtr = msmUtil.bigintScalarsToMemory(scalars);
+let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();
 
 tic("warm-up JIT compiler with fixed set of points");
