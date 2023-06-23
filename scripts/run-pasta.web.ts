@@ -1,11 +1,12 @@
 import { tic, toc } from "../src/extra/tictoc.web.js";
 import {
   msm,
-  msmUtil,
   Field,
   CurveAffine,
   Random,
+  Scalar,
 } from "../src/concrete/pasta.js";
+import { bigintScalarsToMemory } from "../src/msm.js";
 
 let n = 18;
 let N = 1 << n;
@@ -17,7 +18,7 @@ let scratch = Field.getPointers(20);
 CurveAffine.randomCurvePoints(scratch, points);
 
 let scalars = Random.randomScalars(N);
-let scalarPtr = msmUtil.bigintScalarsToMemory(scalars);
+let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();
 
 tic("warm-up JIT compiler with fixed points");
