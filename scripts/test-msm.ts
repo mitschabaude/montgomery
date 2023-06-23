@@ -9,12 +9,17 @@ import {
 } from "../src/extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { Field } from "../src/concrete/bls12-381.js";
+import {
+  Field,
+  GeneralScalar,
+  CurveAffine,
+  CurveProjective,
+} from "../src/concrete/bls12-381.js";
 import { mod, modInverse } from "../src/field-util.js";
 import { msmAffine, msmBigint } from "../src/msm-bls12-zprize.js";
 import { bigintFromBytes } from "../src/util.js";
-import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { load } from "./store-inputs.js";
+import { createMsm } from "../src/msm.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
@@ -75,11 +80,26 @@ let resultBigint = msmBigint(scalarsBigint, pointsBigint);
 toc();
 let { x: xBig, y: yBig, isInfinity } = resultBigint;
 
+// consistency with new impl
+const { msmBigint: msmBigintNew } = createMsm({
+  Field,
+  Scalar: GeneralScalar,
+  CurveAffine,
+  CurveProjective,
+});
+
+tic("msm (bigint new)");
+let resultBigintNew = msmBigintNew(scalarsBigint, pointsBigint);
+toc();
+let { x: xBigNew, y: yBigNew } = resultBigintNew;
+
 console.log("ref === proj", { x: xRef === xProj, y: yRef === yProj });
 console.log("ref === aff", { x: xRef === xAff, y: yRef === yAff });
 console.log("ref === big", { x: xRef === xBig, y: yRef === yBig });
 
 console.log("proj === aff", { x: xProj === xAff, y: yProj === yAff });
+
+console.log("ref === big new", { x: xRef === xBigNew, y: yRef === yBigNew });
 
 function toAffine(x: bigint, y: bigint, z: bigint) {
   if (z === 0n) return [0n, 0n, true];
