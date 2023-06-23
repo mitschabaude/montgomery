@@ -19,6 +19,78 @@ type MsmCurve = {
 type BytesPoint = [xArray: Uint8Array, yArray: Uint8Array, isInfinity: boolean];
 type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
 
+/**
+ * MSM (multi-scalar multiplication)
+ * ----------------------------------
+ *
+ * given scalars `s_i` and points `G_i`, `i=0,...N-1`, compute
+ *
+ * `[s_0] G_0 + ... + [s_(N-1)] G_(N-1)`.
+ *
+ * broadly, our implementation uses the pippenger algorithm / bucket method, where scalars are sliced
+ * into windows of size c, giving rise to K = [b/c] _partitions_ or "sub-MSMs" (where b is the scalar bit length).
+ *
+ * for each partition k, points `G_i` are sorted into `L = 2^(c-1)` _buckets_ according to the ḱth NAF slice of their scalar `s_i`.
+ * in total, we end up with `K*L` buckets, which are indexed by `(k, l)` where `k = 0,...K-1` and `l = 1,...,L`.
+ *
+ * after sorting the points, computation proceeds in **three main steps:**
+ * 1. each bucket is accumulated into a single point, the _bucket sum_ `B_(l,k)`, which is simply the sum of all points in the bucket.
+ * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
+ * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
+ *
+ * ### High-level implementation
+ *
+ * - we use **batch-affine additions** for step 1 (bucket accumulation),
+ *   as pioneered by Zac Williamson in Aztec's barretenberg library: https://github.com/AztecProtocol/barretenberg/pull/19.
+ *   thus, in this step we loop over all buckets, collect pairs of points to add, and then do a batch-addition on all of them.
+ *   this is done in multiple passes, until the points of each bucket are summed to a single point, in an implicit binary tree.
+ *   (in each pass, empty buckets and buckets with 1 remaining point are skipped;
+ *   also, buckets of uneven length have a dangling point at the end, which doesn't belong to a pair and is skipped and included in a later pass)
+ * - as a novelty, we also use **batch-affine additions for all of step 2** (bucket reduction).
+ *   we achieve this by splitting up each partition recursively into sub-partitions, which are reduced independently from each other.
+ *   this gives us enough independent additions to amortize the cost of the inversion in the batch-add step.
+ *   sub-partitions are recombined in a series of comparatively cheap, log-sized steps. for details, see {@link reduceBucketsAffine}.
+ * - we switch from an affine to a projective point representation between steps 2 and 3. step 3 is so tiny (< 0.1% of the computation)
+ *   that the performance of projective curve arithmetic becomes irrelevant.
+ *
+ * the algorithm has a significant **preparation phase**, which happens before step 1, where we split scalars and sort points and such.
+ * before splitting scalars into length-c slices, we do a **GLV decomposition**, where each 256-bit scalar is split into two
+ * 128-bit chunks as `s = s0 + s1*lambda`. multiplying a point by `lambda` is a curve endomorphism,
+ * with an efficient implementation `[lambda] (x,y) = (beta*x, y) =: endo((x, y))`,
+ * where `lambda` and `beta` are certain cube roots of 1 in their respective fields.
+ * correspondingly, each point `G` becomes two points `G`, `endo(G)`.
+ * we also store `-G` and `-endo(G)` which are used when the NAF slices of `s0`, `s1` are negative.
+ *
+ * other than processing inputs, the preparation phase is concerned with organizing points. this should be done in a way which:
+ * 1. enables to efficiently collect independent point pairs to add, in multiple successive passes over all buckets;
+ * 2. makes memory access efficient when batch-adding pairs => ideally, the 2 points that form a pair, as well as consecutive pairs, are stored next to each other
+ *
+ * we address these two goals by copying all points to K independent linear arrays; one for each partition.
+ * ordering in each of these arrays is achieved by performing a _counting sort_ of all points with respect to their bucket `l` in partition `k`.
+ *
+ * between step 1 and 2, there is a similar re-organization step. at the end of step 1, bucket sums are accumulated into the `0` locations
+ * of each original bucket, which are spread apart as far as the original buckets were long.
+ * before step 2, we copy bucket sums to a new linear array from 1 to L, for each partition.
+ *
+ * finally, here's a rough breakdown of the time spent in the 5 different phases of the algorithm.
+ * we split the preparation phase into two; the "summation steps" are the three steps also defined above.
+ *
+ * ```txt
+ *  8% - preparation 1 (input processing)
+ * 12% - preparation 2 (sorting points in bucket order)
+ * 65% - summation step 1 (bucket accumulation)
+ * 15% - summation step 2 (bucket reduction)
+ *  0% - summation step 3 (final sum over partitions)
+ * ```
+ *
+ * you can find more details on each phase and reasoning about performance in the comments below!
+ *
+ * @param scalars pointer to array of scalars `s_0, ..., s_(N-1)`
+ * @param points pointer to array of points `G_0, ..., G_(N-1)`
+ * @param N number of scalars/points
+ * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
+ * than our well-optimized, hard-coded ones; see {@link cTable})
+ */
 function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   const {
     multiply,
@@ -150,78 +222,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     return { result };
   }
 
-  /**
-   * MSM (multi-scalar multiplication)
-   * ----------------------------------
-   *
-   * given scalars `s_i` and points `G_i`, `i=0,...N-1`, compute
-   *
-   * `[s_0] G_0 + ... + [s_(N-1)] G_(N-1)`.
-   *
-   * broadly, our implementation uses the pippenger algorithm / bucket method, where scalars are sliced
-   * into windows of size c, giving rise to K = [b/c] _partitions_ or "sub-MSMs" (where b is the scalar bit length).
-   *
-   * for each partition k, points `G_i` are sorted into `L = 2^(c-1)` _buckets_ according to the ḱth NAF slice of their scalar `s_i`.
-   * in total, we end up with `K*L` buckets, which are indexed by `(k, l)` where `k = 0,...K-1` and `l = 1,...,L`.
-   *
-   * after sorting the points, computation proceeds in **three main steps:**
-   * 1. each bucket is accumulated into a single point, the _bucket sum_ `B_(l,k)`, which is simply the sum of all points in the bucket.
-   * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
-   * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
-   *
-   * ### High-level implementation
-   *
-   * - we use **batch-affine additions** for step 1 (bucket accumulation),
-   *   as pioneered by Zac Williamson in Aztec's barretenberg library: https://github.com/AztecProtocol/barretenberg/pull/19.
-   *   thus, in this step we loop over all buckets, collect pairs of points to add, and then do a batch-addition on all of them.
-   *   this is done in multiple passes, until the points of each bucket are summed to a single point, in an implicit binary tree.
-   *   (in each pass, empty buckets and buckets with 1 remaining point are skipped;
-   *   also, buckets of uneven length have a dangling point at the end, which doesn't belong to a pair and is skipped and included in a later pass)
-   * - as a novelty, we also use **batch-affine additions for all of step 2** (bucket reduction).
-   *   we achieve this by splitting up each partition recursively into sub-partitions, which are reduced independently from each other.
-   *   this gives us enough independent additions to amortize the cost of the inversion in the batch-add step.
-   *   sub-partitions are recombined in a series of comparatively cheap, log-sized steps. for details, see {@link reduceBucketsAffine}.
-   * - we switch from an affine to a projective point representation between steps 2 and 3. step 3 is so tiny (< 0.1% of the computation)
-   *   that the performance of projective curve arithmetic becomes irrelevant.
-   *
-   * the algorithm has a significant **preparation phase**, which happens before step 1, where we split scalars and sort points and such.
-   * before splitting scalars into length-c slices, we do a **GLV decomposition**, where each 256-bit scalar is split into two
-   * 128-bit chunks as `s = s0 + s1*lambda`. multiplying a point by `lambda` is a curve endomorphism,
-   * with an efficient implementation `[lambda] (x,y) = (beta*x, y) =: endo((x, y))`,
-   * where `lambda` and `beta` are certain cube roots of 1 in their respective fields.
-   * correspondingly, each point `G` becomes two points `G`, `endo(G)`.
-   * we also store `-G` and `-endo(G)` which are used when the NAF slices of `s0`, `s1` are negative.
-   *
-   * other than processing inputs, the preparation phase is concerned with organizing points. this should be done in a way which:
-   * 1. enables to efficiently collect independent point pairs to add, in multiple successive passes over all buckets;
-   * 2. makes memory access efficient when batch-adding pairs => ideally, the 2 points that form a pair, as well as consecutive pairs, are stored next to each other
-   *
-   * we address these two goals by copying all points to K independent linear arrays; one for each partition.
-   * ordering in each of these arrays is achieved by performing a _counting sort_ of all points with respect to their bucket `l` in partition `k`.
-   *
-   * between step 1 and 2, there is a similar re-organization step. at the end of step 1, bucket sums are accumulated into the `0` locations
-   * of each original bucket, which are spread apart as far as the original buckets were long.
-   * before step 2, we copy bucket sums to a new linear array from 1 to L, for each partition.
-   *
-   * finally, here's a rough breakdown of the time spent in the 5 different phases of the algorithm.
-   * we split the preparation phase into two; the "summation steps" are the three steps also defined above.
-   *
-   * ```txt
-   *  8% - preparation 1 (input processing)
-   * 12% - preparation 2 (sorting points in bucket order)
-   * 65% - summation step 1 (bucket accumulation)
-   * 15% - summation step 2 (bucket reduction)
-   *  0% - summation step 3 (final sum over partitions)
-   * ```
-   *
-   * you can find more details on each phase and reasoning about performance in the comments below!
-   *
-   * @param scalars pointer to array of scalars `s_0, ..., s_(N-1)`
-   * @param points pointer to array of points `G_0, ..., G_(N-1)`
-   * @param N number of scalars/points
-   * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
-   * than our well-optimized, hard-coded ones; see {@link cTable})
-   */
   function msm(
     scalarPtr0: number,
     pointPtr0: number,
