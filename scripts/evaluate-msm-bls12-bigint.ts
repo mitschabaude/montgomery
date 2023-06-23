@@ -10,7 +10,7 @@ import {
   CurveAffine,
   CurveProjective,
 } from "../src/concrete/bls12-381.js";
-import { evaluate } from "./evaluate-util.js";
+import { evaluateBigint } from "./evaluate-util.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19)
   (globalThis as any).crypto = webcrypto;
@@ -53,9 +53,9 @@ toc();
 const N = [14, 16, 18];
 
 console.log("msm zprize");
-let times = evaluate(msmBigint, scalars, points, N);
+let times = evaluateBigint(msmBigint, scalars, points, N);
 console.dir(times, { depth: Infinity });
 
 console.log("msm general");
-let timesNew = evaluate(msmBigintNew, scalars, points, N);
+let timesNew = evaluateBigint(msmBigintNew, scalars, points, N);
 console.dir(timesNew, { depth: Infinity });

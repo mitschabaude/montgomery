@@ -872,15 +872,17 @@ function bigintScalarsToMemory(
 }
 
 /**
- * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
+ * table of the form `n: (c, c0)`, which has msm parameters c, c0 for different n.
  * n is the log-size of scalar and point inputs.
- * table was optimized for the zprize evaluation environment.
+ * table was optimized with pasta curves
  *
  * @param c window size
  * @param c0 log-size of sub-partitions used in the bucket reduction step
  */
-const cTable: Record<number, [number, number] | undefined> = {
-  [14]: [13, 7],
-  [16]: [14, 8],
-  [18]: [16, 8],
+const cTable: Record<number, [c: number, c0: number] | undefined> = {
+  14: [13, 7],
+  15: [13, 7],
+  16: [14, 8],
+  17: [16, 8],
+  18: [16, 8],
 };

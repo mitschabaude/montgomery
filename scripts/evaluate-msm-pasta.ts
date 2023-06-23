@@ -10,13 +10,15 @@ import {
 } from "../src/concrete/pasta.js";
 import { bigintScalarsToMemory } from "../src/msm.js";
 import { webcrypto } from "node:crypto";
-import { evaluateParameters } from "./evaluate-util.js";
+import { evaluate } from "./evaluate-util.js";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) {
   globalThis.crypto = webcrypto as any;
 }
 
-let Nmax = 1 << 18;
+// input log-sizes to test
+let N = [14, 16, 18];
+let Nmax = 1 << Math.max(...N);
 
 tic("random points");
 let points = Field.getZeroPointers(Nmax, CurveAffine.sizeAffine);
@@ -24,19 +26,15 @@ let scratch = Field.getPointers(20);
 CurveAffine.randomCurvePoints(scratch, points);
 let scalars = Random.randomScalars(Nmax);
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
+let pointPtr = points[0];
 toc();
 
 tic("warm-up JIT compiler with fixed set of points");
-msm(scalarPtr, points[0], 1 << 14);
+msm(scalarPtr, pointPtr, 1 << 14);
+await new Promise((r) => setTimeout(r, 100));
+msm(scalarPtr, pointPtr, 1 << 14);
+await new Promise((r) => setTimeout(r, 100));
 toc();
 
-// input log-sizes to test
-let N = [14, 16, 18];
-
-// window width's difference to n-1 to test
-// n-1 is thought to be the optimal default
-let C = [-2, -1, 0, 1];
-// sub bucket log-size, diff to c >> 1 which is thought to be a good default
-let C0 = [-1, 0, 1, 2];
-
-evaluateParameters(msm, scalarPtr, points[0], N, C, C0);
+let times = evaluate(msm, scalarPtr, pointPtr, N);
+console.dir(times, { depth: Infinity });
