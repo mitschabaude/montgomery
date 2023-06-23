@@ -148,23 +148,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     projectiveCoords,
   } = CurveProjective;
 
-  /**
-   * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
-   * n is the log-size of scalar and point inputs.
-   * table was optimized for the zprize evaluation environment.
-   *
-   * @param c window size
-   * @param c0 log-size of sub-partitions used in the bucket reduction step
-   */
-  let cTable: Record<number, [number, number] | undefined> = {
-    [14]: [13, 7],
-    [16]: [14, 8],
-    [18]: [16, 8],
-  };
-
   // MSM where input scalars and points are bigints
   function msmBigint(
-    {},
     inputScalars: bigint[],
     inputPoints: BigintPoint[],
     options:
@@ -978,3 +963,17 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toAffineOutputBigint,
   };
 }
+
+/**
+ * table of the form `[n]: (c, c0)`, which has msm parameters c, c0 for different n.
+ * n is the log-size of scalar and point inputs.
+ * table was optimized for the zprize evaluation environment.
+ *
+ * @param c window size
+ * @param c0 log-size of sub-partitions used in the bucket reduction step
+ */
+const cTable: Record<number, [number, number] | undefined> = {
+  [14]: [13, 7],
+  [16]: [14, 8],
+  [18]: [16, 8],
+};

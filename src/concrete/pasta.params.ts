@@ -1,9 +1,15 @@
 import { mod, modExp } from "../field-util.js";
 
-export { p, q, lambda, beta, nBits, nBytes };
+export { p, q, b, lambda, beta, nBits, nBytes };
 
+// base / scalar field moduli
+// Fp is the base field of Pallas, scalar field of Vesta
+// Fq is the scalar field of Pallas, base field of Vesta
 const p = 0x40000000000000000000000000000000224698fc094cf91b992d30ed00000001n;
 const q = 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001n;
+
+// curve equation is y^2 = x^3 + 5
+const b = 5n;
 
 const nBits = 255;
 const nBytes = 32;
