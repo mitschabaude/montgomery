@@ -1,11 +1,14 @@
 import { tic, toc } from "../src/extra/tictoc.js";
 import { webcrypto } from "node:crypto";
-import { Field, CurveAffine, Random, Scalar } from "../src/concrete/pasta.js";
 import {
   msm,
-  bigintScalarsToMemory,
-  toAffineOutputBigint,
-} from "../src/msm-pasta.js";
+  msmUtil,
+  Field,
+  CurveAffine,
+  Random,
+  Scalar,
+} from "../src/concrete/pasta.js";
+
 import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import assert from "node:assert/strict";
 // web crypto compat
@@ -22,7 +25,7 @@ let scratch = Field.getPointers(20);
 CurveAffine.randomCurvePoints(scratch, points);
 
 let scalars = Random.randomScalars(N);
-let scalarPtr = bigintScalarsToMemory(scalars);
+let scalarPtr = msmUtil.bigintScalarsToMemory(scalars);
 toc();
 
 tic("convert points to bigint & check");
@@ -35,7 +38,7 @@ toc();
 
 tic("msm (ours)");
 let s0 = msm(scalarPtr, points[0], N);
-let s = toAffineOutputBigint(scratch, s0);
+let s = msmUtil.toAffineOutputBigint(scratch, s0);
 toc();
 
 if (n < 12) {

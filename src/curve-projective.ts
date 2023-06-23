@@ -1,6 +1,8 @@
 import { MsmField } from "./field-msm.js";
 
-export { createCurveProjective };
+export { createCurveProjective, CurveProjective };
+
+type CurveProjective = ReturnType<typeof createCurveProjective>;
 
 function createCurveProjective(Field: MsmField) {
   const {

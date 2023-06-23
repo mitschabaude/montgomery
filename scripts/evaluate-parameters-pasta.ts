@@ -1,8 +1,13 @@
 // TODO get this to run by fixing memory leaks in base msm
 
 import { tic, toc } from "../src/extra/tictoc.js";
-import { Field, CurveAffine, Random } from "../src/concrete/pasta.js";
-import { msm, bigintScalarsToMemory } from "../src/msm-pasta.js";
+import {
+  msm,
+  msmUtil,
+  Field,
+  CurveAffine,
+  Random,
+} from "../src/concrete/pasta.js";
 import { webcrypto } from "node:crypto";
 // web crypto compat
 if (Number(process.version.slice(1, 3)) < 19) {
@@ -16,7 +21,7 @@ let points = Field.getZeroPointers(Nmax, CurveAffine.sizeAffine);
 let scratch = Field.getPointers(20);
 CurveAffine.randomCurvePoints(scratch, points);
 let scalars = Random.randomScalars(Nmax);
-let scalarPtr = bigintScalarsToMemory(scalars);
+let scalarPtr = msmUtil.bigintScalarsToMemory(scalars);
 toc();
 
 tic("warm-up JIT compiler with fixed set of points");

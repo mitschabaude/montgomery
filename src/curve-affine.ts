@@ -2,7 +2,7 @@ import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
 import { randomGenerators } from "./field-util.js";
 
-export { createCurveAffine };
+export { createCurveAffine, CurveAffine };
 
 /**
  * Memory layout of curve points
@@ -37,6 +37,8 @@ export { createCurveAffine };
  * isNonZero = p + 3*sizeField
  * ```
  */
+
+type CurveAffine = ReturnType<typeof createCurveAffine>;
 
 /**
  * create arithmetic for elliptic curve

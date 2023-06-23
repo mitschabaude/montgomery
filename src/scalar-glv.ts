@@ -16,10 +16,14 @@ export {
   createGlvScalar,
   createGeneralGlvScalar,
   GlvScalar,
+  GeneralGlvScalar,
   createSimpleScalar,
   SimpleScalar,
 };
 
+type GeneralGlvScalar = UnwrapPromise<
+  ReturnType<typeof createGeneralGlvScalar>
+>;
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
 type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 
