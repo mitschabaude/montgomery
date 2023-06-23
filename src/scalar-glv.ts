@@ -40,7 +40,7 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
       fromPackedBytesSmall: fromPackedBytes(w, n0),
       fromPackedBytes: fromPackedBytes(w, n),
       extractBitSlice: extractBitSlice(w, n0),
-      memory: memory({ min: 1 << 12 }),
+      memory: memory({ min: 1 << 15 }),
       dataOffset: global(Const.i32(0)),
     },
   });
