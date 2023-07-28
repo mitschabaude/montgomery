@@ -1,5 +1,4 @@
-// TODO get this to run by fixing memory leaks in base msm
-
+import "../src/extra/fix-webcrypto.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import {
   msmUnsafe,
@@ -9,12 +8,7 @@ import {
   Random,
 } from "../src/concrete/pasta.js";
 import { bigintScalarsToMemory } from "../src/msm.js";
-import { webcrypto } from "node:crypto";
 import { evaluate } from "./evaluate-util.js";
-// web crypto compat
-if (Number(process.version.slice(1, 3)) < 19) {
-  globalThis.crypto = webcrypto as any;
-}
 
 // input log-sizes to test
 let N = [14, 16, 18];

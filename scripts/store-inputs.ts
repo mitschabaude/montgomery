@@ -1,14 +1,12 @@
+import "../src/extra/fix-webcrypto.js";
 import fs from "node:fs/promises";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { log2 } from "../src/util.js";
-import { webcrypto } from "node:crypto";
 import {
   PointVectorInput,
   ScalarVectorInput,
 } from "../src/extra/reference.node.js";
 import { BytesPoint } from "../src/msm-bls12-zprize.js";
-if (Number(process.version.slice(1, 3)) < 19)
-  (globalThis as any).crypto = webcrypto;
 
 export { load };
 

@@ -359,6 +359,8 @@ This is implemented in `src/msm.js`, `reduceBucketsAffine`. Unfortunately, I did
 
 ## How to use this repo
 
+**THIS INFORMATION IS PARTIALLY OUTDATED**
+
 The entry-point for the MSM code used in the competition is [/src/msm.js](src/msm.js). Also in `/src` at the top level there is JS that generates the Wasm output. There are two Wasm modules, one for the base field arithmetic, and one for the scalar decomposition. For each Wasm module we generate 3 artifacts:
 
 - `module-name.wat` -- Wasm in text format. These are designed to be sort of readable, and I looked a lot at them for debugging my Wasm output. They are checked into git, for visibility: [finite-field.wat](src/wasm/finite-field.wat), [scalar-glv.wat](src/wasm/scalar-glv.wat)

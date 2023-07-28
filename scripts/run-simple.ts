@@ -1,10 +1,7 @@
+import "../src/extra/fix-webcrypto.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
-import { webcrypto } from "node:crypto";
 import { msmAffine } from "../src/msm-bls12-zprize.js";
-// web crypto compat
-if (Number(process.version.slice(1, 3)) < 19)
-  (globalThis as any).crypto = webcrypto;
 
 let n = Number(process.argv[2] || 16);
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);

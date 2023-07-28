@@ -1,3 +1,4 @@
+import "../src/extra/fix-webcrypto.js";
 import {
   PointVectorInput,
   ScalarVectorInput,
@@ -8,7 +9,6 @@ import {
   msmProjective,
 } from "../src/extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../src/extra/tictoc.js";
-import { webcrypto } from "node:crypto";
 import {
   Field,
   GeneralScalar,
@@ -20,9 +20,6 @@ import { msmAffine, msmBigint } from "../src/msm-bls12-zprize.js";
 import { bigintFromBytes } from "../src/util.js";
 import { load } from "./store-inputs.js";
 import { createMsm } from "../src/msm.js";
-// web crypto compat
-if (Number(process.version.slice(1, 3)) < 19)
-  (globalThis as any).crypto = webcrypto;
 
 let runSlowMsm = false;
 

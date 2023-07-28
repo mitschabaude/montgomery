@@ -1,11 +1,8 @@
+import "../src/extra/fix-webcrypto.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
-import { webcrypto } from "node:crypto";
 import { msmAffine } from "../src/msm-bls12-zprize.js";
 import { median, standardDev } from "./evaluate-util.js";
-// web crypto compat
-if (Number(process.version.slice(1, 3)) < 19)
-  (globalThis as any).crypto = webcrypto;
 
 tic("load inputs");
 let { points, scalars } = await load(18);

@@ -1,12 +1,8 @@
 // run with ts-node-esm
+import "../src/extra/fix-webcrypto.js";
 import { Field, Scalar, Random } from "../src/concrete/pasta.js";
-import { webcrypto } from "node:crypto";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
-
-// web crypto compat
-if (Number(process.version.slice(1, 3)) < 19)
-  (globalThis as any).crypto = webcrypto;
 
 const { p } = Field;
 
