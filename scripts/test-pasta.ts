@@ -1,9 +1,10 @@
 // run with ts-node-esm
 import "../src/extra/fix-webcrypto.js";
-import { Field, Scalar, Random } from "../src/concrete/pasta.js";
+import { Pallas } from "../src/index.js";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
 
+let { Field, Scalar, Random } = Pallas;
 const { p } = Field;
 
 function toWasm(x0: bigint, x: number) {
