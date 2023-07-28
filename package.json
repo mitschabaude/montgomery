@@ -1,6 +1,6 @@
 {
   "name": "montgomery",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Fast implementation of multi-scalar multiplication in WebAssembly",
   "main": "./build/src/index.js",
   "type": "module",
