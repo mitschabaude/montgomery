@@ -110,7 +110,7 @@ function createCurveAffine(Field: MsmField, b: bigint) {
    *
    * doesn't do any cofactor clearing
    */
-  function randomCurvePoints(scratch: number[], points: number[]) {
+  function randomPoints(scratch: number[], points: number[]) {
     let n = points.length;
     let xs = randomFields(n);
 
@@ -179,8 +179,34 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     copyAffine,
     affineCoords,
     setIsNonZeroAffine,
-    randomCurvePoints,
     toBigint,
+    randomPoints,
+    randomPointsBigint(n: number, { montgomery = false } = {}) {
+      let memoryOffset = Field.getOffset();
+      let points = Field.getZeroPointers(n, sizeAffine);
+      let scratch = Field.getPointers(20);
+      randomPoints(scratch, points);
+      let pointsBigint: BigintPoint[] = Array(n);
+      for (let i = 0; i < n; i++) {
+        let point = points[i];
+        let x = point;
+        let y = point + sizeField;
+        if (!montgomery) {
+          Field.fromMontgomery(x);
+          Field.fromMontgomery(y);
+        } else {
+          Field.reduce(x);
+          Field.reduce(y);
+        }
+        pointsBigint[i] = {
+          x: Field.readBigint(x),
+          y: Field.readBigint(y),
+          isInfinity: false,
+        };
+      }
+      Field.setOffset(memoryOffset);
+      return pointsBigint;
+    },
   };
 }
 

@@ -23,7 +23,8 @@ let Nmax = 1 << Math.max(...N);
 tic("random points");
 let points = Field.getZeroPointers(Nmax, CurveAffine.sizeAffine);
 let scratch = Field.getPointers(20);
-CurveAffine.randomCurvePoints(scratch, points);
+
+CurveAffine.randomPoints(scratch, points);
 let scalars = Random.randomScalars(Nmax);
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 let pointPtr = points[0];

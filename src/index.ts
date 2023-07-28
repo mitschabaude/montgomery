@@ -1,8 +1,3 @@
-import {
-  Field,
-  Scalar,
-  CurveAffine,
-  CurveProjective,
-} from "./concrete/bls12-381.js";
-export { Field, Scalar, CurveAffine, CurveProjective };
-export { msmAffine as msm, msmBigint } from "./msm-bls12-zprize.js";
+export * as BLS12_381 from "./concrete/bls12-381.js";
+export * as Pallas from "./concrete/pasta.js";
+export * as zprize from "./msm-bls12-zprize.js";
