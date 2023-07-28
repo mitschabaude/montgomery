@@ -2,12 +2,12 @@
   "name": "montgomery",
   "version": "0.3.0",
   "description": "Fast implementation of multi-scalar multiplication in WebAssembly",
-  "main": "./build/index.js",
+  "main": "./build/src/index.js",
   "type": "module",
-  "types": "./build/index.d.ts",
+  "types": "./build/src/index.d.ts",
   "exports": {
-    "types": "./build/index.d.ts",
-    "default": "./build/index.js"
+    "types": "./build/src/index.d.ts",
+    "default": "./build/src/index.js"
   },
   "repository": {
     "type": "git",
