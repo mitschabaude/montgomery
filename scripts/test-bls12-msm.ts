@@ -11,9 +11,10 @@ import {
 import { tic, toc } from "../src/extra/tictoc.js";
 import {
   Field,
-  GeneralScalar,
+  Scalar,
   CurveAffine,
   CurveProjective,
+  Bigint,
 } from "../src/concrete/bls12-381.js";
 import { mod, modInverse } from "../src/field-util.js";
 import { msmAffine, msmBigint } from "../src/msm-bls12-zprize.js";
@@ -58,7 +59,7 @@ let yProjProj = mod(resultProj.y, p);
 let zProjProj = mod(resultProj.z, p);
 let [xProj, yProj] = toAffine(xProjProj, yProjProj, zProjProj);
 
-tic("msm (ours)");
+tic("msm (zprize)");
 let { result } = msmAffine(scalars, points);
 toc();
 let [xAffPacked, yAffPacked] = result;
@@ -72,21 +73,15 @@ let pointsBigint = points.map((P) => {
   return { x, y, isInfinity };
 });
 let scalarsBigint = scalars.map((s) => bigintFromBytes(s));
-tic("msm (bigint)");
+tic("msm (bigint zprize)");
 let resultBigint = msmBigint(scalarsBigint, pointsBigint);
 toc();
 let { x: xBig, y: yBig, isInfinity } = resultBigint;
 
 // consistency with new impl
-const { msmBigint: msmBigintNew } = createMsm({
-  Field,
-  Scalar: GeneralScalar,
-  CurveAffine,
-  CurveProjective,
-});
 
-tic("msm (bigint new)");
-let resultBigintNew = msmBigintNew(scalarsBigint, pointsBigint);
+tic("msm (bigint)");
+let resultBigintNew = Bigint.msm(scalarsBigint, pointsBigint);
 toc();
 let { x: xBigNew, y: yBigNew } = resultBigintNew;
 

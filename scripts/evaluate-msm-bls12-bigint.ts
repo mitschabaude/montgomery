@@ -6,7 +6,7 @@ import { bigintFromBytes } from "../src/util.js";
 import { createMsm } from "../src/msm.js";
 import {
   Field,
-  GeneralScalar,
+  Scalar,
   CurveAffine,
   CurveProjective,
 } from "../src/concrete/bls12-381.js";
@@ -15,7 +15,7 @@ import { evaluateBigint } from "./evaluate-util.js";
 // new impl
 const { msmBigint: msmBigintNew } = createMsm({
   Field,
-  Scalar: GeneralScalar,
+  Scalar: Scalar,
   CurveAffine,
   CurveProjective,
 });

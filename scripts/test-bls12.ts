@@ -1,6 +1,6 @@
 // run with ts-node-esm
 import "../src/extra/fix-webcrypto.js";
-import { Field, Scalar, Random } from "../src/concrete/bls12-381.js";
+import { Field, SpecialScalar, Random } from "../src/concrete/bls12-381.js";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
 
@@ -141,9 +141,9 @@ function test() {
   if (extractBitSliceJS(arr, 16, 10) !== 0b1111_1111) throw e;
 
   // extractBitSlice (wasm)
-  let s = Scalar.getPointer();
-  Scalar.writeBytesDouble(s, arr);
-  const { extractBitSlice } = Scalar;
+  let s = SpecialScalar.getPointer();
+  SpecialScalar.writeBytesDouble(s, arr);
+  const { extractBitSlice } = SpecialScalar;
   e = Error("extractBitSlice (wasm)");
   if (extractBitSlice(s, 2, 4) !== 0b10_01) throw e;
   if (extractBitSlice(s, 0, 2) !== 0b10) throw e;
@@ -158,7 +158,7 @@ for (let i = 0; i < 100; i++) {
   test();
 }
 for (let i = 0; i < 100; i++) {
-  let ok = Scalar.testDecomposeScalar(Random.randomScalar());
+  let ok = SpecialScalar.testDecomposeScalar(Random.randomScalar());
   if (!ok) throw Error("scalar decomposition");
 }
 

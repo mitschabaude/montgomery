@@ -5,7 +5,7 @@ import {
   CurveAffine,
   CurveProjective,
   Field,
-  Scalar,
+  SpecialScalar,
 } from "./concrete/bls12-381.js";
 import { log2 } from "./util.js";
 
@@ -48,7 +48,7 @@ let {
   getPointer: getPointerScalar,
   resetPointers: resetPointersScalar,
   bitLength: scalarBitlength,
-} = Scalar;
+} = SpecialScalar;
 
 let { sizeAffine, doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } =
   CurveAffine;

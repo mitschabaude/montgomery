@@ -2,12 +2,12 @@ import "../src/extra/fix-webcrypto.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import {
   msm,
-  msmBigint,
   msmUtil,
   Field,
   CurveAffine,
   Random,
   Scalar,
+  Bigint,
 } from "../src/concrete/pasta.js";
 import { bigintScalarsToMemory } from "../src/msm.js";
 import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
@@ -40,7 +40,7 @@ let s = msmUtil.toAffineOutputBigint(scratch, s0);
 toc();
 
 tic("msm (bigint)");
-let s1 = msmBigint(scalars, pointsBigint);
+let s1 = Bigint.msm(scalars, pointsBigint);
 toc();
 
 assert.deepEqual(s, s1, "consistent with bigint version");
