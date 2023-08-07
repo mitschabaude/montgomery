@@ -29,32 +29,34 @@ function almostInverse(a: bigint, p: bigint) {
   let k = 0n;
 
   while (true) {
-    if ((u & 1n) === 0n) {
+    if ((u & (1n << k)) === 0n) {
       console.log("reduce u");
-      u >>= 1n;
+      v <<= 1n;
       s <<= 1n;
-    } else if ((v & 1n) === 0n) {
+    } else if ((v & (1n << k)) === 0n) {
       console.log("reduce v");
-      v >>= 1n;
+      u <<= 1n;
       r <<= 1n;
     } else {
       let m = u + v;
       console.log({ u, v, m, k });
       if (m === 0n) break;
       if (m < 0n) {
-        u = m >> 1n;
+        u = m;
         r = r + s;
+        v <<= 1n;
         s <<= 1n;
       } else {
-        v = m >> 1n;
+        v = m;
         s = r + s;
+        u <<= 1n;
         r <<= 1n;
       }
     }
     k++;
-    assert(v * r - u * s === p);
-    assert(mod(a * r - u * 2n ** k, p) === 0n);
-    assert(mod(a * s - v * 2n ** k, p) === 0n);
+    assert(v * r - u * s === 2n ** k * p);
+    assert(mod(a * r - u, p) === 0n);
+    assert(mod(a * s - v, p) === 0n);
   }
   return [s, k];
 }
