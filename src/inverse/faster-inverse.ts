@@ -15,9 +15,7 @@ let b = Field.bitLength;
 assert(k + 1 >= b && k < 2 * b);
 assert(r < p, "r < p");
 
-console.log({ r, k });
-
-let twoToK = mod(1n << BigInt(k + 1), p);
+let twoToK = mod(1n << BigInt(k), p);
 let twoToMinusK = modInverse(twoToK, p);
 
 assert(mod(x * r * twoToMinusK, p) === 1n, "almost inverse");
@@ -44,7 +42,7 @@ function almostInverse(a: bigint, p: bigint) {
       [v, r, k] = makeOdd(v, r, k);
     }
   }
-  return [r, k] as const;
+  return [s, k] as const;
 }
 
 function makeOdd(u: bigint, s: bigint, k: number) {
