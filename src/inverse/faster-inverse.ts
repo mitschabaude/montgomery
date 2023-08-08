@@ -1,5 +1,5 @@
 import { Field, Random } from "../concrete/pasta.js";
-import { mod, modInverse } from "../field-util.js";
+import { mod } from "../field-util.js";
 import { assert, log2 } from "../util.js";
 
 const { p } = Field;
@@ -8,21 +8,24 @@ let b = Field.bitLength;
 const w = 29n;
 const n = Math.ceil(b / Number(w));
 
-// let x = Random.randomField();
-let x =
-  21055668057744206722049915034365825947141946607484548719881883519400681427846n;
-let z = modInverse(x, p);
+const N = 100;
+let signFlips = 0;
 
-assert(mod(z * x, p) === 1n);
+for (let i = 0; i < N; i++) {
+  let x = Random.randomField();
 
-let [r, k] = almostInverse(x, p, w, n);
+  let [r, k, signFlip] = almostInverse(x, p, w, n);
+  signFlips += Number(signFlip);
 
-console.log({ k });
+  // console.log({ k });
 
-// assert(k + 1n >= b && k < 2 * b, "k bounds");
-// assert(r < p, "r < p");
+  assert(k + 1n >= b && k < 2 * n * Number(w), "k bounds");
+  // assert(r < p, "r < p");
 
-assert(mod(x * r - (1n << k), p) === 0n, "almost inverse");
+  assert(mod(x * r - (1n << k), p) === 0n, "almost inverse");
+}
+
+// console.log(`${(signFlips / N) * 100}% flips`);
 
 function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
   let u = -p;
@@ -30,65 +33,95 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
   let r = 0n;
   let s = 1n;
   let k = 0n;
+  let signFlip = false;
 
   for (let i = 0; i < 2 * n; i++) {
-    console.log({ i, u, v, r, s });
+    let ulen = log2(u);
+    let vlen = log2(v);
+    // console.log({
+    //   i,
+    //   ulen,
+    //   vlen,
+    //   rlen: log2(r),
+    //   slen: log2(s),
+    // });
+    // console.log({ i, u, v, r, s });
     let [f0, g0] = [1n, 0n];
     let [f1, g1] = [0n, 1n];
-
-    let ustart = u;
-    let vstart = v;
 
     let ulo = u & ((1n << w) - 1n);
     let vlo = v & ((1n << w) - 1n);
 
+    const hiBits = 64n;
+    let shift = BigInt(ulen) - hiBits;
+
+    let uhi = u >> shift;
+    let vhi = v >> shift;
+
     for (let j = 0n; j < w; j++) {
-      if ((u & (1n << j)) === 0n) {
-        // console.log("reduce u");
-        v <<= 1n;
+      if ((ulo & 1n) === 0n) {
+        ulo >>= 1n;
+        uhi >>= 1n;
         [f1, g1] = [f1 << 1n, g1 << 1n];
-      } else if ((v & (1n << j)) === 0n) {
-        // console.log("reduce v");
-        u <<= 1n;
+      } else if ((vlo & 1n) === 0n) {
+        vlo >>= 1n;
+        vhi >>= 1n;
         [f0, g0] = [f0 << 1n, g0 << 1n];
       } else {
-        let m = u + v;
-        // console.log({ u, v, m, k });
-        if (m <= 0n) {
-          u = m;
+        let mhi = uhi + vhi;
+        if (mhi <= 0n) {
+          uhi = mhi >> 1n;
+          ulo = (ulo + vlo) >> 1n;
           f0 = f0 + f1;
           g0 = g0 + g1;
-          v <<= 1n;
           [f1, g1] = [f1 << 1n, g1 << 1n];
         } else {
-          v = m;
+          vhi = mhi >> 1n;
+          vlo = (ulo + vlo) >> 1n;
           f1 = f0 + f1;
           g1 = g0 + g1;
-          u <<= 1n;
           [f0, g0] = [f0 << 1n, g0 << 1n];
         }
       }
       k++;
     }
 
-    let unew = ustart * f0 + vstart * g0;
-    let vnew = ustart * f1 + vstart * g1;
-
-    assert(u === unew);
-    assert(v === vnew);
+    let unew = u * f0 + v * g0;
+    let vnew = u * f1 + v * g1;
 
     assert((unew & ((1n << w) - 1n)) === 0n);
     assert((vnew & ((1n << w) - 1n)) === 0n);
+
     u = unew >> w;
     v = vnew >> w;
 
-    [r, s] = [r * f0 + s * g0, r * f1 + s * g1];
+    if (u > 0 || v < 0) {
+      throw Error("sign flip");
+      signFlip = true;
+      if (u > 0) {
+        [u, f0, g0] = [-u, -f0, -g0];
+      } else if (v < 0) {
+        [v, f1, g1] = [-v, -f1, -g1];
+      }
+      [r, s] = [mod(r * f0 + s * g0, p), mod(r * f1 + s * g1, p)];
+    } else {
+      [r, s] = [r * f0 + s * g0, r * f1 + s * g1];
+      assert(v * r - u * s === p, "linear combination");
+    }
 
-    assert(v * r - u * s === p, "linear combination");
     assert(mod(a * r - u * 2n ** k, p) === 0n, "mod p, r");
     assert(mod(a * s - v * 2n ** k, p) === 0n, "mod p, s");
 
     if (u === 0n) break;
+    if (v === 0n) break;
   }
-  return [s, k];
+  // second case can only happen when sign flips
+  return [u === 0n ? s : mod(-r, p), k, signFlip] as const;
+}
+
+function hex(m: bigint) {
+  return "0x" + m.toString(16);
+}
+function hi(m: bigint, bits: number) {
+  return m >> BigInt(log2(m) - bits);
 }
