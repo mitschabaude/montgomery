@@ -17,6 +17,8 @@ assert(mod(z * x, p) === 1n);
 
 let [r, k] = almostInverse(x, p, w, n);
 
+console.log({ k });
+
 // assert(k + 1n >= b && k < 2 * b, "k bounds");
 // assert(r < p, "r < p");
 
@@ -30,35 +32,62 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
   let k = 0n;
 
   for (let i = 0; i < 2 * n; i++) {
-    for (let j = 0; j < w; j++) {
-      if ((u & (1n << k)) === 0n) {
-        console.log("reduce u");
+    console.log({ i, u, v, r, s });
+    let [f0, g0] = [1n, 0n];
+    let [f1, g1] = [0n, 1n];
+
+    let ustart = u;
+    let vstart = v;
+
+    let ulo = u & ((1n << w) - 1n);
+    let vlo = v & ((1n << w) - 1n);
+
+    for (let j = 0n; j < w; j++) {
+      if ((u & (1n << j)) === 0n) {
+        // console.log("reduce u");
         v <<= 1n;
-        s <<= 1n;
-      } else if ((v & (1n << k)) === 0n) {
-        console.log("reduce v");
+        [f1, g1] = [f1 << 1n, g1 << 1n];
+      } else if ((v & (1n << j)) === 0n) {
+        // console.log("reduce v");
         u <<= 1n;
-        r <<= 1n;
+        [f0, g0] = [f0 << 1n, g0 << 1n];
       } else {
         let m = u + v;
-        console.log({ u, v, m, k });
+        // console.log({ u, v, m, k });
         if (m <= 0n) {
           u = m;
-          r = r + s;
+          f0 = f0 + f1;
+          g0 = g0 + g1;
           v <<= 1n;
-          s <<= 1n;
+          [f1, g1] = [f1 << 1n, g1 << 1n];
         } else {
           v = m;
-          s = r + s;
+          f1 = f0 + f1;
+          g1 = g0 + g1;
           u <<= 1n;
-          r <<= 1n;
+          [f0, g0] = [f0 << 1n, g0 << 1n];
         }
       }
       k++;
-      assert(v * r - u * s === 2n ** k * p, "linear combination");
-      assert(mod(a * r - u, p) === 0n, "mod p, r");
-      assert(mod(a * s - v, p) === 0n, "mod p, s");
     }
+
+    let unew = ustart * f0 + vstart * g0;
+    let vnew = ustart * f1 + vstart * g1;
+
+    assert(u === unew);
+    assert(v === vnew);
+
+    assert((unew & ((1n << w) - 1n)) === 0n);
+    assert((vnew & ((1n << w) - 1n)) === 0n);
+    u = unew >> w;
+    v = vnew >> w;
+
+    [r, s] = [r * f0 + s * g0, r * f1 + s * g1];
+
+    assert(v * r - u * s === p, "linear combination");
+    assert(mod(a * r - u * 2n ** k, p) === 0n, "mod p, r");
+    assert(mod(a * s - v * 2n ** k, p) === 0n, "mod p, s");
+
     if (u === 0n) break;
   }
   return [s, k];
