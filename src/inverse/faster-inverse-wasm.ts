@@ -136,6 +136,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       // u = p, v = a, r = 0, s = 1
       Field.i32.store(u, Field.i32.P);
       Field.copyInline(v, a);
+      // TODO fully zero out r,s
       Field.i32.store(r, Field.i32.Zero);
       Field.i32.store(s, Field.i32.One);
 

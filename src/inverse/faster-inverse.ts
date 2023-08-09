@@ -13,25 +13,30 @@ const hiBits = 63n;
 const N = 1;
 let signFlips = 0;
 
-let x = wasm.getPointer();
+let scratch = wasm.getPointers(10);
+let [x, s] = wasm.getPointers(3);
 let x0 = (1n << 117n) - 1n;
 wasm.writeBigint(x, x0);
 let length = wasm.getBitLength(x);
-console.log({ length });
+assert(length === 117);
 
 for (let i = 0; i < N; i++) {
-  let x = Random.randomField();
+  let x0 = Random.randomField();
   // let x = 1n << 254n;
 
-  let [s, k, signFlip] = almostInverse(x, p, w, n);
+  let [s0, k0, signFlip] = almostInverse(x0, p, w, n);
   signFlips += Number(signFlip);
 
-  console.log({ i, k, n });
+  wasm.writeBigint(x, x0);
+  let k1 = wasm.almostInverse(scratch[0], s, x);
+  let s1 = wasm.readBigint(s, 2 * n);
 
-  assert(k + 1n >= b && k <= 2 * n * Number(w), "k bounds");
-  assert(s < 1n << ((BigInt(n) + 1n) * w), "s < 2^(n+1)w");
+  console.log({ i, k0, k1, s0, s1 });
 
-  assert(mod(x * s - (1n << k), p) === 0n, "almost inverse");
+  assert(k0 + 1n >= b && k0 <= 2 * n * Number(w), "k bounds");
+  assert(s0 < 1n << ((BigInt(n) + 1n) * w), "s < 2^(n+1)w");
+
+  assert(mod(x0 * s0 - (1n << k0), p) === 0n, "almost inverse");
 }
 
 console.log(`${(signFlips / N) * 100}% flips`);
