@@ -14,16 +14,17 @@ let signFlips = 0;
 
 for (let i = 0; i < N; i++) {
   let x = Random.randomField();
+  // let x = 1n << 254n;
 
-  let [r, k, signFlip] = almostInverse(x, p, w, n);
+  let [s, k, signFlip] = almostInverse(x, p, w, n);
   signFlips += Number(signFlip);
 
-  console.log({ i, k });
+  console.log({ i, k, n });
 
-  assert(k + 1n >= b && k < 2 * n * Number(w), "k bounds");
-  assert(r < p << w, "r < p*2^w");
+  assert(k + 1n >= b && k <= 2 * n * Number(w), "k bounds");
+  assert(s < 1n << ((BigInt(n) + 1n) * w), "s < 2^(n+1)w");
 
-  assert(mod(x * r - (1n << k), p) === 0n, "almost inverse");
+  assert(mod(x * s - (1n << k), p) === 0n, "almost inverse");
 }
 
 console.log(`${(signFlips / N) * 100}% flips`);
