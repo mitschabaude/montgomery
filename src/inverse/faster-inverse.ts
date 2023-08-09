@@ -7,8 +7,9 @@ let b = Field.bitLength;
 
 const w = 32n;
 const n = Math.ceil(b / Number(w));
+const hiBits = 25n;
 
-const N = 100;
+const N = 10000;
 let signFlips = 0;
 
 for (let i = 0; i < N; i++) {
@@ -20,7 +21,7 @@ for (let i = 0; i < N; i++) {
   console.log({ i, k });
 
   assert(k + 1n >= b && k < 2 * n * Number(w), "k bounds");
-  assert(signFlip || r < p << w, "r < p*2^w");
+  assert(r < p << w, "r < p*2^w");
 
   assert(mod(x * r - (1n << k), p) === 0n, "almost inverse");
 }
@@ -52,7 +53,6 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     let ulo = u & ((1n << w) - 1n);
     let vlo = v & ((1n << w) - 1n);
 
-    const hiBits = 64n;
     let shift = BigInt(ulen) - hiBits;
 
     let uhi = u >> shift;
@@ -62,11 +62,13 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
       if ((ulo & 1n) === 0n) {
         ulo >>= 1n;
         uhi >>= 1n;
-        [f1, g1] = [f1 << 1n, g1 << 1n];
+        f1 <<= 1n;
+        g1 <<= 1n;
       } else if ((vlo & 1n) === 0n) {
         vlo >>= 1n;
         vhi >>= 1n;
-        [f0, g0] = [f0 << 1n, g0 << 1n];
+        f0 <<= 1n;
+        g0 <<= 1n;
       } else {
         let mhi = vhi - uhi;
         if (mhi <= 0n) {
@@ -74,13 +76,15 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
           ulo = (ulo - vlo) >> 1n;
           f0 = f0 + f1;
           g0 = g0 + g1;
-          [f1, g1] = [f1 << 1n, g1 << 1n];
+          f1 <<= 1n;
+          g1 <<= 1n;
         } else {
           vhi = mhi >> 1n;
           vlo = (vlo - ulo) >> 1n;
           f1 = f0 + f1;
           g1 = g0 + g1;
-          [f0, g0] = [f0 << 1n, g0 << 1n];
+          f0 <<= 1n;
+          g0 <<= 1n;
         }
       }
       k++;
@@ -89,7 +93,7 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     assert(k === BigInt(i + 1) * w);
 
     let unew = u * f0 - v * g0;
-    let vnew = -u * f1 + v * g1;
+    let vnew = v * g1 - u * f1;
 
     assert((unew & ((1n << w) - 1n)) === 0n);
     assert((vnew & ((1n << w) - 1n)) === 0n);
@@ -97,14 +101,13 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     u = unew >> w;
     v = vnew >> w;
 
-    if (u < 0 || v < 0) {
-      // throw Error("sign flip");
+    if (u < 0) {
       signFlip = true;
-      if (u < 0) {
-        [u, f0, g0] = [-u, -f0, -g0];
-      } else if (v < 0) {
-        [v, f1, g1] = [-v, -f1, -g1];
-      }
+      [u, f0, g0] = [-u, -f0, -g0];
+    }
+    if (v < 0) {
+      signFlip = true;
+      [v, f1, g1] = [-v, -f1, -g1];
     }
     [r, s] = [r * f0 + s * g0, r * f1 + s * g1];
 
