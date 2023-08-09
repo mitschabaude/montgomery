@@ -1,16 +1,23 @@
 import { Field, Random } from "../concrete/pasta.js";
 import { mod } from "../field-util.js";
 import { assert, log2 } from "../util.js";
+import { wasm } from "./faster-inverse-wasm.js";
 
 const { p } = Field;
 let b = Field.bitLength;
 
-const w = 32n;
+const w = 29n;
 const n = Math.ceil(b / Number(w));
-const hiBits = 25n;
+const hiBits = 63n;
 
-const N = 10000;
+const N = 1;
 let signFlips = 0;
+
+let x = wasm.getPointer();
+let x0 = (1n << 117n) - 1n;
+wasm.writeBigint(x, x0);
+let length = wasm.getBitLength(x);
+console.log({ length });
 
 for (let i = 0; i < N; i++) {
   let x = Random.randomField();
@@ -61,13 +68,13 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
 
     for (let j = 0n; j < w; j++) {
       if ((ulo & 1n) === 0n) {
-        ulo >>= 1n;
         uhi >>= 1n;
+        ulo >>= 1n;
         f1 <<= 1n;
         g1 <<= 1n;
       } else if ((vlo & 1n) === 0n) {
-        vlo >>= 1n;
         vhi >>= 1n;
+        vlo >>= 1n;
         f0 <<= 1n;
         g0 <<= 1n;
       } else {
@@ -92,6 +99,7 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     }
 
     assert(k === BigInt(i + 1) * w);
+    assert(f0 <= 1n << w);
 
     let unew = u * f0 - v * g0;
     let vnew = v * g1 - u * f1;
@@ -110,7 +118,9 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
       signFlip = true;
       [v, f1, g1] = [-v, -f1, -g1];
     }
-    [r, s] = [r * f0 + s * g0, r * f1 + s * g1];
+    let rnew = r * f0 + s * g0;
+    let snew = r * f1 + s * g1;
+    [r, s] = [rnew, snew];
 
     let lin = v * r + u * s;
     assert(lin === p || lin === -p, "linear combination");
