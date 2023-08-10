@@ -5,8 +5,6 @@ import {
   i32,
   i64,
   local,
-  memory,
-  Module,
   loop,
   block,
   if_,

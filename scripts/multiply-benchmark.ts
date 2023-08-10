@@ -1,4 +1,4 @@
-import { Const, Module, call, func, global, i32, memory } from "wasmati";
+import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { Field as Field0, Random } from "../src/concrete/pasta.js";
 import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
@@ -13,6 +13,7 @@ import { fieldExp } from "../src/wasm/exp.js";
 import { createSqrt } from "../src/field-sqrt.js";
 import { createConstants } from "../src/field-msm.js";
 import { mod } from "../src/field-util.js";
+import { fastInverse } from "../src/inverse/faster-inverse-wasm.js";
 
 let N = 1e7;
 let Ninv = 3e4;
@@ -64,6 +65,21 @@ for (let w of [29]) {
     }
   );
 
+  let { almostInverse } = fastInverse(implicitMemory, Field);
+
+  const benchFastAlmostInverse = func(
+    { in: [i32, i32, i32, i32], locals: [i32], out: [] },
+    ([scratch, x, y, N], [i]) => {
+      forLoop1(i, 0, N, () => {
+        // x <- x + y
+        call(Field.add, [x, x, y]);
+        // y <- 1/x
+        call(almostInverse, [scratch, y, x]);
+        drop();
+      });
+    }
+  );
+
   let module = Module({
     exports: {
       benchMontgomery,
@@ -72,6 +88,7 @@ for (let w of [29]) {
       benchSquare,
       benchAdd,
       benchInverse,
+      benchFastAlmostInverse,
       exp: fieldExp(Field),
 
       memory: implicitMemory.memory,
@@ -154,6 +171,14 @@ for (let w of [29]) {
     N: Ninv,
     tMul,
   });
+  bench2(
+    "fast inverse",
+    () => wasm.benchFastAlmostInverse(scratch, x, y, Ninv),
+    {
+      N: Ninv,
+      tMul,
+    }
+  );
   bench2("pow", () => benchPow(x, Ninv), { N: Ninv, tMul });
   bench2("sqrt", () => benchSqrt(x, y, Ninv), { N: Ninv, tMul });
 }
