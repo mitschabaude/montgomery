@@ -3,11 +3,10 @@ import { mod } from "../field-util.js";
 import { assert, log2 } from "../util.js";
 import { wasm } from "./faster-inverse-wasm.js";
 
-const { p } = Field;
+const { p, w } = Field;
 let b = Field.bitLength;
 
-const w = 29n;
-const n = Math.ceil(b / Number(w));
+const n = Math.ceil(b / w);
 const hiBits = 63n;
 
 const N = 1;
@@ -22,9 +21,11 @@ assert(length === 117);
 
 for (let i = 0; i < N; i++) {
   let x0 = Random.randomField();
+  x0 =
+    19051382479447416779779745439277191263962069788696980738464352971040053091154n;
   // let x = 1n << 254n;
 
-  let [s0, k0, signFlip] = almostInverse(x0, p, w, n);
+  let [s0, k0, signFlip] = almostInverse(x0, p, BigInt(w), n);
   signFlips += Number(signFlip);
 
   wasm.writeBigint(x, x0);
@@ -34,7 +35,7 @@ for (let i = 0; i < N; i++) {
   console.log({ i, k0, k1, s0, s1 });
 
   assert(k0 + 1n >= b && k0 <= 2 * n * Number(w), "k bounds");
-  assert(s0 < 1n << ((BigInt(n) + 1n) * w), "s < 2^(n+1)w");
+  assert(s0 < 1n << BigInt((n + 1) * w), "s < 2^(n+1)w");
 
   assert(mod(x0 * s0 - (1n << k0), p) === 0n, "almost inverse");
 }
@@ -71,6 +72,8 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     let uhi = u >> shift;
     let vhi = v >> shift;
 
+    console.log({ ulo, uhi, vlo, vhi });
+
     for (let j = 0n; j < w; j++) {
       if ((ulo & 1n) === 0n) {
         uhi >>= 1n;
@@ -102,6 +105,8 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
       }
       k++;
     }
+
+    console.log({ f0, g0, f1, g1 });
 
     assert(k === BigInt(i + 1) * w);
     assert(f0 <= 1n << w);

@@ -17,6 +17,7 @@ import {
   drop,
   br_if,
   br,
+  importFunc,
 } from "wasmati";
 import * as Pallas from "../concrete/pasta.js";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.js";
@@ -72,6 +73,13 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const extractBits = extractBitSlice(w, Field.n);
 
   const hiBits = 63;
+
+  const log64 = importFunc({ in: [i64], out: [] }, console.log);
+  const log64x2 = importFunc({ in: [i64, i64], out: [] }, console.log);
+  const log64x4 = importFunc(
+    { in: [i64, i64, i64, i64], out: [] },
+    console.log
+  );
 
   /**
    * input: pointers for
@@ -152,8 +160,11 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           local.set(vlo, Field.loadLimb(v, 0));
 
           local.set(ulen, call(getBitLength, [u])[0]);
+          call(log64, [i64.extend_i32_u(ulen)]);
           local.set(uhi, extractHiBits(u, ulen, hiBits));
           local.set(vhi, extractHiBits(v, ulen, hiBits));
+
+          call(log64x4, [ulo, uhi, vlo, vhi]);
 
           // inner loop
           for (let j = 0; j < w; j++) {
@@ -205,6 +216,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
             );
             local.set(k, i32.add(k, 1));
           }
+
+          call(log64x4, [f0, g0, f1, g1]);
 
           // update u, v
           // u = (u * f0 - v * g0) >> w
@@ -296,7 +309,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     assert(hiBits > 32);
     call(extractBits, [u, i32.sub(ulen, hiBits), 32]);
     i64.extend_i32_u();
-    call(extractBits, [u, i32.sub(ulen, hiBits), hiBits - 32]);
+    call(extractBits, [u, i32.sub(ulen, hiBits - 32), hiBits - 32]);
     i64.shl(i64.extend_i32_u(), 32n);
     return i64.or();
   }
