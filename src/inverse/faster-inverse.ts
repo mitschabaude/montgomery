@@ -9,7 +9,7 @@ let b = Field.bitLength;
 const n = Math.ceil(b / w);
 const hiBits = 63n;
 
-const N = 10000;
+const N = 10;
 let signFlips = 0;
 
 let scratch = wasm.getPointers(10);
@@ -23,7 +23,7 @@ for (let i = 0; i < N; i++) {
   let x0 = Random.randomField();
   // x0 =
   //   3644898569073079219285804017037847737335778255461247493887823044200058407990n;
-  // let x = 1n << 254n;
+  // x0 = 1n << 254n;
   // console.log({ x0 });
 
   let [s0, k0, signFlip] = almostInverse(x0, p, BigInt(w), n);
@@ -75,8 +75,6 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     let uhi = u >> shift;
     let vhi = v >> shift;
 
-    console.log({ ulo: hex(ulo), uhi: hex(uhi), vlo: hex(vlo), vhi: hex(vhi) });
-
     for (let j = 0n; j < w; j++) {
       if ((ulo & 1n) === 0n) {
         uhi >>= 1n;
@@ -108,8 +106,6 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
       }
       k++;
     }
-
-    console.log({ f0, g0, f1, g1 });
 
     assert(k === BigInt(i + 1) * w);
     assert(f0 <= 1n << w);

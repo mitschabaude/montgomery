@@ -18,6 +18,7 @@ import {
   br_if,
   br,
   importFunc,
+  select,
 } from "wasmati";
 import * as Pallas from "../concrete/pasta.js";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.js";
@@ -166,28 +167,28 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           local.set(ulo, Field.loadLimb(u, 0));
           local.set(vlo, Field.loadLimb(v, 0));
 
-          call(log64, [i64.extend_i32_u(i)]);
-
           let vlen = l;
 
+          // max(len(u), len(v))
           call(getBitLength, [u]);
           local.set(ulen);
           call(getBitLength, [v]);
           local.set(vlen);
-          call(log64, [i64.extend_i32_u(ulen)]);
-          call(log64, [i64.extend_i32_u(vlen)]);
 
+          // TODO is select faster here?
+          local.get(vlen);
+          local.get(ulen);
           i32.gt_u(vlen, ulen);
-          if_(null, () => {
-            local.set(ulen, vlen);
-          });
-          call(log64, [i64.extend_i32_u(ulen)]);
+          select(i32);
+          local.set(ulen);
+          // i32.gt_u(vlen, ulen);
+          // if_(null, () => {
+          //   local.set(ulen, vlen);
+          // });
 
           let tmp32 = l;
           local.set(uhi, extractHiBits(u, ulen, hiBits, tmp32));
           local.set(vhi, extractHiBits(v, ulen, hiBits, tmp32));
-
-          call(log64x4Hex, [ulo, uhi, vlo, vhi]);
 
           // inner loop
           for (let j = 0; j < w; j++) {
@@ -240,8 +241,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
             local.set(k, i32.add(k, 1));
           }
 
-          call(log64x4, [f0, g0, f1, g1]);
-
           // update u, v
           // u = (u * f0 - v * g0) >> w
           // v = (v * g1 - u * f1) >> w
@@ -268,9 +267,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           }
           Field.storeLimb(u, Field.n - 1, carryu);
           Field.storeLimb(v, Field.n - 1, carryv);
-          // call(log64Bin, [Field.loadLimb(v, Field.n - 1)]);
-          // call(log64Bin, [Field.loadLimb(v, Field.n - 2)]);
-          // call(log64Bin, [Field.loadLimb(v, Field.n - 3)]);
 
           // TODO handle sign flip
 
