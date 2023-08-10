@@ -1,7 +1,12 @@
+import { Module, memory } from "wasmati";
 import { Field, Random } from "../concrete/pasta.js";
 import { mod } from "../field-util.js";
 import { assert, log2 } from "../util.js";
-import { wasm } from "./faster-inverse-wasm.js";
+import { ImplicitMemory } from "../wasm/wasm-util.js";
+import { fastInverse } from "./faster-inverse-wasm.js";
+import { FieldWithArithmetic } from "../wasm/field-arithmetic.js";
+import { multiplyMontgomery } from "../wasm/multiply-montgomery.js";
+import { memoryHelpers } from "../wasm/memory-helpers.js";
 
 const { p, w } = Field;
 let b = Field.bitLength;
@@ -10,6 +15,25 @@ const n = Math.ceil(b / w);
 const hiBits = 63n;
 
 const N = 10;
+
+// create wasm
+let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
+
+let Field0 = FieldWithArithmetic(p, w);
+let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
+  countMultiplications: false,
+});
+const Field1 = Object.assign(Field0, { multiply, square, leftShift });
+let exports = fastInverse(implicitMemory, Field1);
+let module = Module({
+  exports: {
+    ...implicitMemory.getExports(),
+    ...exports,
+  },
+});
+let wasm_ = (await module.instantiate()).instance.exports;
+let wasm = { ...wasm_, ...memoryHelpers(p, w, wasm_) };
+
 let signFlips = 0;
 
 let scratch = wasm.getPointers(10);

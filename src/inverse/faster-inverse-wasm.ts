@@ -20,41 +20,16 @@ import {
   importFunc,
   select,
 } from "wasmati";
-import * as Pallas from "../concrete/pasta.js";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.js";
-import {
-  FieldWithMultiply,
-  multiplyMontgomery,
-} from "../wasm/multiply-montgomery.js";
-import { FieldWithArithmetic } from "../wasm/field-arithmetic.js";
-import { memoryHelpers } from "../wasm/memory-helpers.js";
+import { FieldWithMultiply } from "../wasm/multiply-montgomery.js";
 import { extractBitSlice } from "../wasm/field-helpers.js";
 import { assert } from "../util.js";
 
-export { wasm };
-
-const { p, w } = Pallas.Field;
-
-let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
-
-let Field_ = FieldWithArithmetic(p, w);
-let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
-  countMultiplications: false,
-});
-const Field = Object.assign(Field_, { multiply, square, leftShift });
-
-let exports = fastInverse(implicitMemory, Field);
-
-let module = Module({
-  exports: {
-    ...implicitMemory.getExports(),
-    ...exports,
-  },
-});
-let wasm_ = (await module.instantiate()).instance.exports;
-let wasm = { ...wasm_, ...memoryHelpers(p, w, wasm_) };
+export { fastInverse };
 
 function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
+  let { w } = Field;
+
   const getBitLength = func(
     { in: [i32], locals: [i32], out: [i32] },
     ([x], [xi]) => {
