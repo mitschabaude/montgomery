@@ -74,12 +74,19 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
 
   const hiBits = 63;
 
+  const logHex = (...args: bigint[]) => console.log(...args.map(hex));
+  const logBin = (...args: bigint[]) => console.log(...args.map(bin));
+
   const log64 = importFunc({ in: [i64], out: [] }, console.log);
+  const log64Hex = importFunc({ in: [i64], out: [] }, logHex);
+  const log64Bin = importFunc({ in: [i64], out: [] }, logBin);
   const log64x2 = importFunc({ in: [i64, i64], out: [] }, console.log);
   const log64x4 = importFunc(
     { in: [i64, i64, i64, i64], out: [] },
     console.log
   );
+  const log64x4Hex = importFunc({ in: [i64, i64, i64, i64], out: [] }, logHex);
+  const log64x4Bin = importFunc({ in: [i64, i64, i64, i64], out: [] }, logBin);
 
   /**
    * input: pointers for
@@ -159,12 +166,27 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           local.set(ulo, Field.loadLimb(u, 0));
           local.set(vlo, Field.loadLimb(v, 0));
 
-          local.set(ulen, call(getBitLength, [u])[0]);
-          call(log64, [i64.extend_i32_u(ulen)]);
-          local.set(uhi, extractHiBits(u, ulen, hiBits));
-          local.set(vhi, extractHiBits(v, ulen, hiBits));
+          call(log64, [i64.extend_i32_u(i)]);
 
-          call(log64x4, [ulo, uhi, vlo, vhi]);
+          let vlen = l;
+
+          call(getBitLength, [u]);
+          local.set(ulen);
+          call(getBitLength, [v]);
+          local.set(vlen);
+          call(log64, [i64.extend_i32_u(ulen)]);
+          call(log64, [i64.extend_i32_u(vlen)]);
+
+          i32.gt_u(vlen, ulen);
+          if_(null, () => {
+            local.set(ulen, vlen);
+          });
+          call(log64, [i64.extend_i32_u(ulen)]);
+
+          local.set(uhi, extractHiBits(u, ulen, hiBits, tmp));
+          local.set(vhi, extractHiBits(v, ulen, hiBits, tmp));
+
+          call(log64x4Hex, [ulo, uhi, vlo, vhi]);
 
           // inner loop
           for (let j = 0; j < w; j++) {
@@ -223,6 +245,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           // u = (u * f0 - v * g0) >> w
           // v = (v * g1 - u * f1) >> w
           // note that we store j result at j-1 location, which is the shift
+          local.set(carryu, 0n);
+          local.set(carryv, 0n);
           for (let j = 0; j < Field.n; j++) {
             local.set(uj, Field.loadLimb(u, j));
             local.set(vj, Field.loadLimb(v, j));
@@ -243,6 +267,9 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           }
           Field.storeLimb(u, Field.n - 1, carryu);
           Field.storeLimb(v, Field.n - 1, carryv);
+          // call(log64Bin, [Field.loadLimb(v, Field.n - 1)]);
+          // call(log64Bin, [Field.loadLimb(v, Field.n - 2)]);
+          // call(log64Bin, [Field.loadLimb(v, Field.n - 3)]);
 
           // TODO handle sign flip
 
@@ -259,10 +286,10 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           local.set(carryr, 0n);
           local.set(carrys, 0n);
           local.set(l, 0);
-          // for (l=0; l<4*i; l+=4)
+          // for (l=0; l<4*(i+1); l+=4)
           block(null, ($break) => {
             loop(null, ($continue) => {
-              i32.ge_s(l, i32.mul(i, 4));
+              i32.ge_s(l, i32.mul(i32.add(i, 1), 4));
               br_if($break);
 
               local.set(rl, i64.extend_i32_u(i32.load({}, i32.add(r, l))));
@@ -305,14 +332,29 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     }
   );
 
-  function extractHiBits(u: Local<i32>, ulen: Local<i32>, hiBits: number) {
-    assert(hiBits > 32);
-    call(extractBits, [u, i32.sub(ulen, hiBits), 32]);
+  function extractHiBits(
+    u: Local<i32>,
+    ulen: Local<i32>,
+    hiBits: number,
+    tmp: Local<i64>
+  ) {
+    assert(hiBits > 50);
+    call(extractBits, [u, i32.sub(ulen, hiBits), 25]);
     i64.extend_i32_u();
-    call(extractBits, [u, i32.sub(ulen, hiBits - 32), hiBits - 32]);
-    i64.shl(i64.extend_i32_u(), 32n);
+    call(extractBits, [u, i32.sub(ulen, hiBits - 25), 25]);
+    i64.shl(i64.extend_i32_u(), 25n);
+    call(extractBits, [u, i32.sub(ulen, hiBits - 50), hiBits - 50]);
+    i64.shl(i64.extend_i32_u(), 50n);
+    i64.or();
     return i64.or();
   }
 
   return { almostInverse, getBitLength };
+}
+
+function hex(m: bigint) {
+  return "0x" + m.toString(16);
+}
+function bin(m: bigint) {
+  return "0b" + m.toString(2);
 }

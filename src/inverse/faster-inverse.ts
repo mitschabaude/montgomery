@@ -21,8 +21,8 @@ assert(length === 117);
 
 for (let i = 0; i < N; i++) {
   let x0 = Random.randomField();
-  x0 =
-    19051382479447416779779745439277191263962069788696980738464352971040053091154n;
+  // x0 =
+  //   19051382479447416779779745439277191263962069788696980738464352971040053091154n;
   // let x = 1n << 254n;
 
   let [s0, k0, signFlip] = almostInverse(x0, p, BigInt(w), n);
@@ -67,12 +67,12 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     let ulo = u & ((1n << w) - 1n);
     let vlo = v & ((1n << w) - 1n);
 
-    let shift = BigInt(ulen) - hiBits;
+    let shift = BigInt(Math.max(ulen, vlen)) - hiBits;
 
     let uhi = u >> shift;
     let vhi = v >> shift;
 
-    console.log({ ulo, uhi, vlo, vhi });
+    console.log({ ulo: hex(ulo), uhi: hex(uhi), vlo: hex(vlo), vhi: hex(vhi) });
 
     for (let j = 0n; j < w; j++) {
       if ((ulo & 1n) === 0n) {
@@ -154,6 +154,9 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
 
 function hex(m: bigint) {
   return "0x" + m.toString(16);
+}
+function bin(m: bigint) {
+  return "0b" + m.toString(2);
 }
 function hi(m: bigint, bits: number) {
   return m >> BigInt(log2(m) - bits);
