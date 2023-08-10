@@ -171,20 +171,12 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
 
           // max(len(u), len(v))
           call(getBitLength, [u]);
-          local.set(ulen);
+          local.tee(ulen);
           call(getBitLength, [v]);
-          local.set(vlen);
-
-          // TODO is select faster here?
-          local.get(vlen);
-          local.get(ulen);
-          i32.gt_u(vlen, ulen);
+          local.tee(vlen);
+          i32.gt_u(ulen, vlen);
           select(i32);
           local.set(ulen);
-          // i32.gt_u(vlen, ulen);
-          // if_(null, () => {
-          //   local.set(ulen, vlen);
-          // });
 
           let tmp32 = l;
           local.set(uhi, extractHiBits(u, ulen, hiBits, tmp32));
