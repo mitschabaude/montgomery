@@ -9,7 +9,7 @@ let b = Field.bitLength;
 const n = Math.ceil(b / w);
 const hiBits = 63n;
 
-const N = 1;
+const N = 10000;
 let signFlips = 0;
 
 let scratch = wasm.getPointers(10);
@@ -22,8 +22,9 @@ assert(length === 117);
 for (let i = 0; i < N; i++) {
   let x0 = Random.randomField();
   // x0 =
-  //   19051382479447416779779745439277191263962069788696980738464352971040053091154n;
+  //   3644898569073079219285804017037847737335778255461247493887823044200058407990n;
   // let x = 1n << 254n;
+  // console.log({ x0 });
 
   let [s0, k0, signFlip] = almostInverse(x0, p, BigInt(w), n);
   signFlips += Number(signFlip);
@@ -33,6 +34,8 @@ for (let i = 0; i < N; i++) {
   let s1 = wasm.readBigint(s, 2 * n);
 
   console.log({ i, k0, k1, s0, s1 });
+
+  assert(s0 === s1, "equal results");
 
   assert(k0 + 1n >= b && k0 <= 2 * n * Number(w), "k bounds");
   assert(s0 < 1n << BigInt((n + 1) * w), "s < 2^(n+1)w");
