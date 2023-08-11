@@ -14,6 +14,7 @@ import {
   call,
 } from "wasmati";
 import {
+  assert,
   bigintFromLimbs,
   bigintToBytes,
   bigintToLimbs as bigintToLimbs_,
@@ -32,15 +33,19 @@ function createField(p: bigint, w: number) {
   const size = 4 * n; // size in bytes
 
   function loadLimb(x: Local<i32>, i: number) {
+    assert(i >= 0, "positive index");
     return i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
   }
   function loadLimb32(x: Local<i32>, i: number) {
+    assert(i >= 0, "positive index");
     return i32.load({ offset: 4 * i }, x);
   }
   function storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
+    assert(i >= 0, "positive index");
     i32.store({ offset: 4 * i }, x, i32.wrap_i64(xi));
   }
   function storeLimb32(x: Local<i32>, i: number, xi: Input<i32>) {
+    assert(i >= 0, "positive index");
     i32.store({ offset: 4 * i }, x, xi);
   }
 

@@ -4197,6 +4197,37 @@
     local.get 4
     i32.const 0
     i32.store offset=32
+    local.get 4
+    i32.const 36
+    i32.add
+    local.set 6
+    local.get 6
+    i32.const 0
+    i32.store
+    local.get 6
+    i32.const 0
+    i32.store offset=4
+    local.get 6
+    i32.const 0
+    i32.store offset=8
+    local.get 6
+    i32.const 0
+    i32.store offset=12
+    local.get 6
+    i32.const 0
+    i32.store offset=16
+    local.get 6
+    i32.const 0
+    i32.store offset=20
+    local.get 6
+    i32.const 0
+    i32.store offset=24
+    local.get 6
+    i32.const 0
+    i32.store offset=28
+    local.get 6
+    i32.const 0
+    i32.store offset=32
     local.get 1
     i32.const 1
     i32.store
@@ -4222,6 +4253,37 @@
     i32.const 0
     i32.store offset=28
     local.get 1
+    i32.const 0
+    i32.store offset=32
+    local.get 1
+    i32.const 36
+    i32.add
+    local.set 6
+    local.get 6
+    i32.const 0
+    i32.store
+    local.get 6
+    i32.const 0
+    i32.store offset=4
+    local.get 6
+    i32.const 0
+    i32.store offset=8
+    local.get 6
+    i32.const 0
+    i32.store offset=12
+    local.get 6
+    i32.const 0
+    i32.store offset=16
+    local.get 6
+    i32.const 0
+    i32.store offset=20
+    local.get 6
+    i32.const 0
+    i32.store offset=24
+    local.get 6
+    i32.const 0
+    i32.store offset=28
+    local.get 6
     i32.const 0
     i32.store offset=32
     block  ;; label = @1
@@ -8001,91 +8063,424 @@
         local.set 20
         i32.const 0
         local.set 6
-        block  ;; label = @3
-          loop  ;; label = @4
-            local.get 6
-            local.get 5
-            i32.const 1
-            i32.add
-            i32.const 4
-            i32.mul
-            i32.ge_s
-            br_if 1 (;@3;)
-            local.get 4
-            local.get 6
-            i32.add
-            i32.load
-            i64.extend_i32_u
-            local.set 17
-            local.get 1
-            local.get 6
-            i32.add
-            i32.load
-            i64.extend_i32_u
-            local.set 18
-            local.get 17
-            local.get 13
-            i64.mul
-            local.get 18
-            local.get 14
-            i64.mul
-            i64.add
-            local.get 19
-            i64.add
-            local.set 21
-            local.get 4
-            local.get 6
-            i32.add
-            local.get 21
-            i64.const 536870911
-            i64.and
-            i32.wrap_i64
-            i32.store
-            local.get 21
-            i64.const 29
-            i64.shr_s
-            local.set 19
-            local.get 17
-            local.get 15
-            i64.mul
-            local.get 18
-            local.get 16
-            i64.mul
-            i64.add
-            local.get 20
-            i64.add
-            local.set 21
-            local.get 1
-            local.get 6
-            i32.add
-            local.get 21
-            i64.const 536870911
-            i64.and
-            i32.wrap_i64
-            i32.store
-            local.get 21
-            i64.const 29
-            i64.shr_s
-            local.set 20
-            local.get 6
-            i32.const 4
-            i32.add
-            local.set 6
-            br 0 (;@4;)
-          end
-        end
         local.get 4
-        local.get 6
-        i32.add
+        i32.load
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store
+        local.set 20
+        local.get 4
+        i32.load offset=4
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=4
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=4
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=4
+        local.set 20
+        local.get 4
+        i32.load offset=8
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=8
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=8
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=8
+        local.set 20
+        local.get 4
+        i32.load offset=12
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=12
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=12
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=12
+        local.set 20
+        local.get 4
+        i32.load offset=16
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=16
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=16
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=16
+        local.set 20
+        local.get 4
+        i32.load offset=20
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=20
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=20
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=20
+        local.set 20
+        local.get 4
+        i32.load offset=24
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=24
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=24
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=24
+        local.set 20
+        local.get 4
+        i32.load offset=28
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=28
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=28
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=28
+        local.set 20
+        local.get 4
+        i32.load offset=32
+        i64.extend_i32_u
+        local.set 17
+        local.get 1
+        i32.load offset=32
+        i64.extend_i32_u
+        local.set 18
+        local.get 17
+        local.get 13
+        i64.mul
+        local.get 18
+        local.get 14
+        i64.mul
+        i64.add
+        local.get 19
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 4
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=32
+        local.set 19
+        local.get 17
+        local.get 15
+        i64.mul
+        local.get 18
+        local.get 16
+        i64.mul
+        i64.add
+        local.get 20
+        i64.add
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 1
+        local.get 21
+        i64.const 536870911
+        i64.and
+        i32.wrap_i64
+        i32.store offset=32
+        local.set 20
+        local.get 4
         local.get 19
         i32.wrap_i64
-        i32.store
+        i32.store offset=36
         local.get 1
-        local.get 6
-        i32.add
         local.get 20
         i32.wrap_i64
-        i32.store
+        i32.store offset=36
         local.get 3
         call 14
         br_if 1 (;@1;)

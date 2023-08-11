@@ -121,13 +121,18 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       // setup locals
       local.set(u, i32.add(v, Field.size));
       local.set(r, i32.add(u, Field.size));
+      let tmp32 = l;
 
       // u = p, v = a, r = 0, s = 1
       Field.i32.store(u, Field.i32.P);
       Field.copyInline(v, a);
-      // TODO fully zero out r,s
+      // r, s have 2x length
       Field.i32.store(r, Field.i32.Zero);
+      local.set(tmp32, i32.add(r, Field.size));
+      Field.i32.store(tmp32, Field.i32.Zero);
       Field.i32.store(s, Field.i32.One);
+      local.set(tmp32, i32.add(s, Field.size));
+      Field.i32.store(tmp32, Field.i32.Zero);
 
       block(null, ($break) => {
         forLoop1(i, 0, 2 * Field.n, () => {
@@ -151,7 +156,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           select(i32);
           local.set(ulen);
 
-          let tmp32 = l;
           local.set(uhi, extractHiBits(u, ulen, hiBits, tmp32));
           local.set(vhi, extractHiBits(v, ulen, hiBits, tmp32));
 
@@ -244,45 +248,66 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           // => after loop i they have at most (i + 1)w + 1 bits
           // => can safely store in (i + 1) limbs
 
-          let [rl, sl, carryr, carrys] = [uj, vj, carryu, carryv]; // reuse locals
+          let [rj, sj, carryr, carrys] = [uj, vj, carryu, carryv]; // reuse locals
           local.set(carryr, 0n);
           local.set(carrys, 0n);
           local.set(l, 0);
-          // for (l=0; l<4*(i+1); l+=4)
-          block(null, ($break) => {
-            loop(null, ($continue) => {
-              i32.ge_s(l, i32.mul(i32.add(i, 1), 4));
-              br_if($break);
+          let maxLimbs = Field.n + 1;
 
-              local.set(rl, i64.extend_i32_u(i32.load({}, i32.add(r, l))));
-              local.set(sl, i64.extend_i32_u(i32.load({}, i32.add(s, l))));
+          for (let j = 0; j < maxLimbs - 1; j++) {
+            local.set(rj, Field.loadLimb(r, j));
+            local.set(sj, Field.loadLimb(s, j));
 
-              // r = r * f0 + s * g0
-              i64.add(i64.mul(rl, f0), i64.mul(sl, g0));
-              local.set(tmp, i64.add($, carryr));
-              i32.store(
-                {},
-                i32.add(r, l),
-                i32.wrap_i64(i64.and(tmp, Field.wordMax))
-              );
-              local.set(carryr, i64.shr_s(tmp, Field.wn));
+            i64.add(i64.mul(rj, f0), i64.mul(sj, g0));
+            if (j > 0) i64.add($, carryr);
+            Field.carrySigned($, tmp);
+            Field.storeLimb(r, j, $);
+            local.set(carryr);
 
-              // s = r * f1 + s * g1;
-              i64.add(i64.mul(rl, f1), i64.mul(sl, g1));
-              local.set(tmp, i64.add($, carrys));
-              i32.store(
-                {},
-                i32.add(s, l),
-                i32.wrap_i64(i64.and(tmp, Field.wordMax))
-              );
-              local.set(carrys, i64.shr_s(tmp, Field.wn));
+            i64.add(i64.mul(rj, f1), i64.mul(sj, g1));
+            if (j > 0) i64.add($, carrys);
+            Field.carrySigned($, tmp);
+            Field.storeLimb(s, j, $);
+            local.set(carrys);
+          }
+          Field.storeLimb(r, maxLimbs - 1, carryr);
+          Field.storeLimb(s, maxLimbs - 1, carrys);
 
-              local.set(l, i32.add(l, 4));
-              br($continue);
-            });
-          });
-          i32.store({}, i32.add(r, l), i32.wrap_i64(carryr));
-          i32.store({}, i32.add(s, l), i32.wrap_i64(carrys));
+          // for (l = 0; l < 4 * (i + 1); l += 4)
+          // block(null, ($break) => {
+          //   loop(null, ($continue) => {
+          //     i32.ge_s(l, i32.mul(i32.add(i, 1), 4));
+          //     br_if($break);
+
+          //     local.set(rj, i64.extend_i32_u(i32.load({}, i32.add(r, l))));
+          //     local.set(sj, i64.extend_i32_u(i32.load({}, i32.add(s, l))));
+
+          //     // r = r * f0 + s * g0
+          //     i64.add(i64.mul(rj, f0), i64.mul(sj, g0));
+          //     local.set(tmp, i64.add($, carryr));
+          //     i32.store(
+          //       {},
+          //       i32.add(r, l),
+          //       i32.wrap_i64(i64.and(tmp, Field.wordMax))
+          //     );
+          //     local.set(carryr, i64.shr_s(tmp, Field.wn));
+
+          //     // s = r * f1 + s * g1;
+          //     i64.add(i64.mul(rj, f1), i64.mul(sj, g1));
+          //     local.set(tmp, i64.add($, carrys));
+          //     i32.store(
+          //       {},
+          //       i32.add(s, l),
+          //       i32.wrap_i64(i64.and(tmp, Field.wordMax))
+          //     );
+          //     local.set(carrys, i64.shr_s(tmp, Field.wn));
+
+          //     local.set(l, i32.add(l, 4));
+          //     br($continue);
+          //   });
+          // });
+          // i32.store({}, i32.add(r, l), i32.wrap_i64(carryr));
+          // i32.store({}, i32.add(s, l), i32.wrap_i64(carrys));
 
           // break if u = 0 (=> s holds output)
           call(Field.isZero, [u]);

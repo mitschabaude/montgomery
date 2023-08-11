@@ -14,7 +14,7 @@ let b = Field.bitLength;
 const n = Math.ceil(b / w);
 const hiBits = 63n;
 
-const N = 10;
+const N = 100;
 
 // create wasm
 let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
@@ -88,6 +88,10 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
       slen: log2(s),
     });
     // console.log({ i, u, v, r, s });
+    // console.log({
+    //   s0: hex(s & Field0.wordMax),
+    //   s1: hex((s >> w) & Field0.wordMax),
+    // });
     let [f0, g0] = [1n, 0n];
     let [f1, g1] = [0n, 1n];
 
