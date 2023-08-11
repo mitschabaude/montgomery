@@ -34,7 +34,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "fast-base64": "^0.1.8",
-    "wasmati": "^0.1.8"
+    "wasmati": "^0.1.10"
   },
   "devDependencies": {
     "chrode": "^0.4.0",
