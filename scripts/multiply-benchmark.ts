@@ -119,6 +119,7 @@ for (let w of [29]) {
     for (let i = 0; i < N; i++) {
       x = (x * x) % p;
     }
+    (globalThis as any).x = x;
     return x;
   }
 

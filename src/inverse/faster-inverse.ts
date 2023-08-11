@@ -17,7 +17,7 @@ const hiBits = 63n;
 const N = 100;
 
 // create wasm
-let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
+let implicitMemory = new ImplicitMemory(memory({ min: 1 << 10 }));
 
 let Field0 = FieldWithArithmetic(p, w);
 let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
@@ -54,21 +54,18 @@ for (let i = 0; i < N; i++) {
   signFlips += Number(signFlip);
 
   assert(k0 + 1 >= b && k0 <= 2 * n * w, "k bounds");
-  assert(s0 < 1n << BigInt((n + 1) * w), "s < 2^(n+1)w");
+  assert(s0 < p, "s < p");
   assert(mod(x0 * s0 - (1n << BigInt(k0)), p) === 0n, "almost inverse");
 
   wasm.writeBigint(x, x0);
   let k1 = wasm.almostInverse(scratch[0], s, x);
-  let s1 = wasm.readBigint(s, n + 1);
+  k1 -= wasm.makeOdd(s);
+  let s1 = wasm.readBigint(s);
+
+  console.log({ i, k0, k1, s0, s1 });
 
   assert(k0 === k1, "equal number of iterations");
   assert(s0 === s1, "equal results");
-
-  k1 -= wasm.makeOdd(s);
-  s1 = wasm.readBigint(s);
-  console.log({ i, k0, k1, s0, s1 });
-  assert(s1 < p, "s < p");
-  assert(mod(x0 * s1 - (1n << BigInt(k1)), p) === 0n, "still almost inverse");
 }
 
 console.log(`${(signFlips / N) * 100}% flips`);
@@ -180,6 +177,14 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
   });
   // second case can only happen when sign flips and by chance v becomes 0
   // return [u === 0n ? s : mod(-r, p), k, signFlip] as const;
+
+  // remove unnecessary low 0 bits in s
+  let i = 0;
+  while (i < w && (s & 1n) === 0n) {
+    s >>= 1n;
+    k--;
+    i++;
+  }
   return [s, Number(k), signFlip] as const;
 }
 
