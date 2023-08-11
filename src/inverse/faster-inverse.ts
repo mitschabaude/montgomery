@@ -59,7 +59,6 @@ for (let i = 0; i < N; i++) {
 
   wasm.writeBigint(x, x0);
   let k1 = wasm.almostInverse(scratch[0], s, x);
-  k1 -= wasm.makeOdd(s);
   let s1 = wasm.readBigint(s);
 
   console.log({ i, k0, k1, s0, s1 });

@@ -328,6 +328,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       });
 
       local.get(k);
+      call(makeOdd, [s]);
+      i32.sub();
     }
   );
 
