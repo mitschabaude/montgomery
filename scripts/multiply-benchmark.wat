@@ -7578,6 +7578,8 @@
         i32.const 1
         i32.add
         local.set 7
+        i32.const 1
+        local.set 6
         local.get 3
         i32.load
         i64.extend_i32_u
@@ -7591,6 +7593,27 @@
         i64.mul
         local.get 18
         local.get 14
+        i64.mul
+        i64.sub
+        local.tee 21
+        i64.const 29
+        i64.shr_s
+        local.get 21
+        i64.const 536870911
+        i64.and
+        local.tee 21
+        drop
+        local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
+        local.get 18
+        local.get 16
+        i64.mul
+        local.get 17
+        local.get 15
         i64.mul
         i64.sub
         local.tee 21
@@ -7600,21 +7623,6 @@
         i64.const 536870911
         i64.and
         drop
-        local.set 19
-        local.get 18
-        local.get 16
-        i64.mul
-        local.get 17
-        local.get 15
-        i64.mul
-        i64.sub
-        local.tee 21
-        i64.const 29
-        i64.shr_s
-        local.get 21
-        i64.const 536870911
-        i64.and
-        drop
         local.set 20
         local.get 3
         i32.load offset=4
@@ -7640,9 +7648,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7686,9 +7700,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=4
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7732,9 +7752,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=8
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7778,9 +7804,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=12
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7824,9 +7856,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=16
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7870,9 +7908,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=20
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7916,9 +7960,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=24
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7962,9 +8012,15 @@
         local.get 21
         i64.const 536870911
         i64.and
+        local.tee 21
         i32.wrap_i64
         i32.store offset=28
         local.set 19
+        local.get 6
+        local.get 21
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 18
         local.get 16
         i64.mul
@@ -7992,6 +8048,11 @@
         local.get 20
         i32.wrap_i64
         i32.store offset=32
+        local.get 6
+        local.get 19
+        i64.eqz
+        i32.and
+        local.set 6
         local.get 4
         i32.load
         i64.extend_i32_u
@@ -8402,8 +8463,7 @@
         i32.wrap_i64
         i32.store offset=32
         local.set 20
-        local.get 3
-        call 14
+        local.get 6
         br_if 1 (;@1;)
         local.get 5
         i32.const 1
@@ -8644,6 +8704,7 @@
     local.get 0
     i32.load
     i64.extend_i32_u
+    local.tee 4
     i64.ctz
     local.tee 2
     i64.eqz
@@ -8672,10 +8733,6 @@
     local.get 2
     i64.sub
     local.set 3
-    local.get 0
-    i32.load
-    i64.extend_i32_u
-    local.set 4
     local.get 0
     local.get 4
     local.get 2

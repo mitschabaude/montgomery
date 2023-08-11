@@ -51,8 +51,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     { in: [i32, i64], locals: [i64, i64, i64], out: [i32] },
     ([u, uhi], [k, l, tmp]) => {
       // k = count_trailing_zeros(u[0])
-      let ui = Field.loadLimb(u, 0);
-      local.tee(k, i64.ctz(ui));
+      local.tee(tmp, Field.loadLimb(u, 0));
+      local.tee(k, i64.ctz($));
       i64.eqz();
       // if (k === 0) return; (the most common case)
       if_(null, () => {
@@ -86,7 +86,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       //   u[i] = (u[i] >> k) | ((u[i + 1] << l) & wordMax);
       // }
       // u[n] = u[n] >> k;
-      local.set(tmp, Field.loadLimb(u, 0));
       for (let i = 0; i < n - 1; i++) {
         i64.shr_u(tmp, k);
         local.tee(tmp, Field.loadLimb(u, i + 1));
@@ -127,9 +126,9 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
 
   /**
    * input: pointers for
-   * - v + u + r (scratch space - 2 + 1x2 = 4 field elements)
-   * - s (output - 1x2 field elements)
-   * - a (1 field element)
+   * - v + u + r (scratch space - 3 field elements)
+   * - s (output - 1 field element)
+   * - a (input - 1 field element)
    */
   const almostInverse = func(
     {
@@ -272,6 +271,9 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           // u = (u * f0 - v * g0) >> w
           // v = (v * g1 - u * f1) >> w
           // note that we store j result at j-1 location, which is the shift
+          let uIsZero = tmp32;
+          local.set(uIsZero, 1);
+
           for (let j = 0; j < n; j++) {
             local.set(uj, Field.loadLimb(u, j));
             local.set(vj, Field.loadLimb(v, j));
@@ -279,9 +281,13 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
             i64.sub(i64.mul(uj, f0), i64.mul(vj, g0));
             if (j > 0) i64.add($, carryu);
             Field.carrySigned($, tmp);
+            local.tee(tmp);
             if (j > 0) Field.storeLimb(u, j - 1, $);
             else drop();
             local.set(carryu);
+
+            // remember if u=0
+            local.set(uIsZero, i32.and(uIsZero, i64.eqz(tmp)));
 
             i64.sub(i64.mul(vj, g1), i64.mul(uj, f1));
             if (j > 0) i64.add($, carryv);
@@ -292,6 +298,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           }
           Field.storeLimb(u, n - 1, carryu);
           Field.storeLimb(v, n - 1, carryv);
+          local.set(uIsZero, i32.and(uIsZero, i64.eqz(carryu)));
 
           // TODO handle sign flip
 
@@ -319,7 +326,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           }
 
           // break if u = 0 (=> s holds output)
-          call(Field.isZero, [u]);
+          local.get(uIsZero);
           br_if($break);
         });
       });
