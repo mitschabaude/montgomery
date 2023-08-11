@@ -5,7 +5,6 @@ import {
   i32,
   i64,
   local,
-  loop,
   block,
   if_,
   return_,
@@ -14,10 +13,11 @@ import {
   $,
   drop,
   br_if,
-  br,
   importFunc,
   select,
   memory,
+  v128,
+  i64x2,
 } from "wasmati";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.js";
 import { FieldWithMultiply } from "../wasm/multiply-montgomery.js";
@@ -144,6 +144,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         i64,
         i64,
         i64,
+        v128,
+        v128,
         i64,
         i64,
         i64,
@@ -169,6 +171,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         vhi,
         ulo,
         vlo,
+        f0g0,
+        f1g1,
         f0,
         g0,
         f1,
@@ -194,10 +198,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       block(null, ($break) => {
         forLoop1(i, 0, 2 * n, () => {
           // initialize local variables
-          local.set(f0, 1n);
-          local.set(g0, 0n);
-          local.set(f1, 0n);
-          local.set(g1, 1n);
+          local.set(f0g0, v128.const("i64x2", [1n, 0n]));
+          local.set(f1g1, v128.const("i64x2", [0n, 1n]));
 
           local.set(ulo, Field.loadLimb(u, 0));
           local.set(vlo, Field.loadLimb(v, 0));
@@ -225,8 +227,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
               () => {
                 local.set(uhi, i64.shr_s(uhi, 1n));
                 local.set(ulo, i64.shr_s(ulo, 1n));
-                local.set(f1, i64.shl(f1, 1n));
-                local.set(g1, i64.shl(g1, 1n));
+                local.set(f1g1, i64x2.shl(f1g1, 1));
               },
               () => {
                 // if ((vlo & 1n) === 0n)
@@ -236,8 +237,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
                   () => {
                     local.set(vhi, i64.shr_s(vhi, 1n));
                     local.set(vlo, i64.shr_s(vlo, 1n));
-                    local.set(f0, i64.shl(f0, 1n));
-                    local.set(g0, i64.shl(g0, 1n));
+                    local.set(f0g0, i64x2.shl(f0g0, 1));
                   },
                   () => {
                     i64.le_s(vhi, uhi);
@@ -246,18 +246,14 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
                       () => {
                         local.set(uhi, i64.shr_s(i64.sub(uhi, vhi), 1n));
                         local.set(ulo, i64.shr_s(i64.sub(ulo, vlo), 1n));
-                        local.set(f0, i64.add(f0, f1));
-                        local.set(g0, i64.add(g0, g1));
-                        local.set(f1, i64.shl(f1, 1n));
-                        local.set(g1, i64.shl(g1, 1n));
+                        local.set(f0g0, i64x2.add(f0g0, f1g1));
+                        local.set(f1g1, i64x2.shl(f1g1, 1));
                       },
                       () => {
                         local.set(vhi, i64.shr_s(i64.sub(vhi, uhi), 1n));
                         local.set(vlo, i64.shr_s(i64.sub(vlo, ulo), 1n));
-                        local.set(f1, i64.add(f0, f1));
-                        local.set(g1, i64.add(g0, g1));
-                        local.set(f0, i64.shl(f0, 1n));
-                        local.set(g0, i64.shl(g0, 1n));
+                        local.set(f1g1, i64x2.add(f0g0, f1g1));
+                        local.set(f0g0, i64x2.shl(f0g0, 1));
                       }
                     );
                   }
@@ -266,6 +262,15 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
             );
             local.set(k, i32.add(k, 1));
           }
+          local.get(f0g0);
+          local.set(f0, i64x2.extract_lane(0));
+          local.get(f0g0);
+          local.set(g0, i64x2.extract_lane(1));
+
+          local.get(f1g1);
+          local.set(f1, i64x2.extract_lane(0));
+          local.get(f1g1);
+          local.set(g1, i64x2.extract_lane(1));
 
           // update u, v
           // u = (u * f0 - v * g0) >> w

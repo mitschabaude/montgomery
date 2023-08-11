@@ -4131,7 +4131,7 @@
       br_if 0 (;@1;)
     end)
   (func (;22;) (type 5) (param i32 i32 i32) (result i32)
-    (local i32 i32 i32 i32 i32 i32 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64)
+    (local i32 i32 i32 i32 i32 i32 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 v128 v128)
     local.get 0
     i32.const 36
     i32.add
@@ -4229,14 +4229,10 @@
       i32.const 0
       local.set 5
       loop  ;; label = @2
-        i64.const 1
-        local.set 13
-        i64.const 0
-        local.set 14
-        i64.const 0
-        local.set 15
-        i64.const 1
-        local.set 16
+        v128.const i32x4 0x00000001 0x00000000 0x00000000 0x00000000
+        local.set 22
+        v128.const i32x4 0x00000000 0x00000000 0x00000001 0x00000000
+        local.set 23
         local.get 3
         i32.load
         i64.extend_i32_u
@@ -4343,14 +4339,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -4365,14 +4357,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -4390,22 +4378,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -4419,22 +4399,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -4455,14 +4427,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -4477,14 +4445,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -4502,22 +4466,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -4531,22 +4487,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -4567,14 +4515,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -4589,14 +4533,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -4614,22 +4554,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -4643,22 +4575,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -4679,14 +4603,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -4701,14 +4621,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -4726,22 +4642,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -4755,22 +4663,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -4791,14 +4691,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -4813,14 +4709,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -4838,22 +4730,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -4867,22 +4751,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -4903,14 +4779,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -4925,14 +4797,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -4950,22 +4818,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -4979,22 +4839,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5015,14 +4867,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5037,14 +4885,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5062,22 +4906,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5091,22 +4927,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5127,14 +4955,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5149,14 +4973,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5174,22 +4994,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5203,22 +5015,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5239,14 +5043,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5261,14 +5061,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5286,22 +5082,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5315,22 +5103,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5351,14 +5131,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5373,14 +5149,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5398,22 +5170,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5427,22 +5191,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5463,14 +5219,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5485,14 +5237,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5510,22 +5258,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5539,22 +5279,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5575,14 +5307,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5597,14 +5325,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5622,22 +5346,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5651,22 +5367,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5687,14 +5395,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5709,14 +5413,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5734,22 +5434,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5763,22 +5455,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5799,14 +5483,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5821,14 +5501,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5846,22 +5522,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5875,22 +5543,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -5911,14 +5571,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -5933,14 +5589,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -5958,22 +5610,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -5987,22 +5631,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6023,14 +5659,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6045,14 +5677,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6070,22 +5698,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6099,22 +5719,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6135,14 +5747,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6157,14 +5765,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6182,22 +5786,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6211,22 +5807,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6247,14 +5835,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6269,14 +5853,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6294,22 +5874,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6323,22 +5895,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6359,14 +5923,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6381,14 +5941,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6406,22 +5962,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6435,22 +5983,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6471,14 +6011,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6493,14 +6029,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6518,22 +6050,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6547,22 +6071,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6583,14 +6099,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6605,14 +6117,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6630,22 +6138,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6659,22 +6159,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6695,14 +6187,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6717,14 +6205,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6742,22 +6226,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6771,22 +6247,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6807,14 +6275,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6829,14 +6293,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6854,22 +6314,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6883,22 +6335,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -6919,14 +6363,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -6941,14 +6381,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -6966,22 +6402,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -6995,22 +6423,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -7031,14 +6451,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -7053,14 +6469,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -7078,22 +6490,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -7107,22 +6511,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -7143,14 +6539,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -7165,14 +6557,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -7190,22 +6578,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -7219,22 +6599,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -7255,14 +6627,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -7277,14 +6645,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -7302,22 +6666,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -7331,22 +6687,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -7367,14 +6715,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -7389,14 +6733,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -7414,22 +6754,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -7443,22 +6775,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -7479,14 +6803,10 @@
           i64.const 1
           i64.shr_s
           local.set 11
-          local.get 15
-          i64.const 1
-          i64.shl
-          local.set 15
-          local.get 16
-          i64.const 1
-          i64.shl
-          local.set 16
+          local.get 23
+          i32.const 1
+          i64x2.shl
+          local.set 23
         else
           local.get 12
           i64.const 1
@@ -7501,14 +6821,10 @@
             i64.const 1
             i64.shr_s
             local.set 12
-            local.get 13
-            i64.const 1
-            i64.shl
-            local.set 13
-            local.get 14
-            i64.const 1
-            i64.shl
-            local.set 14
+            local.get 22
+            i32.const 1
+            i64x2.shl
+            local.set 22
           else
             local.get 10
             local.get 9
@@ -7526,22 +6842,14 @@
               i64.const 1
               i64.shr_s
               local.set 11
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 13
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 14
-              local.get 15
-              i64.const 1
-              i64.shl
-              local.set 15
-              local.get 16
-              i64.const 1
-              i64.shl
-              local.set 16
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 22
+              local.get 23
+              i32.const 1
+              i64x2.shl
+              local.set 23
             else
               local.get 10
               local.get 9
@@ -7555,22 +6863,14 @@
               i64.const 1
               i64.shr_s
               local.set 12
-              local.get 13
-              local.get 15
-              i64.add
-              local.set 15
-              local.get 14
-              local.get 16
-              i64.add
-              local.set 16
-              local.get 13
-              i64.const 1
-              i64.shl
-              local.set 13
-              local.get 14
-              i64.const 1
-              i64.shl
-              local.set 14
+              local.get 22
+              local.get 23
+              i64x2.add
+              local.set 23
+              local.get 22
+              i32.const 1
+              i64x2.shl
+              local.set 22
             end
           end
         end
@@ -7578,6 +6878,18 @@
         i32.const 1
         i32.add
         local.set 7
+        local.get 22
+        i64x2.extract_lane 0
+        local.set 13
+        local.get 22
+        i64x2.extract_lane 1
+        local.set 14
+        local.get 23
+        i64x2.extract_lane 0
+        local.set 15
+        local.get 23
+        i64x2.extract_lane 1
+        local.set 16
         i32.const 1
         local.set 6
         local.get 3
