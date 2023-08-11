@@ -36,8 +36,8 @@ let wasm = { ...wasm_, ...memoryHelpers(p, w, wasm_) };
 
 let signFlips = 0;
 
+let [x, s] = wasm.getPointers(2);
 let scratch = wasm.getPointers(10);
-let [x, s] = wasm.getPointers(3);
 let x0 = (1n << 117n) - 1n;
 wasm.writeBigint(x, x0);
 let length = wasm.getBitLength(x);

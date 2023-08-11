@@ -45,10 +45,11 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     }
   );
 
-  // assumes input is n+1 limbs, and we shift by at most 1 limb
+  // assumes input is n limbs, and we shift by at most 1 limb
+  // also assumes that shifted result + additional hi limb again fits in n limbs
   const makeOdd = func(
-    { in: [i32], locals: [i64, i64, i64], out: [i32] },
-    ([u], [k, l, tmp]) => {
+    { in: [i32, i64], locals: [i64, i64, i64], out: [i32] },
+    ([u, uhi], [k, l, tmp]) => {
       // k = count_trailing_zeros(u[0])
       let ui = Field.loadLimb(u, 0);
       local.tee(k, i64.ctz(ui));
@@ -62,14 +63,14 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       // if k === 64, shift by a whole limb
       i64.eq(k, 64n);
       if_(null, () => {
-        // copy u[1],...,u[n] --> u[0],...,u[n-1]
+        // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
         local.get(u);
         i32.add(u, 4);
-        i32.const(n * 4);
+        i32.const((n - 1) * 4);
         memory.copy();
 
-        // u[n] = 0
-        Field.storeLimb(u, n, 0n);
+        // u[n-1] = uhi
+        Field.storeLimb(u, n - 1, uhi);
 
         i32.const(w);
         return_();
@@ -86,16 +87,19 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       // }
       // u[n] = u[n] >> k;
       local.set(tmp, Field.loadLimb(u, 0));
-      for (let i = 0; i < n + 1; i++) {
+      for (let i = 0; i < n - 1; i++) {
         i64.shr_u(tmp, k);
-        if (i < n) {
-          local.tee(tmp, Field.loadLimb(u, i + 1));
-          i64.shl($, l);
-          i64.and($, Field.wordMax);
-          i64.or();
-        }
+        local.tee(tmp, Field.loadLimb(u, i + 1));
+        i64.shl($, l);
+        i64.and($, Field.wordMax);
+        i64.or();
         Field.storeLimb(u, i, $);
       }
+      i64.shr_u(tmp, k);
+      i64.shl(uhi, l);
+      i64.and($, Field.wordMax);
+      i64.or();
+      Field.storeLimb(u, n - 1, $);
 
       // return k
       i32.wrap_i64(k);
@@ -105,6 +109,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const extractBits = extractBitSlice(w, n);
 
   const hiBits = 63;
+  const resultMaxLimbs = n + 1;
 
   const logHex = (...args: bigint[]) => console.log(...args.map(hex));
   const logBin = (...args: bigint[]) => console.log(...args.map(bin));
@@ -179,17 +184,13 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       // setup locals
       local.set(u, i32.add(v, Field.size));
       local.set(r, i32.add(u, Field.size));
+      let [rj, sj, carryr, carrys] = [uj, vj, carryu, carryv]; // reused locals
 
       // u = p, v = a, r = 0, s = 1
       Field.i32.store(u, Field.i32.P);
       Field.copyInline(v, a);
-      // r, s have 2x length
       Field.i32.store(r, Field.i32.Zero);
-      local.set(tmp32, i32.add(r, Field.size));
-      Field.i32.store(tmp32, Field.i32.Zero);
       Field.i32.store(s, Field.i32.One);
-      local.set(tmp32, i32.add(s, Field.size));
-      Field.i32.store(tmp32, Field.i32.Zero);
 
       block(null, ($break) => {
         forLoop1(i, 0, 2 * n, () => {
@@ -298,11 +299,9 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           // r = r * f0 + s * g0
           // s = r * f1 + s * g1
           // assumes that r, s will only ever need n+1 limbs (TODO: proof)
+          // we store s as n limbs plus a high carry limb which only gets shifted in at the end
 
-          let [rj, sj, carryr, carrys] = [uj, vj, carryu, carryv]; // reuse locals
-          let maxLimbs = n + 1;
-
-          for (let j = 0; j < maxLimbs - 1; j++) {
+          for (let j = 0; j < resultMaxLimbs - 1; j++) {
             local.set(rj, Field.loadLimb(r, j));
             local.set(sj, Field.loadLimb(s, j));
 
@@ -318,8 +317,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
             Field.storeLimb(s, j, $);
             local.set(carrys);
           }
-          Field.storeLimb(r, maxLimbs - 1, carryr);
-          Field.storeLimb(s, maxLimbs - 1, carrys);
 
           // break if u = 0 (=> s holds output)
           call(Field.isZero, [u]);
@@ -328,7 +325,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       });
 
       local.get(k);
-      call(makeOdd, [s]);
+      call(makeOdd, [s, carrys]);
       i32.sub();
     }
   );
