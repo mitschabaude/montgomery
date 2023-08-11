@@ -7639,10 +7639,6 @@
         i32.const 1
         i32.add
         local.set 7
-        i64.const 0
-        local.set 19
-        i64.const 0
-        local.set 20
         local.get 3
         i32.load
         i64.extend_i32_u
@@ -8057,12 +8053,6 @@
         local.get 20
         i32.wrap_i64
         i32.store offset=32
-        i64.const 0
-        local.set 19
-        i64.const 0
-        local.set 20
-        i32.const 0
-        local.set 6
         local.get 4
         i32.load
         i64.extend_i32_u
