@@ -16,7 +16,8 @@ import { mod } from "../src/field-util.js";
 import { fastInverse } from "../src/inverse/faster-inverse-wasm.js";
 
 let N = 1e7;
-let Ninv = 3e4;
+let Ninv = 5e5;
+let Npow = 5e4;
 let { p, t } = Field0;
 let { randomFieldx2 } = Random;
 
@@ -162,7 +163,7 @@ for (let w of [29]) {
   bench("multiply barrett", wasm.benchBarrett, { x, N });
   bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
   bench("multiply square", wasm.benchSquare, { x, N });
-  bench("multiply bigint", benchMultiplyBigint, { x, N });
+  // bench("multiply bigint", benchMultiplyBigint, { x, N });
   bench("add x3", wasm.benchAdd, { x, N });
 
   writeBigint(x, randomFieldx2());
@@ -175,13 +176,10 @@ for (let w of [29]) {
   bench2(
     "fast inverse",
     () => wasm.benchFastAlmostInverse(scratch, x, y, Ninv),
-    {
-      N: Ninv,
-      tMul,
-    }
+    { N: Ninv, tMul }
   );
-  bench2("pow", () => benchPow(x, Ninv), { N: Ninv, tMul });
-  bench2("sqrt", () => benchSqrt(x, y, Ninv), { N: Ninv, tMul });
+  bench2("pow", () => benchPow(x, Npow), { N: Npow, tMul });
+  bench2("sqrt", () => benchSqrt(x, y, Npow), { N: Npow, tMul });
 }
 
 function bench(
