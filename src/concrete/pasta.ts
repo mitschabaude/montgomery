@@ -11,7 +11,7 @@ import { createBigintApi } from "../bigint.js";
 export { Bigint, Field, Scalar, CurveAffine, CurveProjective, Random };
 export { msm, msmUnsafe, msmUtil };
 
-const Field = await createMsmField(p, beta, 30);
+const Field = await createMsmField(p, beta, 29);
 const Scalar = await createGeneralGlvScalar(q, lambda, 29);
 const CurveAffine = createCurveAffine(Field, b);
 const CurveProjective = createCurveProjective(Field);

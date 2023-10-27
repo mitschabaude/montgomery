@@ -102,6 +102,8 @@ function createSqrt(
     }
   }
 
+  if (M <= 4) return { sqrt, t, roots };
+
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
   // after Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
 
@@ -120,7 +122,7 @@ function createSqrt(
   // w00 = 1, w_01 = w^(-1)
   wasm.copy(inverseRoots[0][0], constants.mg1);
   wasm.inverse(tmp, inverseRoots[0][1], roots[0]);
-  // v0 = 1, start comuting v1
+  // v0 = 1, start computing v1
   wasm.copy(LthRoots[0], constants.mg1);
   wasm.copy(LthRoots[1], roots[0]);
 
@@ -246,7 +248,7 @@ function createSqrt(
     return true;
   }
 
-  return { slowSqrt: sqrt, sqrt: M > 4 ? fastSqrt : sqrt, t, roots };
+  return { sqrt: fastSqrt, t, roots };
 }
 
 // wasm API we need
