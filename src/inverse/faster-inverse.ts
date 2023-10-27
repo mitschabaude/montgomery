@@ -14,7 +14,8 @@ let b = Field.bitLength;
 const n = Math.ceil(b / w);
 const hiBits = 63n;
 
-const N = 100;
+const N = 1000;
+const verbose = false;
 
 // create wasm
 let implicitMemory = new ImplicitMemory(memory({ min: 1 << 10 }));
@@ -47,7 +48,7 @@ for (let i = 0; i < N; i++) {
   let x0 = Random.randomField();
   // x0 =
   //   3644898569073079219285804017037847737335778255461247493887823044200058407990n;
-  // x0 = 1n << 254n;
+  // x0 = (1n << 254n) + 1n;
   // console.log({ x0 });
 
   let [s0, k0, signFlip] = almostInverse(x0, p, BigInt(w), n);
@@ -61,7 +62,7 @@ for (let i = 0; i < N; i++) {
   let k1 = wasm.almostInverse(scratch[0], s, x);
   let s1 = wasm.readBigint(s);
 
-  console.log({ i, k0, k1, s0, s1 });
+  if (verbose) console.log({ i, k0, k1, s0, s1 });
 
   assert(k0 === k1, "equal number of iterations");
   assert(s0 === s1, "equal results");
@@ -80,13 +81,7 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
   for (let i = 0; i < 2 * n; i++) {
     let ulen = log2(u);
     let vlen = log2(v);
-    console.log({
-      i,
-      ulen,
-      vlen,
-      rlen: log2(r),
-      slen: log2(s),
-    });
+    if (verbose) console.log({ i, ulen, vlen, rlen: log2(r), slen: log2(s) });
     // console.log({ i, u, v, r, s });
     // console.log({
     //   s0: hex(s & Field0.wordMax),
@@ -168,12 +163,7 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     if (v === 0n) throw Error("v = 0");
   }
 
-  console.log({
-    u,
-    v,
-    rlen: log2(r),
-    slen: log2(s),
-  });
+  if (verbose) console.log({ u, v, rlen: log2(r), slen: log2(s) });
   // second case can only happen when sign flips and by chance v becomes 0
   // return [u === 0n ? s : mod(-r, p), k, signFlip] as const;
 
