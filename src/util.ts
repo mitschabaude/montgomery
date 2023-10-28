@@ -230,7 +230,7 @@ function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
   return true;
 }
 
-function assert(condition: boolean, message?: string) {
+function assert(condition: boolean, message?: string): asserts condition {
   if (!condition)
     throw Error(
       message === undefined
