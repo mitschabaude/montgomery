@@ -53,7 +53,7 @@ function createSqrt(
     wasm.add(z, z, constants.mg1);
   }
 
-  // roots of unity w = z^t, w^2, ..., w^(2^(S-1)) = -1
+  // roots of unity w = z^t, w^2, ..., w^(2^(M-1)) = -1
   let roots = helpers.getStablePointers(M);
   pow(scratch, roots[0], z, t);
   for (let i = 1; i < M; i++) {
@@ -107,7 +107,8 @@ function createSqrt(
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
   // after Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
 
-  // parameters for windowed representation of epxonents in roots subgroup
+  // parameters for windowed representation of exponents in roots subgroup
+
   let c = Math.min(4, M); // window/limb size
   let L = 1 << c;
   let N = Math.ceil(M / c); // number of windows/limbs
@@ -116,7 +117,9 @@ function createSqrt(
 
   // w_ij = w^(-j*2^(ic)) for i=0,...,N-1 and j=0,...,L-1 = 2^c-1
   let inverseRoots = mapRange(N, () => helpers.getStablePointers(L));
-  // v_j = w^(j*2^((n-1)c)), j=0,...,L-1 = all Lth roots
+  // v_j = w^(j*2^((N-1)c)), j=0,...,L-1 = all Lth roots
+  // TODO: this assumes tnat window size exactly divides M, i.e. M = Nc. if it doesn't,
+  // LthRoots[j] = w^(2^(j(N-1)c)) will actually be 2^(M-(N-1)c)th roots and won't be L unique values
   let LthRoots = helpers.getStablePointers(L);
 
   // w00 = 1, w_01 = w^(-1)
