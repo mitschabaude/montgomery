@@ -162,7 +162,10 @@ function createSqrt(
   }
   // assert that all the Lth roots have different low limbs (they should be ~random)
   // console.log(LthRootLookup);
-  assert(Object.keys(LthRootLookup).length === L);
+  if (Object.keys(LthRootLookup).length !== L) {
+    console.warn("can't use fastSqrt, Lth roots have collisions");
+    return { sqrt, t, roots };
+  }
 
   // lth root v_j --> j
   function lookupLthRoot(ptr: number) {
