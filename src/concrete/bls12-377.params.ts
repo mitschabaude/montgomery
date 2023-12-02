@@ -1,8 +1,8 @@
 import { scale } from "../extra/dumb-curve-affine.js";
-import { mod, modExp, modInverse, randomField } from "../field-util.js";
+import { mod, modExp, modInverse } from "../field-util.js";
 import { assert, bigintToBits } from "../util.js";
 
-export { p, q, b, lambda, beta, nBits, nBytes, G };
+export { p, q, h, b, lambda, beta, nBits, nBytes, G };
 
 const p =
   0x01ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001n;
@@ -13,6 +13,9 @@ const b = 1n;
 
 const nBits = 377;
 const nBytes = 48;
+
+// cofactor
+const h = 0x170b5d44300000000000000000000000n;
 
 // generator
 const G = {
@@ -45,10 +48,7 @@ if (debug) {
   assert(beta === beta_, "beta is correct");
   assert(modExp(beta, 3n, { p }) === 1n, "beta is a cube root");
 
-  // confirm endomorphism with random point
-  let r = randomField(q, 32, 0b00111111);
-  let rG = scale(bigintToBits(r, 256), G, p);
-  let lambdarG = scale(lambdaBits, rG, p);
-  assert(lambdarG.x === mod(beta * rG.x, p), "confirm endomorphism");
-  assert(lambdarG.y === rG.y, "confirm endomorphism");
+  // note: since both phi1: p -> lambda*p and phi2: p -> (beta*p.x, p.y) are homomorphisms (easy to check),
+  // and they agree on a single point, they must agree on all points in the same subgroup:
+  // (phi1 - phi2)(s*G) = s*(phi1 - pgi2)(G) = 0
 }
