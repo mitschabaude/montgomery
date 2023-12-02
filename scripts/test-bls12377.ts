@@ -1,8 +1,14 @@
 // run with ts-node-esm
 import "../src/extra/fix-webcrypto.js";
 import { BLS12_377 } from "../src/index.js";
-import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
+import {
+  assert,
+  bigintToBits,
+  extractBitSlice as extractBitSliceJS,
+} from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
+import { scale } from "../src/extra/dumb-curve-affine.js";
+import { G, h, nBits } from "../src/concrete/bls12-377.params.js";
 
 let { Field, Scalar, CurveProjective, msmUtil, Random, Bigint } = BLS12_377;
 const { p } = Field;
@@ -186,3 +192,9 @@ function testBatchMontgomery() {
     }
   }
 }
+
+let hbits = bigintToBits(h, nBits);
+let hG = scale(hbits, G, p);
+console.log({ G, hG });
+assert(hG.x === G.x, "multiplication by h leaves G unchanged");
+assert(hG.y === G.y, "multiplication by h leaves G unchanged");
