@@ -24,13 +24,11 @@ const { msm, msmUnsafe, msmBigint, ...msmUtil } = createMsm(MsmInputs);
 const { randomField: randomScalar, randomFields: randomScalars } =
   randomGenerators(q);
 
-const randomPointsFast = createRandomPointsFast(MsmInputs);
-
 const Random = {
   ...randomGenerators(p),
   randomScalar,
   randomScalars,
-  randomPointsFast,
+  randomPointsFast: createRandomPointsFast(MsmInputs),
 };
 
 const Bigint_ = createBigintApi({
