@@ -11,7 +11,7 @@ import { mod, modExp, modInverse } from "../src/field-util.js";
 import { scale } from "../src/extra/dumb-curve-affine.js";
 import { G, q } from "../src/concrete/bls12-377.params.js";
 
-let { Field, Scalar, CurveProjective, msmUtil, Random, Bigint } = BLS12_377;
+let { Field, Scalar, Random } = BLS12_377;
 const { p } = Field;
 
 function toWasm(x0: bigint, x: number) {
