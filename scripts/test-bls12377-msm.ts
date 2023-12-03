@@ -18,10 +18,8 @@ let N = 1 << n;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("random points");
-let points = Field.getZeroPointers(N, CurveAffine.sizeAffine);
 let scratch = Field.getPointers(40);
-CurveAffine.randomPoints(scratch, points);
-
+let points = Random.randomPointsFast(N, { entropy: 64, windowSize: 13 });
 let scalars = Random.randomScalars(N);
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();

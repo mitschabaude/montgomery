@@ -62,6 +62,13 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       // inverse
       inverse,
       makeOdd,
+      /**
+       * batch inversion
+       * @param scratch
+       * @param xInvs
+       * @param xs
+       * @param n
+       */
       batchInverse,
       // arithmetic
       add,

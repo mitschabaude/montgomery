@@ -210,3 +210,5 @@ function testCurve() {
   CurveAffine.scale(scratch, qR, r, qBits);
   assert(CurveAffine.isZeroAffine(qR), "order*h*R = 0");
 }
+
+Random.randomPointsFast(1 << 16, { entropy: 80, windowSize: 13 });

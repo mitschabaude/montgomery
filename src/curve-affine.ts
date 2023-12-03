@@ -2,6 +2,7 @@ import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
 import { randomGenerators } from "./field-util.js";
 import type { CurveProjective } from "./curve-projective.js";
+import { assert } from "./util.js";
 
 export { createCurveAffine, CurveAffine };
 
@@ -144,7 +145,8 @@ function createCurveAffine(
    * if one doesn't work, increment until it does
    * just use the returned square root
    *
-   * doesn't do any cofactor clearing
+   * if the curve has a cofactor, we multiply by it to get points in the subgroup
+   * (in that case, the cofactor multiplication is by far the dominant part)
    */
   function randomPoints(scratch: number[], points: number[]) {
     let n = points.length;
@@ -225,6 +227,38 @@ function createCurveAffine(
     setIsNonZero(point, true);
   }
 
+  function batchFromProjective(
+    scratch: number[],
+    points: number[],
+    pointsProj: number[]
+  ) {
+    let n = points.length;
+    assert(n === pointsProj.length, "lengths must match");
+    // copy x, y coordinates and collect z coordinates
+    let offset = Field.getOffset();
+    let zInvs = Field.getZeroPointers(n, sizeField);
+    let zs = Field.getPointers(n, sizeField);
+    for (let i = 0; i < n; i++) {
+      let xAffine = points[i];
+      let yAffine = points[i] + sizeField;
+      let [x, y, z] = CurveProjective.projectiveCoords(pointsProj[i]);
+      Field.copy(xAffine, x);
+      Field.copy(yAffine, y);
+      Field.copy(zs[i], z);
+    }
+    // batch invert z coordinates
+    Field.batchInverse(scratch[0], zInvs[0], zs[0], n);
+    // x, y <- x/z, y/z
+    for (let i = 0; i < n; i++) {
+      let x = points[i];
+      let y = points[i] + sizeField;
+      Field.multiply(x, x, zInvs[i]);
+      Field.multiply(y, y, zInvs[i]);
+      memoryBytes[x + 2 * sizeField] = 1;
+    }
+    Field.setOffset(offset);
+  }
+
   return {
     b,
     sizeAffine,
@@ -237,6 +271,7 @@ function createCurveAffine(
     setIsNonZeroAffine: setIsNonZero,
     toBigint,
     writeBigint,
+    batchFromProjective,
     randomPoints,
     randomPointsBigint(n: number, { montgomery = false } = {}) {
       let memoryOffset = Field.getOffset();
