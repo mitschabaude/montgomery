@@ -117,7 +117,6 @@ function createCurveProjective(Field: MsmField) {
     add(Bx4, Bx4, Bx4);
     // h = w^2-8*B = w^2 - Bx4 - Bx4
     square(h, w);
-    console.log("h", Field.readBigint(h));
     subtract(h, h, Bx4); // TODO efficient doubling
     subtract(h, h, Bx4);
     // X3 = 2*h*s
@@ -139,16 +138,12 @@ function createCurveProjective(Field: MsmField) {
     scalar: boolean[],
     point: number
   ) {
-    console.log("point", toBigint(point));
     setZero(result);
     let n = scalar.length;
-    console.log(n, toBigint(result));
     for (let i = n - 1; i >= 0; i--) {
       if (scalar[i]) addAssign(scratch, result, point);
-      if (i > 245) console.log(i, toBigint(result));
       if (i === 0) break;
-      if (i > 245) doubleInPlace(scratch, result);
-      console.log(i, toBigint(result));
+      doubleInPlace(scratch, result);
     }
   }
 
