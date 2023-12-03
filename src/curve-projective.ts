@@ -244,6 +244,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     projectiveToAffine,
     projectiveCoords: coords,
     setNonZero,
+    setZero,
   };
 }
 

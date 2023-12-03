@@ -233,18 +233,20 @@ toc();
 // 2. precompute multiples of each basis point: G, ..., 2^c*G
 tic("precompute multiples");
 let L = 1 << c;
-let B = basis.map((Bk0, k) => {
+let B = basis.map((Bk1) => {
   let Bk = Field.getPointers(L, CurveProjective.sizeProjective);
 
-  // first point is G
-  CurveProjective.affineToProjective(Bk[0], Bk0);
-  // 2*G needs double
-  CurveProjective.copy(Bk[1], Bk[0]);
-  CurveProjective.doubleInPlace(scratch, Bk[1]);
+  // zeroth point is zero
+  CurveProjective.setZero(Bk[0]);
+  // first point is the basis point
+  CurveProjective.affineToProjective(Bk[1], Bk1);
+  // second needs double
+  CurveProjective.copy(Bk[2], Bk[1]);
+  CurveProjective.doubleInPlace(scratch, Bk[2]);
   // the rest with additions
-  for (let l = 2; l < L; l++) {
+  for (let l = 3; l < L; l++) {
     CurveProjective.copy(Bk[l], Bk[l - 1]);
-    CurveProjective.addAssign(scratch, Bk[l], Bk[0]);
+    CurveProjective.addAssign(scratch, Bk[l], Bk[1]);
   }
   return Bk;
 });
