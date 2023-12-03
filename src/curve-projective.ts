@@ -135,8 +135,8 @@ function createCurveProjective(Field: MsmField) {
   function scale(
     scratch: number[],
     result: number,
-    scalar: boolean[],
-    point: number
+    point: number,
+    scalar: boolean[]
   ) {
     setZero(result);
     let n = scalar.length;

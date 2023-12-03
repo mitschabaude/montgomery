@@ -111,11 +111,11 @@ function createCurveAffine(
       ...scratch
     ]: number[],
     result: number,
-    scalar: boolean[],
-    point: number
+    point: number,
+    scalar: boolean[]
   ) {
     CurveProjective.affineToProjective(pointProj, point);
-    CurveProjective.scale(scratch, resultProj, scalar, resultProj);
+    CurveProjective.scale(scratch, resultProj, pointProj, scalar);
     CurveProjective.projectiveToAffine(scratch, result, resultProj);
   }
 

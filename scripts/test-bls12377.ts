@@ -8,7 +8,7 @@ import {
   log2,
 } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
-import { G, q } from "../src/concrete/bls12-377.params.js";
+import { G, h, q } from "../src/concrete/bls12-377.params.js";
 
 let { Field, Scalar, CurveProjective, CurveAffine, Random } = BLS12_377;
 const { p } = Field;
@@ -193,16 +193,21 @@ function testBatchMontgomery() {
   }
 }
 
-// convert G to projective
-let gAffine = Field.getPointer(CurveAffine.sizeAffine);
-let g = Field.getPointer(CurveProjective.sizeProjective);
-CurveAffine.writeBigint(gAffine, G);
-CurveProjective.affineToProjective(g, gAffine);
-
 // prepare inputs
+let [g, qG] = Field.getPointers(2, CurveAffine.sizeAffine);
+CurveAffine.writeBigint(g, G);
 let qBits = bigintToBits(q, log2(q));
-let qG = Field.getPointer(CurveProjective.sizeProjective);
+let hBits = bigintToBits(h, log2(h));
 
 // scale and check
-CurveProjective.scale(scratch, qG, qBits, g);
-assert(CurveProjective.isZero(qG), "order*G = 0");
+CurveAffine.scale(scratch, qG, g, qBits);
+assert(CurveAffine.isZeroAffine(qG), "order*G = 0");
+
+// create random point, clear cofactor and check if it is in the subgroup
+let [r, hR, qhR] = Field.getPointers(2, CurveAffine.sizeAffine);
+CurveAffine.randomPoints(scratch, [r]);
+assert(!CurveAffine.isZeroAffine(r), "random point R is not zero");
+CurveAffine.scale(scratch, hR, r, hBits);
+assert(!CurveAffine.isZeroAffine(hR), "random point h*R is not zero");
+CurveAffine.scale(scratch, qhR, hR, qBits);
+assert(CurveAffine.isZeroAffine(qhR), "order*h*R = 0");
