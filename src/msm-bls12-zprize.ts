@@ -55,11 +55,11 @@ let { sizeAffine, doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } =
 
 let {
   sizeProjective,
-  addAssignProjective,
-  doubleInPlaceProjective,
-  isZeroProjective,
-  copyProjective,
-  copyAffineToProjective,
+  addAssign: addAssignProjective,
+  doubleInPlace: doubleInPlaceProjective,
+  isZero: isZeroProjective,
+  copy: copyProjective,
+  affineToProjective,
   projectiveCoords,
 } = CurveProjective;
 
@@ -686,7 +686,7 @@ function reduceBucketsAffine(
   let partialSums = getZeroPointers(K, sizeProjective);
   for (let k = 0; k < K; k++) {
     if (isZeroAffine(buckets[k][1])) continue;
-    copyAffineToProjective(partialSums[k], buckets[k][1]);
+    affineToProjective(partialSums[k], buckets[k][1]);
   }
   return partialSums;
 }

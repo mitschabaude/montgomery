@@ -1,6 +1,7 @@
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
 import { randomGenerators } from "./field-util.js";
+import type { CurveProjective } from "./curve-projective.js";
 
 export { createCurveAffine, CurveAffine };
 
@@ -49,7 +50,16 @@ type CurveAffine = ReturnType<typeof createCurveAffine>;
  *
  * over the `Field`
  */
-function createCurveAffine(Field: MsmField, b: bigint) {
+function createCurveAffine(
+  Field: MsmField,
+  CurveProjective: CurveProjective,
+  b: bigint
+) {
+  // write b to memory
+  let [bPtr] = Field.getStablePointers(1);
+  Field.writeBigint(bPtr, b);
+  Field.toMontgomery(bPtr);
+
   const { sizeField, square, multiply, add, subtract, copy, memoryBytes, p } =
     Field;
 
@@ -93,11 +103,37 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     copy(yOut, y2);
   }
 
-  let { randomFields } = randomGenerators(p);
+  function scale(
+    [
+      resultProj,
+      _ry,
+      _rz,
+      _rinf,
+      pointProj,
+      _py,
+      _pz,
+      _pinf,
+      ...scratch
+    ]: number[],
+    result: number,
+    point: number,
+    scalar: boolean[]
+  ) {
+    CurveProjective.affineToProjective(pointProj, point);
+    CurveProjective.scale(scratch, resultProj, pointProj, scalar);
+    CurveProjective.projectiveToAffine(scratch, result, resultProj);
+  }
 
-  let [bPtr] = Field.getStablePointers(1);
-  Field.writeBigint(bPtr, b);
-  Field.toMontgomery(bPtr);
+  function toSubgroupInPlace(
+    [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
+    point: number
+  ) {
+    if (CurveProjective.cofactor === 1n) return;
+    copyAffine(tmp, point);
+    scale(scratch, point, tmp, CurveProjective.cofactorBits);
+  }
+
+  let { randomFields } = randomGenerators(p);
 
   /**
    * sample random curve points
@@ -134,12 +170,18 @@ function createCurveAffine(Field: MsmField, b: bigint) {
         if (isSquare) break;
         add(x, x, Field.constants.mg1);
       }
-      setIsNonZeroAffine(x, true);
+      setIsNonZero(x, true);
+    }
+
+    if (CurveProjective.cofactor !== 1n) {
+      for (let i = 0; i < n; i++) {
+        toSubgroupInPlace(scratch, points[i]);
+      }
     }
     return points;
   }
 
-  function isZeroAffine(pointer: number) {
+  function isZero(pointer: number) {
     return !memoryBytes[pointer + 2 * sizeField];
   }
 
@@ -151,13 +193,12 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     return [pointer, pointer + sizeField];
   }
 
-  function setIsNonZeroAffine(pointer: number, isNonZero: boolean) {
+  function setIsNonZero(pointer: number, isNonZero: boolean) {
     memoryBytes[pointer + 2 * sizeField] = Number(isNonZero);
   }
 
   function toBigint(point: number): BigintPoint {
-    let isZero = isZeroAffine(point);
-    if (isZero) return BigintPoint.zero;
+    if (isZero(point)) return BigintPoint.zero;
     let [x, y] = affineCoords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
@@ -171,15 +212,31 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     return pointBigint;
   }
 
+  function writeBigint(point: number, { x, y, isInfinity }: BigintPoint) {
+    if (isInfinity) {
+      setIsNonZero(point, false);
+      return;
+    }
+    let [xPtr, yPtr] = affineCoords(point);
+    Field.writeBigint(xPtr, x);
+    Field.writeBigint(yPtr, y);
+    Field.toMontgomery(xPtr);
+    Field.toMontgomery(yPtr);
+    setIsNonZero(point, true);
+  }
+
   return {
     b,
     sizeAffine,
     doubleAffine,
-    isZeroAffine,
+    scale,
+    toSubgroupInPlace,
+    isZeroAffine: isZero,
     copyAffine,
     affineCoords,
-    setIsNonZeroAffine,
+    setIsNonZeroAffine: setIsNonZero,
     toBigint,
+    writeBigint,
     randomPoints,
     randomPointsBigint(n: number, { montgomery = false } = {}) {
       let memoryOffset = Field.getOffset();

@@ -72,7 +72,7 @@ function uint8ArrayToBigUint64(x8: Uint8Array): BigUint64Array {
   return x;
 }
 
-function bigintToBits(x: bigint, bitLength: number): boolean[] {
+function bigintToBits(x: bigint, bitLength?: number): boolean[] {
   let bits = Array(bitLength || 0);
   for (let i = 0; bitLength ? i < bitLength : x > 0n; i++) {
     bits[i] = !!Number(x & 1n);
@@ -230,7 +230,7 @@ function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
   return true;
 }
 
-function assert(condition: boolean, message?: string) {
+function assert(condition: boolean, message?: string): asserts condition {
   if (!condition)
     throw Error(
       message === undefined
