@@ -5,12 +5,11 @@ import {
   assert,
   bigintToBits,
   extractBitSlice as extractBitSliceJS,
-  log2,
 } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
-import { G, h, q } from "../src/concrete/bls12-377.params.js";
+import { G, q } from "../src/concrete/bls12-377.params.js";
 
-let { Field, Scalar, CurveProjective, CurveAffine, Random } = BLS12_377;
+let { Field, Scalar, CurveAffine, Random } = BLS12_377;
 const { p } = Field;
 
 function toWasm(x0: bigint, x: number) {
@@ -23,7 +22,7 @@ function ofWasm([tmp]: number[], x: number) {
   return mod(Field.readBigint(tmp), p);
 }
 
-let [x, y, z, z_hi, ...scratch] = Field.getPointers(30);
+let [x, y, z, z_hi, ...scratch] = Field.getPointers(40);
 let scratchScalar = Scalar.getPointers(10);
 
 let R = mod(1n << BigInt(Field.w * Field.n), p);
@@ -196,18 +195,17 @@ function testBatchMontgomery() {
 // prepare inputs
 let [g, qG] = Field.getPointers(2, CurveAffine.sizeAffine);
 CurveAffine.writeBigint(g, G);
-let qBits = bigintToBits(q, log2(q));
-let hBits = bigintToBits(h, log2(h));
+let qBits = bigintToBits(q);
 
 // scale and check
 CurveAffine.scale(scratch, qG, g, qBits);
 assert(CurveAffine.isZeroAffine(qG), "order*G = 0");
 
 // create random point, clear cofactor and check if it is in the subgroup
-let [r, hR, qhR] = Field.getPointers(2, CurveAffine.sizeAffine);
+let [r, qhR] = Field.getPointers(2, CurveAffine.sizeAffine);
 CurveAffine.randomPoints(scratch, [r]);
 assert(!CurveAffine.isZeroAffine(r), "random point R is not zero");
-CurveAffine.scale(scratch, hR, r, hBits);
-assert(!CurveAffine.isZeroAffine(hR), "random point h*R is not zero");
-CurveAffine.scale(scratch, qhR, hR, qBits);
+CurveAffine.clearCofactorInPlace(scratch, r);
+assert(!CurveAffine.isZeroAffine(r), "random point h*R is not zero");
+CurveAffine.scale(scratch, qhR, r, qBits);
 assert(CurveAffine.isZeroAffine(qhR), "order*h*R = 0");

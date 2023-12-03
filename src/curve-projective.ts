@@ -1,10 +1,14 @@
 import { MsmField } from "./field-msm.js";
+import { bigintToBits } from "./util.js";
 
 export { createCurveProjective, CurveProjective };
 
 type CurveProjective = ReturnType<typeof createCurveProjective>;
 
-function createCurveProjective(Field: MsmField) {
+function createCurveProjective(Field: MsmField, cofactor = 1n) {
+  // convert the cofactor to bits
+  let cofactorBits = bigintToBits(cofactor);
+
   const {
     sizeField,
     square,
@@ -147,6 +151,15 @@ function createCurveProjective(Field: MsmField) {
     }
   }
 
+  function clearCofactorInPlace(
+    [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
+    point: number
+  ) {
+    if (cofactor === 1n) return;
+    copy(tmp, point);
+    scale(scratch, point, tmp, cofactorBits);
+  }
+
   function isZero(pointer: number) {
     return !memoryBytes[pointer + 3 * sizeField];
   }
@@ -217,9 +230,12 @@ function createCurveProjective(Field: MsmField) {
   }
 
   return {
+    cofactor,
+    cofactorBits,
     addAssign,
     doubleInPlace,
     scale,
+    clearCofactorInPlace,
     toBigint,
     sizeProjective: size,
     isZero,

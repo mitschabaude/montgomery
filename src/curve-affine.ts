@@ -55,6 +55,11 @@ function createCurveAffine(
   CurveProjective: CurveProjective,
   b: bigint
 ) {
+  // write b to memory
+  let [bPtr] = Field.getStablePointers(1);
+  Field.writeBigint(bPtr, b);
+  Field.toMontgomery(bPtr);
+
   const { sizeField, square, multiply, add, subtract, copy, memoryBytes, p } =
     Field;
 
@@ -119,11 +124,16 @@ function createCurveAffine(
     CurveProjective.projectiveToAffine(scratch, result, resultProj);
   }
 
-  let { randomFields } = randomGenerators(p);
+  function clearCofactorInPlace(
+    [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
+    point: number
+  ) {
+    if (CurveProjective.cofactor === 1n) return;
+    copyAffine(tmp, point);
+    scale(scratch, point, tmp, CurveProjective.cofactorBits);
+  }
 
-  let [bPtr] = Field.getStablePointers(1);
-  Field.writeBigint(bPtr, b);
-  Field.toMontgomery(bPtr);
+  let { randomFields } = randomGenerators(p);
 
   /**
    * sample random curve points
@@ -215,6 +225,7 @@ function createCurveAffine(
     sizeAffine,
     doubleAffine,
     scale,
+    clearCofactorInPlace,
     isZeroAffine,
     copyAffine,
     affineCoords,
