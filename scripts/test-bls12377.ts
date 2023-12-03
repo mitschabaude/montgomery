@@ -148,6 +148,7 @@ function test() {
 
 for (let i = 0; i < 100; i++) {
   test();
+  testCurve();
 }
 for (let i = 0; i < 100; i++) {
   let ok = Scalar.testDecomposeScalar(Random.randomScalar());
@@ -192,20 +193,20 @@ function testBatchMontgomery() {
   }
 }
 
-// prepare inputs
-let [g, qG] = Field.getPointers(2, CurveAffine.sizeAffine);
-CurveAffine.writeBigint(g, G);
-let qBits = bigintToBits(q);
+function testCurve() {
+  // prepare inputs
+  let [g, qG] = Field.getPointers(2, CurveAffine.sizeAffine);
+  CurveAffine.writeBigint(g, G);
+  let qBits = bigintToBits(q);
 
-// scale and check
-CurveAffine.scale(scratch, qG, g, qBits);
-assert(CurveAffine.isZeroAffine(qG), "order*G = 0");
+  // scale and check
+  CurveAffine.scale(scratch, qG, g, qBits);
+  assert(CurveAffine.isZeroAffine(qG), "order*G = 0");
 
-// create random point, clear cofactor and check if it is in the subgroup
-let [r, qhR] = Field.getPointers(2, CurveAffine.sizeAffine);
-CurveAffine.randomPoints(scratch, [r]);
-assert(!CurveAffine.isZeroAffine(r), "random point R is not zero");
-CurveAffine.clearCofactorInPlace(scratch, r);
-assert(!CurveAffine.isZeroAffine(r), "random point h*R is not zero");
-CurveAffine.scale(scratch, qhR, r, qBits);
-assert(CurveAffine.isZeroAffine(qhR), "order*h*R = 0");
+  // create random point and check if it is in the subgroup
+  let [r, qR] = Field.getPointers(2, CurveAffine.sizeAffine);
+  CurveAffine.randomPoints(scratch, [r]);
+  assert(!CurveAffine.isZeroAffine(r), "random point R is not zero");
+  CurveAffine.scale(scratch, qR, r, qBits);
+  assert(CurveAffine.isZeroAffine(qR), "order*h*R = 0");
+}

@@ -172,6 +172,12 @@ function createCurveAffine(
       }
       setIsNonZero(x, true);
     }
+
+    if (CurveProjective.cofactor !== 1n) {
+      for (let i = 0; i < n; i++) {
+        clearCofactorInPlace(scratch, points[i]);
+      }
+    }
     return points;
   }
 
