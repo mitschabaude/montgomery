@@ -124,7 +124,7 @@ function createCurveAffine(
     CurveProjective.projectiveToAffine(scratch, result, resultProj);
   }
 
-  function clearCofactorInPlace(
+  function toSubgroupInPlace(
     [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
     point: number
   ) {
@@ -175,13 +175,13 @@ function createCurveAffine(
 
     if (CurveProjective.cofactor !== 1n) {
       for (let i = 0; i < n; i++) {
-        clearCofactorInPlace(scratch, points[i]);
+        toSubgroupInPlace(scratch, points[i]);
       }
     }
     return points;
   }
 
-  function isZeroAffine(pointer: number) {
+  function isZero(pointer: number) {
     return !memoryBytes[pointer + 2 * sizeField];
   }
 
@@ -198,8 +198,7 @@ function createCurveAffine(
   }
 
   function toBigint(point: number): BigintPoint {
-    let isZero = isZeroAffine(point);
-    if (isZero) return BigintPoint.zero;
+    if (isZero(point)) return BigintPoint.zero;
     let [x, y] = affineCoords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
@@ -231,8 +230,8 @@ function createCurveAffine(
     sizeAffine,
     doubleAffine,
     scale,
-    clearCofactorInPlace,
-    isZeroAffine,
+    toSubgroupInPlace,
+    isZeroAffine: isZero,
     copyAffine,
     affineCoords,
     setIsNonZeroAffine: setIsNonZero,

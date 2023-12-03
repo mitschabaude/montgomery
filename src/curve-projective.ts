@@ -151,7 +151,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     }
   }
 
-  function clearCofactorInPlace(
+  function toSubgroupInPlace(
     [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
     point: number
   ) {
@@ -235,7 +235,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     addAssign,
     doubleInPlace,
     scale,
-    clearCofactorInPlace,
+    toSubgroupInPlace,
     toBigint,
     sizeProjective: size,
     isZero,
