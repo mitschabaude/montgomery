@@ -1,6 +1,6 @@
 import { mod, modInverse } from "../field-util.js";
 import type { BigintPoint } from "../msm.js";
-import { bigintToBits } from "../util.js";
+import { assert, bigintToBits } from "../util.js";
 
 export { msmDumbAffine, doubleAffine, addAffine, scale, checkOnCurve };
 
@@ -36,7 +36,8 @@ function addAffine(G: BigintPoint, H: BigintPoint, p: bigint): BigintPoint {
     // G + G --> we double
     if (y1 === y2) return doubleAffine(G, p);
     // G - G --> return zero
-    if (y1 === -y2) return zero;
+    if (y1 === p - y2) return zero;
+    assert(false, "unreachable");
   }
   // m = (y2 - y1)/(x2 - x1)
   let d = modInverse(x2 - x1, p);
