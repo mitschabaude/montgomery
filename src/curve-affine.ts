@@ -144,7 +144,8 @@ function createCurveAffine(
    * if one doesn't work, increment until it does
    * just use the returned square root
    *
-   * doesn't do any cofactor clearing
+   * if the curve has a cofactor, we multiply by it to get points in the subgroup
+   * (in that case, the cofactor multiplication is by far the dominant part)
    */
   function randomPoints(scratch: number[], points: number[]) {
     let n = points.length;
