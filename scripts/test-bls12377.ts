@@ -5,13 +5,11 @@ import {
   assert,
   bigintToBits,
   extractBitSlice as extractBitSliceJS,
-  randomBytes,
 } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
 import { G, q } from "../src/concrete/bls12-377.params.js";
-import { tic, toc } from "../src/extra/tictoc.js";
 
-let { Field, Scalar, CurveAffine, CurveProjective, Random } = BLS12_377;
+let { Field, Scalar, CurveAffine, Random } = BLS12_377;
 const { p } = Field;
 
 function toWasm(x0: bigint, x: number) {
@@ -213,88 +211,4 @@ function testCurve() {
   assert(CurveAffine.isZeroAffine(qR), "order*h*R = 0");
 }
 
-// fast random point generation
-
-tic("random point generation");
-let n = 1 << 16; // number of points to generate
-let entropy = 128; // number of random bits we generate each point from
-
-// split entropy into k windows of size c
-let c = 13;
-let K = Math.ceil(entropy / c);
-console.log({ c, K, actualEntropy: c * K });
-
-// 1. generate a random basis of size k
-tic("random basis");
-let basis = Field.getPointers(K, CurveAffine.sizeAffine);
-CurveAffine.randomPoints(scratch, basis);
-toc();
-
-// 2. precompute multiples of each basis point: G, ..., 2^c*G
-tic("precompute multiples");
-let L = 1 << c;
-let B = basis.map((Bk1) => {
-  let Bk = Field.getPointers(L, CurveProjective.sizeProjective);
-
-  // zeroth point is zero
-  CurveProjective.setZero(Bk[0]);
-  // first point is the basis point
-  CurveProjective.affineToProjective(Bk[1], Bk1);
-  // second needs double
-  CurveProjective.copy(Bk[2], Bk[1]);
-  CurveProjective.doubleInPlace(scratch, Bk[2]);
-  // the rest with additions
-  for (let l = 3; l < L; l++) {
-    CurveProjective.copy(Bk[l], Bk[l - 1]);
-    CurveProjective.addAssign(scratch, Bk[l], Bk[1]);
-  }
-  return Bk;
-});
-toc();
-
-// 3. generate random points by taking a sum of random basis multiples
-tic("random points");
-let points = Field.getPointers(n, CurveProjective.sizeProjective);
-
-for (let i = 0; i < n; i++) {
-  let windows = randomWindows(c, K);
-  let P = points[i];
-  CurveProjective.copy(P, B[0][windows[0]]);
-  for (let k = 1; k < K; k++) {
-    let l = windows[k];
-    CurveProjective.addAssign(scratch, P, B[k][l]);
-  }
-}
-toc();
-
-// 4. convert to affine
-tic("convert to affine");
-let pointsAffine = Field.getPointers(n, CurveAffine.sizeAffine);
-CurveAffine.batchFromProjective(scratch, pointsAffine, points);
-toc();
-toc();
-
-// sanity check
-let pointsAffine2 = Field.getPointers(n, CurveAffine.sizeAffine);
-for (let i = 0; i < n; i++) {
-  CurveProjective.projectiveToAffine(scratch, pointsAffine2[i], points[i]);
-  let [x0, y0] = CurveAffine.affineCoords(pointsAffine[i]);
-  let [x1, y1] = CurveAffine.affineCoords(pointsAffine2[i]);
-  assert(
-    !!Field.isEqual(x0, x1) && !!Field.isEqual(y0, y1),
-    "affine conversion"
-  );
-}
-
-// console.log(pointsAffine.map((P) => CurveAffine.toBigint(P)));
-
-function randomWindows(c: number, K: number) {
-  assert(c <= 16, "can generate a window from 2 bytes");
-  let cMask = (1 << c) - 1;
-  let windows: number[] = new Array(K);
-  let bytes = randomBytes(2 * K);
-  for (let k = 0; k < K; k++) {
-    windows[k] = (bytes[2 * k] + 256 * bytes[2 * k + 1]) & cMask;
-  }
-  return windows;
-}
+Random.randomPointsFast(1 << 16, { entropy: 80, windowSize: 13 });
