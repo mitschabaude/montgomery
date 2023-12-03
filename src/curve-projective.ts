@@ -16,24 +16,24 @@ function createCurveProjective(Field: MsmField) {
     memoryBytes,
   } = Field;
 
-  let sizeProjective = 3 * sizeField + 4;
+  let size = 3 * sizeField + 4;
 
   /**
-   * projective point addition with assignement, P1 += P2
+   * projective point addition with assignment, P1 += P2
    *
    * @param scratch
    * @param P1
    * @param P2
    */
-  function addAssignProjective(scratch: number[], P1: number, P2: number) {
-    if (isZeroProjective(P1)) {
-      copyProjective(P1, P2);
+  function addAssign(scratch: number[], P1: number, P2: number) {
+    if (isZero(P1)) {
+      copy(P1, P2);
       return;
     }
-    if (isZeroProjective(P2)) return;
-    setNonZeroProjective(P1);
-    let [X1, Y1, Z1] = projectiveCoords(P1);
-    let [X2, Y2, Z2] = projectiveCoords(P2);
+    if (isZero(P2)) return;
+    setNonZero(P1);
+    let [X1, Y1, Z1] = coords(P1);
+    let [X2, Y2, Z2] = coords(P2);
     let [Y2Z1, Y1Z2, X2Z1, X1Z2, Z1Z2, u, uu, v, vv, vvv, R] = scratch;
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-1998-cmo-2
     // Y1Z2 = Y1*Z2
@@ -49,7 +49,7 @@ function createCurveProjective(Field: MsmField) {
     // x1*z2 = x2*z1 and y1*z2 = y2*z1
     // <==>  x1/z1 = x2/z2 and y1/z1 = y2/z2
     if (isEqual(X1Z2, X2Z1) && isEqual(Y1Z2, Y2Z1)) {
-      doubleInPlaceProjective(scratch, P1);
+      doubleInPlace(scratch, P1);
       return;
     }
     // Z1Z2 = Z1*Z2
@@ -89,9 +89,9 @@ function createCurveProjective(Field: MsmField) {
    * @param scratch
    * @param P
    */
-  function doubleInPlaceProjective(scratch: number[], P: number) {
-    if (isZeroProjective(P)) return;
-    let [X1, Y1, Z1] = projectiveCoords(P);
+  function doubleInPlace(scratch: number[], P: number) {
+    if (isZero(P)) return;
+    let [X1, Y1, Z1] = coords(P);
     let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#doubling-dbl-1998-cmo-2
     // w = 3*X1^2
@@ -127,14 +127,29 @@ function createCurveProjective(Field: MsmField) {
     multiply(Z1, sss, constants.mg8); // TODO efficient doubling
   }
 
-  function isZeroProjective(pointer: number) {
+  function scale(
+    scratch: number[],
+    result: number,
+    scalar: boolean[],
+    point: number
+  ) {
+    setZero(result);
+    let n = scalar.length;
+    for (let i = n - 1; i >= 0; i--) {
+      if (scalar[i]) addAssign(scratch, result, point);
+      if (i === 0) break;
+      doubleInPlace(scratch, result);
+    }
+  }
+
+  function isZero(pointer: number) {
     return !memoryBytes[pointer + 3 * sizeField];
   }
 
-  function copyProjective(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + sizeProjective);
+  function copy(target: number, source: number) {
+    memoryBytes.copyWithin(target, source, source + size);
   }
-  function copyAffineToProjective(P: number, A: number) {
+  function affineToProjective(P: number, A: number) {
     // x,y = x,y
     memoryBytes.copyWithin(P, A, A + 2 * sizeField);
     // z = 1
@@ -147,22 +162,26 @@ function createCurveProjective(Field: MsmField) {
     memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
   }
 
-  function projectiveCoords(pointer: number) {
+  function coords(pointer: number) {
     return [pointer, pointer + sizeField, pointer + 2 * sizeField];
   }
 
-  function setNonZeroProjective(pointer: number) {
+  function setNonZero(pointer: number) {
     memoryBytes[pointer + 3 * sizeField] = 1;
+  }
+  function setZero(pointer: number) {
+    memoryBytes[pointer + 3 * sizeField] = 0;
   }
 
   return {
-    addAssignProjective,
-    doubleInPlaceProjective,
-    sizeProjective,
-    isZeroProjective,
-    copyProjective,
-    copyAffineToProjective,
-    projectiveCoords,
-    setNonZeroProjective,
+    addAssignProjective: addAssign,
+    doubleInPlaceProjective: doubleInPlace,
+    scale,
+    sizeProjective: size,
+    isZeroProjective: isZero,
+    copyProjective: copy,
+    copyAffineToProjective: affineToProjective,
+    projectiveCoords: coords,
+    setNonZeroProjective: setNonZero,
   };
 }
