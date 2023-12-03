@@ -8,10 +8,9 @@ import {
   log2,
 } from "../src/util.js";
 import { mod, modExp, modInverse } from "../src/field-util.js";
-import { scale } from "../src/extra/dumb-curve-affine.js";
 import { G, q } from "../src/concrete/bls12-377.params.js";
 
-let { Field, Scalar, Random } = BLS12_377;
+let { Field, Scalar, CurveProjective, CurveAffine, Random } = BLS12_377;
 const { p } = Field;
 
 function toWasm(x0: bigint, x: number) {
@@ -194,7 +193,16 @@ function testBatchMontgomery() {
   }
 }
 
-let qbits = bigintToBits(q, log2(q));
-let qG = scale(qbits, G, p);
-assert(qG.x === 0n, "order*G = 0");
-assert(qG.y === 0n, "order*G = 0");
+// convert G to projective
+let gAffine = Field.getPointer(CurveAffine.sizeAffine);
+let g = Field.getPointer(CurveProjective.sizeProjective);
+CurveAffine.writeBigint(gAffine, G);
+CurveProjective.copyAffineToProjective(g, gAffine);
+
+// prepare inputs
+let qBits = bigintToBits(q, log2(q));
+let qG = Field.getPointer(CurveProjective.sizeProjective);
+
+// scale and check
+CurveProjective.scale(scratch, qG, qBits, g);
+assert(CurveProjective.isZeroProjective(qG), "order*G = 0");

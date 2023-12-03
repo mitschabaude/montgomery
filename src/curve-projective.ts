@@ -48,9 +48,14 @@ function createCurveProjective(Field: MsmField) {
     // double if the points are equal
     // x1*z2 = x2*z1 and y1*z2 = y2*z1
     // <==>  x1/z1 = x2/z2 and y1/z1 = y2/z2
-    if (isEqual(X1Z2, X2Z1) && isEqual(Y1Z2, Y2Z1)) {
-      doubleInPlace(scratch, P1);
-      return;
+    if (isEqual(X1Z2, X2Z1)) {
+      if (isEqual(Y1Z2, Y2Z1)) {
+        doubleInPlace(scratch, P1);
+        return;
+      } else {
+        setZero(P1);
+        return;
+      }
     }
     // Z1Z2 = Z1*Z2
     multiply(Z1Z2, Z1, Z2);
@@ -112,6 +117,7 @@ function createCurveProjective(Field: MsmField) {
     add(Bx4, Bx4, Bx4);
     // h = w^2-8*B = w^2 - Bx4 - Bx4
     square(h, w);
+    console.log("h", Field.readBigint(h));
     subtract(h, h, Bx4); // TODO efficient doubling
     subtract(h, h, Bx4);
     // X3 = 2*h*s
@@ -133,12 +139,16 @@ function createCurveProjective(Field: MsmField) {
     scalar: boolean[],
     point: number
   ) {
+    console.log("point", toBigint(point));
     setZero(result);
     let n = scalar.length;
+    console.log(n, toBigint(result));
     for (let i = n - 1; i >= 0; i--) {
       if (scalar[i]) addAssign(scratch, result, point);
+      if (i > 245) console.log(i, toBigint(result));
       if (i === 0) break;
-      doubleInPlace(scratch, result);
+      if (i > 245) doubleInPlace(scratch, result);
+      console.log(i, toBigint(result));
     }
   }
 
@@ -173,10 +183,29 @@ function createCurveProjective(Field: MsmField) {
     memoryBytes[pointer + 3 * sizeField] = 0;
   }
 
+  function toBigint(point: number): BigintPointProjective {
+    if (isZero(point)) return BigintPointProjective.zero;
+    let [x, y, z] = coords(point);
+    Field.fromMontgomery(x);
+    Field.fromMontgomery(y);
+    Field.fromMontgomery(z);
+    let pointBigint = {
+      x: Field.readBigint(x),
+      y: Field.readBigint(y),
+      z: Field.readBigint(z),
+      isInfinity: false,
+    };
+    Field.toMontgomery(x);
+    Field.toMontgomery(y);
+    Field.toMontgomery(z);
+    return pointBigint;
+  }
+
   return {
     addAssignProjective: addAssign,
     doubleInPlaceProjective: doubleInPlace,
     scale,
+    toBigint,
     sizeProjective: size,
     isZeroProjective: isZero,
     copyProjective: copy,
@@ -185,3 +214,13 @@ function createCurveProjective(Field: MsmField) {
     setNonZeroProjective: setNonZero,
   };
 }
+
+type BigintPointProjective = {
+  x: bigint;
+  y: bigint;
+  z: bigint;
+  isInfinity: boolean;
+};
+const BigintPointProjective = {
+  zero: { x: 0n, y: 1n, z: 0n, isInfinity: true },
+};

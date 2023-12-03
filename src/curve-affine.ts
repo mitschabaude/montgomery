@@ -134,7 +134,7 @@ function createCurveAffine(Field: MsmField, b: bigint) {
         if (isSquare) break;
         add(x, x, Field.constants.mg1);
       }
-      setIsNonZeroAffine(x, true);
+      setIsNonZero(x, true);
     }
     return points;
   }
@@ -151,7 +151,7 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     return [pointer, pointer + sizeField];
   }
 
-  function setIsNonZeroAffine(pointer: number, isNonZero: boolean) {
+  function setIsNonZero(pointer: number, isNonZero: boolean) {
     memoryBytes[pointer + 2 * sizeField] = Number(isNonZero);
   }
 
@@ -171,6 +171,19 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     return pointBigint;
   }
 
+  function writeBigint(point: number, { x, y, isInfinity }: BigintPoint) {
+    if (isInfinity) {
+      setIsNonZero(point, false);
+      return;
+    }
+    let [xPtr, yPtr] = affineCoords(point);
+    Field.writeBigint(xPtr, x);
+    Field.writeBigint(yPtr, y);
+    Field.toMontgomery(xPtr);
+    Field.toMontgomery(yPtr);
+    setIsNonZero(point, true);
+  }
+
   return {
     b,
     sizeAffine,
@@ -178,8 +191,9 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     isZeroAffine,
     copyAffine,
     affineCoords,
-    setIsNonZeroAffine,
+    setIsNonZeroAffine: setIsNonZero,
     toBigint,
+    writeBigint,
     randomPoints,
     randomPointsBigint(n: number, { montgomery = false } = {}) {
       let memoryOffset = Field.getOffset();
