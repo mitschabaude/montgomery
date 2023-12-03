@@ -197,7 +197,7 @@ function testBatchMontgomery() {
 let gAffine = Field.getPointer(CurveAffine.sizeAffine);
 let g = Field.getPointer(CurveProjective.sizeProjective);
 CurveAffine.writeBigint(gAffine, G);
-CurveProjective.copyAffineToProjective(g, gAffine);
+CurveProjective.affineToProjective(g, gAffine);
 
 // prepare inputs
 let qBits = bigintToBits(q, log2(q));
@@ -205,4 +205,4 @@ let qG = Field.getPointer(CurveProjective.sizeProjective);
 
 // scale and check
 CurveProjective.scale(scratch, qG, qBits, g);
-assert(CurveProjective.isZeroProjective(qG), "order*G = 0");
+assert(CurveProjective.isZero(qG), "order*G = 0");

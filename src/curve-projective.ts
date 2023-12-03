@@ -197,16 +197,16 @@ function createCurveProjective(Field: MsmField) {
   }
 
   return {
-    addAssignProjective: addAssign,
-    doubleInPlaceProjective: doubleInPlace,
+    addAssign,
+    doubleInPlace,
     scale,
     toBigint,
     sizeProjective: size,
-    isZeroProjective: isZero,
-    copyProjective: copy,
-    copyAffineToProjective: affineToProjective,
+    isZero,
+    copy,
+    affineToProjective,
     projectiveCoords: coords,
-    setNonZeroProjective: setNonZero,
+    setNonZero,
   };
 }
 
