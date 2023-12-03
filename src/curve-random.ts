@@ -9,6 +9,9 @@ function createRandomPointsFast(msmCurve: MsmCurve) {
   /**
    * Generate n random points on the curve with given entropy
    *
+   * Note: these points are usable for testing, but not as a safe point basis for commitments.
+   * That's because they are generated from a much smaller basis scaled by known exponents.
+   *
    * @param n number of points to generate
    * @param entropy number of random bits we generate each point from
    */
