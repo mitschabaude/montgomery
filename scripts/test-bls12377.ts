@@ -270,11 +270,21 @@ toc();
 // 4. convert to affine
 tic("convert to affine");
 let pointsAffine = Field.getPointers(n, CurveAffine.sizeAffine);
+CurveAffine.batchFromProjective(scratch, pointsAffine, points);
+toc();
+toc();
+
+// sanity check
+let pointsAffine2 = Field.getPointers(n, CurveAffine.sizeAffine);
 for (let i = 0; i < n; i++) {
-  CurveProjective.projectiveToAffine(scratch, pointsAffine[i], points[i]);
+  CurveProjective.projectiveToAffine(scratch, pointsAffine2[i], points[i]);
+  let [x0, y0] = CurveAffine.affineCoords(pointsAffine[i]);
+  let [x1, y1] = CurveAffine.affineCoords(pointsAffine2[i]);
+  assert(
+    !!Field.isEqual(x0, x1) && !!Field.isEqual(y0, y1),
+    "affine conversion"
+  );
 }
-toc();
-toc();
 
 // console.log(pointsAffine.map((P) => CurveAffine.toBigint(P)));
 
