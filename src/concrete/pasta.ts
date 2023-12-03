@@ -13,8 +13,8 @@ export { msm, msmUnsafe, msmUtil };
 
 const Field = await createMsmField(p, beta, 29);
 const Scalar = await createGeneralGlvScalar(q, lambda, 29);
-const CurveAffine = createCurveAffine(Field, b);
 const CurveProjective = createCurveProjective(Field);
+const CurveAffine = createCurveAffine(Field, CurveProjective, b);
 
 const { msm, msmUnsafe, msmBigint, ...msmUtil } = createMsm({
   Field,

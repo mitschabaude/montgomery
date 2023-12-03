@@ -23,7 +23,7 @@ function ofWasm([tmp]: number[], x: number) {
   return mod(Field.readBigint(tmp), p);
 }
 
-let [x, y, z, z_hi, ...scratch] = Field.getPointers(20);
+let [x, y, z, z_hi, ...scratch] = Field.getPointers(30);
 let scratchScalar = Scalar.getPointers(10);
 
 let R = mod(1n << BigInt(Field.w * Field.n), p);

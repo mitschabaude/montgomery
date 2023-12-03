@@ -1,6 +1,7 @@
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
 import { randomGenerators } from "./field-util.js";
+import type { CurveProjective } from "./curve-projective.js";
 
 export { createCurveAffine, CurveAffine };
 
@@ -49,7 +50,11 @@ type CurveAffine = ReturnType<typeof createCurveAffine>;
  *
  * over the `Field`
  */
-function createCurveAffine(Field: MsmField, b: bigint) {
+function createCurveAffine(
+  Field: MsmField,
+  CurveProjective: CurveProjective,
+  b: bigint
+) {
   const { sizeField, square, multiply, add, subtract, copy, memoryBytes, p } =
     Field;
 
@@ -91,6 +96,27 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     // H = x2,y2
     copy(xOut, x2);
     copy(yOut, y2);
+  }
+
+  function scale(
+    [
+      resultProj,
+      _ry,
+      _rz,
+      _rinf,
+      pointProj,
+      _py,
+      _pz,
+      _pinf,
+      ...scratch
+    ]: number[],
+    result: number,
+    scalar: boolean[],
+    point: number
+  ) {
+    CurveProjective.affineToProjective(pointProj, point);
+    CurveProjective.scale(scratch, resultProj, scalar, resultProj);
+    CurveProjective.projectiveToAffine(scratch, result, resultProj);
   }
 
   let { randomFields } = randomGenerators(p);
@@ -188,6 +214,7 @@ function createCurveAffine(Field: MsmField, b: bigint) {
     b,
     sizeAffine,
     doubleAffine,
+    scale,
     isZeroAffine,
     copyAffine,
     affineCoords,

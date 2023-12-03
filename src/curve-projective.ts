@@ -167,6 +167,26 @@ function createCurveProjective(Field: MsmField) {
     memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
   }
 
+  function projectiveToAffine(
+    scratch: number[],
+    affine: number,
+    point: number
+  ) {
+    if (isZero(point)) {
+      memoryBytes[affine + 2 * sizeField] = 0;
+      return;
+    }
+    let zinv = scratch[0];
+    let [x, y, z] = coords(point);
+    let xAffine = affine;
+    let yAffine = affine + sizeField;
+    // return x/z, y/z
+    Field.inverse(scratch[1], zinv, z);
+    multiply(xAffine, x, zinv);
+    multiply(yAffine, y, zinv);
+    memoryBytes[xAffine + 2 * sizeField] = 1;
+  }
+
   function coords(pointer: number) {
     return [pointer, pointer + sizeField, pointer + 2 * sizeField];
   }
@@ -205,6 +225,7 @@ function createCurveProjective(Field: MsmField) {
     isZero,
     copy,
     affineToProjective,
+    projectiveToAffine,
     projectiveCoords: coords,
     setNonZero,
   };
