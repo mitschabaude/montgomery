@@ -20,7 +20,7 @@
     "NOTICE"
   ],
   "scripts": {
-    "build": "npx tsc && ts-node-esm scripts/test-pasta.ts",
+    "build": "npx tsc && node --loader=ts-node/esm scripts/test-pasta.ts",
     "start": "ts-node-esm scripts/run-simple.ts",
     "start-web": "npx chrode ./scripts/run.web.ts --no-headless",
     "evaluate": "ts-node-esm scripts/evaluate-msm-pasta.ts",
