@@ -1,12 +1,20 @@
 import { expose, t, T } from "./threads.js";
 
-export { api };
+export { add, mul };
 
-const api = {
+const add = {
   add: async (a: number, b: number) => {
     console.log({ t, T });
     return a + b;
   },
 };
 
-expose(api);
+const mul = {
+  mul: async (a: number, b: number) => {
+    console.log({ t, T });
+    return a * b;
+  },
+};
+
+expose(add);
+expose(mul);
