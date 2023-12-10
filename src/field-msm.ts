@@ -85,7 +85,8 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     },
   });
 
-  let wasm = (await module.instantiate()).instance.exports;
+  let { instance, module: wasmModule } = await module.instantiate();
+  let wasm = instance.exports;
   let helpers = memoryHelpers(p, w, wasm);
 
   // put some constants in wasm memory
@@ -119,6 +120,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     p,
     w,
     t,
+    module: wasmModule,
     ...wasm,
     /**
      * affine EC addition, G3 = G1 + G2

@@ -42,8 +42,8 @@ parentPort?.on("message", async (message: Message) => {
       throw Error(`Method ${message.func} not registered`);
     }
 
-    let result = await func(...args);
-    parentPort?.postMessage({ type: MessageType.ANSWER, callId, result });
+    await func(...args);
+    parentPort?.postMessage({ type: MessageType.ANSWER, callId });
   } else if (message.type === MessageType.INIT) {
     t = message.t;
     T = message.T;
@@ -69,7 +69,7 @@ function parallelize<T extends Record<string, (...args: any) => any>>(
     parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
       let workerResults = threadPool.call(funcName, args);
       let mainResult = func(...(args as any));
-      let [result] = await Promise.all([mainResult, workerResults]);
+      let [result] = await Promise.all([mainResult, ...workerResults]);
       return result;
     };
   }
@@ -109,7 +109,7 @@ class ThreadPool {
     assert(this.isAlive, "ThreadPool is destroyed");
 
     let promises = this.workers.map((worker) => {
-      return new Promise((resolve, reject) => {
+      return new Promise<void>((resolve, reject) => {
         let callId = Math.random();
         worker.postMessage({
           type: MessageType.CALL,
@@ -122,11 +122,11 @@ class ThreadPool {
             message.type === MessageType.ANSWER &&
             message.callId === callId
           ) {
-            resolve(message.result);
+            resolve();
           }
         });
       });
     });
-    return Promise.all(promises);
+    return promises;
   }
 }
