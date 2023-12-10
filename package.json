@@ -33,6 +33,7 @@
   "author": "Gregor Mitscha-Baude",
   "license": "Apache-2.0",
   "dependencies": {
+    "comlink": "^4.4.1",
     "fast-base64": "^0.1.8",
     "wasmati": "^0.1.10"
   },
