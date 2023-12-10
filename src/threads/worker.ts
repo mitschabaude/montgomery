@@ -1,13 +1,12 @@
-import { expose } from "comlink";
-import nodeEndpoint from "comlink/dist/esm/node-adapter.mjs";
-import { parentPort } from "worker_threads";
+import { expose, t, T } from "./threads.js";
 
-export type { WorkerApi };
+export { api };
 
-const worker = {
-  add: (a: number, b: number) => a + b,
+const api = {
+  add: (a: number, b: number) => {
+    console.log({ t, T });
+    return a + b;
+  },
 };
 
-type WorkerApi = typeof worker;
-
-expose(worker, nodeEndpoint(parentPort as any));
+expose(api);
