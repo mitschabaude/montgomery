@@ -1,4 +1,5 @@
-import { Worker, parentPort } from "worker_threads";
+import { Worker, parentPort } from "node:worker_threads";
+import { availableParallelism } from "node:os";
 import { assert } from "../util.js";
 
 export { t, T, expose, parallelize, ThreadPool };
@@ -32,7 +33,7 @@ type Message =
 
 const functions = new Map<string, (...args: any) => any>();
 
-parentPort?.on("message", (message: Message) => {
+parentPort?.on("message", async (message: Message) => {
   if (message.type === MessageType.CALL) {
     let { func: funcName, args, callId } = message;
 
@@ -41,7 +42,7 @@ parentPort?.on("message", (message: Message) => {
       throw Error(`Method ${message.func} not registered`);
     }
 
-    let result = func(...args);
+    let result = await func(...args);
     parentPort?.postMessage({ type: MessageType.ANSWER, callId, result });
   } else if (message.type === MessageType.INIT) {
     t = message.t;
@@ -55,19 +56,21 @@ function expose<T extends Record<string, (...args: any) => any>>(api: T) {
   }
 }
 
+type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
+
 function parallelize<T extends Record<string, (...args: any) => any>>(
   api: T,
   threadPool: ThreadPool
 ): {
-  [K in keyof T]: (...args: Parameters<T[K]>) => Promise<ReturnType<T[K]>[]>;
+  [K in keyof T]: (...args: Parameters<T[K]>) => ToPromise<ReturnType<T[K]>>;
 } {
   let parallelApi = {} as any;
   for (let [funcName, func] of Object.entries(api)) {
     parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
       let workerResults = threadPool.call(funcName, args);
-      let result = func(...(args as any));
-      let results = await workerResults;
-      return [result, ...results];
+      let mainResult = func(...(args as any));
+      let [result] = await Promise.all([mainResult, workerResults]);
+      return result;
     };
   }
   return parallelApi;
@@ -75,11 +78,13 @@ function parallelize<T extends Record<string, (...args: any) => any>>(
 
 class ThreadPool {
   workers: Worker[];
+  isAlive = true;
+
   constructor(workers: Worker[]) {
     this.workers = workers;
   }
 
-  static create(T_: number, source: URL | string) {
+  static create(source: URL | string, T_ = availableParallelism()) {
     assert(T_ > 0, "T must be greater than 0");
     T = T_;
     const workers = [];
@@ -92,10 +97,17 @@ class ThreadPool {
     return new ThreadPool(workers);
   }
 
+  destroy() {
+    this.isAlive = false;
+    return Promise.all(this.workers.map((worker) => worker.terminate()));
+  }
+
   call<T extends Record<string, (...args: any) => any>>(
     funcName: keyof T,
     args: Parameters<T[keyof T]>
   ) {
+    assert(this.isAlive, "ThreadPool is destroyed");
+
     let promises = this.workers.map((worker) => {
       return new Promise((resolve, reject) => {
         let callId = Math.random();
