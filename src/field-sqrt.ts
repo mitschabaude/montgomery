@@ -7,7 +7,7 @@ import { Func, i32 } from "wasmati";
 export { createSqrt };
 
 function createSqrt(
-  { p, n }: FieldWithMultiply,
+  { p }: { p: bigint },
   wasm: WasmField,
   helpers: MemoryHelpers,
   constants: {
