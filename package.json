@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "build": "npx tsc && node --loader=ts-node/esm scripts/test-pasta.ts",
-    "start": "ts-node-esm scripts/run-simple.ts",
+    "start": "node --loader=ts-node/esm scripts/test-bls12377-msm.ts 16",
     "start-web": "npx chrode ./scripts/run.web.ts --no-headless",
     "evaluate": "ts-node-esm scripts/evaluate-msm-pasta.ts",
     "test": "ts-node-esm scripts/test-pasta.ts",
@@ -34,7 +34,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "fast-base64": "^0.1.8",
-    "wasmati": "^0.1.10"
+    "wasmati": "^0.2.0"
   },
   "devDependencies": {
     "chrode": "^0.4.0",
