@@ -12,7 +12,7 @@ import { UnwrapPromise } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
 import { assert } from "./util.js";
-import { isMain } from "./threads/threads.js";
+import { isMain, t } from "./threads/threads.js";
 
 export { createFieldWasm, createFieldFromWasm, createMsmField, MsmField };
 export { createConstants };
@@ -147,12 +147,14 @@ async function createFieldFromWasm(
   }
 
   let memoryBytes = new Uint8Array(wasm.memory.buffer);
-  // let { sqrt, t, roots } = createSqrt({ p }, wasm, helpers, constants);
+  console.log("before sqrt", t);
+  let { sqrt, t: t_, roots } = createSqrt({ p }, wasm, helpers, constants);
+  console.log("after sqrt", t);
 
   return {
     p,
     w,
-    // t,
+    t: t_,
     ...wasm,
     /**
      * affine EC addition, G3 = G1 + G2
@@ -176,11 +178,11 @@ async function createFieldFromWasm(
     inverse: wasm.inverse,
     ...helpers,
     constants,
-    // roots,
+    roots,
     memoryBytes,
     toMontgomery,
     fromMontgomery,
-    // sqrt,
+    sqrt,
     toBigint(x: number) {
       fromMontgomery(x);
       let x0 = helpers.readBigint(x);

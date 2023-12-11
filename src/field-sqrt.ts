@@ -3,6 +3,7 @@ import type { WasmFunctions } from "./types.js";
 import type { FieldWithMultiply } from "./wasm/multiply-montgomery.js";
 import type { MemoryHelpers } from "./wasm/memory-helpers.js";
 import { Func, i32 } from "wasmati";
+import { T, t as thread } from "./threads/threads.js";
 
 export { createSqrt };
 
@@ -53,6 +54,8 @@ function createSqrt(
     wasm.add(z, z, constants.mg1);
   }
 
+  console.log("z", thread, z, helpers.readBigint(z));
+
   // roots of unity w = z^t, w^2, ..., w^(2^(M-1)) = -1
   let roots = helpers.getStablePointers(M);
   pow(scratch, roots[0], z, t);
@@ -102,7 +105,8 @@ function createSqrt(
     }
   }
 
-  if (M <= 4) return { sqrt, t, roots };
+  // TODO
+  if (M <= 4 || thread > 0) return { sqrt, t, roots };
 
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
   // after Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
