@@ -1,4 +1,6 @@
 import { montgomeryParams } from "../field-util.js";
+import { THREADS, thread } from "../threads/threads.js";
+import { assert } from "../util.js";
 
 export { memoryHelpers, MemoryHelpers };
 
@@ -30,6 +32,7 @@ function memoryHelpers(
   let packedSizeField = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;
+
   let obj = {
     memoryBytes,
     n,
@@ -192,4 +195,65 @@ function memoryHelpers(
       throw Error("missing toPackedBytes");
     };
   return obj;
+}
+
+class MemorySection {
+  // fixed params
+  start: number;
+  end: number;
+  length: number;
+
+  // default pointer size (= 1 field element) in uin32s
+  n: number;
+
+  // where to get the next pointer
+  offset: number;
+
+  constructor(start: number, length: number, n: number) {
+    this.start = start;
+    this.end = start + length;
+    this.length = length;
+    this.n = n;
+
+    this.offset = start;
+  }
+
+  static createForThread(
+    globalOffset: number,
+    globalLength: number,
+    n: number
+  ) {
+    let lengthPerThread = Math.floor(globalLength / THREADS);
+    let start = globalOffset + lengthPerThread * thread;
+    return new MemorySection(start, lengthPerThread, n);
+  }
+
+  static createGlobal(globalOffset: number, globalLength: number, n: number) {
+    return new MemorySection(globalOffset, globalLength, n);
+  }
+
+  /**
+   * @param size size of pointer (default: one field element)
+   */
+  getPointer(size = this.n * 4) {
+    let pointer = this.offset;
+    this.offset += size;
+    assert(this.offset <= this.end, "memory overflow");
+    return pointer;
+  }
+
+  /**
+   * @param N
+   * @param size size per pointer (default: one field element)
+   */
+  getPointers(N: number, size = this.n * 4) {
+    let pointers: number[] = Array(N);
+    let offset = this.offset;
+    for (let i = 0; i < N; i++) {
+      pointers[i] = offset;
+      offset += size;
+    }
+    this.offset = offset;
+    return pointers;
+  }
 }

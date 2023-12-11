@@ -2,7 +2,16 @@ import { Worker, parentPort } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import { assert } from "../util.js";
 
-export { t, T, isMain, expose, parallelize, ThreadPool };
+export {
+  t,
+  T,
+  t as thread,
+  T as THREADS,
+  isMain,
+  expose,
+  parallelize,
+  ThreadPool,
+};
 
 let t = 0;
 let T = 1;
