@@ -23,9 +23,10 @@
     "build": "npx tsc && node --loader=ts-node/esm scripts/test-pasta.ts",
     "start": "node --loader=ts-node/esm scripts/test-bls12377-msm.ts 16",
     "start-web": "npx chrode ./scripts/run.web.ts --no-headless",
-    "evaluate": "ts-node-esm scripts/evaluate-msm-pasta.ts",
-    "test": "ts-node-esm scripts/test-pasta.ts",
-    "test-msm": "ts-node-esm scripts/test-bls12-msm.ts",
+    "evaluate": "node --loader=ts-node/esm  scripts/evaluate-msm-pasta.ts",
+    "test": "node --loader=ts-node/esm  scripts/test-pasta.ts",
+    "test-msm": "node --loader=ts-node/esm  scripts/test-pasta-msm.ts",
+    "benchmark": "node --loader=ts-node/esm  scripts/multiply-benchmark.ts",
     "prepublishOnly": "npm run clean && npm run build",
     "clean": "rm -rf build"
   },
