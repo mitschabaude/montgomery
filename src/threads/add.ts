@@ -9,8 +9,11 @@ const add = {
   },
 };
 
-function createMul(x: number, wasm: WebAssembly.Module) {
-  console.log({ wasm });
+function createMul(
+  x: number,
+  wasm: { module: WebAssembly.Module; memory: WebAssembly.Memory }
+) {
+  console.log(wasm);
   let api = {
     mul: async (a: number) => {
       console.log({ t, T });

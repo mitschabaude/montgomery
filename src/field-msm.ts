@@ -20,7 +20,9 @@ type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 async function createMsmField(p: bigint, beta: bigint, w: number) {
   let { K, R, lengthP: N, n, nPackedBytes } = montgomeryParams(p, w);
 
-  let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
+  let implicitMemory = new ImplicitMemory(
+    memory({ min: 1 << 16, max: 1 << 16, shared: true })
+  );
 
   let Field_ = FieldWithArithmetic(p, w);
   let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
@@ -120,7 +122,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     p,
     w,
     t,
-    module: wasmModule,
+    wasm: { module: wasmModule, memory: wasm.memory },
     ...wasm,
     /**
      * affine EC addition, G3 = G1 + G2

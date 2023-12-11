@@ -14,22 +14,9 @@ enum MessageType {
 }
 
 type Message =
-  | {
-      type: MessageType.CALL;
-      func: string;
-      args: any[];
-      callId: number;
-    }
-  | {
-      type: MessageType.INIT;
-      t: number;
-      T: number;
-    }
-  | {
-      type: MessageType.ANSWER;
-      callId: number;
-      result: any;
-    };
+  | { type: MessageType.CALL; func: string; args: any[]; callId: number }
+  | { type: MessageType.INIT; t: number; T: number }
+  | { type: MessageType.ANSWER; callId: number; result: any };
 
 const functions = new Map<string, (...args: any) => any>();
 
