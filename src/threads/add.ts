@@ -1,3 +1,4 @@
+import { recreateWasm } from "../field-msm.js";
 import { expose, t, T } from "./threads.js";
 
 export { add, createMul };
@@ -9,11 +10,12 @@ const add = {
   },
 };
 
-function createMul(
+async function createMul(
   x: number,
   wasm: { module: WebAssembly.Module; memory: WebAssembly.Memory }
 ) {
-  console.log(wasm);
+  let instance = await recreateWasm(wasm);
+  console.log("instance on thread", t, instance);
   let api = {
     mul: async (a: number) => {
       console.log({ t, T });

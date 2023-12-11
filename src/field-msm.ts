@@ -1,5 +1,5 @@
 import type * as W from "wasmati"; // for type names
-import { Module, memory } from "wasmati";
+import { Module, importMemory } from "wasmati";
 import { FieldWithArithmetic } from "./wasm/field-arithmetic.js";
 import { fieldInverse } from "./wasm/inverse.js";
 import { multiplyMontgomery } from "./wasm/multiply-montgomery.js";
@@ -11,9 +11,10 @@ import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
 import { UnwrapPromise } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
+import { assert } from "./util.js";
 
 export { createMsmField, MsmField };
-export { createConstants };
+export { createConstants, recreateWasm };
 
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
@@ -21,7 +22,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   let { K, R, lengthP: N, n, nPackedBytes } = montgomeryParams(p, w);
 
   let implicitMemory = new ImplicitMemory(
-    memory({ min: 1 << 16, max: 1 << 16, shared: true })
+    importMemory({ min: 1 << 16, max: 1 << 16, shared: true })
   );
 
   let Field_ = FieldWithArithmetic(p, w);
@@ -158,6 +159,21 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       return x0;
     },
   };
+}
+
+async function recreateWasm(wasm: {
+  module: WebAssembly.Module;
+  memory: WebAssembly.Memory;
+}) {
+  let imports = WebAssembly.Module.imports(wasm.module);
+  // TODO abstraction leak - we have to know that there is no other import to do this
+  // should work with any number of other imports, possibly by making memory import lazy and
+  // add a module method to create the import object, with an override for the memory
+  assert(imports.length === 1 && imports[0].kind === "memory");
+  let { module, name } = imports[0];
+  let importObject = { [module]: { [name]: wasm.memory } };
+  let instance = await WebAssembly.instantiate(wasm.module, importObject);
+  return instance;
 }
 
 function createConstants<const T extends Record<string, bigint>>(
