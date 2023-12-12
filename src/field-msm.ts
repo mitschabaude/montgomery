@@ -147,9 +147,7 @@ async function createFieldFromWasm(
   }
 
   let memoryBytes = new Uint8Array(wasm.memory.buffer);
-  console.log("before sqrt", t);
   let { sqrt, t: t_, roots } = createSqrt({ p }, wasm, helpers, constants);
-  console.log("after sqrt", t);
 
   return {
     p,

@@ -54,8 +54,6 @@ function createSqrt(
     wasm.add(z, z, constants.mg1);
   }
 
-  console.log("z", thread, z, helpers.readBigint(z));
-
   // roots of unity w = z^t, w^2, ..., w^(2^(M-1)) = -1
   let roots = helpers.local.getStablePointers(M);
   pow(scratch, roots[0], z, t);
