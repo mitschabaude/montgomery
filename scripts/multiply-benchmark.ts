@@ -13,6 +13,14 @@ import { createSqrt } from "../src/field-sqrt.js";
 import { createConstants } from "../src/field-msm.js";
 import { mod } from "../src/field-util.js";
 import { fastInverse } from "../src/inverse/faster-inverse-wasm.js";
+import {
+  bigintFromBytes,
+  bigintFromBytes32,
+  bigintToBytes,
+  bigintToBytes32,
+  log2,
+  randomBytes,
+} from "../src/util.js";
 
 export { benchmark };
 
@@ -191,6 +199,67 @@ async function benchmark(
     );
     bench2("pow", () => benchPow(x, Npow), { N: Npow, tMul });
     bench2("sqrt", () => benchSqrt(x, y, Npow), { N: Npow, tMul });
+
+    let bytess: Uint8Array[] = Array(Ninv);
+    let bigints = Array<bigint>(Ninv);
+    let sizeInBits = log2(p);
+    let sizeInBytes = Math.ceil(sizeInBits / 8);
+
+    bench2(
+      "randomBytes",
+      () => {
+        for (let i = 0; i < Ninv; i++) {
+          bytess[i] = randomBytes(sizeInBytes);
+        }
+      },
+      { N: Ninv, tMul }
+    );
+
+    // bigint from bytes
+    bench2(
+      "bigintFromBytes",
+      () => {
+        let n = bytess.length;
+        for (let i = 0; i < n; i++) {
+          bigints[i] = bigintFromBytes(bytess[i]);
+        }
+      },
+      { N: Ninv, tMul }
+    );
+
+    bench2(
+      "bigintFromBytes32",
+      () => {
+        let n = bytess.length;
+        for (let i = 0; i < n; i++) {
+          bigints[i] = bigintFromBytes32(bytess[i]);
+        }
+      },
+      { N: Ninv, tMul }
+    );
+
+    // bigint to bytes
+    bench2(
+      "bigintToBytes",
+      () => {
+        let n = bigints.length;
+        for (let i = 0; i < n; i++) {
+          bytess[i] = bigintToBytes(bigints[i], sizeInBytes);
+        }
+      },
+      { N: Ninv, tMul }
+    );
+
+    bench2(
+      "bigintToBytes32",
+      () => {
+        let n = bigints.length;
+        for (let i = 0; i < n; i++) {
+          bytess[i] = bigintToBytes32(bigints[i]);
+        }
+      },
+      { N: Ninv, tMul }
+    );
   }
 }
 

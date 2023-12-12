@@ -165,7 +165,7 @@ function randomFields(n: number, p: bigint, size: number, msbMask: number) {
  * commonly used random generators for field elements
  */
 function randomGenerators(p: bigint) {
-  let sizeInBits = p === 0n ? 0 : p.toString(2).length;
+  let sizeInBits = log2(p);
   let sizeInBytes = Math.ceil(sizeInBits / 8);
   let nextPower256 = 1n << (8n * BigInt(sizeInBytes));
   let sizeHighestByte = sizeInBits - 8 * (sizeInBytes - 1);
