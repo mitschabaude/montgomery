@@ -35,7 +35,7 @@ function memoryHelpers(
 
   let localRatio = 0.2;
   let totalLength = memoryBytes.length;
-  let localLength = Math.floor(totalLength * localRatio);
+  let localLength = floorToMultipleOf4(totalLength * localRatio);
   let [global, local] = MemorySection.createGlobalAndLocal(
     initialOffset,
     localLength,
@@ -212,7 +212,7 @@ function memoryHelpers(
 
 class MemorySection {
   // fixed params
-  start: number;
+  initial: number;
   end: number;
   length: number;
 
@@ -222,13 +222,13 @@ class MemorySection {
   // where to get the next pointer
   offset: number;
 
-  constructor(start: number, length: number, n: number) {
-    this.start = start;
-    this.end = start + length;
+  constructor(initialOffset: number, length: number, n: number) {
+    this.initial = initialOffset;
+    this.end = initialOffset + length;
     this.length = length;
     this.n = n;
 
-    this.offset = start;
+    this.offset = initialOffset;
   }
 
   static createGlobalAndLocal(
@@ -237,7 +237,7 @@ class MemorySection {
     totalLength: number,
     n: number
   ) {
-    let lengthPerThread = Math.floor(localLength / THREADS);
+    let lengthPerThread = floorToMultipleOf4(localLength / THREADS);
     let localLengthActual = lengthPerThread * THREADS;
 
     let globalLength = totalLength - localLengthActual - offset;
@@ -274,4 +274,18 @@ class MemorySection {
     this.offset = offset;
     return pointers;
   }
+
+  /**
+   * @param N
+   */
+  getStablePointers(N: number) {
+    let pointers = this.getPointers(N);
+    this.initial = this.offset;
+    return pointers;
+  }
+}
+
+function floorToMultipleOf4(x: number) {
+  // ceil would be (Math.ceil(x) + 3) & ~3
+  return Math.floor(x) & ~3;
 }
