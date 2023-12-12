@@ -28,6 +28,8 @@
     "test": "node --loader=ts-node/esm  scripts/test-pasta.ts",
     "test-msm": "node --loader=ts-node/esm  scripts/test-pasta-msm.ts",
     "benchmark": "node --loader=ts-node/esm  scripts/multiply-benchmark.ts",
+    "benchmark-377": "node --loader=ts-node/esm scripts/multiply-benchmark-377.ts",
+    "benchmark-381": "node --loader=ts-node/esm scripts/multiply-benchmark-381.ts",
     "prepublishOnly": "npm run clean && npm run build",
     "clean": "rm -rf build"
   },
