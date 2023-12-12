@@ -33,7 +33,20 @@ function memoryHelpers(
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;
 
+  let localRatio = 0.2;
+  let totalLength = memoryBytes.length;
+  let localLength = Math.floor(totalLength * localRatio);
+  let [global, local] = MemorySection.createGlobalAndLocal(
+    initialOffset,
+    localLength,
+    totalLength,
+    n
+  );
+
   let obj = {
+    global,
+    local,
+
     memoryBytes,
     n,
     R,
@@ -218,18 +231,22 @@ class MemorySection {
     this.offset = start;
   }
 
-  static createForThread(
-    globalOffset: number,
-    globalLength: number,
+  static createGlobalAndLocal(
+    offset: number,
+    localLength: number,
+    totalLength: number,
     n: number
   ) {
-    let lengthPerThread = Math.floor(globalLength / THREADS);
-    let start = globalOffset + lengthPerThread * thread;
-    return new MemorySection(start, lengthPerThread, n);
-  }
+    let lengthPerThread = Math.floor(localLength / THREADS);
+    let localLengthActual = lengthPerThread * THREADS;
 
-  static createGlobal(globalOffset: number, globalLength: number, n: number) {
-    return new MemorySection(globalOffset, globalLength, n);
+    let globalLength = totalLength - localLengthActual - offset;
+    let globalSection = new MemorySection(offset, globalLength, n);
+
+    let localOffset = offset + globalLength + lengthPerThread * thread;
+    let localSection = new MemorySection(localOffset, lengthPerThread, n);
+
+    return [globalSection, localSection];
   }
 
   /**
@@ -253,6 +270,7 @@ class MemorySection {
       pointers[i] = offset;
       offset += size;
     }
+    assert(offset <= this.end, "memory overflow");
     this.offset = offset;
     return pointers;
   }
