@@ -14,8 +14,13 @@ import { createSqrt } from "./field-sqrt.js";
 import { assert } from "./util.js";
 import { isMain } from "./threads/threads.js";
 
-export { createFieldWasm, createFieldFromWasm, createMsmField, MsmField };
+export { createMsmField, MsmField, createFieldWasm, createFieldFromWasm };
 export { createConstants };
+
+async function createMsmField(p: bigint, beta: bigint, w: number) {
+  let { instance, wasmArtifacts } = await createFieldWasm(p, beta, w);
+  return await createFieldFromWasm({ p, w }, wasmArtifacts, instance);
+}
 
 type MsmFieldWasm = UnwrapPromise<ReturnType<typeof createFieldWasm>>;
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
@@ -190,11 +195,6 @@ async function createFieldFromWasm(
       return x0;
     },
   };
-}
-
-async function createMsmField(p: bigint, beta: bigint, w: number) {
-  let { instance, wasmArtifacts } = await createFieldWasm(p, beta, w);
-  return await createFieldFromWasm({ p, w }, wasmArtifacts, instance);
 }
 
 function createConstants<const T extends Record<string, bigint>>(
