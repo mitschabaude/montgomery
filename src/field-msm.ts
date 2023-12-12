@@ -12,7 +12,7 @@ import { UnwrapPromise } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
 import { assert } from "./util.js";
-import { isMain, t } from "./threads/threads.js";
+import { isMain } from "./threads/threads.js";
 
 export { createFieldWasm, createFieldFromWasm, createMsmField, MsmField };
 export { createConstants };
@@ -104,101 +104,27 @@ async function createFieldFromWasm(
   wasmArtifacts: {
     module: WebAssembly.Module;
     memory: WebAssembly.Memory;
+  },
+  instance?: MsmFieldWasm["instance"]
+) {
+  if (instance === undefined) {
+    let imports = WebAssembly.Module.imports(wasmArtifacts.module);
+    // TODO abstraction leak - we have to know that there is no other import to do this
+    // should work with any number of other imports, possibly by making memory import lazy and
+    // add a module method to create the import object, with an override for the memory
+    assert(imports.length === 1 && imports[0].kind === "memory");
+    let { module, name } = imports[0];
+    let importObject = { [module]: { [name]: wasmArtifacts.memory } };
+    instance = (await WebAssembly.instantiate(
+      wasmArtifacts.module,
+      importObject
+    )) as MsmFieldWasm["instance"];
   }
-): Promise<Partial<MsmField>> {
-  let imports = WebAssembly.Module.imports(wasmArtifacts.module);
-  // TODO abstraction leak - we have to know that there is no other import to do this
-  // should work with any number of other imports, possibly by making memory import lazy and
-  // add a module method to create the import object, with an override for the memory
-  assert(imports.length === 1 && imports[0].kind === "memory");
-  let { module, name } = imports[0];
-  let importObject = { [module]: { [name]: wasmArtifacts.memory } };
-  let instance = (await WebAssembly.instantiate(
-    wasmArtifacts.module,
-    importObject
-  )) as MsmFieldWasm["instance"];
-
   let wasm = instance.exports;
   let helpers = memoryHelpers(p, w, wasm);
 
   // put some constants in wasm memory
   let { R, K, lengthP: N } = montgomeryParams(p, w);
-
-  let constants = createConstants(helpers, {
-    zero: 0n,
-    one: 1n,
-    p,
-    R: mod(R, p),
-    R2: mod(R * R, p),
-    R2corr: mod(1n << BigInt(4 * K - 2 * N + 1), p),
-    // common numbers in montgomery representation
-    mg1: mod(1n * R, p),
-    mg2: mod(2n * R, p),
-    mg4: mod(4n * R, p),
-    mg8: mod(8n * R, p),
-  });
-
-  function fromMontgomery(x: number) {
-    wasm.multiply(x, x, constants.one);
-    wasm.reduce(x);
-  }
-  function toMontgomery(x: number) {
-    wasm.multiply(x, x, constants.R2);
-  }
-
-  let memoryBytes = new Uint8Array(wasm.memory.buffer);
-  let { sqrt, t: t_, roots } = createSqrt({ p }, wasm, helpers, constants);
-
-  return {
-    p,
-    w,
-    t: t_,
-    ...wasm,
-    /**
-     * affine EC addition, G3 = G1 + G2
-     *
-     * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
-     * (edge cases are handled one level higher, before batching)
-     *
-     * this supports addition with assignment where G3 === G1 (but not G3 === G2)
-     * @param scratch
-     * @param G3 (x3, y3)
-     * @param G1 (x1, y1)
-     * @param G2 (x2, y2)
-     * @param d 1/(x2 - x1)
-     */
-    addAffine: wasm.addAffine,
-    /**
-     * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
-     *
-     * needs 3 fields of scratch space
-     */
-    inverse: wasm.inverse,
-    ...helpers,
-    constants,
-    roots,
-    memoryBytes,
-    toMontgomery,
-    fromMontgomery,
-    sqrt,
-    toBigint(x: number) {
-      fromMontgomery(x);
-      let x0 = helpers.readBigint(x);
-      toMontgomery(x);
-      return x0;
-    },
-  };
-}
-
-// TODO: make sqrt work with threads and implement this with `createFieldFromWasm`
-async function createMsmField(p: bigint, beta: bigint, w: number) {
-  let { K, R, lengthP: N } = montgomeryParams(p, w);
-
-  let { instance } = await createFieldWasm(p, beta, w);
-  let wasm = instance.exports;
-  let helpers = memoryHelpers(p, w, wasm);
-
-  // put some constants in wasm memory
 
   let constants = createConstants(helpers, {
     zero: 0n,
@@ -264,6 +190,11 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       return x0;
     },
   };
+}
+
+async function createMsmField(p: bigint, beta: bigint, w: number) {
+  let { instance, wasmArtifacts } = await createFieldWasm(p, beta, w);
+  return await createFieldFromWasm({ p, w }, wasmArtifacts, instance);
 }
 
 function createConstants<const T extends Record<string, bigint>>(
