@@ -1,6 +1,8 @@
 import { Dependency, JSFunction } from "wasmati";
 
-export { UnwrapPromise, WasmFunctions };
+export { AnyFunction, UnwrapPromise, WasmFunctions };
+
+type AnyFunction = (...args: any) => any;
 
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
 

@@ -12,17 +12,26 @@ import { UnwrapPromise } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
 import { assert } from "./util.js";
-import { isMain } from "./threads/threads.js";
+import { expose, isMain } from "./threads/threads.js";
 
-export { createMsmField, MsmField, createFieldWasm, createFieldFromWasm };
+export {
+  createMsmField,
+  MsmField,
+  createFieldWasm,
+  MsmFieldWasm,
+  createFieldFromWasm,
+};
 export { createConstants };
+expose({ createFieldFromWasm });
 
 async function createMsmField(p: bigint, beta: bigint, w: number) {
   let { instance, wasmArtifacts } = await createFieldWasm(p, beta, w);
   return await createFieldFromWasm({ p, w }, wasmArtifacts, instance);
 }
 
-type MsmFieldWasm = UnwrapPromise<ReturnType<typeof createFieldWasm>>;
+type MsmFieldWasm = UnwrapPromise<
+  ReturnType<typeof createFieldWasm>
+>["instance"];
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
 async function createFieldWasm(p: bigint, beta: bigint, w: number) {
@@ -110,7 +119,7 @@ async function createFieldFromWasm(
     module: WebAssembly.Module;
     memory: WebAssembly.Memory;
   },
-  instance?: MsmFieldWasm["instance"]
+  instance?: MsmFieldWasm
 ) {
   if (instance === undefined) {
     let imports = WebAssembly.Module.imports(wasmArtifacts.module);
@@ -123,7 +132,7 @@ async function createFieldFromWasm(
     instance = (await WebAssembly.instantiate(
       wasmArtifacts.module,
       importObject
-    )) as MsmFieldWasm["instance"];
+    )) as MsmFieldWasm;
   }
   let wasm = instance.exports;
   let helpers = memoryHelpers(p, w, wasm);
