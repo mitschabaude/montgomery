@@ -1,16 +1,9 @@
 import { createFieldFromWasm, MsmFieldWasm } from "../field-msm.js";
 import { expose, t, T } from "./threads.js";
 
-export { add, createMul };
+export { createTest };
 
-const add = {
-  add: async (a: number, b: number) => {
-    console.log({ t, T });
-    return a + b;
-  },
-};
-
-async function createMul(
+async function createTest(
   x: number,
   params: Parameters<typeof createFieldFromWasm>[0],
   wasm: { module: WebAssembly.Module; memory: WebAssembly.Memory },
@@ -19,14 +12,12 @@ async function createMul(
   let Field = await createFieldFromWasm(params, wasm, instance);
   console.log("instance on thread", t, Field.constants);
   let api = {
-    mul: async (a: number) => {
-      console.log({ t, T, result: a * x });
-      return a * x;
+    log: (s: string) => {
+      console.log({ t, T, s, x });
     },
   };
   expose(api);
   return api;
 }
 
-expose(add);
-expose(createMul);
+expose(createTest);

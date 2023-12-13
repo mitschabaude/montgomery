@@ -11,7 +11,6 @@ export {
   isMain,
   expose,
   parallelize,
-  workerOnly,
   ThreadPool,
 };
 
@@ -64,17 +63,6 @@ function expose<T extends Record<string, AnyFunction> | AnyFunction>(api: T) {
 
 type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
 
-function workerOnly<T extends AnyFunction>(
-  threadPool: ThreadPool,
-  func: T
-): (...args: Parameters<T>) => ToPromise<ReturnType<T>> {
-  let name = func.name;
-  return (async (...args: Parameters<T>) => {
-    let workerResults = threadPool.call(name, args);
-    await Promise.all(workerResults);
-  }) as any;
-}
-
 function parallelize<T extends Record<string, AnyFunction>>(
   threadPool: ThreadPool,
   api: T
@@ -84,9 +72,9 @@ function parallelize<T extends Record<string, AnyFunction>>(
   let parallelApi = {} as any;
   for (let [funcName, func] of Object.entries(api)) {
     parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
-      let workerResults = threadPool.call(funcName, args);
+      let workersDone = threadPool.call(funcName, ...(args as any));
       let mainResult = func(...(args as any));
-      let [result] = await Promise.all([mainResult, ...workerResults]);
+      let [result] = await Promise.all([mainResult, workersDone]);
       return result;
     };
   }
@@ -132,13 +120,13 @@ class ThreadPool {
   stop() {
     T = 1;
     this.isRunning = false;
-    return Promise.all(this.workers.map((worker) => worker.terminate()));
+    let promises = this.workers.map((worker) => worker.terminate());
+    this.workers = [];
+    return Promise.all(promises);
   }
 
-  call<T extends Record<string, AnyFunction>>(
-    funcName: keyof T,
-    args: Parameters<T[keyof T]>
-  ) {
+  call<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
+    let funcName = typeof func === "string" ? func : func.name;
     let promises = this.workers.map((worker) => {
       return new Promise<void>((resolve, reject) => {
         let callId = Math.random();
@@ -158,6 +146,6 @@ class ThreadPool {
         });
       });
     });
-    return promises;
+    return Promise.all(promises);
   }
 }
