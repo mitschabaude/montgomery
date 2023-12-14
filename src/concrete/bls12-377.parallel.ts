@@ -5,7 +5,7 @@ import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { ThreadPool, setDebug } from "../threads/threads.js";
-import { createRandomPointsFast } from "../curve-random.js";
+import { createRandomPointsFast } from "../curve-random-parallel.js";
 
 export { create };
 
