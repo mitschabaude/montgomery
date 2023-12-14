@@ -1,4 +1,4 @@
-import type * as W from "wasmati";
+import type * as _W from "wasmati";
 import { randomGenerators } from "../field-util.js";
 import { p, q, b, beta, lambda, h } from "./bls12-377.params.js";
 import { createMsmField } from "../field-msm.js";

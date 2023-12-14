@@ -5,7 +5,7 @@ import { assert, randomBytes } from "./util.js";
 
 export { createRandomPointsFast };
 
-function createRandomPointsFast(msmCurve: MsmCurve) {
+function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
   /**
    * Generate n random points on the curve with given entropy
    *
