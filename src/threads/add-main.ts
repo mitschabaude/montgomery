@@ -1,4 +1,4 @@
-import { ThreadPool, parallelize } from "./threads.js";
+import { ThreadPool } from "./threads.js";
 import { createTest } from "./add.js";
 import { p, beta } from "../concrete/pasta.params.js";
 import { createFieldWasm } from "../field-msm.js";
@@ -8,7 +8,7 @@ let { instance, wasmArtifacts } = await createFieldWasm(p, beta, w);
 let src = "./add.js";
 let pool = ThreadPool.createInactive(new URL(src, import.meta.url));
 let Test0 = await createTest(10, { p, w }, wasmArtifacts, instance);
-let Test = parallelize(pool, Test0);
+let Test = pool.parallelize(Test0);
 
 await Test.log("hey");
 

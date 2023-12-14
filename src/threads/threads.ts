@@ -3,16 +3,7 @@ import { availableParallelism } from "node:os";
 import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
 
-export {
-  t,
-  T,
-  t as thread,
-  T as THREADS,
-  isMain,
-  expose,
-  parallelize,
-  ThreadPool,
-};
+export { t, T, t as thread, T as THREADS, isMain, expose, ThreadPool };
 
 let t = 0;
 let T = 1;
@@ -51,34 +42,20 @@ parentPort?.on("message", async (message: Message) => {
   }
 });
 
-function expose<T extends Record<string, AnyFunction> | AnyFunction>(api: T) {
+let NAMESPACE = Symbol("namespace");
+
+function expose<T extends Record<string, AnyFunction> | AnyFunction>(
+  api: T,
+  namespace?: string
+) {
+  (api as any)[NAMESPACE] = namespace;
   if (typeof api === "function") {
-    functions.set(api.name, api);
+    functions.set(withNamespace(namespace, api.name), api);
     return;
   }
   for (let [funcName, func] of Object.entries(api)) {
-    functions.set(funcName, func);
+    functions.set(withNamespace(namespace, funcName), func);
   }
-}
-
-type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
-
-function parallelize<T extends Record<string, AnyFunction>>(
-  threadPool: ThreadPool,
-  api: T
-): {
-  [K in keyof T]: (...args: Parameters<T[K]>) => ToPromise<ReturnType<T[K]>>;
-} {
-  let parallelApi = {} as any;
-  for (let [funcName, func] of Object.entries(api)) {
-    parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
-      let workersDone = threadPool.call(funcName, ...(args as any));
-      let mainResult = func(...(args as any));
-      let [result] = await Promise.all([mainResult, workersDone]);
-      return result;
-    };
-  }
-  return parallelApi;
 }
 
 class ThreadPool {
@@ -125,8 +102,29 @@ class ThreadPool {
     return Promise.all(promises);
   }
 
+  parallelize<T extends Record<string, AnyFunction>>(
+    api: T
+  ): {
+    [K in keyof T]: (...args: Parameters<T[K]>) => ToPromise<ReturnType<T[K]>>;
+  } {
+    let parallelApi = {} as any;
+    for (let [funcName, func] of Object.entries(api)) {
+      let calledName = withNamespace((api as any)[NAMESPACE], funcName);
+      parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
+        let workersDone = this.call(calledName, ...(args as any));
+        let mainResult = func(...(args as any));
+        let [result] = await Promise.all([mainResult, workersDone]);
+        return result;
+      };
+    }
+    return parallelApi;
+  }
+
   call<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
-    let funcName = typeof func === "string" ? func : func.name;
+    let funcName =
+      typeof func === "string"
+        ? func
+        : withNamespace((func as any)[NAMESPACE], func.name);
     let promises = this.workers.map((worker) => {
       return new Promise<void>((resolve, reject) => {
         let callId = Math.random();
@@ -148,4 +146,11 @@ class ThreadPool {
     });
     return Promise.all(promises);
   }
+}
+
+type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
+
+function withNamespace(namespace: string | undefined, string: string) {
+  if (namespace === undefined) return string;
+  return `${namespace};${string}`;
 }

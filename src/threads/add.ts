@@ -2,6 +2,7 @@ import { createFieldFromWasm, MsmFieldWasm } from "../field-msm.js";
 import { expose, t, T } from "./threads.js";
 
 export { createTest };
+expose(createTest, "create");
 
 async function createTest(
   x: number,
@@ -16,8 +17,6 @@ async function createTest(
       console.log({ t, T, s, x });
     },
   };
-  expose(api);
+  expose(api, "Test");
   return api;
 }
-
-expose(createTest);
