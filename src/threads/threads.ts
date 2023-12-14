@@ -3,7 +3,16 @@ import { availableParallelism } from "node:os";
 import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
 
-export { t, T, t as thread, T as THREADS, isMain, expose, ThreadPool };
+export {
+  t,
+  T,
+  t as thread,
+  T as THREADS,
+  isMain,
+  expose,
+  ThreadPool,
+  setDebug,
+};
 
 let t = 0;
 let T = 1;
@@ -12,10 +21,15 @@ function isMain() {
   return t === 0;
 }
 
+let DEBUG = false;
+function setDebug(debug: boolean) {
+  DEBUG = debug;
+}
+
 enum MessageType {
-  CALL,
-  ANSWER,
-  INIT,
+  CALL = "call",
+  ANSWER = "answer",
+  INIT = "init",
 }
 
 type Message =
@@ -26,6 +40,8 @@ type Message =
 const functions = new Map<string, (...args: any) => any>();
 
 parentPort?.on("message", async (message: Message) => {
+  if (DEBUG) console.log(`worker ${t}/${T} got message`, message);
+
   if (message.type === MessageType.CALL) {
     let { func: funcName, args, callId } = message;
 
