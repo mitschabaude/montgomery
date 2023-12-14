@@ -71,12 +71,12 @@ function expose<T extends Record<string, AnyFunction> | AnyFunction>(
 }
 
 class ThreadPool {
-  source: URL | string;
+  source: URL;
   workers: Worker[];
   isRunning: boolean;
 
   constructor(source: URL | string, workers: Worker[]) {
-    this.source = source;
+    this.source = typeof source === "string" ? new URL(source) : source;
     this.workers = workers;
     this.isRunning = workers.length > 0;
   }
@@ -114,18 +114,16 @@ class ThreadPool {
     return Promise.all(promises);
   }
 
-  parallelize<T extends Record<string, any>>(
-    api: T
-  ): {
-    [K in keyof T]: T[K] extends AnyFunction
-      ? (...args: Parameters<T[K]>) => ToPromise<ReturnType<T[K]>>
-      : never;
-  } {
+  parallelize<T extends Record<string, any>>(api: T): Parallelized<T> {
     let parallelApi = {} as any;
     for (let [funcName, func] of Object.entries(api)) {
+      if (typeof func !== "function") {
+        parallelApi[funcName] = func;
+        continue;
+      }
       let calledName = withNamespace((api as any)[NAMESPACE], funcName);
       parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
-        let workersDone = this.call(calledName, ...(args as any));
+        let workersDone = this.callWorkers(calledName, ...(args as any));
         let mainResult = func(...(args as any));
         let [result] = await Promise.all([mainResult, workersDone]);
         return result;
@@ -134,7 +132,18 @@ class ThreadPool {
     return parallelApi;
   }
 
-  call<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
+  parallelizeOne<T extends AnyFunction>(func: T): ToAsync<T> {
+    let calledName = withNamespace((func as any)[NAMESPACE], func.name);
+    return (async (...args: Parameters<T>) => {
+      let workersDone = this.callWorkers(calledName, ...(args as any));
+      let mainResult = func(...(args as any));
+      let [result] = await Promise.all([mainResult, workersDone]);
+      return result;
+    }) as any;
+  }
+
+  callWorkers<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
+    console.log(args);
     let funcName =
       typeof func === "string"
         ? func
@@ -160,7 +169,33 @@ class ThreadPool {
     });
     return Promise.all(promises);
   }
+
+  register<T extends Record<string, AnyFunction> | AnyFunction>(
+    api: T
+  ): Parallelized<T>;
+  register<T extends Record<string, any> | AnyFunction>(
+    namespace: string,
+    api: T
+  ): Parallelized<T>;
+  register(apiOrNamespace: any, maybeApi?: any) {
+    let api = expose(apiOrNamespace, maybeApi);
+    if (isMain()) {
+      if (typeof api === "function") return this.parallelizeOne(api);
+      return this.parallelize(api);
+    }
+    return api;
+  }
 }
+
+type Parallelized<T> = T extends AnyFunction
+  ? ToAsync<T>
+  : {
+      [K in keyof T]: ToAsync<T[K]>;
+    };
+
+type ToAsync<T> = T extends (...args: infer A) => infer R
+  ? (...args: A) => ToPromise<R>
+  : T;
 
 type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
 
