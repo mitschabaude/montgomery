@@ -238,6 +238,17 @@ class MemorySection {
     return this.end - this.offset;
   }
 
+  // this will be called with `using section.atCurrentOffset`
+  get atCurrentOffset() {
+    let current = this.offset;
+    return {
+      [Symbol.dispose]: () => {
+        console.log(`resetting offset from ${this.offset} to ${current}`);
+        this.offset = current;
+      },
+    };
+  }
+
   static createGlobalAndLocal(
     offset: number,
     localLength: number,
