@@ -1,4 +1,4 @@
-import { createFieldFromWasm, MsmFieldWasm } from "../field-msm.js";
+import { createMsmField } from "../field-msm.js";
 import { WasmArtifacts } from "../types.js";
 import { expose, t, T } from "./threads.js";
 
@@ -7,15 +7,15 @@ expose(createTest);
 
 async function createTest(
   x: number,
-  params: Parameters<typeof createFieldFromWasm>[0],
-  wasm: WasmArtifacts,
-  instance?: MsmFieldWasm
+  params: Parameters<typeof createMsmField>[0],
+  wasm?: WasmArtifacts
 ) {
-  let Field = await createFieldFromWasm(params, wasm, instance);
+  let Field = await createMsmField(params, wasm);
   console.log("instance on thread", t, Field.constants);
   return expose("Test", {
     log(s: string) {
       console.log({ t, T, s, x });
     },
+    wasm: Field.wasmArtifacts,
   });
 }

@@ -45,7 +45,7 @@ parentPort?.on("message", async (message: Message) => {
 let NAMESPACE = Symbol("namespace");
 
 function expose<T extends Record<string, AnyFunction> | AnyFunction>(api: T): T;
-function expose<T extends Record<string, AnyFunction> | AnyFunction>(
+function expose<T extends Record<string, any> | AnyFunction>(
   namespace: string,
   api: T
 ): T;
@@ -64,6 +64,7 @@ function expose<T extends Record<string, AnyFunction> | AnyFunction>(
     return api;
   }
   for (let [funcName, func] of Object.entries(api)) {
+    if (typeof func !== "function") continue;
     functions.set(withNamespace(namespace, funcName), func);
   }
   return api;
@@ -113,10 +114,12 @@ class ThreadPool {
     return Promise.all(promises);
   }
 
-  parallelize<T extends Record<string, AnyFunction>>(
+  parallelize<T extends Record<string, any>>(
     api: T
   ): {
-    [K in keyof T]: (...args: Parameters<T[K]>) => ToPromise<ReturnType<T[K]>>;
+    [K in keyof T]: T[K] extends AnyFunction
+      ? (...args: Parameters<T[K]>) => ToPromise<ReturnType<T[K]>>
+      : never;
   } {
     let parallelApi = {} as any;
     for (let [funcName, func] of Object.entries(api)) {

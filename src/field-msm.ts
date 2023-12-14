@@ -12,21 +12,20 @@ import { UnwrapPromise, WasmArtifacts } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
 import { assert } from "./util.js";
-import { expose, isMain } from "./threads/threads.js";
+import { isMain } from "./threads/threads.js";
 
-export {
-  createMsmField,
-  MsmField,
-  createFieldWasm,
-  MsmFieldWasm,
-  createFieldFromWasm,
-};
+export { createMsmField, MsmField };
 export { createConstants };
-expose({ createFieldFromWasm });
 
-async function createMsmField(p: bigint, beta: bigint, w: number) {
-  let { instance, wasmArtifacts } = await createFieldWasm(p, beta, w);
-  return await createFieldFromWasm({ p, w }, wasmArtifacts, instance);
+async function createMsmField(
+  params: { p: bigint; beta: bigint; w: number },
+  wasm?: WasmArtifacts
+) {
+  if (wasm !== undefined) {
+    return await createFieldFromWasm(params, wasm);
+  }
+  let { instance, wasmArtifacts } = await createFieldWasm(params);
+  return await createFieldFromWasm(params, wasmArtifacts, instance);
 }
 
 type MsmFieldWasm = UnwrapPromise<
@@ -34,7 +33,15 @@ type MsmFieldWasm = UnwrapPromise<
 >["instance"];
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
-async function createFieldWasm(p: bigint, beta: bigint, w: number) {
+async function createFieldWasm({
+  p,
+  beta,
+  w,
+}: {
+  p: bigint;
+  beta: bigint;
+  w: number;
+}) {
   let { n, nPackedBytes } = montgomeryParams(p, w);
 
   let wasmMemory = importMemory({ min: 1 << 16, max: 1 << 16, shared: true });
@@ -166,6 +173,7 @@ async function createFieldFromWasm(
     p,
     w,
     t,
+    wasmArtifacts,
     ...wasm,
     /**
      * affine EC addition, G3 = G1 + G2
