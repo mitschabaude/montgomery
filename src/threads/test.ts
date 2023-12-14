@@ -22,7 +22,7 @@ async function createTest(
 }
 
 let pool = ThreadPool.createInactive(import.meta.url);
-pool.register(createTest);
+let createTestP = pool.register(createTest);
 
 async function startThreads(
   n: number,
@@ -31,6 +31,7 @@ async function startThreads(
   console.log(`starting ${n} workers`);
   pool.start(n);
   await pool.callWorkers(createTest, 10, Test.params, Test.wasm);
+  // await createTestP(10, Test.params, Test.wasm);
 }
 
 async function stopThreads() {

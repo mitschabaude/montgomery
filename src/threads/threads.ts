@@ -114,7 +114,19 @@ class ThreadPool {
     return Promise.all(promises);
   }
 
-  parallelize<T extends Record<string, any>>(api: T): Parallelized<T> {
+  parallelize<T extends Record<string, any> | AnyFunction>(
+    api: T
+  ): Parallelized<T> {
+    if (typeof api === "function") {
+      let func = api as AnyFunction & T;
+      let calledName = withNamespace((func as any)[NAMESPACE], func.name);
+      return (async (...args: any) => {
+        let workersDone = this.callWorkers(calledName, ...args);
+        let mainResult = func(...args);
+        let [result] = await Promise.all([mainResult, workersDone]);
+        return result;
+      }) as any;
+    }
     let parallelApi = {} as any;
     for (let [funcName, func] of Object.entries(api)) {
       if (typeof func !== "function") {
@@ -122,9 +134,9 @@ class ThreadPool {
         continue;
       }
       let calledName = withNamespace((api as any)[NAMESPACE], funcName);
-      parallelApi[funcName] = async (...args: Parameters<T[keyof T]>) => {
-        let workersDone = this.callWorkers(calledName, ...(args as any));
-        let mainResult = func(...(args as any));
+      parallelApi[funcName] = async (...args: any) => {
+        let workersDone = this.callWorkers(calledName, ...args);
+        let mainResult = func(...args);
         let [result] = await Promise.all([mainResult, workersDone]);
         return result;
       };
@@ -132,18 +144,7 @@ class ThreadPool {
     return parallelApi;
   }
 
-  parallelizeOne<T extends AnyFunction>(func: T): ToAsync<T> {
-    let calledName = withNamespace((func as any)[NAMESPACE], func.name);
-    return (async (...args: Parameters<T>) => {
-      let workersDone = this.callWorkers(calledName, ...(args as any));
-      let mainResult = func(...(args as any));
-      let [result] = await Promise.all([mainResult, workersDone]);
-      return result;
-    }) as any;
-  }
-
   callWorkers<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
-    console.log(args);
     let funcName =
       typeof func === "string"
         ? func
@@ -157,11 +158,13 @@ class ThreadPool {
           args,
           callId,
         });
-        worker.once("message", (message: Message) => {
+        worker.on("message", function handler(message: Message) {
           if (
             message.type === MessageType.ANSWER &&
             message.callId === callId
           ) {
+            console.log("handler removed!");
+            worker.off("message", handler);
             resolve();
           }
         });
@@ -179,10 +182,7 @@ class ThreadPool {
   ): Parallelized<T>;
   register(apiOrNamespace: any, maybeApi?: any) {
     let api = expose(apiOrNamespace, maybeApi);
-    if (isMain()) {
-      if (typeof api === "function") return this.parallelizeOne(api);
-      return this.parallelize(api);
-    }
+    if (isMain()) return this.parallelize(api);
     return api;
   }
 }
