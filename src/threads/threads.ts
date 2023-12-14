@@ -76,12 +76,16 @@ function expose<T extends Record<string, AnyFunction> | AnyFunction>(
   ) as T;
   (api as any)[NAMESPACE] = namespace;
   if (typeof api === "function") {
-    functions.set(withNamespace(namespace, api.name), api);
+    let exposedName = withNamespace(namespace, api.name);
+    if (DEBUG) console.log(`exposing ${exposedName}`);
+    functions.set(exposedName, api);
     return api;
   }
   for (let [funcName, func] of Object.entries(api)) {
     if (typeof func !== "function") continue;
-    functions.set(withNamespace(namespace, funcName), func);
+    let exposedName = withNamespace(namespace, funcName);
+    if (DEBUG) console.log(`exposing ${exposedName}`);
+    functions.set(exposedName, func);
   }
   return api;
 }
