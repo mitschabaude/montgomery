@@ -10,7 +10,12 @@ async function createTest(
   wasm?: WasmArtifacts
 ) {
   let Field = await createMsmField(params, wasm);
-  console.log("instance on thread", t, Field.constants);
+  console.log(
+    "instance on thread",
+    t,
+    Field.global.offset,
+    Field.local.sizeUsed()
+  );
 
   return pool.register("Test", {
     log(s: string) {

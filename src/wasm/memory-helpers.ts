@@ -231,6 +231,13 @@ class MemorySection {
     this.offset = initialOffset;
   }
 
+  sizeUsed() {
+    return this.offset - this.initial;
+  }
+  sizeAvailable() {
+    return this.end - this.offset;
+  }
+
   static createGlobalAndLocal(
     offset: number,
     localLength: number,
