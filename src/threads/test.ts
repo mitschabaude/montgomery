@@ -17,25 +17,26 @@ async function createTest(
     Field.local.sizeUsed()
   );
 
-  return pool.register("Test", {
-    log(s: string) {
+  return {
+    log: pool.register("Test", function log(s: string) {
       console.log({ t, T, s, x });
-    },
+    }),
     wasm: Field.wasmArtifacts,
     params,
-  });
+  };
 }
 
 let pool = ThreadPool.createInactive(import.meta.url);
-let createTestP = pool.register(createTest);
+let createTestP = pool.register("Test", createTest);
 
 async function startThreads(
   n: number,
+  workerNumber: number,
   Test: UnwrapPromise<ReturnType<typeof createTest>>
 ) {
   console.log(`starting ${n} workers`);
   pool.start(n);
-  await pool.callWorkers(createTest, 10, Test.params, Test.wasm);
+  await pool.callWorkers(createTest, workerNumber, Test.params, Test.wasm);
   // await createTestP(10, Test.params, Test.wasm);
 }
 
