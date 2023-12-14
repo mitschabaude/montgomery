@@ -44,18 +44,29 @@ parentPort?.on("message", async (message: Message) => {
 
 let NAMESPACE = Symbol("namespace");
 
+function expose<T extends Record<string, AnyFunction> | AnyFunction>(api: T): T;
 function expose<T extends Record<string, AnyFunction> | AnyFunction>(
-  api: T,
-  namespace?: string
+  namespace: string,
+  api: T
+): T;
+function expose<T extends Record<string, AnyFunction> | AnyFunction>(
+  apiOrNamespace: T | string,
+  maybeApi?: T
 ) {
+  let namespace =
+    typeof apiOrNamespace === "string" ? apiOrNamespace : undefined;
+  let api = (
+    typeof apiOrNamespace === "string" ? maybeApi : apiOrNamespace
+  ) as T;
   (api as any)[NAMESPACE] = namespace;
   if (typeof api === "function") {
     functions.set(withNamespace(namespace, api.name), api);
-    return;
+    return api;
   }
   for (let [funcName, func] of Object.entries(api)) {
     functions.set(withNamespace(namespace, funcName), func);
   }
+  return api;
 }
 
 class ThreadPool {

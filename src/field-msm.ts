@@ -8,7 +8,7 @@ import { mod, montgomeryParams } from "./field-util.js";
 import { curveOps } from "./wasm/curve.js";
 import { MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.js";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
-import { UnwrapPromise } from "./types.js";
+import { UnwrapPromise, WasmArtifacts } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
 import { assert } from "./util.js";
@@ -115,10 +115,7 @@ async function createFieldWasm(p: bigint, beta: bigint, w: number) {
 
 async function createFieldFromWasm(
   { p, w }: { p: bigint; w: number },
-  wasmArtifacts: {
-    module: WebAssembly.Module;
-    memory: WebAssembly.Memory;
-  },
+  wasmArtifacts: WasmArtifacts,
   instance?: MsmFieldWasm
 ) {
   if (instance === undefined) {

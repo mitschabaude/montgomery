@@ -1,10 +1,15 @@
 import { Dependency, JSFunction } from "wasmati";
 
-export { AnyFunction, UnwrapPromise, WasmFunctions };
+export { AnyFunction, UnwrapPromise, WasmArtifacts, WasmFunctions };
 
 type AnyFunction = (...args: any) => any;
 
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
+
+type WasmArtifacts = {
+  module: WebAssembly.Module;
+  memory: WebAssembly.Memory;
+};
 
 type WasmFunctions<
   Exports extends Record<string, any>,
