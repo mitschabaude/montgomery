@@ -163,7 +163,6 @@ class ThreadPool {
             message.type === MessageType.ANSWER &&
             message.callId === callId
           ) {
-            console.log("handler removed!");
             worker.off("message", handler);
             resolve();
           }
