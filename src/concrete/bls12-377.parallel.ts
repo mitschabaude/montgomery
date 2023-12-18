@@ -9,7 +9,7 @@ import { createRandomPointsFast } from "../curve-random-parallel.js";
 
 export { create };
 
-setDebug(true);
+setDebug(false);
 
 const NAME = "BLS13-377";
 

@@ -119,6 +119,7 @@ class ThreadPool {
     const workers = [];
     for (let t = 1; t < T_; t++) {
       let worker = new Worker(this.source);
+      // TODO: do we want this?
       worker.unref();
       worker.postMessage({ type: MessageType.INIT, t, T: T_ });
       workers.push(worker);

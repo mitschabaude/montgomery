@@ -37,6 +37,7 @@ function memoryHelpers(
   let totalLength = memoryBytes.length;
   let localLength = floorToMultipleOf4(totalLength * localRatio);
   let [global, local] = MemorySection.createGlobalAndLocal(
+    memory,
     initialOffset,
     localLength,
     totalLength,
@@ -215,18 +216,30 @@ class MemorySection {
   initial: number;
   end: number;
   length: number;
+  memory: WebAssembly.Memory;
 
   // default pointer size (= 1 field element) in uin32s
   n: number;
 
+  // whether we have to take care of multiple threads operating on this memory section
+  isShared: boolean;
+
   // where to get the next pointer
   offset: number;
 
-  constructor(initialOffset: number, length: number, n: number) {
+  constructor(
+    memory: WebAssembly.Memory,
+    initialOffset: number,
+    length: number,
+    n: number,
+    isShared: boolean
+  ) {
+    this.memory = memory;
     this.initial = initialOffset;
     this.end = initialOffset + length;
     this.length = length;
     this.n = n;
+    this.isShared = isShared;
 
     this.offset = initialOffset;
   }
@@ -243,13 +256,14 @@ class MemorySection {
     let current = this.offset;
     return {
       [Symbol.dispose]: () => {
-        console.log(`resetting offset from ${this.offset} to ${current}`);
+        // console.log(`resetting offset from ${this.offset} to ${current}`);
         this.offset = current;
       },
     };
   }
 
   static createGlobalAndLocal(
+    memory: WebAssembly.Memory,
     offset: number,
     localLength: number,
     totalLength: number,
@@ -259,16 +273,28 @@ class MemorySection {
     let localLengthActual = lengthPerThread * THREADS;
 
     let globalLength = totalLength - localLengthActual - offset;
-    let globalSection = new MemorySection(offset, globalLength, n);
+    let globalSection = new MemorySection(
+      memory,
+      offset,
+      globalLength,
+      n,
+      true
+    );
 
     let localOffset = offset + globalLength + lengthPerThread * thread;
-    let localSection = new MemorySection(localOffset, lengthPerThread, n);
+    let localSection = new MemorySection(
+      memory,
+      localOffset,
+      lengthPerThread,
+      n,
+      false
+    );
 
     return [globalSection, localSection];
   }
 
   /**
-   * @param size size of pointer (default: one field element)
+   * @param size size of pointer in bytes (default: one field element)
    */
   getPointer(size = this.n * 4) {
     let pointer = this.offset;
@@ -295,11 +321,43 @@ class MemorySection {
 
   /**
    * @param N
+   * @param size size per pointer (default: one field element)
+   */
+  getZeroPointers(N: number, size = this.n * 4) {
+    let offset = this.offset;
+    if (this.isShared) {
+      assert(size % 4 === 0, "pointer size must be a multiple of 4");
+      // zero out the memory with Atomic.store
+      let n = N * (size / 4);
+      let arr = new Int32Array(this.memory.buffer, offset, n);
+      for (let i = 0; i < n; i++) {
+        Atomics.store(arr, i, 0);
+      }
+    } else {
+      new Uint8Array(this.memory.buffer, offset, N * size).fill(0);
+    }
+    return this.getPointers(N, size);
+  }
+
+  /**
+   * @param N
    */
   getStablePointers(N: number) {
     let pointers = this.getPointers(N);
     this.initial = this.offset;
     return pointers;
+  }
+
+  getLocks() {
+    let offset = this.offset;
+    let locks = new Int32Array(this.memory.buffer, offset, THREADS);
+    for (let i = 0; i < THREADS; i++) {
+      Atomics.store(locks, i, 0);
+      offset += 4;
+    }
+    assert(offset <= this.end, "memory overflow");
+    this.offset = offset;
+    return locks;
   }
 }
 

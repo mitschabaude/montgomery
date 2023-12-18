@@ -1,7 +1,7 @@
 // fast random point generation
 
 import type { MsmCurve } from "./msm.js";
-import { isMain } from "./threads/threads.js";
+import { THREADS, isMain, thread } from "./threads/threads.js";
 import { assert, randomBytes } from "./util.js";
 
 export { createRandomPointsFast };
@@ -16,7 +16,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
    * @param n number of points to generate
    * @param entropy number of random bits we generate each point from
    */
-  return function randomPointsFast(
+  return async function randomPointsFast(
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
@@ -24,6 +24,8 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
+
+    let syncArray = Field.global.getLocks();
 
     let scratch = Field.local.getPointers(40);
 
@@ -34,9 +36,11 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     // 1. generate a random basis of size k
     let basis = Field.global.getPointers(K, CurveAffine.sizeAffine);
 
-    if (isMain()) CurveAffine.randomPoints(scratch, basis);
-    // TODO: synchronize threads here because they all need the random basis
-    if (!isMain()) return [];
+    if (isMain()) {
+      CurveAffine.randomPoints(scratch, basis);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    await syncThreads(syncArray);
 
     // 2. precompute multiples of each basis point: G, ..., 2^c*G
     let L = 1 << c;
@@ -70,6 +74,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
         CurveProjective.addAssign(scratch, P, B[k][l]);
       }
     }
+    await syncThreads(syncArray);
 
     // 4. convert to affine
     CurveAffine.batchFromProjective(scratch, pointsAffine, points);
@@ -88,3 +93,19 @@ function randomWindows(c: number, K: number) {
   }
   return windows;
 }
+
+async function syncThreads(syncArray: Int32Array) {
+  console.log(`before sync #${count} at thread ${thread}`);
+  syncArray[thread] = count + 1;
+  Atomics.notify(syncArray, thread);
+  await Promise.all(
+    Array.from({ length: THREADS }, (_, t) => {
+      if (t === thread) return;
+      return Atomics.waitAsync(syncArray, t, count).value;
+    })
+  );
+  console.log(`after sync #${count} at thread ${thread}`);
+  count++;
+}
+
+let count = 0;
