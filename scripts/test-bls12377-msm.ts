@@ -13,7 +13,7 @@ import { bigintScalarsToMemory } from "../src/msm.js";
 import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import assert from "node:assert/strict";
 
-let n = Number(process.argv[2] ?? 8);
+let n = Number(process.argv[3] ?? 8);
 let N = 1 << n;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
