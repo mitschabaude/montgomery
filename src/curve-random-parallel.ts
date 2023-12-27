@@ -92,16 +92,21 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
       }
     }
     tocMain();
+
+    // 4. convert to affine
+    ticMain("convert to affine");
+    let [start, end] = range(n);
+    CurveAffine.batchFromProjective(
+      scratch,
+      pointsAffine.slice(start, end),
+      points.slice(start, end)
+    );
+    tocMain();
+
     ticMain("random points (wait)");
     await syncThreads(syncArray);
     tocMain();
 
-    // 4. convert to affine
-    ticMain("convert to affine");
-    if (isMain()) {
-      CurveAffine.batchFromProjective(scratch, pointsAffine, points);
-    }
-    tocMain();
     tocMain();
 
     return pointsAffine;
