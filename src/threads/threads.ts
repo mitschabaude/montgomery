@@ -12,6 +12,7 @@ export {
   expose,
   ThreadPool,
   setDebug,
+  log,
 };
 
 let t = 0;
@@ -19,6 +20,9 @@ let T = 1;
 
 function isMain() {
   return t === 0;
+}
+function log(...args: any) {
+  console.log(`${t}:`, ...args);
 }
 
 let DEBUG = false;
