@@ -104,7 +104,7 @@ function createSqrt(
   }
 
   // TODO
-  if (M <= 4 || THREADS > 1) return { sqrt, t, roots };
+  if (M <= 4) return { sqrt, t, roots };
 
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
   // after Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
@@ -118,11 +118,11 @@ function createSqrt(
   // precomputation
 
   // w_ij = w^(-j*2^(ic)) for i=0,...,N-1 and j=0,...,L-1 = 2^c-1
-  let inverseRoots = mapRange(N, () => helpers.getStablePointers(L));
+  let inverseRoots = mapRange(N, () => helpers.global.getStablePointers(L));
   // v_j = w^(j*2^((N-1)c)), j=0,...,L-1 = all Lth roots
   // TODO: this assumes tnat window size exactly divides M, i.e. M = Nc. if it doesn't,
   // LthRoots[j] = w^(2^(j(N-1)c)) will actually be 2^(M-(N-1)c)th roots and won't be L unique values
-  let LthRoots = helpers.getStablePointers(L);
+  let LthRoots = helpers.global.getStablePointers(L);
 
   // w00 = 1, w_01 = w^(-1)
   wasm.copy(inverseRoots[0][0], constants.mg1);
@@ -177,7 +177,7 @@ function createSqrt(
     return LthRootLookup[view.getInt32(ptr, true)];
   }
   // scratch pointers that we use as RHS
-  let rhs = helpers.getStablePointers(N);
+  let rhs = helpers.global.getStablePointers(N);
   let solutionDigits = Array<number>(N).fill(0);
 
   /**

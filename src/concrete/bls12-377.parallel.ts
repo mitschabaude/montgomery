@@ -34,6 +34,7 @@ async function create(wasm?: WasmArtifacts) {
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);
       pool.start(n);
+      Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts);
     },
     async stopThreads() {

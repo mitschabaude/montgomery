@@ -27,6 +27,10 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     using _g = Field.global.atCurrentOffset;
 
     let syncArray = Field.global.getLocks();
+    await syncThreads(syncArray);
+
+    ticMain("random points");
+    if (isMain()) console.log("");
 
     let scratch = Field.local.getPointers(40);
 
@@ -98,6 +102,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
       CurveAffine.batchFromProjective(scratch, pointsAffine, points);
     }
     tocMain();
+    tocMain();
 
     return pointsAffine;
   };
@@ -117,13 +122,22 @@ function randomWindows(c: number, K: number) {
 }
 
 async function syncThreads(syncArray: Int32Array) {
-  console.log(`${thread}: syncing ${count}`);
-  Atomics.store(syncArray, thread, count + 1);
-  Atomics.notify(syncArray, thread);
+  // console.log(`${thread}: syncing ${count}`);
+  let orig = Atomics.compareExchange(syncArray, thread, count, count + 1);
+  assert(orig === count, `${thread}: expected ${count}, got ${orig}`);
   await Promise.all(
-    Array.from({ length: THREADS }, (_, t) => {
-      if (t === thread) return;
-      return Atomics.waitAsync(syncArray, t, count).value;
+    Array.from({ length: THREADS }, async (_, t) => {
+      // let lockValue = Atomics.load(syncArray, t);
+      // console.log(`${thread}: syncing ${count} (to ${t}), got ${lockValue}`);
+      if (t === thread) {
+        Atomics.notify(syncArray, thread);
+        return;
+      }
+      let value = await Atomics.waitAsync(syncArray, t, count, 5000).value;
+      // let value = Atomics.wait(syncArray, t, count, 5000);
+      if (value === "timed-out")
+        console.log(`${thread}: synced ${value} (from ${t})`);
+      return value;
     })
   );
   // console.log(`${thread}: syncing ${count} (after)`);

@@ -48,6 +48,23 @@ function memoryHelpers(
     global,
     local,
 
+    updateThreads() {
+      let localLength = floorToMultipleOf4(totalLength * localRatio);
+      let [global, local] = MemorySection.createGlobalAndLocal(
+        memory,
+        initialOffset,
+        localLength,
+        totalLength,
+        n
+      );
+      let globalOffset = obj.global.offset;
+      obj.global = global;
+      obj.global.offset = globalOffset;
+      let localOffset = obj.local.offset;
+      obj.local = local;
+      obj.local.offset = localOffset;
+    },
+
     memoryBytes,
     n,
     R,
@@ -75,16 +92,11 @@ function memoryHelpers(
       return x0;
     },
 
-    initial: initialOffset,
-    offset: initialOffset,
-
     /**
      * @param size size of pointer (default: one field element)
      */
     getPointer(size = n * 4) {
-      let pointer = obj.offset;
-      obj.offset += size;
-      return pointer;
+      return obj.global.getPointer(size);
     },
 
     /**
@@ -92,34 +104,21 @@ function memoryHelpers(
      * @param size size per pointer (default: one field element)
      */
     getPointers(N: number, size = n * 4) {
-      let pointers: number[] = Array(N);
-      let offset = obj.offset;
-      for (let i = 0; i < N; i++) {
-        pointers[i] = offset;
-        offset += size;
-      }
-      obj.offset = offset;
-      return pointers;
+      return obj.global.getPointers(N, size);
     },
 
     /**
      * @param N
      */
     getStablePointers(N: number) {
-      let pointers = obj.getPointers(N);
-      obj.initial = obj.offset;
-      return pointers;
+      return obj.global.getStablePointers(N);
     },
 
     /**
      * @param size size of pointer (default: one field element)
      */
     getZeroPointer(size = n * 4) {
-      let offset = obj.offset;
-      let pointer = obj.offset;
-      memoryBytes.fill(0, offset, offset + size);
-      obj.offset = offset + size;
-      return pointer;
+      return obj.global.getZeroPointers(1, size)[0];
     },
 
     /**
@@ -127,15 +126,7 @@ function memoryHelpers(
      * @param size size per pointer (default: one field element)
      */
     getZeroPointers(N: number, size = n * 4) {
-      let pointers: number[] = Array(N);
-      let offset = obj.offset;
-      new Uint8Array(memory.buffer, offset, N * size).fill(0);
-      for (let i = 0; i < N; i++) {
-        pointers[i] = offset;
-        offset += size;
-      }
-      obj.offset = offset;
-      return pointers;
+      return obj.global.getZeroPointers(N, size);
     },
 
     /**
@@ -145,7 +136,7 @@ function memoryHelpers(
      * @param size size per pointer (default: one field element)
      */
     getPointersInMemory(N: number, size = n * 4): [Uint32Array, number] {
-      let offset = obj.offset;
+      let offset = obj.global.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
       let pointerPtr = offset;
@@ -155,30 +146,30 @@ function memoryHelpers(
         pointers[i] = offset;
         offset += size;
       }
-      obj.offset = offset;
+      obj.global.offset = offset;
       return [pointers, pointerPtr];
     },
 
     getEmptyPointersInMemory(N: number): [Uint32Array, number] {
-      let offset = obj.offset;
+      let offset = obj.global.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
       let pointerPtr = offset;
       let pointers = new Uint32Array(memory.buffer, pointerPtr, length);
-      obj.offset += length * 4;
+      obj.global.offset += length * 4;
       return [pointers, pointerPtr];
     },
 
     resetPointers() {
-      obj.offset = obj.initial;
+      obj.global.offset = obj.global.initial;
     },
 
     getOffset() {
-      return obj.offset;
+      return obj.global.offset;
     },
 
     setOffset(offset: number) {
-      obj.offset = offset;
+      obj.global.offset = offset;
     },
 
     /**
@@ -225,7 +216,14 @@ class MemorySection {
   isShared: boolean;
 
   // where to get the next pointer
-  offset: number;
+  _offset: number;
+  get offset() {
+    return this._offset;
+  }
+  set offset(offset: number) {
+    assert(offset <= this.end, "memory overflow");
+    this._offset = offset;
+  }
 
   constructor(
     memory: WebAssembly.Memory,
@@ -241,7 +239,7 @@ class MemorySection {
     this.n = n;
     this.isShared = isShared;
 
-    this.offset = initialOffset;
+    this._offset = initialOffset;
   }
 
   sizeUsed() {
@@ -299,7 +297,6 @@ class MemorySection {
   getPointer(size = this.n * 4) {
     let pointer = this.offset;
     this.offset += size;
-    assert(this.offset <= this.end, "memory overflow");
     return pointer;
   }
 
@@ -314,7 +311,6 @@ class MemorySection {
       pointers[i] = offset;
       offset += size;
     }
-    assert(offset <= this.end, "memory overflow");
     this.offset = offset;
     return pointers;
   }
@@ -351,10 +347,8 @@ class MemorySection {
   getLocks() {
     let offset = this.offset;
     let locks = new Int32Array(this.memory.buffer, offset, THREADS);
-    for (let i = 0; i < THREADS; i++) {
-      Atomics.store(locks, i, 0);
-      offset += 4;
-    }
+    offset += THREADS * 4;
+    assert(Atomics.load(locks, thread) === 0, "bad lock initialization");
     assert(offset <= this.end, "memory overflow");
     this.offset = offset;
     return locks;

@@ -216,7 +216,9 @@ function createConstants<const T extends Record<string, bigint>>(
   constantsBigint: T
 ): Record<keyof T, number> {
   let constantsKeys = Object.keys(constantsBigint);
-  let constantsPointers = helpers.getStablePointers(constantsKeys.length);
+  let constantsPointers = helpers.global.getStablePointers(
+    constantsKeys.length
+  );
 
   return Object.fromEntries(
     constantsKeys.map((key, i) => {
