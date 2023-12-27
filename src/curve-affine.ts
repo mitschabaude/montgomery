@@ -235,9 +235,9 @@ function createCurveAffine(
     let n = points.length;
     assert(n === pointsProj.length, "lengths must match");
     // copy x, y coordinates and collect z coordinates
-    let offset = Field.getOffset();
-    let zInvs = Field.getZeroPointers(n, sizeField);
-    let zs = Field.getPointers(n, sizeField);
+    using _ = Field.local.atCurrentOffset;
+    let zInvs = Field.local.getZeroPointers(n, sizeField);
+    let zs = Field.local.getPointers(n, sizeField);
     for (let i = 0; i < n; i++) {
       let xAffine = points[i];
       let yAffine = points[i] + sizeField;
@@ -256,7 +256,6 @@ function createCurveAffine(
       Field.multiply(y, y, zInvs[i]);
       memoryBytes[x + 2 * sizeField] = 1;
     }
-    Field.setOffset(offset);
   }
 
   return {
