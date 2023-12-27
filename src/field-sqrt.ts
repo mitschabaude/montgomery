@@ -3,7 +3,6 @@ import type { WasmFunctions } from "./types.js";
 import type { FieldWithMultiply } from "./wasm/multiply-montgomery.js";
 import type { MemoryHelpers } from "./wasm/memory-helpers.js";
 import { Func, i32 } from "wasmati";
-import { THREADS, thread } from "./threads/threads.js";
 
 export { createSqrt };
 
@@ -118,11 +117,11 @@ function createSqrt(
   // precomputation
 
   // w_ij = w^(-j*2^(ic)) for i=0,...,N-1 and j=0,...,L-1 = 2^c-1
-  let inverseRoots = mapRange(N, () => helpers.global.getStablePointers(L));
+  let inverseRoots = mapRange(N, () => helpers.local.getStablePointers(L));
   // v_j = w^(j*2^((N-1)c)), j=0,...,L-1 = all Lth roots
   // TODO: this assumes tnat window size exactly divides M, i.e. M = Nc. if it doesn't,
   // LthRoots[j] = w^(2^(j(N-1)c)) will actually be 2^(M-(N-1)c)th roots and won't be L unique values
-  let LthRoots = helpers.global.getStablePointers(L);
+  let LthRoots = helpers.local.getStablePointers(L);
 
   // w00 = 1, w_01 = w^(-1)
   wasm.copy(inverseRoots[0][0], constants.mg1);
@@ -177,7 +176,7 @@ function createSqrt(
     return LthRootLookup[view.getInt32(ptr, true)];
   }
   // scratch pointers that we use as RHS
-  let rhs = helpers.global.getStablePointers(N);
+  let rhs = helpers.local.getStablePointers(N);
   let solutionDigits = Array<number>(N).fill(0);
 
   /**
