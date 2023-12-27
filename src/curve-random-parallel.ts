@@ -153,9 +153,9 @@ async function syncThreads(syncArray: Int32Array) {
 let count = 0;
 
 function range(n: number) {
-  let nt = Math.floor(n / THREADS);
-  let start = thread * nt;
-  let end = thread === THREADS - 1 ? n : start + nt;
+  let nt = Math.ceil(n / THREADS);
+  let start = Math.min(n, thread * nt);
+  let end = Math.min(n, thread === THREADS - 1 ? n : start + nt);
   return [start, end];
 }
 
