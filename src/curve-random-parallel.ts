@@ -22,12 +22,12 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     { entropy = 64, windowSize = 13 } = {}
   ) {
     let { Field, CurveAffine, CurveProjective } = msmCurve;
+    let syncArray = Field.global.getLocks();
+    await syncThreads(syncArray);
+
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
-
-    let syncArray = Field.global.getLocks();
-    await syncThreads(syncArray);
 
     ticMain("random points");
     if (isMain()) console.log("");
@@ -130,18 +130,20 @@ async function syncThreads(syncArray: Int32Array) {
   // console.log(`${thread}: syncing ${count}`);
   let orig = Atomics.compareExchange(syncArray, thread, count, count + 1);
   assert(orig === count, `${thread}: expected ${count}, got ${orig}`);
+  Atomics.notify(syncArray, thread);
   await Promise.all(
     Array.from({ length: THREADS }, async (_, t) => {
       // let lockValue = Atomics.load(syncArray, t);
       // console.log(`${thread}: syncing ${count} (to ${t}), got ${lockValue}`);
       if (t === thread) {
-        Atomics.notify(syncArray, thread);
         return;
       }
       let value = await Atomics.waitAsync(syncArray, t, count, 5000).value;
       // let value = Atomics.wait(syncArray, t, count, 5000);
-      if (value === "timed-out")
-        console.log(`${thread}: synced ${value} (from ${t})`);
+      assert(
+        value !== "timed-out",
+        `${thread}: timed-out sync #${count} from thread ${t}`
+      );
       return value;
     })
   );

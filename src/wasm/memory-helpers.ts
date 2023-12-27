@@ -223,6 +223,9 @@ class MemorySection {
   set offset(offset: number) {
     assert(offset <= this.end, "memory overflow");
     this._offset = offset;
+    if (this.isShared) {
+      // console.trace(`${thread}: offset=${offset}`);
+    }
   }
 
   constructor(
@@ -346,10 +349,10 @@ class MemorySection {
 
   getLocks() {
     let offset = this.offset;
+    console.log(`${thread}: creating locks at ${offset}`);
     let locks = new Int32Array(this.memory.buffer, offset, THREADS);
     offset += THREADS * 4;
     assert(Atomics.load(locks, thread) === 0, "bad lock initialization");
-    assert(offset <= this.end, "memory overflow");
     this.offset = offset;
     return locks;
   }
