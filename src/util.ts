@@ -18,6 +18,7 @@ export {
   abs,
   sign,
   assert,
+  chunk,
 };
 
 function bigintFromBytes(bytes: Uint8Array) {
@@ -208,6 +209,13 @@ function mapRange<T>(n: number, callback: (i: number) => T) {
   return Array(n)
     .fill(0)
     .map((_, i) => callback(i));
+}
+
+function chunk<T>(array: T[], size: number): T[][] {
+  assert(array.length % size === 0, "invalid input length");
+  return Array.from({ length: array.length / size }, (_, i) =>
+    array.slice(size * i, size * (i + 1))
+  );
 }
 
 function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
