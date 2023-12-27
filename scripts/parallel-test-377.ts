@@ -1,5 +1,4 @@
 import { create } from "../src/concrete/bls12-377.parallel.js";
-import { tic, toc } from "../src/extra/tictoc.js";
 
 const BLS12_377 = await create();
 

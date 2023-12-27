@@ -45,8 +45,8 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     if (isMain()) {
       CurveAffine.randomPoints(scratch, basis);
     }
-    tocMain();
     await syncThreads(syncArray);
+    tocMain();
 
     // 2. precompute multiples of each basis point: G, ..., 2^c*G
     ticMain("precompute multiples");
