@@ -4,12 +4,10 @@ import { WasmArtifacts } from "../types.js";
 import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
-import { ThreadPool, barrier, setDebug } from "../threads/threads.js";
+import { ThreadPool, barrier } from "../threads/threads.js";
 import { createRandomPointsFast } from "../curve-random-parallel.js";
 
 export { create };
-
-setDebug(false);
 
 const NAME = "BLS13-377";
 
@@ -36,7 +34,7 @@ async function create(wasm?: WasmArtifacts) {
       pool.start(n);
       Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts);
-      // so that main thread doesn't start with an advantage, which would distort benchmarks
+      // initial barrier so that main thread doesn't start with an advantage, which would distort benchmarks
       await barrier();
     },
     async stopThreads() {
