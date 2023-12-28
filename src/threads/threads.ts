@@ -162,7 +162,8 @@ class ThreadPool {
   }
 
   parallelize<T extends Record<string, any> | AnyFunction>(
-    api: T
+    api: T,
+    { waitForWorkers = true } = {}
   ): Parallelized<T> {
     if (typeof api === "function") {
       let func = api as AnyFunction & T;
@@ -170,7 +171,12 @@ class ThreadPool {
       return (async (...args: any) => {
         let workersDone = this.callWorkers(calledName, ...args);
         let mainResult = func(...args);
-        let [result] = await Promise.all([mainResult, workersDone]);
+        let result;
+        if (waitForWorkers) {
+          [result] = await Promise.all([mainResult, workersDone]);
+        } else {
+          result = await mainResult;
+        }
         return result;
       }) as any;
     }
@@ -184,7 +190,12 @@ class ThreadPool {
       parallelApi[funcName] = async (...args: any) => {
         let workersDone = this.callWorkers(calledName, ...args);
         let mainResult = func(...args);
-        let [result] = await Promise.all([mainResult, workersDone]);
+        let result;
+        if (waitForWorkers) {
+          [result] = await Promise.all([mainResult, workersDone]);
+        } else {
+          result = await mainResult;
+        }
         return result;
       };
     }
@@ -220,15 +231,18 @@ class ThreadPool {
   }
 
   register<T extends Record<string, AnyFunction> | AnyFunction>(
-    api: T
+    api: T,
+    options?: { waitForWorkers?: boolean }
   ): Parallelized<T>;
   register<T extends Record<string, any> | AnyFunction>(
     namespace: string,
-    api: T
+    api: T,
+    options?: { waitForWorkers?: boolean }
   ): Parallelized<T>;
-  register(apiOrNamespace: any, maybeApi?: any) {
+  register(apiOrNamespace: any, maybeApi?: any, maybeOptions?: any) {
     let api = expose(apiOrNamespace, maybeApi);
-    if (isMain()) return this.parallelize(api);
+    let options = typeof apiOrNamespace === "string" ? maybeOptions : maybeApi;
+    if (isMain()) return this.parallelize(api, options);
     return api;
   }
 }

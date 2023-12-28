@@ -21,20 +21,22 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
+    ticMain("random points");
+    if (isMain()) console.log("");
+
     let { Field, CurveAffine, CurveProjective } = msmCurve;
 
+    ticMain("preparation");
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
-
-    ticMain("random points");
-    if (isMain()) console.log("");
 
     let scratch = Field.local.getPointers(40);
 
     // split entropy into k windows of size c
     let c = windowSize;
     let K = Math.ceil(entropy / c);
+    tocMain();
 
     // 1. precompute basis point G and multiples: 0, G, ..., (2^c-1)*G
     ticMain("precompute basis/multiples");

@@ -1,4 +1,5 @@
 import { create } from "../src/concrete/bls12-377.parallel.js";
+import { tic, toc } from "../src/extra/tictoc.js";
 
 const BLS12_377 = await create();
 
@@ -7,6 +8,8 @@ await BLS12_377.startThreads(nThreads);
 
 let n = Number(process.argv[3] ?? 20);
 
-await BLS12_377.randomPointsFast(1 << n, { entropy: 64, windowSize: 13 });
+tic("random points");
+let points = await BLS12_377.randomPointsFast(1 << n);
+toc();
 
 await BLS12_377.stopThreads();

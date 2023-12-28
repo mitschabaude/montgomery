@@ -37,6 +37,7 @@ async function create(wasm?: WasmArtifacts) {
     },
     async stopThreads() {
       await pool.stop();
+      Field.updateThreads();
     },
   };
 }
