@@ -1,6 +1,6 @@
 // fast random point generation
 
-import { tic, toc } from "./extra/tictoc.web.js";
+import { tic, toc } from "./extra/tictoc.js";
 import type { MsmCurve } from "./msm.js";
 import { barrier, isMain, range } from "./threads/threads.js";
 import { assert, randomBytes } from "./util.js";
@@ -21,46 +21,41 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
+    ticMain("random points");
+    if (isMain()) console.log("");
+
     let { Field, CurveAffine, CurveProjective } = msmCurve;
 
+    ticMain("preparation");
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
-
-    ticMain("random points");
-    if (isMain()) console.log("");
 
     let scratch = Field.local.getPointers(40);
 
     // split entropy into k windows of size c
     let c = windowSize;
     let K = Math.ceil(entropy / c);
-
-    // 1. generate a random basis of size k
-    let basis = Field.global.getPointers(K, CurveAffine.sizeAffine);
-
-    ticMain("random basis");
-    if (isMain()) {
-      CurveAffine.randomPoints(scratch, basis);
-    }
-    await barrier();
     tocMain();
 
-    // 2. precompute multiples of each basis point: G, ..., 2^c*G
-    ticMain("precompute multiples");
+    // 1. precompute basis point G and multiples: 0, G, ..., (2^c-1)*G
+    ticMain("precompute basis/multiples");
     let L = 1 << c;
     let B = Array<number[]>(K);
     for (let k = 0; k < K; k++) {
       B[k] = Field.global.getPointers(L, CurveProjective.sizeProjective);
     }
     for (let [k, ke] = range(K); k < ke; k++) {
-      let Bk1 = basis[k];
+      // compute random basis point
+      let basis = Field.local.getPointer(CurveAffine.sizeAffine);
+      CurveAffine.randomPoints(scratch, [basis]);
+
       let Bk = B[k];
 
       // zeroth point is zero
       CurveProjective.setZero(Bk[0]);
       // first point is the basis point
-      CurveProjective.affineToProjective(Bk[1], Bk1);
+      CurveProjective.affineToProjective(Bk[1], basis);
       // second needs double
       CurveProjective.copy(Bk[2], Bk[1]);
       CurveProjective.doubleInPlace(scratch, Bk[2]);
@@ -72,11 +67,11 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
       B[k] = Bk;
     }
     tocMain();
-    ticMain("precompute multiples (wait)");
+    ticMain("precompute basis/multiples (wait)");
     await barrier();
     tocMain();
 
-    // 3. generate random points by taking a sum of random basis multiples
+    // 2. generate random points by taking a sum of random basis multiples
     ticMain("random points");
     let points = Field.global.getPointers(n, CurveProjective.sizeProjective);
 
@@ -91,7 +86,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     }
     tocMain();
 
-    // 4. convert to affine
+    // 3. convert to affine
     ticMain("convert to affine");
     let [start, end] = range(n);
     CurveAffine.batchFromProjective(

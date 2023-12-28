@@ -327,6 +327,8 @@ class MemorySection {
    */
   getZeroPointers(N: number, size = this.n * 4) {
     let offset = this.offset;
+    assert(!this.isShared, "zero pointers only implemented for local memory");
+    // TODO this logic is not valid, needs a lock
     if (this.isShared) {
       assert(size % 4 === 0, "pointer size must be a multiple of 4");
       // zero out the memory with Atomic.store
