@@ -48,9 +48,8 @@ function memoryHelpers(
     global,
     local,
 
-    // TODO this is not correct, we arbitrarily reset the start of the local section,
-    // so any pointers already written into the local section become invalid
     updateThreads() {
+      assert(thread === 0, "updateThreads must be called from main thread");
       let localLength = floorToMultipleOf4(totalLength * localRatio);
       let [global, local] = MemorySection.createGlobalAndLocal(
         memory,
@@ -270,9 +269,11 @@ class MemorySection {
     n: number
   ) {
     let lengthPerThread = floorToMultipleOf4(localLength / THREADS);
-    let localLengthActual = lengthPerThread * THREADS;
+    let lengthFirstThread = lengthPerThread + (localLength % lengthPerThread);
+    assert(lengthFirstThread + (THREADS - 1) * lengthPerThread === localLength);
+    assert(lengthFirstThread % 4 === 0);
 
-    let globalLength = totalLength - localLengthActual - offset;
+    let globalLength = totalLength - localLength - offset;
     let globalSection = new MemorySection(
       memory,
       offset,
@@ -281,11 +282,14 @@ class MemorySection {
       true
     );
 
-    let localOffset = offset + globalLength + lengthPerThread * thread;
+    let localOffset = offset + globalLength;
+    if (thread > 0) {
+      localOffset += lengthFirstThread + (thread - 1) * lengthPerThread;
+    }
     let localSection = new MemorySection(
       memory,
       localOffset,
-      lengthPerThread,
+      thread === 0 ? lengthFirstThread : lengthPerThread,
       n,
       false
     );
