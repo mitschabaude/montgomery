@@ -120,7 +120,7 @@ function randomWindows(c: number, K: number) {
   let bytes = randomBytes(3 * K);
   for (let k = 0; k < K; k++) {
     windows[k] =
-      (bytes[2 * k] + 256 * bytes[2 * k + 1] + 256 ** 2 * bytes[2 * k + 2]) &
+      (bytes[2 * k] + (bytes[2 * k + 1] << 8) + (bytes[2 * k + 2] << 16)) &
       cMask;
   }
   return windows;
