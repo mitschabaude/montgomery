@@ -56,10 +56,6 @@ type Message =
     }
   | { type: MessageType.ANSWER; callId: number };
 
-function postMessage(target: Worker, message: Message) {
-  target.postMessage(message);
-}
-
 const functions = new Map<string, (...args: any) => any>();
 
 parentPort?.on("message", async (message: Message) => {
@@ -135,23 +131,23 @@ class ThreadPool {
     return pool;
   }
 
-  start(T_ = availableParallelism()) {
+  start(T = availableParallelism()) {
     assert(!this.isRunning, "ThreadPool is already running");
-    assert(T_ > 0, "T must be greater than 0");
-    THREADS = T_;
+    assert(T > 0, "T must be greater than 0");
+    THREADS = T;
     sharedArray.fill(0);
     this.isRunning = true;
     const workers = [];
-    for (let t = 1; t < T_; t++) {
+    for (let t = 1; t < T; t++) {
       let worker = new Worker(this.source);
       // TODO: do we want this?
       worker.unref();
-      postMessage(worker, {
+      worker.postMessage({
         type: MessageType.INIT,
-        thread,
-        THREADS: T_,
+        thread: t,
+        THREADS: T,
         sharedArray: sharedArray.buffer,
-      });
+      } satisfies Message);
       workers.push(worker);
     }
     this.workers = workers;
@@ -203,12 +199,12 @@ class ThreadPool {
     let promises = this.workers.map((worker) => {
       return new Promise<void>((resolve, reject) => {
         let callId = Math.random();
-        postMessage(worker, {
+        worker.postMessage({
           type: MessageType.CALL,
           func: funcName,
           args,
           callId,
-        });
+        } satisfies Message);
         worker.on("message", function handler(message: Message) {
           if (
             message.type === MessageType.ANSWER &&
@@ -263,16 +259,16 @@ const BARRIER_INDEX = 1;
 let barrierCount = 0;
 
 async function barrier() {
-  // log(`syncing ${count}`);
+  // log(`syncing ${barrierCount}`);
   await lock();
   let expected = (barrierCount + 1) * THREADS;
   let arrived = Atomics.add(sharedArray, BARRIER_INDEX, 1) + 1;
   if (arrived === expected) {
-    // log(`notifying sync #${count}`);
+    // log(`notifying sync #${barrierCount}`);
     unlock();
     Atomics.notify(sharedArray, BARRIER_INDEX);
   } else {
-    // log(`waiting for sync #${count} (${threadsWaiting} threads got here)`);
+    // log(`waiting for sync #${barrierCount} (${arrived} threads got here)`);
     // TODO this feels almost like cheating, to separate promise creation from awaiting
     // to guarantee that we wait on an `arrived` value that is consistent with the value written
     // by `add()`, since we unlock only after having issued the waitAsync call

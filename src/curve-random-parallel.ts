@@ -22,6 +22,9 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     { entropy = 64, windowSize = 13 } = {}
   ) {
     let { Field, CurveAffine, CurveProjective } = msmCurve;
+    ticMain("initial barrier");
+    await barrier();
+    tocMain();
 
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
