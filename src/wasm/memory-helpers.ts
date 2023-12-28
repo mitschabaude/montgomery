@@ -48,6 +48,8 @@ function memoryHelpers(
     global,
     local,
 
+    // TODO this is not correct, we arbitrarily reset the start of the local section,
+    // so any pointers already written into the local section become invalid
     updateThreads() {
       let localLength = floorToMultipleOf4(totalLength * localRatio);
       let [global, local] = MemorySection.createGlobalAndLocal(
@@ -344,13 +346,13 @@ class MemorySection {
     return pointers;
   }
 
+  // TODO this seems unnecessarily brittle, we should just
   getLocks() {
     let offset = this.offset;
     // note: the offset has to be the same on every thread
     // console.log(`${thread}: creating locks at ${offset}`);
-    let locks = new Int32Array(this.memory.buffer, offset, THREADS);
-    offset += THREADS * 4;
-    assert(Atomics.load(locks, thread) === 0, "bad lock initialization");
+    let locks = new Int32Array(this.memory.buffer, offset, 2);
+    offset += 2 * 4;
     this.offset = offset;
     return locks;
   }

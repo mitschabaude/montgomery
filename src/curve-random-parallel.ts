@@ -23,7 +23,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
   ) {
     let { Field, CurveAffine, CurveProjective } = msmCurve;
     let syncArray = Field.global.getLocks();
-    await syncThreads(syncArray);
+    await barrier(syncArray);
 
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
@@ -45,7 +45,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     if (isMain()) {
       CurveAffine.randomPoints(scratch, basis);
     }
-    await syncThreads(syncArray);
+    await barrier(syncArray);
     tocMain();
 
     // 2. precompute multiples of each basis point: G, ..., 2^c*G
@@ -75,7 +75,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     }
     tocMain();
     ticMain("precompute multiples (wait)");
-    await syncThreads(syncArray);
+    await barrier(syncArray);
     tocMain();
 
     // 3. generate random points by taking a sum of random basis multiples
@@ -104,7 +104,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     tocMain();
 
     ticMain("random points (wait)");
-    await syncThreads(syncArray);
+    await barrier(syncArray);
     tocMain();
 
     tocMain();
@@ -126,31 +126,52 @@ function randomWindows(c: number, K: number) {
   return windows;
 }
 
-async function syncThreads(syncArray: Int32Array) {
-  // console.log(`${thread}: syncing ${count}`);
-  let orig = Atomics.compareExchange(syncArray, thread, count, count + 1);
-  assert(orig === count, `${thread}: expected ${count}, got ${orig}`);
-  Atomics.notify(syncArray, thread);
-  await Promise.all(
-    Array.from({ length: THREADS }, async (_, t) => {
-      // let lockValue = Atomics.load(syncArray, t);
-      // console.log(`${thread}: syncing ${count} (to ${t}), got ${lockValue}`);
-      if (t === thread) {
-        return;
-      }
-      let value = await Atomics.waitAsync(syncArray, t, count, 5000).value;
-      // let value = Atomics.wait(syncArray, t, count, 5000);
-      assert(
-        value !== "timed-out",
-        `${thread}: timed-out sync #${count} from thread ${t}`
-      );
-      return value;
-    })
-  );
-  // console.log(`${thread}: syncing ${count} (after)`);
+async function barrier(syncArray: Int32Array) {
+  // log(`syncing ${count}`);
+  await lock(syncArray);
+  let expected = (count + 1) * THREADS;
+  let arrived = Atomics.add(syncArray, BARRIER_INDEX, 1) + 1;
+  if (arrived === expected) {
+    // log(`notifying sync #${count}`);
+    unlock(syncArray);
+    Atomics.notify(syncArray, BARRIER_INDEX);
+  } else {
+    // log(`waiting for sync #${count} (${threadsWaiting} threads got here)`);
+    // TODO this feels almost like cheating, to separate promise creation from awaiting
+    // to guarantee that we wait on an `arrived` value that is consistent with the value written
+    // by `add()`, since we unlock only after having issued the waitAsync call
+    let { value } = Atomics.waitAsync(syncArray, BARRIER_INDEX, arrived, 5000);
+    unlock(syncArray);
+    let returnValue = await value;
+    assert(
+      returnValue === "ok",
+      `${thread}: bad sync #${count}, got ${returnValue}`
+    );
+  }
   count++;
 }
+
+const LOCKED = 1;
+const UNLOCKED = 0;
+const MUTEX_INDEX = 0;
+const BARRIER_INDEX = 1;
 let count = 0;
+
+async function lock(syncArray: Int32Array) {
+  while (
+    Atomics.compareExchange(syncArray, MUTEX_INDEX, UNLOCKED, LOCKED) !==
+    UNLOCKED
+  ) {
+    // someone else is writing, wait for them to finish
+    await Atomics.waitAsync(syncArray, 0, LOCKED).value;
+  }
+}
+
+function unlock(syncArray: Int32Array) {
+  let state = Atomics.compareExchange(syncArray, 0, LOCKED, UNLOCKED);
+  assert(state === LOCKED, "bad mutex");
+  Atomics.notify(syncArray, MUTEX_INDEX);
+}
 
 function range(n: number) {
   let nt = Math.ceil(n / THREADS);
