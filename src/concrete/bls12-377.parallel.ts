@@ -4,7 +4,7 @@ import { WasmArtifacts } from "../types.js";
 import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
-import { ThreadPool, setDebug } from "../threads/threads.js";
+import { ThreadPool, barrier, setDebug } from "../threads/threads.js";
 import { createRandomPointsFast } from "../curve-random-parallel.js";
 
 export { create };
@@ -36,6 +36,8 @@ async function create(wasm?: WasmArtifacts) {
       pool.start(n);
       Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts);
+      // so that main thread doesn't start with an advantage, which would distort benchmarks
+      await barrier();
     },
     async stopThreads() {
       await pool.stop();

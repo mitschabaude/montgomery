@@ -2,7 +2,7 @@
 
 import { tic, toc } from "./extra/tictoc.web.js";
 import type { MsmCurve } from "./msm.js";
-import { THREADS, isMain, thread } from "./threads/threads.js";
+import { barrier, isMain, range } from "./threads/threads.js";
 import { assert, randomBytes } from "./util.js";
 
 export { createRandomPointsFast };
@@ -22,8 +22,6 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     { entropy = 64, windowSize = 13 } = {}
   ) {
     let { Field, CurveAffine, CurveProjective } = msmCurve;
-    let syncArray = Field.global.getLocks();
-    await barrier(syncArray);
 
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
@@ -45,7 +43,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     if (isMain()) {
       CurveAffine.randomPoints(scratch, basis);
     }
-    await barrier(syncArray);
+    await barrier();
     tocMain();
 
     // 2. precompute multiples of each basis point: G, ..., 2^c*G
@@ -75,7 +73,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     }
     tocMain();
     ticMain("precompute multiples (wait)");
-    await barrier(syncArray);
+    await barrier();
     tocMain();
 
     // 3. generate random points by taking a sum of random basis multiples
@@ -104,7 +102,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     tocMain();
 
     ticMain("random points (wait)");
-    await barrier(syncArray);
+    await barrier();
     tocMain();
 
     tocMain();
@@ -124,65 +122,6 @@ function randomWindows(c: number, K: number) {
       cMask;
   }
   return windows;
-}
-
-async function barrier(syncArray: Int32Array) {
-  // log(`syncing ${count}`);
-  await lock(syncArray);
-  let expected = (count + 1) * THREADS;
-  let arrived = Atomics.add(syncArray, BARRIER_INDEX, 1) + 1;
-  if (arrived === expected) {
-    // log(`notifying sync #${count}`);
-    unlock(syncArray);
-    Atomics.notify(syncArray, BARRIER_INDEX);
-  } else {
-    // log(`waiting for sync #${count} (${threadsWaiting} threads got here)`);
-    // TODO this feels almost like cheating, to separate promise creation from awaiting
-    // to guarantee that we wait on an `arrived` value that is consistent with the value written
-    // by `add()`, since we unlock only after having issued the waitAsync call
-    let { value } = Atomics.waitAsync(syncArray, BARRIER_INDEX, arrived, 5000);
-    unlock(syncArray);
-    let returnValue = await value;
-    assert(
-      returnValue === "ok",
-      `${thread}: bad sync #${count}, got ${returnValue}`
-    );
-  }
-  count++;
-}
-
-const LOCKED = 1;
-const UNLOCKED = 0;
-const MUTEX_INDEX = 0;
-const BARRIER_INDEX = 1;
-let count = 0;
-
-async function lock(syncArray: Int32Array) {
-  while (
-    Atomics.compareExchange(syncArray, MUTEX_INDEX, UNLOCKED, LOCKED) !==
-    UNLOCKED
-  ) {
-    // someone else is writing, wait for them to finish
-    await Atomics.waitAsync(syncArray, 0, LOCKED).value;
-  }
-}
-
-function unlock(syncArray: Int32Array) {
-  let state = Atomics.compareExchange(syncArray, 0, LOCKED, UNLOCKED);
-  assert(state === LOCKED, "bad mutex");
-  Atomics.notify(syncArray, MUTEX_INDEX);
-}
-
-function range(n: number) {
-  let nt = Math.ceil(n / THREADS);
-  let start = Math.min(n, thread * nt);
-  let end = Math.min(n, thread === THREADS - 1 ? n : start + nt);
-  return [start, end];
-}
-
-function rangeMain(n: number) {
-  if (isMain()) return [0, n];
-  return [0, 0];
 }
 
 function ticMain(s: string) {

@@ -345,17 +345,6 @@ class MemorySection {
     this.initial = this.offset;
     return pointers;
   }
-
-  // TODO this seems unnecessarily brittle, we should just
-  getLocks() {
-    let offset = this.offset;
-    // note: the offset has to be the same on every thread
-    // console.log(`${thread}: creating locks at ${offset}`);
-    let locks = new Int32Array(this.memory.buffer, offset, 2);
-    offset += 2 * 4;
-    this.offset = offset;
-    return locks;
-  }
 }
 
 function floorToMultipleOf4(x: number) {

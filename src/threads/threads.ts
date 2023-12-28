@@ -4,25 +4,35 @@ import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
 
 export {
-  t,
-  T,
-  t as thread,
-  T as THREADS,
+  thread as t,
+  THREADS as T,
+  thread,
+  THREADS,
   isMain,
   expose,
   ThreadPool,
   setDebug,
   log,
+  sharedArray,
+  range,
+  rangeMain,
+  barrier,
+  lock,
+  unlock,
 };
 
-let t = 0;
-let T = 1;
+let thread = 0;
+let THREADS = 1;
+
+const SHARED_POINTERS = 2;
+
+let sharedArray = new Int32Array(new SharedArrayBuffer(4 * SHARED_POINTERS));
 
 function isMain() {
-  return t === 0;
+  return thread === 0;
 }
 function log(...args: any) {
-  console.log(`${t}:`, ...args);
+  console.log(`${thread}:`, ...args);
 }
 
 let DEBUG = false;
@@ -38,13 +48,22 @@ enum MessageType {
 
 type Message =
   | { type: MessageType.CALL; func: string; args: any[]; callId: number }
-  | { type: MessageType.INIT; t: number; T: number }
-  | { type: MessageType.ANSWER; callId: number; result: any };
+  | {
+      type: MessageType.INIT;
+      thread: number;
+      THREADS: number;
+      sharedArray: ArrayBuffer;
+    }
+  | { type: MessageType.ANSWER; callId: number };
+
+function postMessage(target: Worker, message: Message) {
+  target.postMessage(message);
+}
 
 const functions = new Map<string, (...args: any) => any>();
 
 parentPort?.on("message", async (message: Message) => {
-  if (DEBUG) console.log(`worker ${t}/${T} got message`, message);
+  if (DEBUG) console.log(`worker ${thread}/${THREADS} got message`, message);
 
   if (message.type === MessageType.CALL) {
     let { func: funcName, args, callId } = message;
@@ -57,8 +76,9 @@ parentPort?.on("message", async (message: Message) => {
     await func(...args);
     parentPort?.postMessage({ type: MessageType.ANSWER, callId });
   } else if (message.type === MessageType.INIT) {
-    t = message.t;
-    T = message.T;
+    thread = message.thread;
+    THREADS = message.THREADS;
+    sharedArray = new Int32Array(message.sharedArray);
   }
 });
 
@@ -118,21 +138,27 @@ class ThreadPool {
   start(T_ = availableParallelism()) {
     assert(!this.isRunning, "ThreadPool is already running");
     assert(T_ > 0, "T must be greater than 0");
-    T = T_;
+    THREADS = T_;
+    sharedArray.fill(0);
     this.isRunning = true;
     const workers = [];
     for (let t = 1; t < T_; t++) {
       let worker = new Worker(this.source);
       // TODO: do we want this?
       worker.unref();
-      worker.postMessage({ type: MessageType.INIT, t, T: T_ });
+      postMessage(worker, {
+        type: MessageType.INIT,
+        thread,
+        THREADS: T_,
+        sharedArray: sharedArray.buffer,
+      });
       workers.push(worker);
     }
     this.workers = workers;
   }
 
   stop() {
-    T = 1;
+    THREADS = 1;
     this.isRunning = false;
     let promises = this.workers.map((worker) => worker.terminate());
     this.workers = [];
@@ -177,7 +203,7 @@ class ThreadPool {
     let promises = this.workers.map((worker) => {
       return new Promise<void>((resolve, reject) => {
         let callId = Math.random();
-        worker.postMessage({
+        postMessage(worker, {
           type: MessageType.CALL,
           func: funcName,
           args,
@@ -226,4 +252,67 @@ type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
 function withNamespace(namespace: string | undefined, string: string) {
   if (namespace === undefined) return string;
   return `${namespace};${string}`;
+}
+
+// concurrent programming primitives
+
+const LOCKED = 1;
+const UNLOCKED = 0;
+const MUTEX_INDEX = 0;
+const BARRIER_INDEX = 1;
+let barrierCount = 0;
+
+async function barrier() {
+  // log(`syncing ${count}`);
+  await lock();
+  let expected = (barrierCount + 1) * THREADS;
+  let arrived = Atomics.add(sharedArray, BARRIER_INDEX, 1) + 1;
+  if (arrived === expected) {
+    // log(`notifying sync #${count}`);
+    unlock();
+    Atomics.notify(sharedArray, BARRIER_INDEX);
+  } else {
+    // log(`waiting for sync #${count} (${threadsWaiting} threads got here)`);
+    // TODO this feels almost like cheating, to separate promise creation from awaiting
+    // to guarantee that we wait on an `arrived` value that is consistent with the value written
+    // by `add()`, since we unlock only after having issued the waitAsync call
+    let { value } = Atomics.waitAsync(
+      sharedArray,
+      BARRIER_INDEX,
+      arrived,
+      5000
+    );
+    unlock();
+    let returnValue = await value;
+    assert(
+      returnValue === "ok",
+      `${thread}: bad sync #${barrierCount}, got ${returnValue}`
+    );
+  }
+  barrierCount++;
+}
+
+async function lock(data: Int32Array = sharedArray, index = MUTEX_INDEX) {
+  while (Atomics.compareExchange(data, index, UNLOCKED, LOCKED) !== UNLOCKED) {
+    // someone else is writing, wait for them to finish
+    await Atomics.waitAsync(data, 0, LOCKED).value;
+  }
+}
+
+function unlock(data: Int32Array = sharedArray, index = MUTEX_INDEX) {
+  let state = Atomics.compareExchange(data, index, LOCKED, UNLOCKED);
+  assert(state === LOCKED, "bad mutex");
+  Atomics.notify(data, MUTEX_INDEX);
+}
+
+function range(n: number) {
+  let nt = Math.ceil(n / THREADS);
+  let start = Math.min(n, thread * nt);
+  let end = Math.min(n, thread === THREADS - 1 ? n : start + nt);
+  return [start, end];
+}
+
+function rangeMain(n: number) {
+  if (isMain()) return [0, n];
+  return [0, 0];
 }
