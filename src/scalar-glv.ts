@@ -1,7 +1,7 @@
 import type * as W from "wasmati";
-import { Const, Module, global, memory } from "wasmati";
+import { Const, Module, global, memory, importMemory } from "wasmati";
 import { glv, glvGeneral } from "./wasm/glv.js";
-import { bigintFromBytes } from "./util.js";
+import { assert, bigintFromBytes, log2 } from "./util.js";
 import { memoryHelpers } from "./wasm/memory-helpers.js";
 import {
   extractBitSlice,
@@ -26,18 +26,25 @@ type SpecialGlvScalar = UnwrapPromise<
 >;
 type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 
+type Params = { q: bigint; lambda: bigint; w: number };
+
 /**
  * scalar module for MSM with GLV
  */
 async function createGlvScalar(
-  params: {
-    q: bigint;
-    lambda: bigint;
-    w: number;
-  },
-  wasm?: WasmArtifacts
+  params: Params,
+  wasmAndFullParams?: {
+    wasm: WasmArtifacts;
+    fullParams: Params & { n0: number; maxBits: number };
+  }
 ) {
-  return await createGlvScalarWasm(params);
+  if (wasmAndFullParams !== undefined) {
+    let { wasm, fullParams } = wasmAndFullParams;
+    return await createGlvScalarFromWasm(fullParams, wasm);
+  }
+  let { wasmArtifacts, instance, fullParams } =
+    await createGlvScalarWasm(params);
+  return await createGlvScalarFromWasm(fullParams, wasmArtifacts, instance);
 }
 
 /**
@@ -52,8 +59,9 @@ async function createGlvScalarWasm({
   lambda: bigint;
   w: number;
 }) {
-  const { n, lengthP } = montgomeryParams(q, w);
+  const { n } = montgomeryParams(q, w);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
+  let wasmMemory = importMemory({ min: 1 << 15, max: 1 << 15, shared: true });
 
   let module = Module({
     exports: {
@@ -61,15 +69,46 @@ async function createGlvScalarWasm({
       fromPackedBytesSmall: fromPackedBytes(w, n0),
       fromPackedBytes: fromPackedBytes(w, n),
       extractBitSlice: extractBitSlice(w, n0),
-      memory: memory({ min: 1 << 15 }),
+      memory: wasmMemory,
       dataOffset: global(Const.i32(0)),
     },
   });
 
-  let m = await module.instantiate();
-  const glvWasm = m.instance.exports;
+  let { instance, module: wasmModule } = await module.instantiate();
+  return {
+    wasmArtifacts: { module: wasmModule, memory: wasmMemory.value },
+    instance,
+    fullParams: { q, lambda, w, n0, maxBits },
+  };
+}
 
+type GlvScalarWasm = UnwrapPromise<
+  ReturnType<typeof createGlvScalarWasm>
+>["instance"];
+
+async function createGlvScalarFromWasm(
+  params: { q: bigint; lambda: bigint; w: number; n0: number; maxBits: number },
+  wasmArtifacts: WasmArtifacts,
+  instance?: GlvScalarWasm
+) {
+  let { q, lambda, w, n0, maxBits } = params;
+  if (instance === undefined) {
+    let imports = WebAssembly.Module.imports(wasmArtifacts.module);
+    // TODO abstraction leak - we have to know that there is no other import to do this
+    // should work with any number of other imports, possibly by making memory import lazy and
+    // add a module method to create the import object, with an override for the memory
+    assert(imports.length === 1 && imports[0].kind === "memory");
+    let { module, name } = imports[0];
+    let importObject = { [module]: { [name]: wasmArtifacts.memory } };
+    instance = (await WebAssembly.instantiate(
+      wasmArtifacts.module,
+      importObject
+    )) as GlvScalarWasm;
+  }
+  const glvWasm = instance.exports;
   const glvHelpers = memoryHelpers(q, w, glvWasm);
+
+  const sizeInBits = log2(q);
 
   let scratch = glvHelpers.local.getStablePointers(10);
   let [scratchPtr, scratchPtr2, scratchPtr3] = scratch;
@@ -88,10 +127,19 @@ async function createGlvScalarWasm({
   }
 
   return {
+    fullParams: params,
+    wasmArtifacts,
     ...glvHelpers,
+    // TODO this is brittle.. don't spread helpers object here, it has internal state
+    // instead have a `memory` property on the field object, and use that everywhere
+    updateThreads() {
+      glvHelpers.updateThreads();
+      this.global = glvHelpers.global;
+      this.local = glvHelpers.local;
+    },
     ...glvWasm,
     scratch,
-    sizeInBits: lengthP,
+    sizeInBits,
     maxBits,
     testDecomposeScalar,
   };
