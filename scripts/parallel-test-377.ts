@@ -7,7 +7,7 @@ import {
   msm,
   msmUtil,
 } from "../src/concrete/bls12-377.js";
-import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
+import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { bigintScalarsToMemory } from "../src/msm.js";
 import assert from "node:assert/strict";
