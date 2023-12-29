@@ -34,6 +34,9 @@ toc();
 tic("convert points to bigint & check");
 let pointsBigint = points.map((gPtr) => {
   let g = BLS12_377.CurveAffine.toBigint(gPtr);
+  console.log(gPtr, g);
+  assert(g.x < Field.p, "x < p");
+  assert(g.y < Field.p, "y < p");
   assert(checkOnCurve(g, Field.p, CurveAffine.b), "point on curve");
   return g;
 });

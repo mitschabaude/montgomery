@@ -4,12 +4,14 @@ import { WasmArtifacts } from "../types.js";
 import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
-import { ThreadPool } from "../threads/threads.js";
+import { ThreadPool, setDebug } from "../threads/threads.js";
 import { createRandomPointsFast } from "../curve-random-parallel.js";
 
 export { create };
 
 const NAME = "BLS13-377";
+
+setDebug(true);
 
 let pool = ThreadPool.createInactive(import.meta.url);
 pool.register(NAME, create);

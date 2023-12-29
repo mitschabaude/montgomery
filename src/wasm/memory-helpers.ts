@@ -1,5 +1,11 @@
 import { montgomeryParams } from "../field-util.js";
-import { THREADS, isParallel, thread } from "../threads/threads.js";
+import {
+  THREADS,
+  isMain,
+  isParallel,
+  log,
+  thread,
+} from "../threads/threads.js";
 import { assert } from "../util.js";
 
 export { memoryHelpers, MemoryHelpers };
@@ -49,7 +55,7 @@ function memoryHelpers(
     local,
 
     updateThreads() {
-      assert(thread === 0, "updateThreads must be called from main thread");
+      assert(isMain(), "updateThreads must be called from main thread");
       let localLength = floorToMultipleOf4(totalLength * localRatio);
       let [global, local] = MemorySection.createGlobalAndLocal(
         memory,
@@ -274,6 +280,7 @@ class MemorySection {
     assert(lengthFirstThread % 4 === 0);
 
     let globalLength = totalLength - localLength - offset;
+    // log(`global section: ${offset} - ${offset + globalLength}`);
     let globalSection = new MemorySection(
       memory,
       offset,
@@ -286,10 +293,12 @@ class MemorySection {
     if (thread > 0) {
       localOffset += lengthFirstThread + (thread - 1) * lengthPerThread;
     }
+    let localSectionLength = thread === 0 ? lengthFirstThread : lengthPerThread;
+    // log(`local section: ${localOffset} - ${localOffset + localSectionLength}`);
     let localSection = new MemorySection(
       memory,
       localOffset,
-      thread === 0 ? lengthFirstThread : lengthPerThread,
+      localSectionLength,
       n,
       false
     );

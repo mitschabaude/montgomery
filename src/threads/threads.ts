@@ -1,4 +1,5 @@
 import { Worker, parentPort } from "node:worker_threads";
+import type { EventEmitter } from "node:events";
 import { availableParallelism } from "node:os";
 import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
@@ -155,14 +156,11 @@ class ThreadPool {
         THREADS: T,
         sharedArray: sharedArray.buffer,
       } satisfies Message);
-      let initPromise = new Promise<void>((resolve) => {
-        worker.on("message", function handler(message: Message) {
-          if (message.type === MessageType.ANSWER && message.callId === 0) {
-            worker.off("message", handler);
-            resolve();
-          }
-        });
-      });
+      let initPromise = awaitEvent(
+        worker,
+        "message",
+        (m: Message) => m.type === MessageType.ANSWER && m.callId === 0
+      );
       promises.push(initPromise);
       workers.push(worker);
     }
@@ -184,24 +182,18 @@ class ThreadPool {
         ? func
         : withNamespace((func as any)[NAMESPACE], func.name);
     let promises = this.workers.map((worker) => {
-      return new Promise<void>((resolve, reject) => {
-        let callId = Math.random();
-        worker.postMessage({
-          type: MessageType.CALL,
-          func: funcName,
-          args,
-          callId,
-        } satisfies Message);
-        worker.on("message", function handler(message: Message) {
-          if (
-            message.type === MessageType.ANSWER &&
-            message.callId === callId
-          ) {
-            worker.off("message", handler);
-            resolve();
-          }
-        });
-      });
+      let callId = Math.random();
+      worker.postMessage({
+        type: MessageType.CALL,
+        func: funcName,
+        args,
+        callId,
+      } satisfies Message);
+      return awaitEvent(
+        worker,
+        "message",
+        (m: Message) => m.type === MessageType.ANSWER && m.callId === callId
+      );
     });
     return Promise.all(promises);
   }
@@ -281,6 +273,21 @@ function withNamespace(namespace: string | undefined, string: string) {
   return `${namespace};${string}`;
 }
 
+function awaitEvent<E>(
+  target: EventEmitter,
+  name: string,
+  filter?: (event: E) => boolean
+): Promise<E> {
+  return new Promise((resolve) => {
+    target.on(name, function handler(event: E) {
+      if (filter === undefined || filter(event)) {
+        target.off(name, handler);
+        resolve(event);
+      }
+    });
+  });
+}
+
 // concurrent programming primitives
 
 const LOCKED = 1;
@@ -316,6 +323,7 @@ async function barrier() {
       `${thread}: bad sync #${barrierCount}, got ${returnValue}`
     );
   }
+  // log(`leaving barrier ${barrierCount}`);
   barrierCount++;
 }
 
