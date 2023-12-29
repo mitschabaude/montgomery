@@ -11,8 +11,6 @@ export { create };
 
 const NAME = "BLS13-377";
 
-setDebug(true);
-
 let pool = ThreadPool.createInactive(import.meta.url);
 pool.register(NAME, create);
 
@@ -34,7 +32,7 @@ async function create(wasm?: WasmArtifacts) {
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);
-      await pool.start(n); // TODO timing bug, surfaces only if this await is added
+      await pool.start(n);
       Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts);
     },

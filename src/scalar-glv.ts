@@ -50,7 +50,7 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
 
   const glvHelpers = memoryHelpers(q, w, glvWasm);
 
-  let scratch = glvHelpers.getStablePointers(10);
+  let scratch = glvHelpers.local.getStablePointers(10);
   let [scratchPtr, scratchPtr2, scratchPtr3] = scratch;
 
   function testDecomposeScalar(scalar: bigint) {
@@ -106,7 +106,8 @@ async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
 
   const glvHelpers = memoryHelpers(lambda, w, glvWasm);
 
-  let [scratchPtr, , bytesPtr, bytesPtr2] = glvHelpers.getStablePointers(5);
+  let [scratchPtr, , bytesPtr, bytesPtr2] =
+    glvHelpers.local.getStablePointers(5);
 
   function writeBytesDouble(pointer: number, bytes: Uint8Array) {
     let arr = new Uint8Array(glvWasm.memory.buffer, bytesPtr, 2 * 4 * n);

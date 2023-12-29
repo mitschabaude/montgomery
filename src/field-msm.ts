@@ -196,6 +196,13 @@ async function createFieldFromWasm(
      */
     inverse: wasm.inverse,
     ...helpers,
+    // TODO this is brittle.. don't spread helpers object here, it has internal state
+    // instead have a `memory` property on the field object, and use that everywhere
+    updateThreads() {
+      helpers.updateThreads();
+      this.global = helpers.global;
+      this.local = helpers.local;
+    },
     constants,
     roots,
     memoryBytes,

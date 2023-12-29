@@ -15,6 +15,7 @@ export {
   ThreadPool,
   setDebug,
   log,
+  logMain,
   sharedArray,
   range,
   rangeMain,
@@ -39,6 +40,10 @@ function isParallel() {
 
 function log(...args: any) {
   console.log(`${thread}:`, ...args);
+}
+
+function logMain(...args: any) {
+  if (isMain()) console.log("main:", ...args);
 }
 
 let DEBUG = false;

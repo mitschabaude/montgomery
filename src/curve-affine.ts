@@ -57,7 +57,7 @@ function createCurveAffine(
   b: bigint
 ) {
   // write b to memory
-  let [bPtr] = Field.getStablePointers(1);
+  let [bPtr] = Field.local.getStablePointers(1);
   Field.writeBigint(bPtr, b);
   Field.toMontgomery(bPtr);
 
@@ -183,6 +183,17 @@ function createCurveAffine(
     return points;
   }
 
+  function assertOnCurve([y2, y2_]: number[], p: number) {
+    let [x, y] = affineCoords(p);
+    square(y2, x);
+    multiply(y2, y2, x);
+    add(y2, y2, bPtr);
+    Field.reduce(y2);
+    Field.square(y2_, y);
+    Field.reduce(y2_);
+    assert(Field.isEqual(y2_, y2) === 1, "point on curve");
+  }
+
   function isZero(pointer: number) {
     return !memoryBytes[pointer + 2 * sizeField];
   }
@@ -264,6 +275,7 @@ function createCurveAffine(
     doubleAffine,
     scale,
     toSubgroupInPlace,
+    assertOnCurve,
     isZeroAffine: isZero,
     copyAffine,
     affineCoords,

@@ -1,11 +1,5 @@
 import { montgomeryParams } from "../field-util.js";
-import {
-  THREADS,
-  isMain,
-  isParallel,
-  log,
-  thread,
-} from "../threads/threads.js";
+import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
 import { assert } from "../util.js";
 
 export { memoryHelpers, MemoryHelpers };
@@ -112,13 +106,6 @@ function memoryHelpers(
      */
     getPointers(N: number, size = n * 4) {
       return obj.global.getPointers(N, size);
-    },
-
-    /**
-     * @param N
-     */
-    getStablePointers(N: number) {
-      return obj.global.getStablePointers(N);
     },
 
     /**
@@ -261,7 +248,6 @@ class MemorySection {
     let current = this.offset;
     return {
       [Symbol.dispose]: () => {
-        // console.log(`resetting offset from ${this.offset} to ${current}`);
         this.offset = current;
       },
     };

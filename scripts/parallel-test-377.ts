@@ -26,15 +26,11 @@ toc();
 
 await BLS12_377.stopThreads();
 
-tic("random scalars");
-let scalars = Random.randomScalars(N);
-let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
-toc();
-
 tic("convert points to bigint & check");
+let scratch = BLS12_377.Field.getPointers(5);
 let pointsBigint = points.map((gPtr) => {
   let g = BLS12_377.CurveAffine.toBigint(gPtr);
-  console.log(gPtr, g);
+  BLS12_377.CurveAffine.assertOnCurve(scratch, gPtr);
   assert(g.x < Field.p, "x < p");
   assert(g.y < Field.p, "y < p");
   assert(checkOnCurve(g, Field.p, CurveAffine.b), "point on curve");
@@ -53,10 +49,15 @@ let sourceBytes = BLS12_377.Field.memoryBytes.subarray(
 Field.memoryBytes.set(sourceBytes, targetPtr);
 toc();
 
+tic("random scalars");
+let scalars = Random.randomScalars(N);
+let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
+toc();
+
 tic("msm (core)");
 let s0 = msm(scalarPtr, points[0], N);
-let scratch = Field.getPointers(40);
-let s = msmUtil.toAffineOutputBigint(scratch, s0);
+let scratch_ = Field.getPointers(40);
+let s = msmUtil.toAffineOutputBigint(scratch_, s0);
 toc();
 
 if (n < 10) {
