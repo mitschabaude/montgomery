@@ -9,8 +9,7 @@ import {
   toPackedBytes,
 } from "./wasm/field-helpers.js";
 import { mod, montgomeryParams } from "./field-util.js";
-import { UnwrapPromise } from "./types.js";
-// import { writeWat } from "./wasm/wat-helpers.js";
+import { UnwrapPromise, WasmArtifacts } from "./types.js";
 
 export {
   createGlvScalar,
@@ -30,7 +29,29 @@ type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 /**
  * scalar module for MSM with GLV
  */
-async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
+async function createGlvScalar(
+  params: {
+    q: bigint;
+    lambda: bigint;
+    w: number;
+  },
+  wasm?: WasmArtifacts
+) {
+  return await createGlvScalarWasm(params);
+}
+
+/**
+ * scalar module for MSM with GLV
+ */
+async function createGlvScalarWasm({
+  q,
+  lambda,
+  w,
+}: {
+  q: bigint;
+  lambda: bigint;
+  w: number;
+}) {
   const { n, lengthP } = montgomeryParams(q, w);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
 
@@ -65,11 +86,6 @@ async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
     let isCorrect = mod(s0 + s1 * lambda, q) === scalar;
     return isCorrect;
   }
-
-  // await writeWat(
-  //   import.meta.url.slice(7).replace(".ts", ".wat"),
-  //   module.toBytes()
-  // );
 
   return {
     ...glvHelpers,
