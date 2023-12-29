@@ -4,7 +4,7 @@
 import { CurveAffine, getSizeAffine } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
 import { MsmField } from "./field-msm.js";
-import { GeneralGlvScalar } from "./scalar-glv.js";
+import { GlvScalar } from "./scalar-glv.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve, BigintPoint, BytesPoint };
@@ -13,7 +13,7 @@ export { bigintPointsToMemory, bigintScalarsToMemory };
 
 type MsmCurve = {
   Field: MsmField;
-  Scalar: GeneralGlvScalar;
+  Scalar: GlvScalar;
   CurveAffine: CurveAffine;
   CurveProjective: CurveProjective;
 };
@@ -865,7 +865,7 @@ function bigintPointsToMemory(
 }
 
 function bigintScalarsToMemory(
-  { sizeField: sizeScalar, getPointer, writeBigint }: GeneralGlvScalar,
+  { sizeField: sizeScalar, getPointer, writeBigint }: GlvScalar,
   inputScalars: bigint[]
 ) {
   let N = inputScalars.length;

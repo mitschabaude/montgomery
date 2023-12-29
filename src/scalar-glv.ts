@@ -14,23 +14,23 @@ import { UnwrapPromise } from "./types.js";
 
 export {
   createGlvScalar,
-  createGeneralGlvScalar,
   GlvScalar,
-  GeneralGlvScalar,
+  createSpecialGlvScalar,
+  SpecialGlvScalar,
   createSimpleScalar,
   SimpleScalar,
 };
 
-type GeneralGlvScalar = UnwrapPromise<
-  ReturnType<typeof createGeneralGlvScalar>
->;
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
+type SpecialGlvScalar = UnwrapPromise<
+  ReturnType<typeof createSpecialGlvScalar>
+>;
 type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 
 /**
  * scalar module for MSM with GLV
  */
-async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
+async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n, lengthP } = montgomeryParams(q, w);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
 
@@ -84,7 +84,7 @@ async function createGeneralGlvScalar(q: bigint, lambda: bigint, w: number) {
 /**
  * scalar module for MSM with GLV
  */
-async function createGlvScalar(q: bigint, lambda: bigint, w: number) {
+async function createSpecialGlvScalar(q: bigint, lambda: bigint, w: number) {
   const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w);
   const { decompose, decomposeNoMsb } = glv(q, lambda, w);
 

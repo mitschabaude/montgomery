@@ -2,7 +2,7 @@ import type * as W from "wasmati";
 import { randomGenerators } from "../field-util.js";
 import { p, q, b, beta, lambda } from "./pasta.params.js";
 import { createMsmField } from "../field-msm.js";
-import { createGeneralGlvScalar } from "../scalar-glv.js";
+import { createGlvScalar } from "../scalar-glv.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createMsm } from "../msm.js";
@@ -13,7 +13,7 @@ export { Bigint, Field, Scalar, CurveAffine, CurveProjective, Random };
 export { msm, msmUnsafe, msmUtil };
 
 const Field = await createMsmField({ p, beta, w: 29 });
-const Scalar = await createGeneralGlvScalar(q, lambda, 29);
+const Scalar = await createGlvScalar(q, lambda, 29);
 const CurveProjective = createCurveProjective(Field);
 const CurveAffine = createCurveAffine(Field, CurveProjective, b);
 const MsmInputs = { Field, Scalar, CurveAffine, CurveProjective };
