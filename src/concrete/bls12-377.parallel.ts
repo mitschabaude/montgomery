@@ -6,6 +6,7 @@ import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { ThreadPool, setDebug } from "../threads/threads.js";
 import { createRandomPointsFast } from "../curve-random-parallel.js";
+import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
 
 export { create };
 
@@ -14,11 +15,15 @@ const NAME = "BLS13-377";
 let pool = ThreadPool.createInactive(import.meta.url);
 pool.register(NAME, create);
 
-async function create(wasm?: WasmArtifacts) {
+async function create(
+  wasm?: WasmArtifacts,
+  scalarWasmParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
+) {
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField({ p, beta, w: 29 }, wasm);
+  const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasmParams);
   const CurveProjective = createCurveProjective(Field, h);
   const CurveAffine = createCurveAffine(Field, CurveProjective, b);
   const Inputs = { Field, CurveAffine, CurveProjective };
@@ -27,6 +32,7 @@ async function create(wasm?: WasmArtifacts) {
 
   return {
     Field,
+    Scalar,
     CurveAffine,
     randomPointsFast,
 
@@ -34,7 +40,7 @@ async function create(wasm?: WasmArtifacts) {
       console.log(`starting ${n} workers`);
       await pool.start(n);
       Field.updateThreads();
-      await pool.callWorkers(create, Field.wasmArtifacts);
+      await pool.callWorkers(create, Field.wasmArtifacts, Scalar.wasmParams);
     },
 
     async stopThreads() {

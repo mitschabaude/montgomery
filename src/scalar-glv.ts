@@ -14,6 +14,7 @@ import { UnwrapPromise, WasmArtifacts } from "./types.js";
 export {
   createGlvScalar,
   GlvScalar,
+  GlvScalarParams,
   createSpecialGlvScalar,
   SpecialGlvScalar,
   createSimpleScalar,
@@ -27,6 +28,7 @@ type SpecialGlvScalar = UnwrapPromise<
 type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 
 type Params = { q: bigint; lambda: bigint; w: number };
+type GlvScalarParams = Params & { n0: number; maxBits: number };
 
 /**
  * scalar module for MSM with GLV
@@ -127,8 +129,7 @@ async function createGlvScalarFromWasm(
   }
 
   return {
-    fullParams: params,
-    wasmArtifacts,
+    wasmParams: { wasm: wasmArtifacts, fullParams: params },
     ...glvHelpers,
     // TODO this is brittle.. don't spread helpers object here, it has internal state
     // instead have a `memory` property on the field object, and use that everywhere
