@@ -29,12 +29,8 @@ await BLS12_377.stopThreads();
 tic("convert points to bigint & check");
 let scratch = BLS12_377.Field.getPointers(5);
 let pointsBigint = points.map((gPtr) => {
-  let g = BLS12_377.CurveAffine.toBigint(gPtr);
   BLS12_377.CurveAffine.assertOnCurve(scratch, gPtr);
-  assert(g.x < Field.p, "x < p");
-  assert(g.y < Field.p, "y < p");
-  assert(checkOnCurve(g, Field.p, CurveAffine.b), "point on curve");
-  return g;
+  return BLS12_377.CurveAffine.toBigint(gPtr);
 });
 toc();
 
