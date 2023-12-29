@@ -9,6 +9,7 @@ export {
   thread,
   THREADS,
   isMain,
+  isParallel,
   expose,
   ThreadPool,
   setDebug,
@@ -31,6 +32,10 @@ let sharedArray = new Int32Array(new SharedArrayBuffer(4 * SHARED_POINTERS));
 function isMain() {
   return thread === 0;
 }
+function isParallel() {
+  return THREADS > 1;
+}
+
 function log(...args: any) {
   console.log(`${thread}:`, ...args);
 }

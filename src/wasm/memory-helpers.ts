@@ -1,5 +1,5 @@
 import { montgomeryParams } from "../field-util.js";
-import { THREADS, thread } from "../threads/threads.js";
+import { THREADS, isParallel, thread } from "../threads/threads.js";
 import { assert } from "../util.js";
 
 export { memoryHelpers, MemoryHelpers };
@@ -327,9 +327,12 @@ class MemorySection {
    */
   getZeroPointers(N: number, size = this.n * 4) {
     let offset = this.offset;
-    assert(!this.isShared, "zero pointers only implemented for local memory");
+    assert(
+      !this.isShared || !isParallel(),
+      "zero pointers only implemented for local memory"
+    );
     // TODO this logic is not valid, needs a lock
-    if (this.isShared) {
+    if (this.isShared && isParallel()) {
       assert(size % 4 === 0, "pointer size must be a multiple of 4");
       // zero out the memory with Atomic.store
       let n = N * (size / 4);

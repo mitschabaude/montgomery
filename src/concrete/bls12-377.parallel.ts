@@ -27,6 +27,7 @@ async function create(wasm?: WasmArtifacts) {
 
   return {
     Field,
+    CurveAffine,
     randomPointsFast,
 
     async startThreads(n: number) {
@@ -35,6 +36,7 @@ async function create(wasm?: WasmArtifacts) {
       Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts);
     },
+
     async stopThreads() {
       await pool.stop();
       Field.updateThreads();
