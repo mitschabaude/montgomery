@@ -1,8 +1,7 @@
 // fast random point generation
 
-import { tic, toc } from "./extra/tictoc.js";
 import type { MsmCurve } from "./msm.js";
-import { barrier, isMain, range } from "./threads/threads.js";
+import { barrier, range } from "./threads/threads.js";
 import { assert, randomBytes } from "./util.js";
 
 export { createRandomPointsFast };
@@ -21,13 +20,8 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
-    ticMain("random points");
-    if (isMain()) console.log("");
-
     let { Field, CurveAffine, CurveProjective } = msmCurve;
 
-    ticMain("preparation");
-    await barrier();
     let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
@@ -37,10 +31,8 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     // split entropy into k windows of size c
     let c = windowSize;
     let K = Math.ceil(entropy / c);
-    tocMain();
 
     // 1. precompute basis point G and multiples: 0, G, ..., (2^c-1)*G
-    ticMain("precompute basis/multiples");
     let L = 1 << c;
     let B = Array<number[]>(K);
     for (let k = 0; k < K; k++) {
@@ -67,13 +59,9 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
       }
       B[k] = Bk;
     }
-    tocMain();
-    ticMain("precompute basis/multiples (wait)");
     await barrier();
-    tocMain();
 
     // 2. generate random points by taking a sum of random basis multiples
-    ticMain("random points");
     let points = Field.global.getPointers(n, CurveProjective.sizeProjective);
 
     for (let [i, ie] = range(n); i < ie; i++) {
@@ -85,23 +73,15 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
         CurveProjective.addAssign(scratch, P, B[k][l]);
       }
     }
-    tocMain();
 
     // 3. convert to affine
-    ticMain("convert to affine");
     let [start, end] = range(n);
     CurveAffine.batchFromProjective(
       scratch,
       pointsAffine.slice(start, end),
       points.slice(start, end)
     );
-    tocMain();
-
-    ticMain("random points (wait)");
     await barrier();
-    tocMain();
-
-    tocMain();
 
     return pointsAffine;
   };
@@ -118,11 +98,4 @@ function randomWindows(c: number, K: number) {
       cMask;
   }
   return windows;
-}
-
-function ticMain(s: string) {
-  if (isMain()) tic(s);
-}
-function tocMain() {
-  if (isMain()) toc();
 }
