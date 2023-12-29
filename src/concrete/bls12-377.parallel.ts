@@ -32,7 +32,7 @@ async function create(wasm?: WasmArtifacts) {
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);
-      pool.start(n);
+      await pool.start(n); // TODO timing bug, surfaces only if this await is added
       Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts);
     },

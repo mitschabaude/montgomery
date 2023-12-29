@@ -53,13 +53,13 @@ enum MessageType {
 
 type Message =
   | { type: MessageType.CALL; func: string; args: any[]; callId: number }
+  | { type: MessageType.ANSWER; callId: number }
   | {
       type: MessageType.INIT;
       thread: number;
       THREADS: number;
       sharedArray: ArrayBuffer;
-    }
-  | { type: MessageType.ANSWER; callId: number };
+    };
 
 const functions = new Map<string, (...args: any) => any>();
 
@@ -80,6 +80,7 @@ parentPort?.on("message", async (message: Message) => {
     thread = message.thread;
     THREADS = message.THREADS;
     sharedArray = new Int32Array(message.sharedArray);
+    parentPort?.postMessage({ type: MessageType.ANSWER, callId: 0 });
   }
 });
 
@@ -143,6 +144,7 @@ class ThreadPool {
     sharedArray.fill(0);
     this.isRunning = true;
     const workers = [];
+    let promises = [];
     for (let t = 1; t < T; t++) {
       let worker = new Worker(this.source);
       // TODO: do we want this?
@@ -153,9 +155,19 @@ class ThreadPool {
         THREADS: T,
         sharedArray: sharedArray.buffer,
       } satisfies Message);
+      let initPromise = new Promise<void>((resolve) => {
+        worker.on("message", function handler(message: Message) {
+          if (message.type === MessageType.ANSWER && message.callId === 0) {
+            worker.off("message", handler);
+            resolve();
+          }
+        });
+      });
+      promises.push(initPromise);
       workers.push(worker);
     }
     this.workers = workers;
+    return Promise.all(promises);
   }
 
   stop() {
@@ -163,6 +175,34 @@ class ThreadPool {
     this.isRunning = false;
     let promises = this.workers.map((worker) => worker.terminate());
     this.workers = [];
+    return Promise.all(promises);
+  }
+
+  callWorkers<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
+    let funcName =
+      typeof func === "string"
+        ? func
+        : withNamespace((func as any)[NAMESPACE], func.name);
+    let promises = this.workers.map((worker) => {
+      return new Promise<void>((resolve, reject) => {
+        let callId = Math.random();
+        worker.postMessage({
+          type: MessageType.CALL,
+          func: funcName,
+          args,
+          callId,
+        } satisfies Message);
+        worker.on("message", function handler(message: Message) {
+          if (
+            message.type === MessageType.ANSWER &&
+            message.callId === callId
+          ) {
+            worker.off("message", handler);
+            resolve();
+          }
+        });
+      });
+    });
     return Promise.all(promises);
   }
 
@@ -205,34 +245,6 @@ class ThreadPool {
       };
     }
     return parallelApi;
-  }
-
-  callWorkers<T extends AnyFunction>(func: string | T, ...args: Parameters<T>) {
-    let funcName =
-      typeof func === "string"
-        ? func
-        : withNamespace((func as any)[NAMESPACE], func.name);
-    let promises = this.workers.map((worker) => {
-      return new Promise<void>((resolve, reject) => {
-        let callId = Math.random();
-        worker.postMessage({
-          type: MessageType.CALL,
-          func: funcName,
-          args,
-          callId,
-        } satisfies Message);
-        worker.on("message", function handler(message: Message) {
-          if (
-            message.type === MessageType.ANSWER &&
-            message.callId === callId
-          ) {
-            worker.off("message", handler);
-            resolve();
-          }
-        });
-      });
-    });
-    return Promise.all(promises);
   }
 
   register<T extends Record<string, AnyFunction> | AnyFunction>(
