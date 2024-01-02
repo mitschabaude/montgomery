@@ -23,15 +23,30 @@ tic("random points");
 let points = await BLS12_377.randomPointsFast(N);
 toc();
 
+tic("random scalars fast");
+let scalarPtrs = await BLS12_377.randomScalarsFast(N);
+toc();
+
 await BLS12_377.stopThreads();
 
 tic("convert points to bigint & check");
 let scratch = BLS12_377.Field.getPointers(5);
-let pointsBigint = points.map((gPtr) => {
-  BLS12_377.CurveAffine.assertOnCurve(scratch, gPtr);
-  return BLS12_377.CurveAffine.toBigint(gPtr);
+let pointsBigint = points.map((g) => {
+  BLS12_377.CurveAffine.assertOnCurve(scratch, g);
+  return BLS12_377.CurveAffine.toBigint(g);
 });
 toc();
+
+tic("convert scalars to bigint & check");
+let scalarsBigint = scalarPtrs.map((s) => {
+  let scalar = BLS12_377.Scalar.readBigint(s);
+  assert(scalar < BLS12_377.Scalar.modulus);
+  return scalar;
+});
+assert(scalarsBigint.length === N);
+toc();
+
+console.log(scalarsBigint.slice(0, 10));
 
 tic("store points in main memory");
 let size = N * CurveAffine.sizeAffine;

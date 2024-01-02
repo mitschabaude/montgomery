@@ -22,6 +22,8 @@ export {
   barrier,
   lock,
   unlock,
+  assertIsMain,
+  shareOf,
 };
 
 let thread = 0;
@@ -36,6 +38,10 @@ function isMain() {
 }
 function isParallel() {
   return THREADS > 1;
+}
+
+function assertIsMain() {
+  assert(thread === 0, "this can only run on the main thread");
 }
 
 function log(...args: any) {
@@ -355,4 +361,11 @@ function range(n: number) {
 function rangeMain(n: number) {
   if (isMain()) return [0, n];
   return [0, 0];
+}
+
+function shareOf(n: number) {
+  let nt = Math.ceil(n / THREADS);
+  let start = Math.min(n, thread * nt);
+  let end = Math.min(n, thread === THREADS - 1 ? n : start + nt);
+  return end - start;
 }

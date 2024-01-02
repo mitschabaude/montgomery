@@ -5,11 +5,16 @@ import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { ThreadPool, setDebug } from "../threads/threads.js";
-import { createRandomPointsFast } from "../curve-random.js";
+import {
+  createRandomPointsFast,
+  createRandomScalars,
+} from "../curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
 import { randomGenerators } from "../field-util.js";
 
 export { create };
+
+setDebug(true);
 
 const NAME = "BLS13-377";
 
@@ -27,15 +32,17 @@ async function create(
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasmParams);
   const CurveProjective = createCurveProjective(Field, h);
   const CurveAffine = createCurveAffine(Field, CurveProjective, b);
-  const Inputs = { Field, CurveAffine, CurveProjective };
+  const Inputs = { Field, Scalar, CurveAffine, CurveProjective };
 
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
+  const randomScalarsFast = pool.register(NAME, createRandomScalars(Inputs));
 
   return {
     Field,
     Scalar,
     CurveAffine,
     randomPointsFast,
+    randomScalarsFast,
     randomScalars: randomGenerators(q).randomFields,
 
     async startThreads(n: number) {

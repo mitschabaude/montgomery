@@ -1,10 +1,11 @@
 // fast random point generation
 
 import type { MsmCurve } from "./msm.js";
-import { barrier, range } from "./threads/threads.js";
-import { assert, randomBytes } from "./util.js";
+import { barrier, range, shareOf } from "./threads/threads.js";
+import { assert, bigintFromBytes32, log2, randomBytes } from "./util.js";
+import { MemoryHelpers } from "./wasm/memory-helpers.js";
 
-export { createRandomPointsFast };
+export { createRandomPointsFast, createRandomScalars };
 
 function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
   /**
@@ -84,6 +85,60 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     await barrier();
 
     return pointsAffine;
+  };
+}
+
+function createRandomScalars(msmCurve: { Scalar: MsmCurve["Scalar"] }) {
+  return createRandomFields256(msmCurve.Scalar);
+}
+
+function createRandomFields256(
+  Field: {
+    modulus: bigint;
+    fromPackedBytes: (x: number, bytes: number) => void;
+  } & MemoryHelpers
+) {
+  let p = Field.modulus;
+  let sizeInBits = log2(p);
+  let size = Math.ceil(sizeInBits / 8);
+  assert(size === 32, "only supports 32-byte fields");
+  let sizeHighestByte = sizeInBits - 8 * (size - 1);
+  let msbMask = (1 << sizeHighestByte) - 1;
+
+  return async function randomFields(n: number) {
+    let fields = Field.global.getPointers(n);
+    using _ = Field.local.atCurrentOffset;
+    let scratchPtr = Field.local.getPointer(size);
+    let scratchBytes = new Uint8Array(
+      Field.memoryBytes.buffer,
+      scratchPtr,
+      size
+    );
+
+    let N = shareOf(n) * size * 2; // x2 to have buffer for rejected samples
+    let bytes = randomBytes(N);
+    let nBytesUsed = 0;
+
+    for (let [i, iend] = range(n); i < iend; i++) {
+      while (true) {
+        if (nBytesUsed + size > N) {
+          bytes = randomBytes(N);
+          nBytesUsed = 0;
+        }
+        let bytes_ = bytes.subarray(nBytesUsed, nBytesUsed + size);
+        bytes_[size - 1] &= msbMask;
+        nBytesUsed += size;
+        // TODO test > on bytes directly
+        let x = bigintFromBytes32(bytes_);
+        if (x < p) {
+          scratchBytes.set(bytes_);
+          Field.fromPackedBytes(fields[i], scratchPtr);
+          break;
+        }
+      }
+    }
+    await barrier();
+    return fields;
   };
 }
 

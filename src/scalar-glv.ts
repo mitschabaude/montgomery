@@ -130,6 +130,7 @@ async function createGlvScalarFromWasm(
 
   return {
     wasmParams: { wasm: wasmArtifacts, fullParams: params },
+    modulus: q,
     ...glvHelpers,
     // TODO this is brittle.. don't spread helpers object here, it has internal state
     // instead have a `memory` property on the field object, and use that everywhere
