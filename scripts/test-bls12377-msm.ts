@@ -19,7 +19,7 @@ console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("random points");
 let scratch = Field.getPointers(40);
-let points = Random.randomPointsFast(N, { entropy: 64, windowSize: 13 });
+let points = await Random.randomPointsFast(N, { entropy: 64, windowSize: 13 });
 let scalars = Random.randomScalars(N);
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();

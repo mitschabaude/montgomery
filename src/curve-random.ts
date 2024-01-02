@@ -1,6 +1,7 @@
 // fast random point generation
 
 import type { MsmCurve } from "./msm.js";
+import { barrier, range } from "./threads/threads.js";
 import { assert, randomBytes } from "./util.js";
 
 export { createRandomPointsFast };
@@ -15,32 +16,39 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
    * @param n number of points to generate
    * @param entropy number of random bits we generate each point from
    */
-  return function randomPointsFast(
+  return async function randomPointsFast(
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
     let { Field, CurveAffine, CurveProjective } = msmCurve;
-    let pointsAffine = Field.getPointers(n, CurveAffine.sizeAffine);
-    let offset = Field.getOffset();
-    let scratch = Field.getPointers(40);
+
+    let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
+    using _l = Field.local.atCurrentOffset;
+    using _g = Field.global.atCurrentOffset;
+
+    let scratch = Field.local.getPointers(40);
 
     // split entropy into k windows of size c
     let c = windowSize;
     let K = Math.ceil(entropy / c);
 
-    // 1. generate a random basis of size k
-    let basis = Field.getPointers(K, CurveAffine.sizeAffine);
-    CurveAffine.randomPoints(scratch, basis);
-
-    // 2. precompute multiples of each basis point: G, ..., 2^c*G
+    // 1. precompute basis point G and multiples: 0, G, ..., (2^c-1)*G
     let L = 1 << c;
-    let B = basis.map((Bk1) => {
-      let Bk = Field.getPointers(L, CurveProjective.sizeProjective);
+    let B = Array<number[]>(K);
+    for (let k = 0; k < K; k++) {
+      B[k] = Field.global.getPointers(L, CurveProjective.sizeProjective);
+    }
+    for (let [k, ke] = range(K); k < ke; k++) {
+      // compute random basis point
+      let basis = Field.local.getPointer(CurveAffine.sizeAffine);
+      CurveAffine.randomPoints(scratch, [basis]);
+
+      let Bk = B[k];
 
       // zeroth point is zero
       CurveProjective.setZero(Bk[0]);
       // first point is the basis point
-      CurveProjective.affineToProjective(Bk[1], Bk1);
+      CurveProjective.affineToProjective(Bk[1], basis);
       // second needs double
       CurveProjective.copy(Bk[2], Bk[1]);
       CurveProjective.doubleInPlace(scratch, Bk[2]);
@@ -49,13 +57,14 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
         CurveProjective.copy(Bk[l], Bk[l - 1]);
         CurveProjective.addAssign(scratch, Bk[l], Bk[1]);
       }
-      return Bk;
-    });
+      B[k] = Bk;
+    }
+    await barrier();
 
-    // 3. generate random points by taking a sum of random basis multiples
-    let points = Field.getPointers(n, CurveProjective.sizeProjective);
+    // 2. generate random points by taking a sum of random basis multiples
+    let points = Field.global.getPointers(n, CurveProjective.sizeProjective);
 
-    for (let i = 0; i < n; i++) {
+    for (let [i, ie] = range(n); i < ie; i++) {
       let windows = randomWindows(c, K);
       let P = points[i];
       CurveProjective.copy(P, B[0][windows[0]]);
@@ -65,23 +74,28 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
       }
     }
 
-    // 4. convert to affine
-    CurveAffine.batchFromProjective(scratch, pointsAffine, points);
+    // 3. convert to affine
+    let [start, end] = range(n);
+    CurveAffine.batchFromProjective(
+      scratch,
+      pointsAffine.slice(start, end),
+      points.slice(start, end)
+    );
+    await barrier();
 
-    Field.setOffset(offset);
     return pointsAffine;
   };
 }
 
-// console.log(pointsAffine.map((P) => CurveAffine.toBigint(P)));
-
 function randomWindows(c: number, K: number) {
-  assert(c <= 16, "can generate a window from 2 bytes");
+  assert(c <= 24, "can generate a window from 3 bytes");
   let cMask = (1 << c) - 1;
   let windows: number[] = new Array(K);
-  let bytes = randomBytes(2 * K);
+  let bytes = randomBytes(3 * K);
   for (let k = 0; k < K; k++) {
-    windows[k] = (bytes[2 * k] + 256 * bytes[2 * k + 1]) & cMask;
+    windows[k] =
+      (bytes[2 * k] + (bytes[2 * k + 1] << 8) + (bytes[2 * k + 2] << 16)) &
+      cMask;
   }
   return windows;
 }

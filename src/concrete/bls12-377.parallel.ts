@@ -5,8 +5,9 @@ import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { ThreadPool, setDebug } from "../threads/threads.js";
-import { createRandomPointsFast } from "../curve-random-parallel.js";
+import { createRandomPointsFast } from "../curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
+import { randomGenerators } from "../field-util.js";
 
 export { create };
 
@@ -35,6 +36,7 @@ async function create(
     Scalar,
     CurveAffine,
     randomPointsFast,
+    randomScalars: randomGenerators(q).randomFields,
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);

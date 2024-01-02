@@ -2,7 +2,6 @@ import { create } from "../src/concrete/bls12-377.parallel.js";
 import {
   CurveAffine,
   Field,
-  Random,
   Scalar,
   msm,
   msmUtil,
@@ -46,7 +45,7 @@ Field.memoryBytes.set(sourceBytes, targetPtr);
 toc();
 
 tic("random scalars");
-let scalars = Random.randomScalars(N);
+let scalars = BLS12_377.randomScalars(N);
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();
 
