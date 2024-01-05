@@ -39,6 +39,7 @@ assert(scalars.length === N);
 toc();
 
 tic("msm (core)");
+console.log();
 let sPtr = BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
 let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.CurveAffine.sizeAffine);
 BLS12_377.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);

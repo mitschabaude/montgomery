@@ -3,8 +3,10 @@
  */
 import { CurveAffine } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
+import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
+import { isMain } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -147,22 +149,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let doubleL = 2 * L;
 
     let sizeAffine2 = 2 * sizeAffine;
-    let sizeAffine4 = 4 * sizeAffine;
-    let pointPtr = Field.global.getPointer(N * sizeAffine4);
-    let sizeScalar2 = 2 * sizeScalar;
-    let scalarPtr = Field.global.getPointer(N * sizeScalar2);
-
-    let bucketCounts: number[][] = Array(K);
-    for (let k = 0; k < K; k++) {
-      bucketCounts[k] = Array(L + 1);
-      for (let l = 0; l <= L; l++) {
-        bucketCounts[k][l] = 0;
-      }
-    }
     let scratch = Field.global.getPointers(30);
-
-    let maxBucketSize = 0;
-    let nPairs = 0; // we need to allocate space for one pointer per addition pair
 
     /**
      * Preparation phase 1
@@ -170,9 +157,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      *
      * this phase is where we process inputs:
      * - store input points in wasm memory, in the format we need
-     *   - writing the bytes to wasm memory takes ~2% of total runtime
-     *   - we also turn point coordinates x,y to montgomery form;
-     *     takes ~1% of runtime (= small potential savings for not using montgomery)
      * - compute & store negative, endo, and negative-endo points
      * - decompose input scalars as `s = s0 + s1*lambda` and store s0, s1 in wasm memory
      * - walk over the c-bit windows of each scalar, to
@@ -181,162 +165,18 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      *
      * note: actual copying into buckets is done in the next phase!
      * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
-     *
-     * ### Performance
-     *
-     * this phase takes ~6% of the total, roughly made up of
-     *
-     * 1% bucket counts
-     * 1% turn coordinates to montgomery form
-     * 0.5% endomorphism
-     * 0.5% split scalars to slices
-     * 0.2% other processing of points (negation, copying)
-     * 0.1% GLV-decompose scalar
-     *
-     * it's hard to get perfect data from the profiler because this phase is a hodgepodge of so many different small pieces.
-     * also, there is ~2.7% of unexplained runtime which is spent somewhere in the JS logic.
-     * that said, most of the effort here, like writing to wasm memory and processing points, is necessitated
-     * by the architecture and can't be significantly reduced.
      */
-    for (
-      let i = 0,
-        point0 = pointPtr0,
-        point = pointPtr,
-        scalarInput = scalarPtr0,
-        scalar = scalarPtr;
-      i < N;
-      i++,
-        point0 += sizeAffine,
-        point += sizeAffine4,
-        scalarInput += sizeScalar,
-        scalar += sizeScalar2
-    ) {
-      // load scalar and decompose from one 32-byte into two 16-byte chunks
-      let scalar0 = scalar;
-      let scalar1 = scalar + sizeScalar;
-      let negateFlags = decompose(scalar0, scalar1, scalarInput);
-      let scalar0Negative = negateFlags & 1;
-      let scalar1Negative = negateFlags >> 1;
+    tic("prepare points & scalars");
+    let { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairs } =
+      preparePointsAndScalars(pointPtr0, scalarPtr0, { N, K, L, c });
+    toc();
 
-      let x = point;
-      let y = point + sizeField;
-
-      // copy original point to new, larger array
-      copy(x, point0);
-      copy(y, point0 + sizeField);
-      let isNonZero = memoryBytes[point0 + 2 * sizeField];
-      memoryBytes[point + 2 * sizeField] = isNonZero;
-
-      // -point, endo(point), -endo(point)
-      // this just takes 1 field multiplication for the endomorphism, and 1 subtraction
-      let negPoint = point + sizeAffine;
-      let endoPoint = negPoint + sizeAffine;
-      let negEndoPoint = endoPoint + sizeAffine;
-      copy(negPoint, x);
-
-      memoryBytes[negPoint + 2 * sizeField] = isNonZero;
-      endomorphism(endoPoint, point);
-      memoryBytes[endoPoint + 2 * sizeField] = isNonZero;
-      copy(negEndoPoint, endoPoint);
-      memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
-
-      if (scalar0Negative) {
-        copy(negPoint + sizeField, y);
-        subtract(y, constants.p, y);
-      } else {
-        subtract(negPoint + sizeField, constants.p, y);
-      }
-      if (scalar1Negative === scalar0Negative) {
-        copy(endoPoint + sizeField, y);
-        copy(negEndoPoint + sizeField, negPoint + sizeField);
-      } else {
-        copy(negEndoPoint + sizeField, y);
-        copy(endoPoint + sizeField, negPoint + sizeField);
-      }
-
-      // partition each 16-byte scalar into c-bit slices
-      for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
-        // compute kth slice from first half scalar
-        let l = extractBitSlice(scalar0, k * c, c) + carry0;
-
-        if (l > L) {
-          l = doubleL - l;
-          carry0 = 1;
-        } else {
-          carry0 = 0;
-        }
-        if (l !== 0) {
-          // if the slice is non-zero, increase bucket count
-          let bucketSize = ++bucketCounts[k][l];
-          if ((bucketSize & 1) === 0) nPairs++;
-          if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
-        }
-        // compute kth slice from second half scalar
-        // note: we repeat this code instead of merging both into a loop of size 2,
-        // because the latter would imply creating a throw-away array of size two for the scalars.
-        // creating such throw-away objects has a garbage collection cost
-        l = extractBitSlice(scalar1, k * c, c) + carry1;
-
-        if (l > L) {
-          l = doubleL - l;
-          carry1 = 1;
-        } else {
-          carry1 = 0;
-        }
-        if (l !== 0) {
-          // if the slice is non-zero, increase bucket count
-          let bucketSize = ++bucketCounts[k][l];
-          if ((bucketSize & 1) === 0) nPairs++;
-          if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
-        }
-      }
-    }
     /**
      * Preparation phase 2
      * -------------------
      *
      * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
-     *
-     * we actually do K of these counting sorts -- one for each partition.
-     *
-     * note that the first loop in that link -- counting bucket sizes -- was already performed above,
-     * and we have the `counts` stored in {@link bucketCounts}.
-     *
-     * here's how other parts of the linked algorithm correspond to our code:
-     * - array `input`: in our case, this is the array of (scalar, point) pairs created in phase 1.
-     *   note: when we say "array" here, we mean a range of memory locations which implicitly form an array.
-     * - the `key(...)` function for mapping `input` elements to integer "keys":
-     *   in our case, this is the function that computes the (kth) scalar slice belonging to each (scalar, point),
-     *   i.e. {@link extractBitSlice} which we used above (loop 1) and which is re-executed in loop 3
-     * - array `output`: in our case, we have one output array for each k. it's implicitly represented by a starting
-     *   pointer which, right below, is stored at `buckets[k][0]`. by incrementing the pointer by the size of an affine point,
-     *   we get to the next point.
-     *
-     * for our purposes, we don't only need sorting -- we also need to keep track of the indices
-     * where one bucket ends and the next one begins, to form correct addition pairs.
-     * these bucket bounds are stored in {@link buckets}.
-     *
-     * ## Performance
-     *
-     * this phase needs ~12% of total runtime (for 2^16 input points).
-     *
-     * this time is dominated by 8.5% for the {@link copyAffine} invocation at the end of 'loop #3'.
-     * it writes to an unpredictable memory location (randomly distributed bucket) in each iteration.
-     *
-     * unfortunately, copying points scales superlinearly with input size:
-     * for 2^18 input points, this phase already takes ~14% of runtime.
-     *
-     * as far as we can tell, this is still preferable to any other solutions we are aware of.
-     * solutions that avoid the copying / sorting step seem to incur plenty of time for both random reads and
-     * random writes during the bucket accumulation step, and end up being much slower -- especially or large inputs.
-     * the counting sort solution almost entirely avoids random reads, with the exception of
-     * reading random buckets from the relatively small {@link bucketCounts} helper array.
-     *
-     * there is not much other stuff happening in this phase:
-     * - 'loop #2' is negligible at < 0.1% of runtime.
-     * - 1-2% spent on {@link bucketCounts} reads/writes
-     * - 0.5% on {@link extractBitSlice}
      */
     let buckets: number[][] = Array(K);
     for (let k = 0; k < K; k++) {
@@ -462,6 +302,144 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
     copyProjective(result, finalSum);
     return result;
+  }
+
+  /**
+   * input: points and scalars
+   *
+   * output:
+   * - points in 4 variants: G, -G, endo(G), -endo(G)
+   *   with coordinates in Montgomery form
+   * - scalars decomposed into 2 half-size chunks
+   * - bucket counts
+   */
+  function preparePointsAndScalars(
+    pointPtr0: number,
+    scalarPtr0: number,
+    { N, K, L, c }: { N: number; K: number; L: number; c: number }
+  ) {
+    let sizeAffine4 = 4 * sizeAffine;
+    let pointPtr = Field.global.getPointer(N * sizeAffine4);
+    let sizeScalar2 = 2 * sizeScalar;
+    let scalarPtr = Field.global.getPointer(N * sizeScalar2);
+
+    // TODO
+    if (!isMain()) {
+      return {
+        pointPtr,
+        scalarPtr,
+        bucketCounts: [],
+        maxBucketSize: 0,
+        nPairs: 0,
+      };
+    }
+
+    let bucketCounts: number[][] = Array(K);
+    for (let k = 0; k < K; k++) {
+      bucketCounts[k] = Array(L + 1);
+      for (let l = 0; l <= L; l++) {
+        bucketCounts[k][l] = 0;
+      }
+    }
+
+    let maxBucketSize = 0;
+    let nPairs = 0; // we need to allocate space for one pointer per addition pair
+    let doubleL = 2 * L;
+
+    for (
+      let i = 0,
+        point0 = pointPtr0,
+        point = pointPtr,
+        scalarInput = scalarPtr0,
+        scalar = scalarPtr;
+      i < N;
+      i++,
+        point0 += sizeAffine,
+        point += sizeAffine4,
+        scalarInput += sizeScalar,
+        scalar += sizeScalar2
+    ) {
+      // load scalar and decompose from one 32-byte into two 16-byte chunks
+      let scalar0 = scalar;
+      let scalar1 = scalar + sizeScalar;
+      let negateFlags = decompose(scalar0, scalar1, scalarInput);
+      let scalar0Negative = negateFlags & 1;
+      let scalar1Negative = negateFlags >> 1;
+
+      let x = point;
+      let y = point + sizeField;
+
+      // copy original point to new, larger array
+      copy(x, point0);
+      copy(y, point0 + sizeField);
+      let isNonZero = memoryBytes[point0 + 2 * sizeField];
+      memoryBytes[point + 2 * sizeField] = isNonZero;
+
+      // -point, endo(point), -endo(point)
+      // this just takes 1 field multiplication for the endomorphism, and 1 subtraction
+      let negPoint = point + sizeAffine;
+      let endoPoint = negPoint + sizeAffine;
+      let negEndoPoint = endoPoint + sizeAffine;
+      copy(negPoint, x);
+
+      memoryBytes[negPoint + 2 * sizeField] = isNonZero;
+      endomorphism(endoPoint, point);
+      memoryBytes[endoPoint + 2 * sizeField] = isNonZero;
+      copy(negEndoPoint, endoPoint);
+      memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
+
+      if (scalar0Negative) {
+        copy(negPoint + sizeField, y);
+        subtract(y, constants.p, y);
+      } else {
+        subtract(negPoint + sizeField, constants.p, y);
+      }
+      if (scalar1Negative === scalar0Negative) {
+        copy(endoPoint + sizeField, y);
+        copy(negEndoPoint + sizeField, negPoint + sizeField);
+      } else {
+        copy(negEndoPoint + sizeField, y);
+        copy(endoPoint + sizeField, negPoint + sizeField);
+      }
+
+      // partition each 16-byte scalar into c-bit slices
+      for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
+        // compute kth slice from first half scalar
+        let l = extractBitSlice(scalar0, k * c, c) + carry0;
+
+        if (l > L) {
+          l = doubleL - l;
+          carry0 = 1;
+        } else {
+          carry0 = 0;
+        }
+        if (l !== 0) {
+          // if the slice is non-zero, increase bucket count
+          let bucketSize = ++bucketCounts[k][l];
+          if ((bucketSize & 1) === 0) nPairs++;
+          if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
+        }
+        // compute kth slice from second half scalar
+        // note: we repeat this code instead of merging both into a loop of size 2,
+        // because the latter would imply creating a throw-away array of size two for the scalars.
+        // creating such throw-away objects has a garbage collection cost
+        l = extractBitSlice(scalar1, k * c, c) + carry1;
+
+        if (l > L) {
+          l = doubleL - l;
+          carry1 = 1;
+        } else {
+          carry1 = 0;
+        }
+        if (l !== 0) {
+          // if the slice is non-zero, increase bucket count
+          let bucketSize = ++bucketCounts[k][l];
+          if ((bucketSize & 1) === 0) nPairs++;
+          if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
+        }
+      }
+    }
+    return { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairs };
   }
 
   /**
@@ -702,10 +680,16 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     for (let i = 0, tmpi = tmp; i < n; i++, tmpi += sizeField) {
       subtractPositive(tmpi, H[i], G[i]);
     }
+    tic();
     batchInverse(scratch[0], d, tmp, n);
+    let t = toc();
+    console.log(`batch inverse:\t ${((t / n) * 1e9).toFixed(1)}ns per input`);
+    tic();
     for (let i = 0, di = d; i < n; i++, di += sizeField) {
       addAffine(scratch[0], S[i], G[i], H[i], di);
     }
+    t = toc();
+    console.log(`batch add:\t ${((t / n) * 1e9).toFixed(1)}ns per input`);
   }
 
   /**

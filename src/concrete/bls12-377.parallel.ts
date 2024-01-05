@@ -35,7 +35,7 @@ async function create(
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
   const randomScalars = pool.register(NAME, createRandomScalars(Inputs));
 
-  const { msm } = createMsm(Inputs);
+  const { msmUnsafe } = createMsm(Inputs);
 
   return {
     Field,
@@ -47,7 +47,7 @@ async function create(
     randomScalars,
 
     // TODO parallelize
-    msm,
+    msm: msmUnsafe,
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);
