@@ -146,9 +146,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
-    let doubleL = 2 * L;
 
-    let sizeAffine2 = 2 * sizeAffine;
     let scratch = Field.global.getPointers(30);
 
     /**
@@ -178,72 +176,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
      */
-    let buckets: number[][] = Array(K);
-    for (let k = 0; k < K; k++) {
-      buckets[k] = Array(L + 1);
-      // the starting pointer for the array of points, in bucket order
-      buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
-    }
-    /**
-     * loop #2 of counting sort (for each k).
-     * "integrate" bucket counts, to become start / end indices (i.e., bucket bounds).
-     * while we're at it, we fill an array `buckets` with the same bucket bounds but in a
-     * more convenient format -- as memory addresses.
-     */
-    for (let k = 0; k < K; k++) {
-      let counts = bucketCounts[k];
-      let running = 0;
-      let bucketsK = buckets[k];
-      let runningIndex = bucketsK[0];
-      for (let l = 1; l <= L; l++) {
-        let count = counts[l];
-        counts[l] = running;
-        running += count;
-        runningIndex += count * sizeAffine;
-        bucketsK[l] = runningIndex;
-      }
-    }
-    /**
-     * loop #3 of counting sort (for each k).
-     * we loop over the input elements and re-compute in which bucket `l` they belong.
-     * by retrieving counts[l], we find the output position where a point should be stored in.
-     * at the beginning, counts[l] will be the 0 index of bucket l, but when we store a point we increment count[l]
-     * so that the next point in this bucket is stored at the next position.
-     *
-     * all in all, the result of this sorting is that points form a contiguous array, one bucket after another
-     * => this is fantastic for the batch additions in the next step
-     */
-    for (
-      // we loop over implicit arrays of points & scalars by taking their starting pointers and incrementing by the size of one element
-      // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
-      let i = 0, point = pointPtr, scalar = scalarPtr;
-      i < 2 * N;
-      i++, point += sizeAffine2, scalar += sizeScalar
-    ) {
-      // a point `A` and it's negation `-A` are stored next to each other
-      let negPoint = point + sizeAffine;
-      let carry = 0;
-      /**
-       * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
-       */
-      for (let k = 0; k < K; k++) {
-        let l = extractBitSlice(scalar, k * c, c) + carry;
-        if (l > L) {
-          l = doubleL - l;
-          carry = 1;
-        } else {
-          carry = 0;
-        }
-        if (l === 0) continue;
-        // compute the memory address in the bucket array where we want to store our point
-        let ptr0 = buckets[k][0];
-        let l0 = bucketCounts[k][l]++; // update start index, so the next point in this bucket lands at one position higher
-        let newPtr = ptr0 + l0 * sizeAffine; // this is where the point should be copied to
-        let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
-        // copy point to the bucket array -- expensive operation! (but it pays off)
-        copyAffine(newPtr, ptr);
-      }
-    }
+    tic("sort points");
+    let buckets = sortPoints(pointPtr, scalarPtr, bucketCounts, { N, K, L, c });
+    toc();
 
     // bucket accumulation
     {
@@ -440,6 +375,92 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
     }
     return { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairs };
+  }
+
+  /**
+   * input:\
+   * points, scalars and bucket counts returned from {@link preparePointsAndScalars}
+   *
+   * output:\
+   * buckets, which contain the points sorted in bucket order, for each partition
+   */
+  function sortPoints(
+    pointPtr: number,
+    scalarPtr: number,
+    bucketCounts: number[][],
+    { N, K, L, c }: { N: number; K: number; L: number; c: number }
+  ) {
+    let sizeAffine2 = 2 * sizeAffine;
+    let doubleL = 2 * L;
+
+    let buckets: number[][] = Array(K);
+    for (let k = 0; k < K; k++) {
+      buckets[k] = Array(L + 1);
+      // the starting pointer for the array of points, in bucket order
+      buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+    }
+    /**
+     * loop #2 of counting sort (for each k).
+     * "integrate" bucket counts, to become start / end indices (i.e., bucket bounds).
+     * while we're at it, we fill an array `buckets` with the same bucket bounds but in a
+     * more convenient format -- as memory addresses.
+     */
+    for (let k = 0; k < K; k++) {
+      let counts = bucketCounts[k];
+      let running = 0;
+      let bucketsK = buckets[k];
+      let runningIndex = bucketsK[0];
+      for (let l = 1; l <= L; l++) {
+        let count = counts[l];
+        counts[l] = running;
+        running += count;
+        runningIndex += count * sizeAffine;
+        bucketsK[l] = runningIndex;
+      }
+    }
+    /**
+     * loop #3 of counting sort (for each k).
+     * we loop over the input elements and re-compute in which bucket `l` they belong.
+     * by retrieving counts[l], we find the output position where a point should be stored in.
+     * at the beginning, counts[l] will be the 0 index of bucket l, but when we store a point we increment count[l]
+     * so that the next point in this bucket is stored at the next position.
+     *
+     * all in all, the result of this sorting is that points form a contiguous array, one bucket after another
+     * => this is fantastic for the batch additions in the next step
+     */
+    for (
+      // we loop over implicit arrays of points & scalars by taking their starting pointers and incrementing by the size of one element
+      // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
+      let i = 0, point = pointPtr, scalar = scalarPtr;
+      i < 2 * N;
+      i++, point += sizeAffine2, scalar += sizeScalar
+    ) {
+      // a point `A` and it's negation `-A` are stored next to each other
+      let negPoint = point + sizeAffine;
+      let carry = 0;
+      /**
+       * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
+       */
+      for (let k = 0; k < K; k++) {
+        let l = extractBitSlice(scalar, k * c, c) + carry;
+        if (l > L) {
+          l = doubleL - l;
+          carry = 1;
+        } else {
+          carry = 0;
+        }
+        if (l === 0) continue;
+        // compute the memory address in the bucket array where we want to store our point
+        let ptr0 = buckets[k][0];
+        let l0 = bucketCounts[k][l]++; // update start index, so the next point in this bucket lands at one position higher
+        let newPtr = ptr0 + l0 * sizeAffine; // this is where the point should be copied to
+        let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
+        // copy point to the bucket array -- expensive operation! (but it pays off)
+        copyAffine(newPtr, ptr);
+      }
+    }
+
+    return buckets;
   }
 
   /**
@@ -683,13 +704,25 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic();
     batchInverse(scratch[0], d, tmp, n);
     let t = toc();
-    console.log(`batch inverse:\t ${((t / n) * 1e9).toFixed(1)}ns per input`);
+    if (t > 0.001)
+      console.log(
+        `batch inverse:\t ${(t * 1e3).toFixed(0)}ms, ${n} points, ${(
+          (t / n) *
+          1e9
+        ).toFixed(1)}ns / point`
+      );
     tic();
     for (let i = 0, di = d; i < n; i++, di += sizeField) {
       addAffine(scratch[0], S[i], G[i], H[i], di);
     }
     t = toc();
-    console.log(`batch add:\t ${((t / n) * 1e9).toFixed(1)}ns per input`);
+    if (t > 0.001)
+      console.log(
+        `batch add:\t ${(t * 1e3).toFixed(0)}ms, ${n} points, ${(
+          (t / n) *
+          1e9
+        ).toFixed(1)}ns / point`
+      );
   }
 
   /**
