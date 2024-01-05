@@ -15,7 +15,7 @@ tic("random points");
 let pointsPtrs = await BLS12_377.randomPointsFast(N);
 toc();
 
-tic("random scalars fast");
+tic("random scalars");
 let scalarPtrs = await BLS12_377.randomScalars(N);
 toc();
 
@@ -39,8 +39,8 @@ assert(scalars.length === N);
 toc();
 
 tic("msm (core)");
-let s1Ptr = BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
-let s1 = BLS12_377.toAffineOutputBigint(scratch, s1Ptr);
+let sPtr = BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
+let s = BLS12_377.toAffineOutputBigint(scratch, sPtr);
 toc();
 
 if (n < 10) {
@@ -52,6 +52,6 @@ if (n < 10) {
     BLS12_377.Field
   );
   toc();
-  assert.deepEqual(s1, sBigint, "consistent results");
+  assert.deepEqual(s, sBigint, "consistent results");
   console.log("results are consistent!");
 }
