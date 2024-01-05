@@ -4,19 +4,19 @@ import { WasmArtifacts } from "../types.js";
 import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
-import { ThreadPool } from "../threads/threads.js";
 import {
   createRandomPointsFast,
   createRandomScalars,
 } from "../curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
 import { createMsm } from "../msm-parallel.js";
+import { pool } from "../threads/global-pool.js";
 
 export { create };
 
 const NAME = "BLS13-377";
 
-let pool = ThreadPool.createInactive(import.meta.url);
+pool.setSource(import.meta.url);
 pool.register(NAME, create);
 
 async function create(

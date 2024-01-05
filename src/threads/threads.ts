@@ -139,6 +139,10 @@ class ThreadPool {
     this.isRunning = workers.length > 0;
   }
 
+  setSource(source: URL | string) {
+    this.source = typeof source === "string" ? new URL(source) : source;
+  }
+
   static createInactive(source: URL | string) {
     return new ThreadPool(source, []);
   }

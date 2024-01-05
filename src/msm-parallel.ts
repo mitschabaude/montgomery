@@ -6,7 +6,8 @@ import { CurveProjective } from "./curve-projective.js";
 import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
-import { isMain } from "./threads/threads.js";
+import { broadcastFromMain } from "./threads/global-pool.js";
+import { isMain, log } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -123,7 +124,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     affineToProjective,
   } = CurveProjective;
 
-  function msm(
+  async function msm(
     scalarPtr0: number,
     pointPtr0: number,
     N: number,
@@ -149,6 +150,14 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     console.log({ n, K, c, c0 });
 
     let scratch = Field.global.getPointers(30);
+
+    // TODO: send shared buckets array to workers
+    // TODO: this crashes with the thread pool inactive
+    // let buckets_ = await broadcastFromMain(
+    //   "buckets",
+    //   () => new Uint8Array(new SharedArrayBuffer(K * (L + 1)))
+    // );
+    // log({ buckets_ });
 
     /**
      * Preparation phase 1
