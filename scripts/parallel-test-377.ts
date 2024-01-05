@@ -1,14 +1,6 @@
 import { create } from "../src/concrete/bls12-377.parallel.js";
-import {
-  CurveAffine,
-  Field,
-  Scalar,
-  msm,
-  msmUtil,
-} from "../src/concrete/bls12-377.js";
 import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { tic, toc } from "../src/extra/tictoc.js";
-import { bigintScalarsToMemory } from "../src/msm.js";
 import assert from "node:assert/strict";
 
 const BLS12_377 = await create();
@@ -20,7 +12,7 @@ let nThreads = Number(process.argv[4] ?? 16);
 await BLS12_377.startThreads(nThreads);
 
 tic("random points");
-let points = await BLS12_377.randomPointsFast(N);
+let pointsPtrs = await BLS12_377.randomPointsFast(N);
 toc();
 
 tic("random scalars fast");
@@ -31,7 +23,7 @@ await BLS12_377.stopThreads();
 
 tic("convert points to bigint & check");
 let scratch = BLS12_377.Field.getPointers(5);
-let pointsBigint = points.map((g) => {
+let points = pointsPtrs.map((g) => {
   BLS12_377.CurveAffine.assertOnCurve(scratch, g);
   return BLS12_377.CurveAffine.toBigint(g);
 });
@@ -46,31 +38,20 @@ let scalars = scalarPtrs.map((s) => {
 assert(scalars.length === N);
 toc();
 
-tic("store points in main memory");
-let size = N * CurveAffine.sizeAffine;
-let sourcePtr = points[0];
-let pointsPtr = Field.getPointer(size);
-let sourceBytes = BLS12_377.Field.memoryBytes.subarray(
-  sourcePtr,
-  sourcePtr + size
-);
-Field.memoryBytes.set(sourceBytes, pointsPtr);
-toc();
-
-tic("store scalars in main memory");
-let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
-toc();
-
 tic("msm (core)");
-let s0 = msm(scalarPtr, pointsPtr, N);
-let scratch_ = Field.getPointers(40);
-let s = msmUtil.toAffineOutputBigint(scratch_, s0);
+let s1Ptr = BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
+let s1 = BLS12_377.toAffineOutputBigint(scratch, s1Ptr);
 toc();
 
 if (n < 10) {
   tic("msm (simple, slow bigint impl)");
-  let sBigint = msmDumbAffine(scalars, pointsBigint, Scalar, Field);
+  let sBigint = msmDumbAffine(
+    scalars,
+    points,
+    BLS12_377.Scalar,
+    BLS12_377.Field
+  );
   toc();
-  assert.deepEqual(s, sBigint, "consistent results");
+  assert.deepEqual(s1, sBigint, "consistent results");
   console.log("results are consistent!");
 }

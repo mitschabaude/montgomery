@@ -4,13 +4,13 @@ import { WasmArtifacts } from "../types.js";
 import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { createCurveAffine } from "../curve-affine.js";
-import { ThreadPool, setDebug } from "../threads/threads.js";
+import { ThreadPool } from "../threads/threads.js";
 import {
   createRandomPointsFast,
   createRandomScalars,
 } from "../curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
-import { randomGenerators } from "../field-util.js";
+import { createMsm } from "../msm.js";
 
 export { create };
 
@@ -35,12 +35,19 @@ async function create(
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
   const randomScalars = pool.register(NAME, createRandomScalars(Inputs));
 
+  const { msm, toAffineOutputBigint } = createMsm(Inputs);
+
   return {
     Field,
     Scalar,
     CurveAffine,
+
     randomPointsFast,
     randomScalars,
+
+    // TODO parallelize
+    msm,
+    toAffineOutputBigint,
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);
