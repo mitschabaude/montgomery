@@ -405,36 +405,40 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
     }
 
-    let [G, gPtr] = Field.getEmptyPointersInMemory(nPairs); // holds first summands
-    let [H, hPtr] = Field.getEmptyPointersInMemory(nPairs); // holds second summands
-    let [denom] = Field.getPointersInMemory(nPairs, sizeField);
-    let [tmp] = Field.getPointersInMemory(nPairs, sizeField);
+    // bucket accumulation
+    {
+      using _ = Field.global.atCurrentOffset;
+      let G = new Uint32Array(nPairs); // holds first summands
+      let H = new Uint32Array(nPairs); // holds second summands
+      let denom = Uint32Array.from(Field.global.getPointers(nPairs, sizeField));
+      let tmp = Uint32Array.from(Field.global.getPointers(nPairs, sizeField));
 
-    // batch-add buckets into their first point, in `maxBucketSize` iterations
-    for (let m = 1; m < maxBucketSize; m *= 2) {
-      let p = 0;
-      let sizeAffineM = m * sizeAffine;
-      let sizeAffine2M = 2 * m * sizeAffine;
-      // walk over all buckets to identify point-pairs to add
-      for (let k = 0; k < K; k++) {
-        let bucketsK = buckets[k];
-        let nextBucket = bucketsK[0];
-        for (let l = 1; l <= L; l++) {
-          let point = nextBucket;
-          nextBucket = bucketsK[l];
-          for (; point + sizeAffineM < nextBucket; point += sizeAffine2M) {
-            G[p] = point;
-            H[p] = point + sizeAffineM;
-            p++;
+      // batch-add buckets into their first point, in `maxBucketSize` iterations
+      for (let m = 1; m < maxBucketSize; m *= 2) {
+        let p = 0;
+        let sizeAffineM = m * sizeAffine;
+        let sizeAffine2M = 2 * m * sizeAffine;
+        // walk over all buckets to identify point-pairs to add
+        for (let k = 0; k < K; k++) {
+          let bucketsK = buckets[k];
+          let nextBucket = bucketsK[0];
+          for (let l = 1; l <= L; l++) {
+            let point = nextBucket;
+            nextBucket = bucketsK[l];
+            for (; point + sizeAffineM < nextBucket; point += sizeAffine2M) {
+              G[p] = point;
+              H[p] = point + sizeAffineM;
+              p++;
+            }
           }
         }
-      }
-      nPairs = p;
-      // now (G,H) represents a big array of independent additions, which we batch-add
-      if (useSafeAdditions) {
-        batchAdd(scratch, tmp, denom, G, G, H, nPairs);
-      } else {
-        batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+        nPairs = p;
+        // now (G,H) represents a big array of independent additions, which we batch-add
+        if (useSafeAdditions) {
+          batchAdd(scratch, tmp, denom, G, G, H, nPairs);
+        } else {
+          batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+        }
       }
     }
     // we're done!!
@@ -497,10 +501,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
     }
 
-    let [runningSums] = Field.getEmptyPointersInMemory(n);
-    let [nextBuckets] = Field.getEmptyPointersInMemory(n);
-    let [d] = Field.getPointersInMemory(K * L, sizeField);
-    let [tmp] = Field.getPointersInMemory(K * L, sizeField);
+    let runningSums = new Uint32Array(n);
+    let nextBuckets = new Uint32Array(n);
+    let denom = Uint32Array.from(Field.global.getPointers(K * L, sizeField));
+    let tmp = Uint32Array.from(Field.global.getPointers(K * L, sizeField));
 
     // linear part of running sum computation / sums of the form x_(d*L0 + L0) + x(d*L0 + (L0-1)) + ...x_(d*L0 + 1), for d=0,...,D-1
     for (let l = L0 - 1; l > 0; l--) {
@@ -514,7 +518,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
       // add them; we add-assign the running sum to the next bucket and not the other way;
       // building up a list of intermediary partial sums at the pointers that were the buckets before
-      batchAdd(scratch, tmp, d, nextBuckets, nextBuckets, runningSums, n);
+      batchAdd(scratch, tmp, denom, nextBuckets, nextBuckets, runningSums, n);
     }
 
     // logarithmic part (i.e., logarithmic # of batchAdds / inversions; the # of EC adds is linear in K*D = K * 2^(c - c0))
@@ -533,7 +537,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           majorSums[p] = buckets[k][d * 2 * L1 + 1];
         }
       }
-      batchAdd(scratch, tmp, d, majorSums, majorSums, minorSums, p);
+      batchAdd(scratch, tmp, denom, majorSums, majorSums, minorSums, p);
     }
     // second logarithmic step: repeated doubling of some buckets until they hold square areas to fill up the triangle
     // first, double x_(d*L0 + 1), d=1,...,D-1, c0 times, so they all hold 2^c0 * x_(d*L0 + 1)
@@ -546,7 +550,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
     if (D > 1) {
       for (let j = 0; j < c0; j++) {
-        batchDoubleInPlace(scratch, tmp, d, minorSums, p);
+        batchDoubleInPlace(scratch, tmp, denom, minorSums, p);
       }
     }
     // now, double successively smaller sets of buckets until the biggest is 2^(c-1) * x_(2^(c-1) + 1)
@@ -559,7 +563,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           majorSums[p] = buckets[k][d * L1 + 1];
         }
       }
-      batchDoubleInPlace(scratch, tmp, d, majorSums, p);
+      batchDoubleInPlace(scratch, tmp, denom, majorSums, p);
     }
 
     // alright! now our buckets precisely fill up the big triangle
@@ -571,8 +575,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // round j: let m=2^j; (l,l+m) for l=1; l<L; l+=2*m
     // in the last round we want 1 pair (1, 1 + m=2^(c-1)), so we want m < 2**c = L
 
-    let [G] = Field.getEmptyPointersInMemory(K * L);
-    let [H] = Field.getEmptyPointersInMemory(K * L);
+    let G = new Uint32Array(K * L);
+    let H = new Uint32Array(K * L);
 
     for (let m = 1; m < L; m *= 2) {
       p = 0;
@@ -582,7 +586,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           H[p] = buckets[k][l + m];
         }
       }
-      batchAdd(scratch, tmp, d, G, G, H, p);
+      batchAdd(scratch, tmp, denom, G, G, H, p);
     }
 
     // finally, return the output sum of each partition as a projective point
