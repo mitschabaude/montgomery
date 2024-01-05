@@ -146,6 +146,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
+    console.log({ n, K, c, c0 });
 
     let scratch = Field.global.getPointers(30);
 
@@ -181,6 +182,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toc();
 
     // bucket accumulation
+    tic("bucket accumulation");
+    console.log();
     {
       using _ = Field.global.atCurrentOffset;
       let G = new Uint32Array(nPairs); // holds first summands
@@ -216,13 +219,17 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         }
       }
     }
+    toc();
     // we're done!!
     // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
 
     // second stage
+    tic("bucket reduction");
     let partialSums = reduceBucketsAffine(scratch, buckets, { c, c0, K, L });
+    toc();
 
     // third stage -- compute final sum
+    tic("final sum");
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
     let partialSum = partialSums[k];
@@ -236,6 +243,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       addAssignProjective(scratch, finalSum, partialSum);
     }
     copyProjective(result, finalSum);
+    toc();
     return result;
   }
 
