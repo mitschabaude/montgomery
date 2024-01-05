@@ -14,8 +14,6 @@ import { randomGenerators } from "../field-util.js";
 
 export { create };
 
-setDebug(true);
-
 const NAME = "BLS13-377";
 
 let pool = ThreadPool.createInactive(import.meta.url);
@@ -35,15 +33,14 @@ async function create(
   const Inputs = { Field, Scalar, CurveAffine, CurveProjective };
 
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
-  const randomScalarsFast = pool.register(NAME, createRandomScalars(Inputs));
+  const randomScalars = pool.register(NAME, createRandomScalars(Inputs));
 
   return {
     Field,
     Scalar,
     CurveAffine,
     randomPointsFast,
-    randomScalarsFast,
-    randomScalars: randomGenerators(q).randomFields,
+    randomScalars,
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);

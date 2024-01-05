@@ -46,7 +46,7 @@ function bigintToBytes(x: bigint, length: number | undefined): Uint8Array {
 }
 
 function bigintFromBytes32(bytes: Uint8Array) {
-  let words = new BigUint64Array(bytes.buffer);
+  let words = new BigUint64Array(bytes.buffer, bytes.byteOffset, 4);
   return words[0] | (words[1] << 64n) | (words[2] << 128n) | (words[3] << 192n);
 }
 

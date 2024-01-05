@@ -24,7 +24,7 @@ let points = await BLS12_377.randomPointsFast(N);
 toc();
 
 tic("random scalars fast");
-let scalarPtrs = await BLS12_377.randomScalarsFast(N);
+let scalarPtrs = await BLS12_377.randomScalars(N);
 toc();
 
 await BLS12_377.stopThreads();
@@ -38,15 +38,13 @@ let pointsBigint = points.map((g) => {
 toc();
 
 tic("convert scalars to bigint & check");
-let scalarsBigint = scalarPtrs.map((s) => {
+let scalars = scalarPtrs.map((s) => {
   let scalar = BLS12_377.Scalar.readBigint(s);
   assert(scalar < BLS12_377.Scalar.modulus);
   return scalar;
 });
-assert(scalarsBigint.length === N);
+assert(scalars.length === N);
 toc();
-
-console.log(scalarsBigint.slice(0, 10));
 
 tic("store points in main memory");
 let size = N * CurveAffine.sizeAffine;
@@ -59,8 +57,7 @@ let sourceBytes = BLS12_377.Field.memoryBytes.subarray(
 Field.memoryBytes.set(sourceBytes, targetPtr);
 toc();
 
-tic("random scalars");
-let scalars = BLS12_377.randomScalars(N);
+tic("store scalars in main memory");
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();
 
