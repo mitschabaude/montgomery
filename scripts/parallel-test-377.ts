@@ -40,7 +40,9 @@ toc();
 
 tic("msm (core)");
 let sPtr = BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
-let s = BLS12_377.toAffineOutputBigint(scratch, sPtr);
+let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.CurveAffine.sizeAffine);
+BLS12_377.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
+let s = BLS12_377.CurveAffine.toBigint(sAffinePtr);
 toc();
 
 if (n < 10) {

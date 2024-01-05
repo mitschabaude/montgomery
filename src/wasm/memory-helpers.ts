@@ -203,7 +203,7 @@ class MemorySection {
   length: number;
   memory: WebAssembly.Memory;
 
-  // default pointer size (= 1 field element) in uin32s
+  // default pointer size (= 1 field element) in uint32s
   n: number;
 
   // whether we have to take care of multiple threads operating on this memory section

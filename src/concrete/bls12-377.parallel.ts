@@ -10,7 +10,7 @@ import {
   createRandomScalars,
 } from "../curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
-import { createMsm } from "../msm.js";
+import { createMsm } from "../msm-parallel.js";
 
 export { create };
 
@@ -35,19 +35,19 @@ async function create(
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
   const randomScalars = pool.register(NAME, createRandomScalars(Inputs));
 
-  const { msm, toAffineOutputBigint } = createMsm(Inputs);
+  const { msm } = createMsm(Inputs);
 
   return {
     Field,
     Scalar,
     CurveAffine,
+    CurveProjective,
 
     randomPointsFast,
     randomScalars,
 
     // TODO parallelize
     msm,
-    toAffineOutputBigint,
 
     async startThreads(n: number) {
       console.log(`starting ${n} workers`);

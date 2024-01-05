@@ -88,7 +88,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
   };
 }
 
-function createRandomScalars(msmCurve: { Scalar: MsmCurve["Scalar"] }) {
+function createRandomScalars(msmCurve: Pick<MsmCurve, "Scalar">) {
   return createRandomFields256(msmCurve.Scalar);
 }
 
