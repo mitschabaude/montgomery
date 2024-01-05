@@ -49,12 +49,12 @@ toc();
 tic("store points in main memory");
 let size = N * CurveAffine.sizeAffine;
 let sourcePtr = points[0];
-let targetPtr = Field.getPointer(size);
+let pointsPtr = Field.getPointer(size);
 let sourceBytes = BLS12_377.Field.memoryBytes.subarray(
   sourcePtr,
   sourcePtr + size
 );
-Field.memoryBytes.set(sourceBytes, targetPtr);
+Field.memoryBytes.set(sourceBytes, pointsPtr);
 toc();
 
 tic("store scalars in main memory");
@@ -62,7 +62,7 @@ let scalarPtr = bigintScalarsToMemory(Scalar, scalars);
 toc();
 
 tic("msm (core)");
-let s0 = msm(scalarPtr, points[0], N);
+let s0 = msm(scalarPtr, pointsPtr, N);
 let scratch_ = Field.getPointers(40);
 let s = msmUtil.toAffineOutputBigint(scratch_, s0);
 toc();
