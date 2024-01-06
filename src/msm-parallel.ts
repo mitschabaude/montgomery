@@ -203,20 +203,18 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     if (isMain()) {
       integrateBucketCounts(bucketCounts, buckets, params);
     }
+    await barrier();
     toc();
 
-    log({ K: range(K) });
     tic("sort points");
-    if (isMain()) {
-      sortPoints(
-        buckets,
-        pointPtr,
-        scalarPtr,
-        bucketCounts,
-        scalarSlices,
-        params
-      );
-    }
+    sortPoints(
+      buckets,
+      pointPtr,
+      scalarPtr,
+      bucketCounts,
+      scalarSlices,
+      params
+    );
     await barrier();
     toc();
 
@@ -508,7 +506,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * all in all, the result of this sorting is that points form a contiguous array, one bucket after another
      * => this is fantastic for the batch additions in the next step
      */
-    for (let k = 0; k < K; k++) {
+    for (let [k, kend] = range(K); k < kend; k++) {
       let scalarSlicesK = scalarSlices[k];
       let bucketsK = buckets[k];
       let bucketCountsK = bucketCounts[k];
@@ -539,8 +537,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         copyAffine(newPtr, ptr);
       }
     }
-
-    return buckets;
   }
 
   /**

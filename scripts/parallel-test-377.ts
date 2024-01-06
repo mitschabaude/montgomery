@@ -20,7 +20,7 @@ let scalarPtrs = await BLS12_377.randomScalars(N);
 toc();
 
 tic("convert points to bigint & check");
-let scratch = BLS12_377.Field.getPointers(5);
+let scratch = BLS12_377.Field.local.getPointers(5);
 let points = pointsPtrs.map((g) => {
   BLS12_377.CurveAffine.assertOnCurve(scratch, g);
   return BLS12_377.CurveAffine.toBigint(g);
