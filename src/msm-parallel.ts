@@ -168,8 +168,14 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
      */
     tic("prepare points & scalars");
-    let { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairsMax } =
-      preparePointsAndScalars(pointPtr0, scalarPtr0, params);
+    let {
+      pointPtr,
+      scalarPtr,
+      bucketCounts,
+      scalarSlices,
+      maxBucketSize,
+      nPairsMax,
+    } = preparePointsAndScalars(pointPtr0, scalarPtr0, params);
     toc();
 
     /**
@@ -181,24 +187,35 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      */
     tic("share buckets");
     let buckets: Uint32Array[];
-    [bucketCounts, buckets, maxBucketSize, nPairsMax] = await broadcastFromMain(
-      "buckets",
-      () => {
+    [bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax] =
+      await broadcastFromMain("buckets", () => {
         let buckets: Uint32Array[] = Array(K);
         for (let k = 0; k < K; k++) {
           buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
           // the starting pointer for the array of points, in bucket order
           buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
         }
-        return [bucketCounts, buckets, maxBucketSize, nPairsMax];
-      }
-    );
+        return [bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax];
+      });
+    toc();
+
+    tic("integrate bucket counts");
+    if (isMain()) {
+      integrateBucketCounts(bucketCounts, buckets, params);
+    }
     toc();
 
     log({ K: range(K) });
     tic("sort points");
     if (isMain()) {
-      await sortPoints(buckets, pointPtr, scalarPtr, bucketCounts, params);
+      sortPoints(
+        buckets,
+        pointPtr,
+        scalarPtr,
+        bucketCounts,
+        scalarSlices,
+        params
+      );
     }
     await barrier();
     toc();
@@ -315,17 +332,17 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         pointPtr,
         scalarPtr,
         bucketCounts: [],
+        scalarSlices: [],
         maxBucketSize: 0,
         nPairsMax: 0,
       };
     }
 
     let bucketCounts: Uint32Array[] = Array(K);
+    let scalarSlices: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
       bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
-      for (let l = 0; l <= L; l++) {
-        bucketCounts[k][l] = 0;
-      }
+      scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
     }
 
     let maxBucketSize = 0;
@@ -399,6 +416,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         } else {
           carry0 = 0;
         }
+        scalarSlices[k][2 * i] = l | (carry0 << 31);
+
         if (l !== 0) {
           // if the slice is non-zero, increase bucket count
           let bucketSize = ++bucketCounts[k][l];
@@ -417,6 +436,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         } else {
           carry1 = 0;
         }
+        scalarSlices[k][2 * i + 1] = l | (carry1 << 31);
+
         if (l !== 0) {
           // if the slice is non-zero, increase bucket count
           let bucketSize = ++bucketCounts[k][l];
@@ -425,26 +446,21 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         }
       }
     }
-    return { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairsMax };
+    return {
+      pointPtr,
+      scalarPtr,
+      bucketCounts,
+      scalarSlices,
+      maxBucketSize,
+      nPairsMax,
+    };
   }
 
-  /**
-   * input:\
-   * points, scalars and bucket counts returned from {@link preparePointsAndScalars}
-   *
-   * output:\
-   * buckets bounds, which lay out the points sorted in bucket order, for each partition
-   */
-  async function sortPoints(
-    buckets: Uint32Array[],
-    pointPtr: number,
-    scalarPtr: number,
+  function integrateBucketCounts(
     bucketCounts: Uint32Array[],
-    { N, K, L, c }: { N: number; K: number; L: number; c: number }
+    buckets: Uint32Array[],
+    { K, L }: { K: number; L: number }
   ) {
-    let sizeAffine2 = 2 * sizeAffine;
-    let doubleL = 2 * L;
-
     /**
      * loop #2 of counting sort (for each k).
      * "integrate" bucket counts, to become start / end indices (i.e., bucket bounds).
@@ -464,6 +480,25 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         bucketsK[l] = runningIndex;
       }
     }
+  }
+
+  /**
+   * input:\
+   * points, scalars and bucket counts returned from {@link preparePointsAndScalars}
+   *
+   * output:\
+   * buckets bounds, which lay out the points sorted in bucket order, for each partition
+   */
+  function sortPoints(
+    buckets: Uint32Array[],
+    pointPtr: number,
+    scalarPtr: number,
+    bucketCounts: Uint32Array[],
+    scalarSlices: Uint32Array[],
+    { N, K, L, c }: { N: number; K: number; L: number; c: number }
+  ) {
+    let sizeAffine2 = 2 * sizeAffine;
+    let doubleL = 2 * L;
     /**
      * loop #3 of counting sort (for each k).
      * we loop over the input elements and re-compute in which bucket `l` they belong.
@@ -483,18 +518,15 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     ) {
       // a point `A` and it's negation `-A` are stored next to each other
       let negPoint = point + sizeAffine;
-      let carry = 0;
+
       /**
        * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
        */
       for (let k = 0; k < K; k++) {
-        let l = extractBitSlice(scalar, k * c, c) + carry;
-        if (l > L) {
-          l = doubleL - l;
-          carry = 1;
-        } else {
-          carry = 0;
-        }
+        let l = scalarSlices[k][i];
+        let carry = l >>> 31;
+        l &= 0x7f_ff_ff_ff;
+
         if (l === 0) continue;
         // compute the memory address in the bucket array where we want to store our point
         let ptr0 = buckets[k][0];
