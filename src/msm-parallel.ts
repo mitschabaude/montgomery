@@ -7,7 +7,7 @@ import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import { barrier, isMain, logMain, range } from "./threads/threads.js";
+import { barrier, isMain, log, logMain, range } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -181,7 +181,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      */
     tic("share buckets");
     let buckets: Uint32Array[];
-    [buckets, maxBucketSize, nPairsMax] = await broadcastFromMain(
+    [bucketCounts, buckets, maxBucketSize, nPairsMax] = await broadcastFromMain(
       "buckets",
       () => {
         let buckets: Uint32Array[] = Array(K);
@@ -190,11 +190,12 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           // the starting pointer for the array of points, in bucket order
           buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
         }
-        return [buckets, maxBucketSize, nPairsMax];
+        return [bucketCounts, buckets, maxBucketSize, nPairsMax];
       }
     );
     toc();
 
+    log({ K: range(K) });
     tic("sort points");
     if (isMain()) {
       await sortPoints(buckets, pointPtr, scalarPtr, bucketCounts, params);
@@ -319,9 +320,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       };
     }
 
-    let bucketCounts: number[][] = Array(K);
+    let bucketCounts: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
-      bucketCounts[k] = Array(L + 1);
+      bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
       for (let l = 0; l <= L; l++) {
         bucketCounts[k][l] = 0;
       }
@@ -438,7 +439,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     buckets: Uint32Array[],
     pointPtr: number,
     scalarPtr: number,
-    bucketCounts: number[][],
+    bucketCounts: Uint32Array[],
     { N, K, L, c }: { N: number; K: number; L: number; c: number }
   ) {
     let sizeAffine2 = 2 * sizeAffine;
