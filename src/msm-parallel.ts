@@ -168,7 +168,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
      */
     tic("prepare points & scalars");
-    let { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairs } =
+    let { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairsMax } =
       preparePointsAndScalars(pointPtr0, scalarPtr0, params);
     toc();
 
@@ -181,7 +181,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      */
     tic("share buckets");
     let buckets: Uint32Array[];
-    [buckets, maxBucketSize, nPairs] = await broadcastFromMain(
+    [buckets, maxBucketSize, nPairsMax] = await broadcastFromMain(
       "buckets",
       () => {
         let buckets: Uint32Array[] = Array(K);
@@ -190,7 +190,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           // the starting pointer for the array of points, in bucket order
           buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
         }
-        return [buckets, maxBucketSize, nPairs];
+        return [buckets, maxBucketSize, nPairsMax];
       }
     );
     toc();
@@ -206,12 +206,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic("bucket accumulation");
     if (isMain()) console.log();
 
-    let G = new Uint32Array(nPairs); // holds first summands
-    let H = new Uint32Array(nPairs); // holds second summands
-    // TODO get this to work to move space to global section
-    // let tmp = Uint32Array.from(Field.global.getPointers(nPairs, sizeField));
-    // let [nPairsStart, nPairsEnd] = range(nPairs);
-    // tmp = tmp.subarray(nPairsStart, nPairsEnd);
+    let G = new Uint32Array(nPairsMax); // holds first summands
+    let H = new Uint32Array(nPairsMax); // holds second summands
 
     // batch-add buckets into their first point, in `maxBucketSize` iterations
     for (let m = 1; m < maxBucketSize; m *= 2) {
@@ -235,7 +231,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           p++;
         }
       }
-      nPairs = p;
+      let nPairs = p;
       if (nPairs === 0) continue;
 
       using _ = Field.local.atCurrentOffset;
@@ -258,8 +254,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           ).toFixed(1)}ns / pair`
         );
     }
-
     toc();
+
     tic("bucket accumulation (wait)");
     await barrier();
     toc();
@@ -319,7 +315,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         scalarPtr,
         bucketCounts: [],
         maxBucketSize: 0,
-        nPairs: 0,
+        nPairsMax: 0,
       };
     }
 
@@ -332,7 +328,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
 
     let maxBucketSize = 0;
-    let nPairs = 0; // we need to allocate space for one pointer per addition pair
+    let nPairsMax = 0; // we need to allocate space for one pointer per addition pair
     let doubleL = 2 * L;
 
     for (
@@ -405,7 +401,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         if (l !== 0) {
           // if the slice is non-zero, increase bucket count
           let bucketSize = ++bucketCounts[k][l];
-          if ((bucketSize & 1) === 0) nPairs++;
+          if ((bucketSize & 1) === 0) nPairsMax++;
           if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
         }
         // compute kth slice from second half scalar
@@ -423,12 +419,12 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         if (l !== 0) {
           // if the slice is non-zero, increase bucket count
           let bucketSize = ++bucketCounts[k][l];
-          if ((bucketSize & 1) === 0) nPairs++;
+          if ((bucketSize & 1) === 0) nPairsMax++;
           if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
         }
       }
     }
-    return { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairs };
+    return { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairsMax };
   }
 
   /**
