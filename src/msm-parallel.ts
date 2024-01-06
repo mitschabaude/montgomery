@@ -495,10 +495,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     scalarPtr: number,
     bucketCounts: Uint32Array[],
     scalarSlices: Uint32Array[],
-    { N, K, L, c }: { N: number; K: number; L: number; c: number }
+    { N, K }: { N: number; K: number }
   ) {
     let sizeAffine2 = 2 * sizeAffine;
-    let doubleL = 2 * L;
     /**
      * loop #3 of counting sort (for each k).
      * we loop over the input elements and re-compute in which bucket `l` they belong.
@@ -509,28 +508,31 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * all in all, the result of this sorting is that points form a contiguous array, one bucket after another
      * => this is fantastic for the batch additions in the next step
      */
-    for (
-      // we loop over implicit arrays of points & scalars by taking their starting pointers and incrementing by the size of one element
-      // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
-      let i = 0, point = pointPtr, scalar = scalarPtr;
-      i < 2 * N;
-      i++, point += sizeAffine2, scalar += sizeScalar
-    ) {
-      // a point `A` and it's negation `-A` are stored next to each other
-      let negPoint = point + sizeAffine;
+    for (let k = 0; k < K; k++) {
+      let scalarSlicesK = scalarSlices[k];
+      let bucketsK = buckets[k];
+      let bucketCountsK = bucketCounts[k];
+      for (
+        // we loop over implicit arrays of points & scalars by taking their starting pointers and incrementing by the size of one element
+        // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
+        let i = 0, point = pointPtr, scalar = scalarPtr;
+        i < 2 * N;
+        i++, point += sizeAffine2, scalar += sizeScalar
+      ) {
+        // a point `A` and it's negation `-A` are stored next to each other
+        let negPoint = point + sizeAffine;
 
-      /**
-       * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
-       */
-      for (let k = 0; k < K; k++) {
-        let l = scalarSlices[k][i];
+        /**
+         * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
+         */
+        let l = scalarSlicesK[i];
         let carry = l >>> 31;
         l &= 0x7f_ff_ff_ff;
 
         if (l === 0) continue;
         // compute the memory address in the bucket array where we want to store our point
-        let ptr0 = buckets[k][0];
-        let l0 = bucketCounts[k][l]++; // update start index, so the next point in this bucket lands at one position higher
+        let ptr0 = bucketsK[0];
+        let l0 = bucketCountsK[l]++; // update start index, so the next point in this bucket lands at one position higher
         let newPtr = ptr0 + l0 * sizeAffine; // this is where the point should be copied to
         let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
         // copy point to the bucket array -- expensive operation! (but it pays off)
