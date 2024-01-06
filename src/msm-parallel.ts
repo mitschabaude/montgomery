@@ -236,17 +236,27 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         }
       }
       nPairs = p;
+      if (nPairs === 0) continue;
 
       using _ = Field.local.atCurrentOffset;
       let denom = Uint32Array.from(Field.local.getPointers(nPairs, sizeField));
       let tmp = Uint32Array.from(Field.local.getPointers(nPairs, sizeField));
 
       // now (G,H) represents a big array of independent additions, which we batch-add
+      tic();
       if (useSafeAdditions) {
         batchAdd(scratch, tmp, denom, G, G, H, nPairs);
       } else {
         batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
       }
+      let t = toc();
+      if (isMain() && t > 0)
+        console.log(
+          `batch add:\t ${(t * 1e3).toFixed(0)}ms, ${nPairs} pairs, ${(
+            (t / nPairs) *
+            1e9
+          ).toFixed(1)}ns / pair`
+        );
     }
 
     toc();
@@ -741,28 +751,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     for (let i = 0, tmpi = tmp; i < n; i++, tmpi += sizeField) {
       subtractPositive(tmpi, H[i], G[i]);
     }
-    tic();
     batchInverse(scratch[0], d, tmp, n);
-    let t = toc();
-    if (t > 0.001)
-      console.log(
-        `batch inverse:\t ${(t * 1e3).toFixed(0)}ms, ${n} points, ${(
-          (t / n) *
-          1e9
-        ).toFixed(1)}ns / point`
-      );
-    tic();
     for (let i = 0, di = d; i < n; i++, di += sizeField) {
       addAffine(scratch[0], S[i], G[i], H[i], di);
     }
-    t = toc();
-    if (t > 0.001)
-      console.log(
-        `batch add:\t ${(t * 1e3).toFixed(0)}ms, ${n} points, ${(
-          (t / n) *
-          1e9
-        ).toFixed(1)}ns / point`
-      );
   }
 
   /**
