@@ -7,7 +7,7 @@ import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import { isMain, log } from "./threads/threads.js";
+import { barrier, isMain, log } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -147,17 +147,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
+    let params = { N, K, L, c, c0 };
     console.log({ n, K, c, c0 });
 
     let scratch = Field.global.getPointers(30);
-
-    // TODO: send shared buckets array to workers
-    // TODO: this crashes with the thread pool inactive
-    // let buckets_ = await broadcastFromMain(
-    //   "buckets",
-    //   () => new Uint8Array(new SharedArrayBuffer(K * (L + 1)))
-    // );
-    // log({ buckets_ });
 
     /**
      * Preparation phase 1
@@ -176,7 +169,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      */
     tic("prepare points & scalars");
     let { pointPtr, scalarPtr, bucketCounts, maxBucketSize, nPairs } =
-      preparePointsAndScalars(pointPtr0, scalarPtr0, { N, K, L, c });
+      preparePointsAndScalars(pointPtr0, scalarPtr0, params);
     toc();
 
     /**
@@ -186,11 +179,30 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
      */
-    tic("sort points");
-    let buckets = sortPoints(pointPtr, scalarPtr, bucketCounts, { N, K, L, c });
+    tic("share buckets");
+    let buckets = await broadcastFromMain("buckets", () => {
+      let buckets: Uint32Array[] = Array(K);
+      for (let k = 0; k < K; k++) {
+        buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
+        // the starting pointer for the array of points, in bucket order
+        buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+      }
+      return buckets;
+    });
     toc();
 
-    // bucket accumulation
+    tic("sort points");
+    if (isMain()) {
+      await sortPoints(buckets, pointPtr, scalarPtr, bucketCounts, params);
+    }
+    await barrier();
+    toc();
+
+    // TODO
+    // log({ buckets });
+    if (!isMain()) return 0;
+
+    // first stage - bucket accumulation
     tic("bucket accumulation");
     console.log();
     {
@@ -234,7 +246,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // second stage
     tic("bucket reduction");
-    let partialSums = reduceBucketsAffine(scratch, buckets, { c, c0, K, L });
+    let partialSums = reduceBucketsAffine(scratch, buckets, params);
     toc();
 
     // third stage -- compute final sum
@@ -399,9 +411,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
    * points, scalars and bucket counts returned from {@link preparePointsAndScalars}
    *
    * output:\
-   * buckets, which contain the points sorted in bucket order, for each partition
+   * buckets bounds, which lay out the points sorted in bucket order, for each partition
    */
-  function sortPoints(
+  async function sortPoints(
+    buckets: Uint32Array[],
     pointPtr: number,
     scalarPtr: number,
     bucketCounts: number[][],
@@ -410,12 +423,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let sizeAffine2 = 2 * sizeAffine;
     let doubleL = 2 * L;
 
-    let buckets: number[][] = Array(K);
-    for (let k = 0; k < K; k++) {
-      buckets[k] = Array(L + 1);
-      // the starting pointer for the array of points, in bucket order
-      buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
-    }
     /**
      * loop #2 of counting sort (for each k).
      * "integrate" bucket counts, to become start / end indices (i.e., bucket bounds).
@@ -482,14 +489,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
   /**
    * reducing buckets into one sum per partition, using only batch-affine additions & doublings
-   *
-   * @param {number[]} scratch
-   * @param {number[][]} oldBuckets
-   * @param {{c: number, c0: number, K: number, L: number}} options
    */
   function reduceBucketsAffine(
     scratch: number[],
-    oldBuckets: number[][],
+    oldBuckets: Uint32Array[],
     { c, c0, K, L }: { c: number; c0: number; K: number; L: number }
   ) {
     // D = 1 is the standard algorithm, just batch-added over the K partitions
