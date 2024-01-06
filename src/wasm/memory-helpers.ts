@@ -215,7 +215,17 @@ class MemorySection {
     return this._offset;
   }
   set offset(offset: number) {
-    assert(offset <= this.end, "memory overflow");
+    if (offset > this.end) {
+      throw Error(
+        `memory overflow, local=${!this.isShared}, requested size: ${(
+          (offset - this.initial) /
+          1e6
+        ).toFixed(2)}MB, available size: ${(
+          (this.end - this.initial) /
+          1e6
+        ).toFixed(2)}MB`
+      );
+    }
     this._offset = offset;
   }
 

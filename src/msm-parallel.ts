@@ -7,7 +7,7 @@ import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import { barrier, isMain, log, logMain } from "./threads/threads.js";
+import { barrier, isMain, logMain, range } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -150,7 +150,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let params = { N, K, L, c, c0 };
     logMain({ n, K, c, c0 });
 
-    let scratch = Field.global.getPointers(30);
+    let scratch = Field.local.getPointers(30);
 
     /**
      * Preparation phase 1
@@ -180,15 +180,19 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
      */
     tic("share buckets");
-    let buckets = await broadcastFromMain("buckets", () => {
-      let buckets: Uint32Array[] = Array(K);
-      for (let k = 0; k < K; k++) {
-        buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
-        // the starting pointer for the array of points, in bucket order
-        buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+    let buckets: Uint32Array[];
+    [buckets, maxBucketSize, nPairs] = await broadcastFromMain(
+      "buckets",
+      () => {
+        let buckets: Uint32Array[] = Array(K);
+        for (let k = 0; k < K; k++) {
+          buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
+          // the starting pointer for the array of points, in bucket order
+          buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+        }
+        return [buckets, maxBucketSize, nPairs];
       }
-      return buckets;
-    });
+    );
     toc();
 
     tic("sort points");
@@ -198,48 +202,60 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     await barrier();
     toc();
 
-    // TODO
-    if (!isMain()) return 0;
-
     // first stage - bucket accumulation
     tic("bucket accumulation");
-    console.log();
-    {
-      using _ = Field.global.atCurrentOffset;
-      let G = new Uint32Array(nPairs); // holds first summands
-      let H = new Uint32Array(nPairs); // holds second summands
-      let denom = Uint32Array.from(Field.global.getPointers(nPairs, sizeField));
-      let tmp = Uint32Array.from(Field.global.getPointers(nPairs, sizeField));
+    if (isMain()) console.log();
 
-      // batch-add buckets into their first point, in `maxBucketSize` iterations
-      for (let m = 1; m < maxBucketSize; m *= 2) {
-        let p = 0;
-        let sizeAffineM = m * sizeAffine;
-        let sizeAffine2M = 2 * m * sizeAffine;
-        // walk over all buckets to identify point-pairs to add
-        for (let k = 0; k < K; k++) {
-          let bucketsK = buckets[k];
-          let nextBucket = bucketsK[0];
-          for (let l = 1; l <= L; l++) {
-            let point = nextBucket;
-            nextBucket = bucketsK[l];
-            for (; point + sizeAffineM < nextBucket; point += sizeAffine2M) {
-              G[p] = point;
-              H[p] = point + sizeAffineM;
-              p++;
-            }
-          }
-        }
-        nPairs = p;
-        // now (G,H) represents a big array of independent additions, which we batch-add
-        if (useSafeAdditions) {
-          batchAdd(scratch, tmp, denom, G, G, H, nPairs);
-        } else {
-          batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+    let G = new Uint32Array(nPairs); // holds first summands
+    let H = new Uint32Array(nPairs); // holds second summands
+    // TODO get this to work to move space to global section
+    // let tmp = Uint32Array.from(Field.global.getPointers(nPairs, sizeField));
+    // let [nPairsStart, nPairsEnd] = range(nPairs);
+    // tmp = tmp.subarray(nPairsStart, nPairsEnd);
+
+    // batch-add buckets into their first point, in `maxBucketSize` iterations
+    for (let m = 1; m < maxBucketSize; m *= 2) {
+      let p = 0;
+      let sizeAffineM = m * sizeAffine;
+      let sizeAffine2M = 2 * m * sizeAffine;
+
+      // walk over this thread's buckets to identify point-pairs to add
+      for (
+        let [i, iend] = range(K * L), k = Math.floor(i / L), l = (i % L) + 1;
+        i < iend;
+        i++, l === L ? (k++, (l = 1)) : l++
+      ) {
+        let bucketsK = buckets[k];
+        let bucket = bucketsK[l - 1];
+        let nextBucket = bucketsK[l];
+        for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
+          // log("bucket", k, l, "pair", p, "of", nPairs);
+          G[p] = bucket;
+          H[p] = bucket + sizeAffineM;
+          p++;
         }
       }
+      nPairs = p;
+
+      using _ = Field.local.atCurrentOffset;
+      let denom = Uint32Array.from(Field.local.getPointers(nPairs, sizeField));
+      let tmp = Uint32Array.from(Field.local.getPointers(nPairs, sizeField));
+
+      // now (G,H) represents a big array of independent additions, which we batch-add
+      if (useSafeAdditions) {
+        batchAdd(scratch, tmp, denom, G, G, H, nPairs);
+      } else {
+        batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
+      }
     }
+
     toc();
+    tic("bucket accumulation (wait)");
+    await barrier();
+    toc();
+
+    // TODO
+    if (!isMain()) return 0;
     // we're done!!
     // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
 
