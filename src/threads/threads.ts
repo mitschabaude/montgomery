@@ -157,7 +157,6 @@ class ThreadPool {
     assert(!this.isRunning, "ThreadPool is already running");
     assert(T > 0, "T must be greater than 0");
     THREADS = T;
-    sharedArray.fill(0);
     this.isRunning = true;
     const workers = [];
     let promises = [];
@@ -185,6 +184,7 @@ class ThreadPool {
 
   stop() {
     THREADS = 1;
+    resetSharedArray();
     this.isRunning = false;
     let promises = this.workers.map((worker) => worker.terminate());
     this.workers = [];
@@ -312,6 +312,7 @@ const BARRIER_INDEX = 1;
 let barrierCount = 0;
 
 async function barrier() {
+  if (!isParallel()) return;
   // log(`syncing ${barrierCount}`);
   await lock();
   let expected = (barrierCount + 1) * THREADS;
@@ -340,6 +341,11 @@ async function barrier() {
   }
   // log(`leaving barrier ${barrierCount}`);
   barrierCount++;
+}
+
+function resetSharedArray() {
+  barrierCount = 0;
+  sharedArray.fill(0);
 }
 
 async function lock(data: Int32Array = sharedArray, index = MUTEX_INDEX) {
