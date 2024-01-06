@@ -7,7 +7,7 @@ import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import { barrier, isMain, log } from "./threads/threads.js";
+import { barrier, isMain, log, logMain } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -148,7 +148,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
     let params = { N, K, L, c, c0 };
-    console.log({ n, K, c, c0 });
+    logMain({ n, K, c, c0 });
 
     let scratch = Field.global.getPointers(30);
 
@@ -199,7 +199,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toc();
 
     // TODO
-    // log({ buckets });
     if (!isMain()) return 0;
 
     // first stage - bucket accumulation
@@ -507,7 +506,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // copy bucket sums into new contiguous pointers to improve memory access
     let buckets: number[][] = Array(K);
     for (let k = 0; k < K; k++) {
-      let newBuckets = Field.global.getZeroPointers(L + 1, sizeAffine);
+      // TODO
+      let newBuckets = Field.local.getZeroPointers(L + 1, sizeAffine);
       buckets[k] = newBuckets;
       let oldBucketsK = oldBuckets[k];
       let nextBucket = oldBucketsK[0];
@@ -609,7 +609,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
 
     // finally, return the output sum of each partition as a projective point
-    let partialSums = Field.global.getZeroPointers(K, sizeProjective);
+    // TODO
+    let partialSums = Field.local.getZeroPointers(K, sizeProjective);
     for (let k = 0; k < K; k++) {
       if (isZeroAffine(buckets[k][1])) continue;
       affineToProjective(partialSums[k], buckets[k][1]);

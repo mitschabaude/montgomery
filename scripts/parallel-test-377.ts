@@ -19,8 +19,6 @@ tic("random scalars");
 let scalarPtrs = await BLS12_377.randomScalars(N);
 toc();
 
-await BLS12_377.stopThreads();
-
 tic("convert points to bigint & check");
 let scratch = BLS12_377.Field.getPointers(5);
 let points = pointsPtrs.map((g) => {
@@ -45,6 +43,8 @@ let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.CurveAffine.sizeAffine);
 BLS12_377.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
 let s = BLS12_377.CurveAffine.toBigint(sAffinePtr);
 toc();
+
+await BLS12_377.stopThreads();
 
 if (n < 10) {
   tic("msm (simple, slow bigint impl)");
