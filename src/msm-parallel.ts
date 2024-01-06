@@ -551,10 +551,14 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // copy bucket sums into new contiguous pointers to improve memory access
     let buckets: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
-      let newBuckets = Uint32Array.from(
+      buckets[k] = Uint32Array.from(
         Field.global.getPointers(L + 1, sizeAffine)
       );
-      buckets[k] = newBuckets;
+    }
+
+    // TODO parallelize
+    for (let k = 0; k < K; k++) {
+      let newBuckets = buckets[k];
       let oldBucketsK = oldBuckets[k];
       let nextBucket = oldBucketsK[0];
       setIsNonZeroAffine(newBuckets[0], false);
