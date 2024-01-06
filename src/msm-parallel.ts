@@ -283,11 +283,11 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // second stage
     tic("normalize bucket storage");
-    buckets = normalizeBucketsStorage(buckets, params);
+    let buckets2 = normalizeBucketsStorage(buckets, params);
     toc();
 
     tic("bucket reduction");
-    let partialSums = reduceBucketsAffine(scratch, buckets, params);
+    let partialSums = reduceBucketsAffine(scratch, buckets2, params);
     toc();
 
     // third stage -- compute final sum
