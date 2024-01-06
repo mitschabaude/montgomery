@@ -506,17 +506,20 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // copy bucket sums into new contiguous pointers to improve memory access
     let buckets: number[][] = Array(K);
     for (let k = 0; k < K; k++) {
-      // TODO
-      let newBuckets = Field.local.getZeroPointers(L + 1, sizeAffine);
+      let newBuckets = Field.global.getPointers(L + 1, sizeAffine);
       buckets[k] = newBuckets;
       let oldBucketsK = oldBuckets[k];
       let nextBucket = oldBucketsK[0];
+      setIsNonZeroAffine(newBuckets[0], false);
       for (let l = 1; l <= L; l++) {
         let bucket = nextBucket;
         nextBucket = oldBucketsK[l];
-        if (bucket === nextBucket) continue;
-        let newBucket = newBuckets[l];
-        copyAffine(newBucket, bucket);
+        if (bucket === nextBucket) {
+          // empty bucket
+          setIsNonZeroAffine(newBuckets[l], false);
+        } else {
+          copyAffine(newBuckets[l], bucket);
+        }
       }
     }
 
