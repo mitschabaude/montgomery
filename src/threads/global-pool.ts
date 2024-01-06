@@ -20,12 +20,12 @@ async function broadcastFromMain<T>(
       resolve(m);
     });
   });
+  let message = isMain() ? func() : undefined;
   // barrier so all workers are ready to receive
   await barrier();
   if (isMain()) {
-    let message = func();
     await pool.callWorkers(`${name};f`, message);
-    return message;
+    return message!;
   } else {
     return promise;
   }
