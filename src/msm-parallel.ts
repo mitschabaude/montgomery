@@ -264,7 +264,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       let t = toc();
       if (isMain() && t > 0)
         console.log(
-          `batch add:\t ${(t * 1e3).toFixed(0)}ms, ${nPairs} pairs, ${(
+          `batch add: ${(t * 1e3).toFixed(0)}ms, ${nPairs} pairs, ${(
             (t / nPairs) *
             1e9
           ).toFixed(1)}ns / pair`
@@ -282,6 +282,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
 
     // second stage
+    tic("normalize bucket storage");
+    buckets = normalizeBucketsStorage(buckets, params);
+    toc();
+
     tic("bucket reduction");
     let partialSums = reduceBucketsAffine(scratch, buckets, params);
     toc();
@@ -539,27 +543,17 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
   }
 
-  /**
-   * reducing buckets into one sum per partition, using only batch-affine additions & doublings
-   */
-  function reduceBucketsAffine(
-    scratch: number[],
+  function normalizeBucketsStorage(
     oldBuckets: Uint32Array[],
-    { c, c0, K, L }: { c: number; c0: number; K: number; L: number }
+    { K, L }: { K: number; L: number }
   ) {
-    // D = 1 is the standard algorithm, just batch-added over the K partitions
-    // D > 1 means that we're doing D * K = n adds at a time
-    // => more efficient than doing just K at a time, since we amortize the cost of the inversion better
-    let depth = c - 1 - c0;
-    let D = 2 ** depth;
-    let n = D * K;
-    let L0 = 2 ** c0; // == L/D
-
     // normalize the way buckets are stored -- we'll store intermediate running sums there
     // copy bucket sums into new contiguous pointers to improve memory access
-    let buckets: number[][] = Array(K);
+    let buckets: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
-      let newBuckets = Field.global.getPointers(L + 1, sizeAffine);
+      let newBuckets = Uint32Array.from(
+        Field.global.getPointers(L + 1, sizeAffine)
+      );
       buckets[k] = newBuckets;
       let oldBucketsK = oldBuckets[k];
       let nextBucket = oldBucketsK[0];
@@ -575,6 +569,24 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         }
       }
     }
+    return buckets;
+  }
+
+  /**
+   * reducing buckets into one sum per partition, using only batch-affine additions & doublings
+   */
+  function reduceBucketsAffine(
+    scratch: number[],
+    buckets: Uint32Array[],
+    { c, c0, K, L }: { c: number; c0: number; K: number; L: number }
+  ) {
+    // D = 1 is the standard algorithm, just batch-added over the K partitions
+    // D > 1 means that we're doing D * K = n adds at a time
+    // => more efficient than doing just K at a time, since we amortize the cost of the inversion better
+    let depth = c - 1 - c0;
+    let D = 2 ** depth;
+    let n = D * K;
+    let L0 = 2 ** c0; // == L/D
 
     let runningSums = new Uint32Array(n);
     let nextBuckets = new Uint32Array(n);
