@@ -211,14 +211,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toc();
 
     tic("sort points");
-    sortPoints(
-      buckets,
-      pointPtr,
-      scalarPtr,
-      bucketCounts,
-      scalarSlices,
-      params
-    );
+    sortPoints(buckets, pointPtr, bucketCounts, scalarSlices, params);
     await barrier();
     toc();
 
@@ -245,7 +238,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         let bucket = bucketsK[l - 1];
         let nextBucket = bucketsK[l];
         for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
-          // log("bucket", k, l, "pair", p, "of", nPairs);
           G[p] = bucket;
           H[p] = bucket + sizeAffineM;
           p++;
@@ -498,7 +490,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   function sortPoints(
     buckets: Uint32Array[],
     pointPtr: number,
-    scalarPtr: number,
     bucketCounts: Uint32Array[],
     scalarSlices: Uint32Array[],
     { N, K }: { N: number; K: number }
@@ -516,28 +507,28 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      */
     for (let [k, kend] = range(K); k < kend; k++) {
       let scalarSlicesK = scalarSlices[k];
-      let bucketsK = buckets[k];
       let bucketCountsK = bucketCounts[k];
+      let startBucket = buckets[k][0];
       for (
-        // we loop over implicit arrays of points & scalars by taking their starting pointers and incrementing by the size of one element
+        // we loop over implicit arrays of points by taking their starting pointers and incrementing by the size of one element
         // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
-        let i = 0, point = pointPtr, scalar = scalarPtr;
+        let i = 0, point = pointPtr;
         i < 2 * N;
-        i++, point += sizeAffine2, scalar += sizeScalar
+        i++, point += sizeAffine2
       ) {
-        // a point `A` and it's negation `-A` are stored next to each other
-        let negPoint = point + sizeAffine;
-
         let l = scalarSlicesK[i];
         let carry = l >>> 31;
         l &= 0x7f_ff_ff_ff;
-
         if (l === 0) continue;
+
         // compute the memory address in the bucket array where we want to store our point
-        let ptr0 = bucketsK[0];
         let l0 = bucketCountsK[l]++; // update start index, so the next point in this bucket lands at one position higher
-        let newPtr = ptr0 + l0 * sizeAffine; // this is where the point should be copied to
+        let newPtr = startBucket + l0 * sizeAffine; // this is where the point should be copied to
+
+        // a point `A` and it's negation `-A` are stored next to each other
+        let negPoint = point + sizeAffine;
         let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
+
         // copy point to the bucket array -- expensive operation! (but it pays off)
         copyAffine(newPtr, ptr);
       }
