@@ -528,9 +528,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         // a point `A` and it's negation `-A` are stored next to each other
         let negPoint = point + sizeAffine;
 
-        /**
-         * recomputing the scalar slices here with {@link extractBitSlice} is faster than storing & retrieving them!
-         */
         let l = scalarSlicesK[i];
         let carry = l >>> 31;
         l &= 0x7f_ff_ff_ff;
