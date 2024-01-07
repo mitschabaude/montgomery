@@ -198,6 +198,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         return [bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax];
       });
     toc();
+    // ensure same pointer offsets in other threads
+    if (!isMain()) {
+      Field.global.getPointer(2 * N * K * sizeAffine);
+    }
 
     tic("integrate bucket counts");
     if (isMain()) {
@@ -271,13 +275,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         );
     }
     toc();
-
-    tic("bucket accumulation (wait)");
-    await barrier();
-    toc();
-
-    // TODO
-    if (!isMain()) return 0;
     // we're done!!
     // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
 
@@ -285,6 +282,13 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic("normalize bucket storage");
     let buckets2 = normalizeBucketsStorage(buckets, params);
     toc();
+
+    tic("bucket accumulation (wait)");
+    await barrier();
+    toc();
+
+    // TODO
+    if (!isMain()) return 0;
 
     tic("bucket reduction");
     let partialSums = reduceBucketsAffine(scratch, buckets2, params);
@@ -556,23 +560,28 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       );
     }
 
-    // TODO parallelize
-    for (let k = 0; k < K; k++) {
-      let newBuckets = buckets[k];
-      let oldBucketsK = oldBuckets[k];
-      let nextBucket = oldBucketsK[0];
-      setIsNonZeroAffine(newBuckets[0], false);
-      for (let l = 1; l <= L; l++) {
-        let bucket = nextBucket;
-        nextBucket = oldBucketsK[l];
-        if (bucket === nextBucket) {
-          // empty bucket
-          setIsNonZeroAffine(newBuckets[l], false);
-        } else {
-          copyAffine(newBuckets[l], bucket);
-        }
+    // set zero bucket to zero
+    if (isMain()) {
+      for (let k = 0; k < K; k++) {
+        setIsNonZeroAffine(buckets[k][0], false);
       }
     }
+
+    for (
+      let [i, iend] = range(K * L), k = Math.floor(i / L), l = (i % L) + 1;
+      i < iend;
+      i++, l === L ? (k++, (l = 1)) : l++
+    ) {
+      let bucket = oldBuckets[k][l - 1];
+      let nextBucket = oldBuckets[k][l];
+      if (bucket === nextBucket) {
+        // empty bucket
+        setIsNonZeroAffine(buckets[k][l], false);
+      } else {
+        copyAffine(buckets[k][l], bucket);
+      }
+    }
+
     return buckets;
   }
 
