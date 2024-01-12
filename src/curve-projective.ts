@@ -52,7 +52,11 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     // double if the points are equal
     // x1*z2 = x2*z1 and y1*z2 = y2*z1
     // <==>  x1/z1 = x2/z2 and y1/z1 = y2/z2
+    Field.reduce(X1Z2);
+    Field.reduce(X2Z1);
     if (isEqual(X1Z2, X2Z1)) {
+      Field.reduce(Y1Z2);
+      Field.reduce(Y2Z1);
       if (isEqual(Y1Z2, Y2Z1)) {
         doubleInPlace(scratch, P1);
         return;
