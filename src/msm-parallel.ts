@@ -308,13 +308,13 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     for (let { j, k, length, lstart } of chunks) {
       // TODO make buckets be just that subarray
-      if (k < 1) console.log({ j, k, length, allBuckets: buckets3[k] });
+      // if (k === 21) console.log({ j, k, length, allBuckets: buckets3[k] });
       let buckets = buckets3[k].subarray(lstart, lstart + length);
       reduceBucketsColumnProjective(
         columnss[k][j],
         buckets,
         lstart,
-        k < 1 ? console.log : undefined
+        k === 21 ? console.log : undefined
       );
     }
     toc();
@@ -324,10 +324,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toc();
     if (!isMain()) return 0;
 
-    console.log("buckets2", buckets2[0]);
-    for (let l = 0; l < L; l++) {
-      console.log("bucket2", l + 1, CurveAffine.toBigint(buckets2[0][l + 1]));
-    }
+    // console.log("buckets2", buckets2[21]);
+    // for (let l = 0; l < L; l++) {
+    //   console.log("bucket2", l + 1, CurveAffine.toBigint(buckets2[21][l + 1]));
+    // }
 
     // TODO
     tic("bucket reduction (old)");
@@ -341,7 +341,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       for (let j = 1, n = columns.length; j < n; j++) {
         addAssignProjective(scratch, partitionSum, columns[j]);
       }
-      if (k < 1) {
+      if (k === 21) {
         console.log("partition sum", k, CurveProjective.toBigint(partitionSum));
       }
     }
@@ -353,15 +353,14 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // TODO don't be so wasteful here
     // partialSums2 = Field.global.getPointers(K, sizeProjective);
 
+    // console.dir(chunksPerThread, { depth: Infinity });
+
     partialSums.forEach((partialSum, k) => {
       // CurveProjective.affineToProjective(
       //   partialSums2[k],
       //   partialSums2Affine[k]
       // );
-      if (
-        k < 1 &&
-        !CurveProjective.isEqual(scratch, partialSum, partialSums2[k])
-      )
+      if (!CurveProjective.isEqual(scratch, partialSum, partialSums2[k]))
         console.log("not equal", {
           k,
           partialSum: CurveProjective.toBigint(partialSum),
@@ -825,7 +824,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     while (true) {
       log("lstart & 1", lstart & 1);
       if (lstart & 1) addAssignProjective(scratch, triangle, row);
-      if ((lstart >>= 2) === 0) break;
+      if ((lstart >>= 1) === 0) break;
       doubleInPlaceProjective(scratch, row);
     }
 
