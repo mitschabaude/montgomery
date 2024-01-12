@@ -168,14 +168,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
      */
     tic("prepare points & scalars");
-    let {
-      pointPtr,
-      scalarPtr,
-      bucketCounts,
-      scalarSlices,
-      maxBucketSize,
-      nPairsMax,
-    } = preparePointsAndScalars(pointPtr0, scalarPtr0, params);
+    let { pointPtr, bucketCounts, scalarSlices, maxBucketSize, nPairsMax } =
+      preparePointsAndScalars(pointPtr0, scalarPtr0, params);
     toc();
 
     /**
@@ -535,23 +529,32 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
   }
 
+  // TODO this should only have to return the thread's own buckets
+  // which, in general, are a list { k: number, buckets: Uint32Array[] }[]
+  // (the chunks of buckets given to this thread, and the partition k they belong to)
   function normalizeBucketsStorage(
     oldBuckets: Uint32Array[],
-    { K, L }: { K: number; L: number }
+    { K, L }: { K: number; L: number },
+    toProjective = false
   ) {
+    let size = toProjective ? sizeProjective : sizeAffine;
+    let setZero = toProjective
+      ? CurveProjective.setZero
+      : (ptr: number) => setIsNonZeroAffine(ptr, false);
+    let copy = toProjective ? affineToProjective : copyAffine;
+
     // normalize the way buckets are stored -- we'll store intermediate running sums there
     // copy bucket sums into new contiguous pointers to improve memory access
     let buckets: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
-      buckets[k] = Uint32Array.from(
-        Field.global.getPointers(L + 1, sizeAffine)
-      );
+      buckets[k] = Uint32Array.from(Field.global.getPointers(L + 1, size));
     }
 
     // set zero bucket to zero
+    // TODO get rid of zero buckets here
     if (isMain()) {
       for (let k = 0; k < K; k++) {
-        setIsNonZeroAffine(buckets[k][0], false);
+        setZero(buckets[k][0]);
       }
     }
 
@@ -564,9 +567,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       let nextBucket = oldBuckets[k][l];
       if (bucket === nextBucket) {
         // empty bucket
-        setIsNonZeroAffine(buckets[k][l], false);
+        setZero(buckets[k][l]);
       } else {
-        copyAffine(buckets[k][l], bucket);
+        copy(buckets[k][l], bucket);
       }
     }
 
@@ -685,6 +688,47 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       affineToProjective(partialSums[k], buckets[k][1]);
     }
     return partialSums;
+  }
+
+  /**
+   * computes a slice/"column" of the bucket reduction sum:
+   *
+   * column <- sum_{l=lstart..lend} l * buckets[l - lstart]
+   *
+   * defining L = lend - lstart, we can write the sum as
+   *
+   * sum_{l=0..L} (lstart + l) * buckets[l]
+   * = (sum_{l=0..L} l * buckets[l]) + lstart * (sum_{l=0..L} buckets[l])
+   * =: triangle + lstart * row
+   *
+   * triangle and row are computed together in 2L additions, and
+   * lstart * row is a comparatively cheap O(log(L)) double-and-add
+   */
+  function reduceBucketsColumnProjective(
+    column: number,
+    buckets: Uint32Array,
+    lstart: number
+  ) {
+    let L = buckets.length;
+
+    using _ = Field.local.atCurrentOffset;
+    let scratch = Field.local.getPointers(20);
+    let [triangle, row] = Field.local.getZeroPointers(2, sizeProjective);
+
+    // compute triangle and row
+    for (let l = 0; l < L; l++) {
+      addAssignProjective(scratch, row, buckets[l]);
+      addAssignProjective(scratch, triangle, row);
+    }
+
+    // triangle += lstart * row
+    while (true) {
+      if (lstart & 1) addAssignProjective(scratch, triangle, row);
+      if ((lstart >>= 2) === 0) break;
+      doubleInPlaceProjective(scratch, row);
+    }
+
+    copyProjective(column, triangle);
   }
 
   /**
