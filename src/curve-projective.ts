@@ -229,6 +229,27 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     return pointBigint;
   }
 
+  function isEqualProjective(scratch: number[], p: number, q: number) {
+    if (isZero(p)) return isZero(q);
+    if (isZero(q)) return false;
+    let [x1, y1, z1] = coords(p);
+    let [x2, y2, z2] = coords(q);
+    let tmp = scratch[0];
+    let tmp2 = scratch[1];
+    // x1/z1 == x2/z2
+    multiply(tmp, x1, z2);
+    Field.reduce(tmp);
+    multiply(tmp2, x2, z1);
+    Field.reduce(tmp2);
+    if (!isEqual(tmp, tmp2)) return false;
+    // y1/z1 == y2/z2
+    multiply(tmp, y1, z2);
+    Field.reduce(tmp);
+    multiply(tmp2, y2, z1);
+    Field.reduce(tmp2);
+    return isEqual(tmp, tmp2);
+  }
+
   return {
     cofactor,
     cofactorBits,
@@ -239,6 +260,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     toBigint,
     sizeProjective: size,
     isZero,
+    isEqual: isEqualProjective,
     copy,
     affineToProjective,
     projectiveToAffine,
