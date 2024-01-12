@@ -301,21 +301,12 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toc();
 
     tic("bucket reduction (local)");
-    // if (isMain()) console.dir({ chunksPerThread }, { depth: Infinity });
     let chunks = chunksPerThread[thread];
-    // log(chunks);
-    // log(columnss);
 
     for (let { j, k, length, lstart } of chunks) {
       // TODO make buckets be just that subarray
-      // if (k === 21) console.log({ j, k, length, allBuckets: buckets3[k] });
       let buckets = buckets3[k].subarray(lstart, lstart + length);
-      reduceBucketsColumnProjective(
-        columnss[k][j],
-        buckets,
-        lstart,
-        k === 21 ? console.log : undefined
-      );
+      reduceBucketsColumnProjective(columnss[k][j], buckets, lstart);
     }
     toc();
 
@@ -323,11 +314,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     await barrier();
     toc();
     if (!isMain()) return 0;
-
-    // console.log("buckets2", buckets2[21]);
-    // for (let l = 0; l < L; l++) {
-    //   console.log("bucket2", l + 1, CurveAffine.toBigint(buckets2[21][l + 1]));
-    // }
 
     // TODO
     tic("bucket reduction (old)");
@@ -341,38 +327,27 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       for (let j = 1, n = columns.length; j < n; j++) {
         addAssignProjective(scratch, partitionSum, columns[j]);
       }
-      if (k === 21) {
-        console.log("partition sum", k, CurveProjective.toBigint(partitionSum));
-      }
     }
     toc();
 
-    let partialSums2Affine = Field.global.getPointers(K, sizeAffine);
     let partialSums2 = columnss.map((column) => column[0]);
-    // CurveAffine.batchFromProjective(scratch, partialSums2Affine, partialSums2);
-    // TODO don't be so wasteful here
-    // partialSums2 = Field.global.getPointers(K, sizeProjective);
 
-    // console.dir(chunksPerThread, { depth: Infinity });
-
+    // TODO remove
     partialSums.forEach((partialSum, k) => {
-      // CurveProjective.affineToProjective(
-      //   partialSums2[k],
-      //   partialSums2Affine[k]
-      // );
-      if (!CurveProjective.isEqual(scratch, partialSum, partialSums2[k]))
+      if (!CurveProjective.isEqual(scratch, partialSum, partialSums2[k])) {
         console.log("not equal", {
           k,
           partialSum: CurveProjective.toBigint(partialSum),
           partialSum2: CurveProjective.toBigint(partialSums2[k]),
         });
+        throw Error("not equal");
+      }
     });
 
     // third stage -- compute final sum
     tic("final sum");
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
-    let partialSum = partialSums[k];
     let partialSum2 = partialSums2[k];
     copyProjective(finalSum, partialSum2);
     k--;
@@ -380,7 +355,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       for (let j = 0; j < c; j++) {
         doubleInPlaceProjective(scratch, finalSum);
       }
-      let partialSum = partialSums[k];
       let partialSum2 = partialSums2[k];
       addAssignProjective(scratch, finalSum, partialSum2);
     }
@@ -797,8 +771,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   function reduceBucketsColumnProjective(
     column: number,
     buckets: Uint32Array,
-    lstart: number,
-    log = (..._: any) => {}
+    lstart: number
   ) {
     let L = buckets.length;
 
@@ -806,30 +779,21 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let scratch = Field.local.getPointers(20);
     let [triangle, row] = Field.local.getZeroPointers(2, sizeProjective);
 
-    log({ lstart, L, buckets });
-    for (let l = 0; l < L; l++) {
-      log("bucket", l + lstart, CurveProjective.toBigint(buckets[l]));
-    }
-
     // compute triangle and row
     for (let l = L - 1; l >= 0; l--) {
       addAssignProjective(scratch, row, buckets[l]);
-      log("row", CurveProjective.toBigint(row));
       addAssignProjective(scratch, triangle, row);
-      log("triangle", CurveProjective.toBigint(triangle));
     }
 
     // triangle += (lstart - 1) * row
     lstart--;
     while (true) {
-      log("lstart & 1", lstart & 1);
       if (lstart & 1) addAssignProjective(scratch, triangle, row);
       if ((lstart >>= 1) === 0) break;
       doubleInPlaceProjective(scratch, row);
     }
 
     copyProjective(column, triangle);
-    log("triangle", CurveProjective.toBigint(column));
   }
 
   /**
