@@ -315,10 +315,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     toc();
     if (!isMain()) return 0;
 
-    // TODO
-    tic("bucket reduction (old)");
-    let partialSums = reduceBucketsAffine(scratch, buckets2, params);
-    toc();
+    // tic("bucket reduction (old)");
+    // let partialSums = reduceBucketsAffine(scratch, buckets2, params);
+    // toc();
 
     tic("partition sum");
     for (let k = 0; k < K; k++) {
@@ -328,35 +327,20 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         addAssignProjective(scratch, partitionSum, columns[j]);
       }
     }
+    let partialSums = columnss.map((column) => column[0]);
     toc();
-
-    let partialSums2 = columnss.map((column) => column[0]);
-
-    // TODO remove
-    partialSums.forEach((partialSum, k) => {
-      if (!CurveProjective.isEqual(scratch, partialSum, partialSums2[k])) {
-        console.log("not equal", {
-          k,
-          partialSum: CurveProjective.toBigint(partialSum),
-          partialSum2: CurveProjective.toBigint(partialSums2[k]),
-        });
-        throw Error("not equal");
-      }
-    });
 
     // third stage -- compute final sum
     tic("final sum");
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
-    let partialSum2 = partialSums2[k];
-    copyProjective(finalSum, partialSum2);
+    copyProjective(finalSum, partialSums[k]);
     k--;
     for (; k >= 0; k--) {
       for (let j = 0; j < c; j++) {
         doubleInPlaceProjective(scratch, finalSum);
       }
-      let partialSum2 = partialSums2[k];
-      addAssignProjective(scratch, finalSum, partialSum2);
+      addAssignProjective(scratch, finalSum, partialSums[k]);
     }
     copyProjective(result, finalSum);
     toc();
