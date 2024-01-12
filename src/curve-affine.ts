@@ -183,6 +183,7 @@ function createCurveAffine(
     return points;
   }
 
+  // note: this fails on zero
   function assertOnCurve([y2, y2_]: number[], p: number) {
     let [x, y] = affineCoords(p);
     square(y2, x);
@@ -250,8 +251,14 @@ function createCurveAffine(
     let zInvs = Field.local.getZeroPointers(n, sizeField);
     let zs = Field.local.getPointers(n, sizeField);
     for (let i = 0; i < n; i++) {
+      if (CurveProjective.isZero(pointsProj[i])) {
+        setIsNonZero(points[i], false);
+        Field.copy(zs[i], Field.constants.mg1);
+        continue;
+      }
       let xAffine = points[i];
       let yAffine = points[i] + sizeField;
+      setIsNonZero(xAffine, true);
       let [x, y, z] = CurveProjective.projectiveCoords(pointsProj[i]);
       Field.copy(xAffine, x);
       Field.copy(yAffine, y);
@@ -261,11 +268,11 @@ function createCurveAffine(
     Field.batchInverse(scratch[0], zInvs[0], zs[0], n);
     // x, y <- x/z, y/z
     for (let i = 0; i < n; i++) {
+      if (isZero(points[i])) continue;
       let x = points[i];
       let y = points[i] + sizeField;
       Field.multiply(x, x, zInvs[i]);
       Field.multiply(y, y, zInvs[i]);
-      memoryBytes[x + 2 * sizeField] = 1;
     }
   }
 
