@@ -7,7 +7,15 @@ import { tic, toc } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import { barrier, isMain, log, logMain, range } from "./threads/threads.js";
+import {
+  THREADS,
+  barrier,
+  isMain,
+  log,
+  logMain,
+  range,
+  thread,
+} from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -180,22 +188,27 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
      */
     tic("share buckets");
-    let buckets: Uint32Array[];
-    [bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax] =
-      await broadcastFromMain("buckets", () => {
-        let buckets: Uint32Array[] = Array(K);
-        for (let k = 0; k < K; k++) {
-          buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
-          // the starting pointer for the array of points, in bucket order
-          buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
-        }
-        return [bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax];
-      });
-    toc();
+    let broadCastResult = await broadcastFromMain("buckets", () => {
+      let buckets: Uint32Array[] = Array(K);
+      for (let k = 0; k < K; k++) {
+        buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
+        // the starting pointer for the array of points, in bucket order
+        buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+      }
+      return { bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax };
+    });
+    let { buckets } = broadCastResult;
+    ({ bucketCounts, scalarSlices, maxBucketSize, nPairsMax } =
+      broadCastResult);
+
     // ensure same pointer offsets in other threads
     if (!isMain()) {
       Field.global.getPointer(2 * N * K * sizeAffine);
     }
+
+    // compute chunks of buckets that each thread will work on
+    let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(K, L);
+    toc();
 
     tic("integrate bucket counts");
     if (isMain()) {
@@ -267,24 +280,59 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     // second stage
     tic("normalize bucket storage");
     let buckets2 = normalizeBucketsStorage(buckets, params);
+    let buckets3 = normalizeBucketsStorage(buckets, params, true);
+
+    // allocate space for different threads' contribution to each partitions
+    let columnss: Uint32Array[] = Array(K);
+    for (let k = 0; k < K; k++) {
+      let nChunks = nChunksPerPartition[k];
+      columnss[k] = new Uint32Array(new SharedArrayBuffer(4 * nChunks));
+      let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
+      for (let j = 0; j < nChunks; j++) {
+        columnss[k][j] = chunkPtrs[j];
+        CurveProjective.setZero(columnss[k][j]);
+      }
+    }
+    toc();
+
+    tic("bucket reduction (local)");
+    // if (isMain()) console.dir({ chunksPerThread }, { depth: Infinity });
+    let chunks = chunksPerThread[thread];
+
+    for (let { j, k, length, lstart } of chunks) {
+      // TODO make buckets be just that subarray
+      let buckets = buckets3[k].subarray(lstart, lstart + length);
+      reduceBucketsColumnProjective(columnss[k][j], buckets, lstart);
+    }
     toc();
 
     tic("bucket accumulation (wait)");
     await barrier();
     toc();
-
-    // TODO
     if (!isMain()) return 0;
 
-    tic("bucket reduction");
+    // TODO
+    tic("bucket reduction (old)");
     let partialSums = reduceBucketsAffine(scratch, buckets2, params);
+    toc();
+
+    tic("partition sum");
+    for (let k = 0; k < K; k++) {
+      let columns = columnss[k];
+      let partitionSum = columns[0];
+      for (let j = 1, n = columns.length; j < n; j++) {
+        addAssignProjective(scratch, partitionSum, columns[j]);
+      }
+    }
     toc();
 
     // third stage -- compute final sum
     tic("final sum");
+    let partialSums2 = columnss.map((column) => column[0]);
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
     let partialSum = partialSums[k];
+    let partialSum2 = partialSums2[k];
     copyProjective(finalSum, partialSum);
     k--;
     for (; k >= 0; k--) {
@@ -888,6 +936,41 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     ) => msm(s, p, N, { ...o, useSafeAdditions: false }),
     batchAdd,
   };
+}
+
+type Chunk = { k: number; j: number; lstart: number; length: number };
+
+function computeBucketsSplit(K: number, L: number) {
+  let totalWork = K * L;
+  let nt = Math.ceil(totalWork / THREADS);
+
+  let chunksPerThread: Chunk[][] = [];
+  let nChunksPerPartition: number[] = Array(K);
+
+  let thread = 0;
+  let remainingWork = nt;
+
+  for (let k = 0; k < K; k++) {
+    let j = 0;
+    let remainingL = L;
+    let lstart = 1;
+    while (remainingL > 0) {
+      let length = Math.min(remainingL, remainingWork);
+      chunksPerThread[thread] ??= [];
+      chunksPerThread[thread].push({ k, j, lstart, length });
+      j++;
+      remainingL -= length;
+      lstart += length;
+      remainingWork -= length;
+      if (remainingWork === 0) {
+        thread++;
+        remainingWork = nt;
+      }
+    }
+    nChunksPerPartition[k] = j;
+  }
+
+  return { chunksPerThread, nChunksPerPartition };
 }
 
 /**
