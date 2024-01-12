@@ -813,7 +813,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
 
     // compute triangle and row
-    for (let l = 0; l < L; l++) {
+    for (let l = L - 1; l >= 0; l--) {
       addAssignProjective(scratch, row, buckets[l]);
       log("row", CurveProjective.toBigint(row));
       addAssignProjective(scratch, triangle, row);
