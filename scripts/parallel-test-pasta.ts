@@ -42,7 +42,9 @@ let doEvaluate = process.argv[5] === "--evaluate";
 if (!doEvaluate) {
   tic("msm (core)");
   console.log();
-  let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N);
+  let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, {
+    verboseTiming: true,
+  });
   let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
   Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
   let s = Pasta.CurveAffine.toBigint(sAffinePtr);
@@ -69,7 +71,7 @@ if (!doEvaluate) {
   let times: number[] = [];
   for (let i = 0; i < 10; i++) {
     tic();
-    await Pasta.msm(scalarPtr, pointPtr, 1 << n);
+    await Pasta.msm(scalarPtr, pointPtr, 1 << n, { verboseTiming: i === 9 });
     let time = toc();
     times.push(time);
   }

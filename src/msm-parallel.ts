@@ -3,7 +3,7 @@
  */
 import { CurveAffine } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
-import { tic, toc } from "./extra/tictoc.js";
+import { tic as tic_, toc as toc_ } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
@@ -140,8 +140,19 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       c: c_,
       c0: c0_,
       useSafeAdditions = true,
-    }: { c?: number; c0?: number; useSafeAdditions?: boolean } | undefined = {}
+      verboseTiming = false,
+    }:
+      | {
+          c?: number;
+          c0?: number;
+          useSafeAdditions?: boolean;
+          verboseTiming?: boolean;
+        }
+      | undefined = {}
   ) {
+    let tic = verboseTiming ? tic_ : () => {};
+    let toc = verboseTiming ? toc_ : () => 0;
+
     let result = Field.global.getPointer(sizeProjective);
     using _g = Field.global.atCurrentOffset;
     using _l = Field.local.atCurrentOffset;
@@ -157,7 +168,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
     let params = { N, K, L, c, c0 };
-    logMain({ n, K, c, c0 });
+    if (verboseTiming) logMain({ n, K, c, c0 });
 
     let scratch = Field.local.getPointers(40);
 
@@ -237,7 +248,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // first stage - bucket accumulation
     tic("bucket accumulation");
-    if (isMain()) console.log();
+    if (verboseTiming && isMain()) console.log();
 
     let G = new Uint32Array(nPairsMax); // holds first summands
     let H = new Uint32Array(nPairsMax); // holds second summands
@@ -278,7 +289,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
       }
       let t = toc();
-      if (isMain() && t > 0)
+      if (verboseTiming && isMain() && t > 0)
         console.log(
           `batch add: ${(t * 1e3).toFixed(0)}ms, ${nPairs} pairs, ${(
             (t / nPairs) *
@@ -309,8 +320,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     await barrier();
     toc();
 
-    Field.local.printMaxSizeUsed();
-    Field.global.printMaxSizeUsed();
+    if (verboseTiming) {
+      Field.local.printMaxSizeUsed();
+      Field.global.printMaxSizeUsed();
+    }
     if (!isMain()) return 0;
 
     tic("partition sum");
@@ -918,7 +931,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       s: number,
       p: number,
       N: number,
-      o?: { c?: number; c0?: number }
+      o?: { c?: number; c0?: number; verboseTiming?: boolean }
     ) => msm(s, p, N, { ...o, useSafeAdditions: false }),
     batchAdd,
   };

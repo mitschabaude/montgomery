@@ -35,8 +35,8 @@ async function create(
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
   const randomScalars = pool.register(NAME, createRandomScalars(Inputs));
 
-  const { msmUnsafe } = createMsm(Inputs);
-  const msm = pool.register(NAME, msmUnsafe);
+  const MSM = createMsm(Inputs);
+  const msm = pool.register(NAME, MSM.msmUnsafe);
 
   return {
     Field,
