@@ -2,6 +2,7 @@ import { create } from "../src/concrete/pasta.parallel.js";
 import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import assert from "node:assert/strict";
+import { median, standardDev } from "./evaluate-util.js";
 
 const Pasta = await create();
 
@@ -36,20 +37,45 @@ let scalars = scalarPtrs.map((s) => {
 assert(scalars.length === N);
 toc();
 
-tic("msm (core)");
-console.log();
-let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N);
-let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
-Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
-let s = Pasta.CurveAffine.toBigint(sAffinePtr);
-toc();
+let doEvaluate = process.argv[5] === "--evaluate";
+
+if (!doEvaluate) {
+  tic("msm (core)");
+  console.log();
+  let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N);
+  let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
+  Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
+  let s = Pasta.CurveAffine.toBigint(sAffinePtr);
+
+  if (n < 10) {
+    tic("msm (simple, slow bigint impl)");
+    let sBigint = msmDumbAffine(scalars, points, Pasta.Scalar, Pasta.Field);
+    toc();
+    assert.deepEqual(s, sBigint, "consistent results");
+    console.log("results are consistent!");
+  }
+  toc();
+} else {
+  let scalarPtr = scalarPtrs[0];
+  let pointPtr = pointsPtrs[0];
+
+  tic("warm-up JIT compiler with fixed set of points");
+  await Pasta.msm(scalarPtr, pointPtr, 1 << 15);
+  await new Promise((r) => setTimeout(r, 100));
+  await Pasta.msm(scalarPtr, pointPtr, 1 << 15);
+  await new Promise((r) => setTimeout(r, 100));
+  toc();
+
+  let times: number[] = [];
+  for (let i = 0; i < 10; i++) {
+    tic();
+    await Pasta.msm(scalarPtr, pointPtr, 1 << n);
+    let time = toc();
+    times.push(time);
+  }
+  let avg = median(times);
+  let std = standardDev(times);
+  console.dir({ n, avg, std, times }, { depth: Infinity });
+}
 
 await Pasta.stopThreads();
-
-if (n < 10) {
-  tic("msm (simple, slow bigint impl)");
-  let sBigint = msmDumbAffine(scalars, points, Pasta.Scalar, Pasta.Field);
-  toc();
-  assert.deepEqual(s, sBigint, "consistent results");
-  console.log("results are consistent!");
-}
