@@ -187,7 +187,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
      */
-    tic("share buckets");
+    tic("share buckets / prepare shared pointers");
     let broadCastResult = await broadcastFromMain("buckets", () => {
       let buckets: Uint32Array[] = Array(K);
       for (let k = 0; k < K; k++) {
@@ -208,6 +208,18 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // compute chunks of buckets that each thread will work on
     let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(K, L);
+
+    // allocate space for different threads' contribution to each partitions
+    let columnss: Uint32Array[] = Array(K);
+    for (let k = 0; k < K; k++) {
+      let nChunks = nChunksPerPartition[k];
+      columnss[k] = new Uint32Array(new SharedArrayBuffer(4 * nChunks));
+      let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
+      for (let j = 0; j < nChunks; j++) {
+        columnss[k][j] = chunkPtrs[j];
+        if (isMain()) CurveProjective.setZero(columnss[k][j]);
+      }
+    }
     toc();
 
     tic("integrate bucket counts");
@@ -279,25 +291,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // second stage
     tic("normalize bucket storage");
-    let buckets2 = normalizeBucketsStorage(buckets, params);
-    let buckets3 = normalizeBucketsStorage(buckets, params, true);
+    let buckets2 = normalizeBucketsStorage(buckets, params, true);
 
-    // allocate space for different threads' contribution to each partitions
-    let columnss: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      let nChunks = nChunksPerPartition[k];
-      columnss[k] = new Uint32Array(new SharedArrayBuffer(4 * nChunks));
-      let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
-      for (let j = 0; j < nChunks; j++) {
-        columnss[k][j] = chunkPtrs[j];
-        if (isMain()) CurveProjective.setZero(columnss[k][j]);
-      }
-    }
-    toc();
-
-    // TODO
-    tic("bucket accumulation (wait)");
-    await barrier();
     toc();
 
     tic("bucket reduction (local)");
@@ -305,7 +300,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     for (let { j, k, length, lstart } of chunks) {
       // TODO make buckets be just that subarray
-      let buckets = buckets3[k].subarray(lstart, lstart + length);
+      let buckets = buckets2[k].subarray(lstart, lstart + length);
       reduceBucketsColumnProjective(columnss[k][j], buckets, lstart);
     }
     toc();
@@ -314,10 +309,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     await barrier();
     toc();
     if (!isMain()) return 0;
-
-    // tic("bucket reduction (old)");
-    // let partialSums = reduceBucketsAffine(scratch, buckets2, params);
-    // toc();
 
     tic("partition sum");
     for (let k = 0; k < K; k++) {
