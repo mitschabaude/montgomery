@@ -4,6 +4,9 @@ import { assert } from "../util.js";
 
 export { memoryHelpers, MemoryHelpers };
 
+// how much memory is allocated to thread-local memory as a fraction of total memory
+const localRatio = 0.35;
+
 type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 
 /**
@@ -33,7 +36,6 @@ function memoryHelpers(
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;
 
-  let localRatio = 0.2;
   let totalLength = memoryBytes.length;
   let localLength = floorToMultipleOf4(totalLength * localRatio);
   let [global, local] = MemorySection.createGlobalAndLocal(
@@ -227,7 +229,10 @@ class MemorySection {
       );
     }
     this._offset = offset;
+    if (offset > this.maxOffset) this.maxOffset = offset;
   }
+
+  maxOffset: number;
 
   constructor(
     memory: WebAssembly.Memory,
@@ -244,6 +249,7 @@ class MemorySection {
     this.isShared = isShared;
 
     this._offset = initialOffset;
+    this.maxOffset = initialOffset;
   }
 
   sizeUsed() {
@@ -251,6 +257,19 @@ class MemorySection {
   }
   sizeAvailable() {
     return this.end - this.offset;
+  }
+  printMaxSizeUsed() {
+    if (!isMain()) return;
+    let maxUsedMB = ((this.maxOffset - this.initial) / 1e6).toFixed(0);
+    let maxMb = (this.length / 1e6).toFixed(0);
+    let maxUsedPercent = (
+      ((this.maxOffset - this.initial) / this.length) *
+      100
+    ).toFixed(1);
+    let kind = this.isShared ? "global" : "local";
+    console.log(
+      `max size used (${kind}):\t ${maxUsedPercent}% = ${maxUsedMB} / ${maxMb} MB`
+    );
   }
 
   // this will be called with `using section.atCurrentOffset`
