@@ -48,6 +48,7 @@ if (!doEvaluate) {
   let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
   Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
   let s = Pasta.CurveAffine.toBigint(sAffinePtr);
+  toc();
 
   if (n < 10) {
     tic("msm (simple, slow bigint impl)");
@@ -56,7 +57,6 @@ if (!doEvaluate) {
     assert.deepEqual(s, sBigint, "consistent results");
     console.log("results are consistent!");
   }
-  toc();
 } else {
   let scalarPtr = scalarPtrs[0];
   let pointPtr = pointsPtrs[0];
