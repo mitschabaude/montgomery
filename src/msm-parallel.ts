@@ -291,16 +291,15 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // second stage
     tic("normalize bucket storage");
-    let buckets2 = normalizeBucketsStorage(buckets, params, true);
-
+    let chunks = normalizeBucketsStorage(
+      buckets,
+      chunksPerThread[thread],
+      true
+    );
     toc();
 
     tic("bucket reduction (local)");
-    let chunks = chunksPerThread[thread];
-
-    for (let { j, k, length, lstart } of chunks) {
-      // TODO make buckets be just that subarray
-      let buckets = buckets2[k].subarray(lstart, lstart + length);
+    for (let { j, k, lstart, buckets } of chunks) {
       reduceBucketsColumnProjective(columnss[k][j], buckets, lstart);
     }
     toc();
@@ -308,6 +307,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic("bucket accumulation (wait)");
     await barrier();
     toc();
+
+    Field.local.printMaxSizeUsed();
+    Field.global.printMaxSizeUsed();
     if (!isMain()) return 0;
 
     tic("partition sum");
@@ -568,12 +570,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
   }
 
-  // TODO this should only have to return the thread's own buckets
-  // which, in general, are a list { k: number, buckets: Uint32Array[] }[]
-  // (the chunks of buckets given to this thread, and the partition k they belong to)
   function normalizeBucketsStorage(
     oldBuckets: Uint32Array[],
-    { K, L }: { K: number; L: number },
+    chunksPerThread: Chunk[],
     toProjective = false
   ) {
     let size = toProjective ? sizeProjective : sizeAffine;
@@ -582,37 +581,31 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       : (ptr: number) => setIsNonZeroAffine(ptr, false);
     let copy = toProjective ? affineToProjective : copyAffine;
 
-    // normalize the way buckets are stored -- we'll store intermediate running sums there
-    // copy bucket sums into new contiguous pointers to improve memory access
-    let buckets: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      buckets[k] = Uint32Array.from(Field.global.getPointers(L + 1, size));
-    }
+    // normalize the way buckets are stored
+    let nChunks = chunksPerThread.length;
+    let chunksWithBuckets: (Chunk & { buckets: Uint32Array })[] =
+      Array(nChunks);
 
-    // set zero bucket to zero
-    // TODO get rid of zero buckets here
-    if (isMain()) {
-      for (let k = 0; k < K; k++) {
-        setZero(buckets[k][0]);
+    for (let i = 0; i < nChunks; i++) {
+      let chunk = chunksPerThread[i];
+      let { k, length, lstart } = chunk;
+      let buckets = Uint32Array.from(Field.local.getPointers(length, size));
+
+      for (let l = 0; l < length; l++) {
+        let bucket = oldBuckets[k][lstart + l - 1];
+        let nextBucket = oldBuckets[k][lstart + l];
+        if (bucket === nextBucket) {
+          // empty bucket
+          setZero(buckets[l]);
+        } else {
+          copy(buckets[l], bucket);
+        }
       }
+
+      chunksWithBuckets[i] = { ...chunk, buckets: buckets };
     }
 
-    for (
-      let [i, iend] = range(K * L), k = Math.floor(i / L), l = (i % L) + 1;
-      i < iend;
-      i++, l === L ? (k++, (l = 1)) : l++
-    ) {
-      let bucket = oldBuckets[k][l - 1];
-      let nextBucket = oldBuckets[k][l];
-      if (bucket === nextBucket) {
-        // empty bucket
-        setZero(buckets[k][l]);
-      } else {
-        copy(buckets[k][l], bucket);
-      }
-    }
-
-    return buckets;
+    return chunksWithBuckets;
   }
 
   /**
