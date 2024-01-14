@@ -188,8 +188,43 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
      */
     tic("prepare points & scalars");
-    let { pointPtr, bucketCounts, scalarSlices, maxBucketSize, nPairsMax } =
-      preparePointsAndScalars(pointPtr0, scalarPtr0, params);
+    let {
+      pointPtr,
+      scalarPtr,
+      bucketCounts,
+      scalarSlices,
+      maxBucketSize,
+      nPairsMax,
+    } = preparePointsAndScalars(pointPtr0, scalarPtr0, params);
+    toc();
+
+    tic("slice scalars & count buckets");
+    if (isMain()) {
+      let twoN = 2 * N;
+      let twoL = 2 * L;
+      for (let i = 0, scalar = scalarPtr; i < twoN; i++, scalar += sizeScalar) {
+        // partition each 16-byte scalar into c-bit slices
+        for (let k = 0, carry = 0; k < K; k++) {
+          // compute kth slice from first half scalar
+          let l = extractBitSlice(scalar, k * c, c) + carry;
+
+          if (l > L) {
+            l = twoL - l;
+            carry = 1;
+          } else {
+            carry = 0;
+          }
+          scalarSlices[k][i] = l | (carry << 31);
+
+          if (l !== 0) {
+            // if the slice is non-zero, increase bucket count
+            let bucketSize = ++bucketCounts[k][l];
+            if ((bucketSize & 1) === 0) nPairsMax++;
+            if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
+          }
+        }
+      }
+    }
     toc();
 
     /**
@@ -387,7 +422,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     let maxBucketSize = 0;
     let nPairsMax = 0; // we need to allocate space for one pointer per addition pair
-    let doubleL = 2 * L;
 
     for (
       let i = 0,
@@ -446,7 +480,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
     }
 
-    let N2 = 2 * N;
     let bucketCounts: Uint32Array[] = Array(K);
     let scalarSlices: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
@@ -454,28 +487,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
     }
 
-    for (let i = 0, scalar = scalarPtr; i < N2; i++, scalar += sizeScalar) {
-      // partition each 16-byte scalar into c-bit slices
-      for (let k = 0, carry = 0; k < K; k++) {
-        // compute kth slice from first half scalar
-        let l = extractBitSlice(scalar, k * c, c) + carry;
-
-        if (l > L) {
-          l = doubleL - l;
-          carry = 1;
-        } else {
-          carry = 0;
-        }
-        scalarSlices[k][i] = l | (carry << 31);
-
-        if (l !== 0) {
-          // if the slice is non-zero, increase bucket count
-          let bucketSize = ++bucketCounts[k][l];
-          if ((bucketSize & 1) === 0) nPairsMax++;
-          if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
-        }
-      }
-    }
     return {
       pointPtr,
       scalarPtr,
