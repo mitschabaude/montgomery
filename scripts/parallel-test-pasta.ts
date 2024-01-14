@@ -83,10 +83,8 @@ if (!doEvaluate) {
 
   let avg = Math.round(median(times));
   let std = Math.round(standardDev(times));
-  console.dir(
-    { n, avg, std, times: times.map(Math.round) },
-    { depth: Infinity }
-  );
+  console.log(times.map(Math.round));
+  // console.dir({ n, avg, std, times: times.map(Math.round) });
   console.log(`msm (n=${n})... ${avg}ms ± ${std}ms`);
 }
 
