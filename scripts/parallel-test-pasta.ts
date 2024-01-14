@@ -40,7 +40,7 @@ toc();
 let doEvaluate = process.argv[5] === "--evaluate";
 
 if (!doEvaluate) {
-  tic("msm (core)");
+  tic(`msm (n=${n})`);
   console.log();
   let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, {
     verboseTiming: true,
@@ -70,19 +70,24 @@ if (!doEvaluate) {
 
   let times: number[] = [];
   for (let i = 0; i < 10; i++) {
-    let [pointPtr] = await Pasta.randomPointsFast(N);
     let [scalarPtr] = await Pasta.randomScalars(N);
     tic();
-    await Pasta.msm(scalarPtr, pointPtr, 1 << n, { verboseTiming: i === 9 });
+    await Pasta.msm(scalarPtr, pointPtr, 1 << n);
     let time = toc();
     times.push(time);
   }
+  tic("msm total");
+  console.log();
+  await Pasta.msm(scalarPtr, pointPtr, 1 << n, { verboseTiming: true });
+  toc();
+
   let avg = Math.round(median(times));
   let std = Math.round(standardDev(times));
   console.dir(
     { n, avg, std, times: times.map(Math.round) },
     { depth: Infinity }
   );
+  console.log(`msm (n=${n})... ${avg}ms ± ${std}ms`);
 }
 
 await Pasta.stopThreads();
