@@ -293,7 +293,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         console.log(
           `batch add: ${t.toFixed(0)}ms, ${nPairs} pairs, ${(
             (t / nPairs) *
-            1e9
+            1e6
           ).toFixed(1)}ns / pair`
         );
     }
