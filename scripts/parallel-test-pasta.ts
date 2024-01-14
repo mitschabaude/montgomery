@@ -70,14 +70,19 @@ if (!doEvaluate) {
 
   let times: number[] = [];
   for (let i = 0; i < 10; i++) {
+    let [pointPtr] = await Pasta.randomPointsFast(N);
+    let [scalarPtr] = await Pasta.randomScalars(N);
     tic();
     await Pasta.msm(scalarPtr, pointPtr, 1 << n, { verboseTiming: i === 9 });
     let time = toc();
     times.push(time);
   }
-  let avg = median(times);
-  let std = standardDev(times);
-  console.dir({ n, avg, std, times }, { depth: Infinity });
+  let avg = Math.round(median(times));
+  let std = Math.round(standardDev(times));
+  console.dir(
+    { n, avg, std, times: times.map(Math.round) },
+    { depth: Infinity }
+  );
 }
 
 await Pasta.stopThreads();
