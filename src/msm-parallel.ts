@@ -144,6 +144,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   ) {
     let result = Field.global.getPointer(sizeProjective);
     using _g = Field.global.atCurrentOffset;
+    using _l = Field.local.atCurrentOffset;
     let n = log2(N);
     let c = n - 1;
     if (c < 1) c = 1;
