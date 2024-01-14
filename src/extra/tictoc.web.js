@@ -12,7 +12,7 @@ function tic(label = `Run command ${i++}`) {
 
 function toc() {
   let [label, start] = timingStack.pop();
-  let time = (Date.now() - start) / 1000;
-  console.log(`\r${label}... ${time.toFixed(3)} sec\n`);
+  let time = Date.now() - start;
+  console.log(`\r${label}... ${time.toFixed(1)}ms\n`);
   return time;
 }

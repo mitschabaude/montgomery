@@ -15,8 +15,8 @@ function tic(label) {
 function toc() {
   if (!isMain()) return 0;
   let [label, start] = timingStack.pop();
-  let time = (performance.now() - start) / 1000;
+  let time = performance.now() - start;
   if (label !== undefined)
-    process.stdout.write(`\r${label}... ${time.toFixed(3)} sec\n`);
+    process.stdout.write(`\r${label}... ${time.toFixed(1)}ms\n`);
   return time;
 }

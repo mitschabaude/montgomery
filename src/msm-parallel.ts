@@ -291,7 +291,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       let t = toc();
       if (verboseTiming && isMain() && t > 0)
         console.log(
-          `batch add: ${(t * 1e3).toFixed(0)}ms, ${nPairs} pairs, ${(
+          `batch add: ${t.toFixed(0)}ms, ${nPairs} pairs, ${(
             (t / nPairs) *
             1e9
           ).toFixed(1)}ns / pair`
