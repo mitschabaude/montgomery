@@ -385,13 +385,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       };
     }
 
-    let bucketCounts: Uint32Array[] = Array(K);
-    let scalarSlices: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
-      scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
-    }
-
     let maxBucketSize = 0;
     let nPairsMax = 0; // we need to allocate space for one pointer per addition pair
     let doubleL = 2 * L;
@@ -451,39 +444,29 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         copy(negEndoPoint + sizeField, y);
         copy(endoPoint + sizeField, negPoint + sizeField);
       }
+    }
 
+    let N2 = 2 * N;
+    let bucketCounts: Uint32Array[] = Array(K);
+    let scalarSlices: Uint32Array[] = Array(K);
+    for (let k = 0; k < K; k++) {
+      bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
+      scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
+    }
+
+    for (let i = 0, scalar = scalarPtr; i < N2; i++, scalar += sizeScalar) {
       // partition each 16-byte scalar into c-bit slices
-      for (let k = 0, carry0 = 0, carry1 = 0; k < K; k++) {
+      for (let k = 0, carry = 0; k < K; k++) {
         // compute kth slice from first half scalar
-        let l = extractBitSlice(scalar0, k * c, c) + carry0;
+        let l = extractBitSlice(scalar, k * c, c) + carry;
 
         if (l > L) {
           l = doubleL - l;
-          carry0 = 1;
+          carry = 1;
         } else {
-          carry0 = 0;
+          carry = 0;
         }
-        scalarSlices[k][2 * i] = l | (carry0 << 31);
-
-        if (l !== 0) {
-          // if the slice is non-zero, increase bucket count
-          let bucketSize = ++bucketCounts[k][l];
-          if ((bucketSize & 1) === 0) nPairsMax++;
-          if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
-        }
-        // compute kth slice from second half scalar
-        // note: we repeat this code instead of merging both into a loop of size 2,
-        // because the latter would imply creating a throw-away array of size two for the scalars.
-        // creating such throw-away objects has a garbage collection cost
-        l = extractBitSlice(scalar1, k * c, c) + carry1;
-
-        if (l > L) {
-          l = doubleL - l;
-          carry1 = 1;
-        } else {
-          carry1 = 0;
-        }
-        scalarSlices[k][2 * i + 1] = l | (carry1 << 31);
+        scalarSlices[k][i] = l | (carry << 31);
 
         if (l !== 0) {
           // if the slice is non-zero, increase bucket count
