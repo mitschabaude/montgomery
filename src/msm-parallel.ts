@@ -188,17 +188,26 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
      */
     tic("prepare points & scalars");
-    let {
-      pointPtr,
-      scalarPtr,
-      bucketCounts,
-      scalarSlices,
-      maxBucketSize,
-      nPairsMax,
-    } = preparePointsAndScalars(pointPtr0, scalarPtr0, params);
+    let { pointPtr, scalarPtr } = preparePointsAndScalars(
+      pointPtr0,
+      scalarPtr0,
+      params
+    );
     toc();
 
+    // TODO
+    await barrier();
+
     tic("slice scalars & count buckets");
+    let bucketCounts: Uint32Array[] = Array(K);
+    let scalarSlices: Uint32Array[] = Array(K);
+    for (let k = 0; k < K; k++) {
+      bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
+      scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
+    }
+    let maxBucketSize = 0;
+    let nPairsMax = 0; // we need to allocate space for one pointer per addition pair
+
     if (isMain()) {
       let twoN = 2 * N;
       let twoL = 2 * L;
@@ -396,40 +405,27 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
    * - points in 4 variants: G, -G, endo(G), -endo(G)
    *   with coordinates in Montgomery form
    * - scalars decomposed into 2 half-size chunks
-   * - bucket counts
    */
   function preparePointsAndScalars(
     pointPtr0: number,
     scalarPtr0: number,
-    { N, K, L, c }: { N: number; K: number; L: number; c: number }
+    { N }: { N: number }
   ) {
     let sizeAffine4 = 4 * sizeAffine;
     let pointPtr = Field.global.getPointer(N * sizeAffine4);
     let sizeScalar2 = 2 * sizeScalar;
     let scalarPtr = Field.global.getPointer(N * sizeScalar2);
 
-    // TODO
-    if (!isMain()) {
-      return {
-        pointPtr,
-        scalarPtr,
-        bucketCounts: [],
-        scalarSlices: [],
-        maxBucketSize: 0,
-        nPairsMax: 0,
-      };
-    }
+    let [i, iend] = range(N);
+    let point = pointPtr + sizeAffine4 * i;
+    let scalar = scalarPtr + sizeScalar2 * i;
 
-    let maxBucketSize = 0;
-    let nPairsMax = 0; // we need to allocate space for one pointer per addition pair
+    let point0 = pointPtr0 + sizeAffine * i;
+    let scalarInput = scalarPtr0 + sizeScalar * i;
 
     for (
-      let i = 0,
-        point0 = pointPtr0,
-        point = pointPtr,
-        scalarInput = scalarPtr0,
-        scalar = scalarPtr;
-      i < N;
+      ;
+      i < iend;
       i++,
         point0 += sizeAffine,
         point += sizeAffine4,
@@ -480,21 +476,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
     }
 
-    let bucketCounts: Uint32Array[] = Array(K);
-    let scalarSlices: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
-      scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
-    }
-
-    return {
-      pointPtr,
-      scalarPtr,
-      bucketCounts,
-      scalarSlices,
-      maxBucketSize,
-      nPairsMax,
-    };
+    return { pointPtr, scalarPtr };
   }
 
   function integrateBucketCounts(

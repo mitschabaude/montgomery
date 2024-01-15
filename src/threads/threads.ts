@@ -18,7 +18,6 @@ export {
   logMain,
   sharedArray,
   range,
-  rangeMain,
   barrier,
   lock,
   unlock,
@@ -361,16 +360,11 @@ function unlock(data: Int32Array = sharedArray, index = MUTEX_INDEX) {
   Atomics.notify(data, MUTEX_INDEX);
 }
 
-function range(n: number) {
-  let nt = Math.ceil(n / THREADS);
+function range(n: number, nThreads = THREADS) {
+  let nt = Math.ceil(n / nThreads);
   let start = Math.min(n, thread * nt);
-  let end = Math.min(n, thread === THREADS - 1 ? n : start + nt);
+  let end = Math.min(n, thread === nThreads - 1 ? n : start + nt);
   return [start, end];
-}
-
-function rangeMain(n: number) {
-  if (isMain()) return [0, n];
-  return [0, 0];
 }
 
 function shareOf(n: number) {
