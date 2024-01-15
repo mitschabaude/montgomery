@@ -172,6 +172,50 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     let scratch = Field.local.getPointers(40);
 
+    tic("share buckets / prepare shared pointers");
+    let { bucketCounts, scalarSlices, buckets, maxBucketSizes } =
+      await broadcastFromMain("buckets", () => {
+        let buckets: Uint32Array[] = Array(K);
+        for (let k = 0; k < K; k++) {
+          buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
+          // the starting pointer for the array of points, in bucket order
+          buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+        }
+
+        let bucketCounts: Uint32Array[] = Array(K);
+        let scalarSlices: Uint32Array[] = Array(K);
+        for (let k = 0; k < K; k++) {
+          bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
+          scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
+        }
+
+        let maxBucketSizes = new Uint32Array(
+          new SharedArrayBuffer(4 * THREADS)
+        );
+        return { bucketCounts, scalarSlices, buckets, maxBucketSizes };
+      });
+
+    // ensure same pointer offsets in other threads
+    if (!isMain()) {
+      Field.global.getPointer(2 * N * K * sizeAffine);
+    }
+
+    // compute chunks of buckets that each thread will work on
+    let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(K, L);
+
+    // allocate space for different threads' contribution to each partitions
+    let columnss: Uint32Array[] = Array(K);
+    for (let k = 0; k < K; k++) {
+      let nChunks = nChunksPerPartition[k];
+      columnss[k] = new Uint32Array(nChunks);
+      let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
+      for (let j = 0; j < nChunks; j++) {
+        columnss[k][j] = chunkPtrs[j];
+        if (isMain()) CurveProjective.setZero(columnss[k][j]);
+      }
+    }
+    toc();
+
     /**
      * Preparation phase 1
      * --------------------
@@ -195,45 +239,47 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     );
     toc();
 
-    // TODO
-    await barrier();
-
     tic("slice scalars & count buckets");
-    let bucketCounts: Uint32Array[] = Array(K);
-    let scalarSlices: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
-      scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
-    }
-    let maxBucketSize = 0;
-    let nPairsMax = 0; // we need to allocate space for one pointer per addition pair
+    let maxBucketSizeLocal = 0;
 
-    if (isMain()) {
-      let twoN = 2 * N;
-      let twoL = 2 * L;
-      for (let i = 0, scalar = scalarPtr; i < twoN; i++, scalar += sizeScalar) {
-        // partition each 16-byte scalar into c-bit slices
-        for (let k = 0, carry = 0; k < K; k++) {
-          // compute kth slice from first half scalar
-          let l = extractBitSlice(scalar, k * c, c) + carry;
+    let twoL = 2 * L;
+    let [iHalf, iendHalf] = range(N);
 
-          if (l > L) {
-            l = twoL - l;
-            carry = 1;
-          } else {
-            carry = 0;
-          }
-          scalarSlices[k][i] = l | (carry << 31);
+    for (
+      let i = iHalf * 2,
+        iend = iendHalf * 2,
+        scalar = scalarPtr + sizeScalar * i;
+      i < iend;
+      i++, scalar += sizeScalar
+    ) {
+      // partition each 16-byte scalar into c-bit slices
+      for (let k = 0, carry = 0; k < K; k++) {
+        // compute kth slice from first half scalar
+        let l = extractBitSlice(scalar, k * c, c) + carry;
 
-          if (l !== 0) {
-            // if the slice is non-zero, increase bucket count
-            let bucketSize = ++bucketCounts[k][l];
-            if ((bucketSize & 1) === 0) nPairsMax++;
-            if (bucketSize > maxBucketSize) maxBucketSize = bucketSize;
+        if (l > L) {
+          l = twoL - l;
+          carry = 1;
+        } else {
+          carry = 0;
+        }
+        scalarSlices[k][i] = l | (carry << 31);
+
+        if (l !== 0) {
+          // if the slice is non-zero, increase bucket count
+          let bucketSize = Atomics.add(bucketCounts[k], l, 1) + 1;
+          if (bucketSize > maxBucketSizeLocal) {
+            maxBucketSizeLocal = bucketSize;
           }
         }
       }
     }
+    maxBucketSizes[thread] = maxBucketSizeLocal;
+    toc();
+
+    tic("bucket counts (wait)");
+    await barrier();
+    let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
 
     /**
@@ -243,40 +289,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
      * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
      */
-    tic("share buckets / prepare shared pointers");
-    let broadCastResult = await broadcastFromMain("buckets", () => {
-      let buckets: Uint32Array[] = Array(K);
-      for (let k = 0; k < K; k++) {
-        buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
-        // the starting pointer for the array of points, in bucket order
-        buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
-      }
-      return { bucketCounts, scalarSlices, buckets, maxBucketSize, nPairsMax };
-    });
-    let { buckets } = broadCastResult;
-    ({ bucketCounts, scalarSlices, maxBucketSize, nPairsMax } =
-      broadCastResult);
-
-    // ensure same pointer offsets in other threads
-    if (!isMain()) {
-      Field.global.getPointer(2 * N * K * sizeAffine);
-    }
-
-    // compute chunks of buckets that each thread will work on
-    let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(K, L);
-
-    // allocate space for different threads' contribution to each partitions
-    let columnss: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      let nChunks = nChunksPerPartition[k];
-      columnss[k] = new Uint32Array(new SharedArrayBuffer(4 * nChunks));
-      let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
-      for (let j = 0; j < nChunks; j++) {
-        columnss[k][j] = chunkPtrs[j];
-        if (isMain()) CurveProjective.setZero(columnss[k][j]);
-      }
-    }
-    toc();
 
     tic("integrate bucket counts");
     if (isMain()) {
@@ -287,6 +299,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     tic("sort points");
     sortPoints(buckets, pointPtr, bucketCounts, scalarSlices, params);
+    toc();
+
+    tic("sort points (wait)");
     await barrier();
     toc();
 
@@ -294,6 +309,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic("bucket accumulation");
     if (verboseTiming && isMain()) console.log();
 
+    let nPairsMax = N * K; // maximum number of pairs = half the number of points, times K partitions
     let G = new Uint32Array(nPairsMax); // holds first summands
     let H = new Uint32Array(nPairsMax); // holds second summands
 
