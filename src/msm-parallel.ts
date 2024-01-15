@@ -172,7 +172,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     let scratch = Field.local.getPointers(40);
 
-    tic("share buckets / prepare shared pointers");
+    tic("prepare shared pointers");
     let { bucketCounts, scalarSlices, buckets, maxBucketSizes } =
       await broadcastFromMain("buckets", () => {
         let buckets: Uint32Array[] = Array(K);
@@ -221,15 +221,10 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
      * --------------------
      *
      * this phase is where we process inputs:
+     *
      * - store input points in wasm memory, in the format we need
      * - compute & store negative, endo, and negative-endo points
      * - decompose input scalars as `s = s0 + s1*lambda` and store s0, s1 in wasm memory
-     * - walk over the c-bit windows of each scalar, to
-     *   - count the number of points for each bucket
-     *   - count the total number of pairs to add in the first batch addition
-     *
-     * note: actual copying into buckets is done in the next phase!
-     * here, we just use the scalar slices to count bucket sizes, as first step of a counting sort.
      */
     tic("prepare points & scalars");
     let { pointPtr, scalarPtr } = preparePointsAndScalars(
@@ -239,6 +234,16 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     );
     toc();
 
+    /**
+     * Preparation phase 2
+     * -------------------
+     *
+     * in this phase, we sort points into buckets, and re-organize them into linear arrays.
+     *
+     * - compute c-bit windows for each scalar
+     * - perform a _counting sort_ algorithm as shown here:
+     *   https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
+     */
     tic("slice scalars & count buckets");
     let maxBucketSizeLocal = 0;
 
@@ -282,15 +287,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
 
-    /**
-     * Preparation phase 2
-     * -------------------
-     *
-     * this phase basically consists of the second and third loops of the _counting sort_ algorithm shown here:
-     * https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
-     */
-
     tic("integrate bucket counts");
+    // this takes < 1ms, so we do just it on the main thread
     if (isMain()) {
       integrateBucketCounts(bucketCounts, buckets, params);
     }
@@ -386,6 +384,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
     if (!isMain()) return 0;
 
+    // third stage -- aggregate contributions from all threads into partition sums,
+    // and reduce partition sums into the final result
+    // this whole stage takes < 0.2ms and is done on the main thread
     tic("partition sum");
     for (let k = 0; k < K; k++) {
       let columns = columnss[k];
@@ -397,7 +398,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let partialSums = columnss.map((column) => column[0]);
     toc();
 
-    // third stage -- compute final sum
     tic("final sum");
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
