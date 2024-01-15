@@ -11,6 +11,8 @@ import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
 
+const REMOVE_ALL_LOGS = false;
+
 type MsmCurve = {
   Field: MsmField;
   Scalar: GlvScalar;
@@ -140,7 +142,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         }
       | undefined = {}
   ) {
-    let { tic, toc, log, printLog } = createLog(verboseTiming && isMain());
+    let { tic, toc, log, getLog } = createLog(verboseTiming && isMain());
+    tic("msm total");
 
     let result = Field.global.getPointer(sizeProjective);
     using _g = Field.global.atCurrentOffset;
@@ -365,7 +368,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     await barrier();
     toc();
 
-    if (!isMain()) return 0;
+    if (!isMain()) return { result, log: getLog() };
 
     // third stage -- aggregate contributions from all threads into partition sums,
     // and reduce partition sums into the final result
@@ -394,13 +397,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
     copyProjective(result, finalSum);
     toc();
-
-    printLog();
-    if (verboseTiming) {
-      Field.local.printMaxSizeUsed();
-      Field.global.printMaxSizeUsed();
-    }
-    return result;
+    toc();
+    return { result, log: getLog() };
   }
 
   /**
@@ -976,12 +974,22 @@ function createLog(isActive: boolean) {
   let timingStack: [string | undefined, number][] = [];
   let deferredLog: any[][] = [];
 
-  if (!isActive)
-    return { printLog: () => {}, log: () => {}, tic: () => {}, toc: () => 0 };
+  if (REMOVE_ALL_LOGS)
+    return {
+      printLog: () => {},
+      log: () => {},
+      tic: () => {},
+      toc: () => 0,
+      getLog: () => [],
+    };
 
   function printLog() {
-    deferredLog.forEach((log) => console.log(...log));
+    deferredLog.forEach((log) => isActive && console.log(...log));
     deferredLog = [];
+  }
+
+  function getLog() {
+    return deferredLog;
   }
 
   function log(...args: any[]) {
@@ -999,5 +1007,5 @@ function createLog(isActive: boolean) {
     return time;
   }
 
-  return { printLog, log, tic, toc };
+  return { printLog, getLog, log, tic, toc };
 }

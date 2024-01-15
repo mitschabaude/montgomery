@@ -42,10 +42,12 @@ let doEvaluate = process.argv[5] === "--evaluate";
 
 if (!doEvaluate) {
   tic(`msm (n=${n})`);
-  let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, true);
+  let { result, log } = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, true);
   let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
-  Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
+  Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, result);
   let s = Pasta.CurveAffine.toBigint(sAffinePtr);
+
+  log.forEach((l) => console.log(...l));
   toc();
 
   if (n < 10) {
@@ -60,25 +62,25 @@ if (!doEvaluate) {
   let pointPtr = pointsPtrs[0];
 
   tic("warm-up JIT compiler");
-  await Pasta.msm(scalarPtr, pointPtr, 1 << 15, false);
-  await new Promise((r) => setTimeout(r, 100));
-  await Pasta.msm(scalarPtr, pointPtr, 1 << 16, false);
-  await new Promise((r) => setTimeout(r, 100));
+  await Pasta.msm(scalarPtr, pointPtr, 1 << 15, true);
+  await new Promise((r) => setTimeout(r, 50));
   toc();
 
   let times: number[] = [];
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     let [scalarPtr] = await Pasta.randomScalars(N);
     tic();
-    await Pasta.msm(scalarPtr, pointPtr, 1 << n, false);
+    await Pasta.msm(scalarPtr, pointPtr, 1 << n, true);
     let time = toc();
-    times.push(time);
+    if (i > 4) times.push(time);
   }
   [scalarPtr] = await Pasta.randomScalars(N);
   tic();
-  await Pasta.msm(scalarPtr, pointPtr, 1 << n, true);
+  let { log } = await Pasta.msm(scalarPtr, pointPtr, 1 << n, true);
   let t = toc();
-  console.log(`msm total... ${t.toFixed(1)}ms`);
+
+  log.forEach((l) => console.log(...l));
+  console.log(`msm total... ${t.toFixed(1)}ms (incl. worker calling overhead)`);
 
   let avg = Math.round(median(times));
   let std = Math.round(standardDev(times));
