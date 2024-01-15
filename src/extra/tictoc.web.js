@@ -3,16 +3,14 @@
 export { tic, toc };
 
 let timingStack = [];
-let i = 0;
 
-function tic(label = `Run command ${i++}`) {
-  console.log(`${label}... `);
-  timingStack.push([label, Date.now()]);
+function tic(label) {
+  timingStack.push([label, performance.now()]);
 }
 
 function toc() {
   let [label, start] = timingStack.pop();
-  let time = Date.now() - start;
-  console.log(`\r${label}... ${time.toFixed(1)}ms\n`);
+  let time = performance.now() - start;
+  if (label) console.log(`${label}... ${time.toFixed(1)}ms`);
   return time;
 }

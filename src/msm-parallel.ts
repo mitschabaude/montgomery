@@ -3,19 +3,10 @@
  */
 import { CurveAffine } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
-import { tic as tic_, toc as toc_ } from "./extra/tictoc.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import {
-  THREADS,
-  barrier,
-  isMain,
-  log,
-  logMain,
-  range,
-  thread,
-} from "./threads/threads.js";
+import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmCurve };
@@ -136,22 +127,20 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     scalarPtr0: number,
     pointPtr0: number,
     N: number,
+    verboseTiming = false,
     {
       c: c_,
       c0: c0_,
       useSafeAdditions = true,
-      verboseTiming = false,
     }:
       | {
           c?: number;
           c0?: number;
           useSafeAdditions?: boolean;
-          verboseTiming?: boolean;
         }
       | undefined = {}
   ) {
-    let tic = verboseTiming ? tic_ : () => {};
-    let toc = verboseTiming ? toc_ : () => 0;
+    let { tic, toc, log, printLog } = createLog(verboseTiming && isMain());
 
     let result = Field.global.getPointer(sizeProjective);
     using _g = Field.global.atCurrentOffset;
@@ -168,7 +157,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
     let params = { N, K, L, c, c0 };
-    if (verboseTiming) logMain({ n, K, c, c0 });
+    log({ n, K, c, c0 });
 
     let scratch = Field.local.getPointers(40);
 
@@ -305,8 +294,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // first stage - bucket accumulation
     tic("bucket accumulation");
-    if (verboseTiming && isMain()) console.log();
-
     let nPairsMax = N * K; // maximum number of pairs = half the number of points, times K partitions
     let G = new Uint32Array(nPairsMax); // holds first summands
     let H = new Uint32Array(nPairsMax); // holds second summands
@@ -347,8 +334,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         batchAddUnsafe(scratch, tmp[0], denom[0], G, G, H, nPairs);
       }
       let t = toc();
-      if (verboseTiming && isMain() && t > 0)
-        console.log(
+      if (t > 0)
+        log(
           `batch add: ${t.toFixed(0)}ms, ${nPairs} pairs, ${(
             (t / nPairs) *
             1e6
@@ -378,10 +365,6 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     await barrier();
     toc();
 
-    if (verboseTiming) {
-      Field.local.printMaxSizeUsed();
-      Field.global.printMaxSizeUsed();
-    }
     if (!isMain()) return 0;
 
     // third stage -- aggregate contributions from all threads into partition sums,
@@ -411,6 +394,12 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
     copyProjective(result, finalSum);
     toc();
+
+    printLog();
+    if (verboseTiming) {
+      Field.local.printMaxSizeUsed();
+      Field.global.printMaxSizeUsed();
+    }
     return result;
   }
 
@@ -923,8 +912,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       s: number,
       p: number,
       N: number,
-      o?: { c?: number; c0?: number; verboseTiming?: boolean }
-    ) => msm(s, p, N, { ...o, useSafeAdditions: false }),
+      v?: boolean,
+      o?: { c?: number; c0?: number }
+    ) => msm(s, p, N, v, { ...o, useSafeAdditions: false }),
     batchAdd,
   };
 }
@@ -979,3 +969,35 @@ const cTable: Record<number, [c: number, c0: number] | undefined> = {
   17: [16, 8],
   18: [16, 8],
 };
+
+// timing/logging helpers
+
+function createLog(isActive: boolean) {
+  let timingStack: [string | undefined, number][] = [];
+  let deferredLog: any[][] = [];
+
+  if (!isActive)
+    return { printLog: () => {}, log: () => {}, tic: () => {}, toc: () => 0 };
+
+  function printLog() {
+    deferredLog.forEach((log) => console.log(...log));
+    deferredLog = [];
+  }
+
+  function log(...args: any[]) {
+    deferredLog.push(args);
+  }
+
+  function tic(label?: string) {
+    timingStack.push([label, performance.now()]);
+  }
+
+  function toc() {
+    let [label, start] = timingStack.pop()!;
+    let time = performance.now() - start;
+    if (label !== undefined) log(`${label}... ${time.toFixed(1)}ms`);
+    return time;
+  }
+
+  return { printLog, log, tic, toc };
+}

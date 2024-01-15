@@ -1,6 +1,6 @@
 import { create } from "../src/concrete/pasta.parallel.js";
 import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
-import { tic, toc } from "../src/extra/tictoc.js";
+import { tic, toc } from "../src/extra/tictoc.web.js";
 import assert from "node:assert/strict";
 import { median, standardDev } from "./evaluate-util.js";
 
@@ -36,15 +36,13 @@ let scalars = scalarPtrs.map((s) => {
 });
 assert(scalars.length === N);
 toc();
+console.log();
 
 let doEvaluate = process.argv[5] === "--evaluate";
 
 if (!doEvaluate) {
   tic(`msm (n=${n})`);
-  console.log();
-  let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, {
-    verboseTiming: true,
-  });
+  let sPtr = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, true);
   let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
   Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, sPtr);
   let s = Pasta.CurveAffine.toBigint(sAffinePtr);
@@ -61,10 +59,10 @@ if (!doEvaluate) {
   let scalarPtr = scalarPtrs[0];
   let pointPtr = pointsPtrs[0];
 
-  tic("warm-up JIT compiler with fixed set of points");
-  await Pasta.msm(scalarPtr, pointPtr, 1 << 15);
+  tic("warm-up JIT compiler");
+  await Pasta.msm(scalarPtr, pointPtr, 1 << 15, false);
   await new Promise((r) => setTimeout(r, 100));
-  await Pasta.msm(scalarPtr, pointPtr, 1 << 15);
+  await Pasta.msm(scalarPtr, pointPtr, 1 << 16, false);
   await new Promise((r) => setTimeout(r, 100));
   toc();
 
@@ -72,14 +70,15 @@ if (!doEvaluate) {
   for (let i = 0; i < 10; i++) {
     let [scalarPtr] = await Pasta.randomScalars(N);
     tic();
-    await Pasta.msm(scalarPtr, pointPtr, 1 << n);
+    await Pasta.msm(scalarPtr, pointPtr, 1 << n, false);
     let time = toc();
     times.push(time);
   }
-  tic("msm total");
-  console.log();
-  await Pasta.msm(scalarPtr, pointPtr, 1 << n, { verboseTiming: true });
-  toc();
+  [scalarPtr] = await Pasta.randomScalars(N);
+  tic();
+  await Pasta.msm(scalarPtr, pointPtr, 1 << n, true);
+  let t = toc();
+  console.log(`msm total... ${t.toFixed(1)}ms`);
 
   let avg = Math.round(median(times));
   let std = Math.round(standardDev(times));
