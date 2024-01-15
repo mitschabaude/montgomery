@@ -1,11 +1,17 @@
 /**
- * Operations on a twisted edwards curve in extended coordinates (x, y, z, t), with a = -1
+ * Operations on a twisted edwards curve, with a = -1
  *
  * -x^2 + y^2 = 1 + d*x^2*y^2
+ *
+ * The representation uses extended coordinates (X, Y, Z, Z) where
+ *
+ * x = X/Z
+ * y = Y/Z
+ * T = XY/Z
  */
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
-import { randomGenerators } from "./field-util.js";
+import { mod, randomGenerators } from "./field-util.js";
 import { assert, bigintToBits } from "./util.js";
 
 export { createCurveTwistedEdwards, CurveTwistedEdwards };
@@ -17,6 +23,8 @@ function createCurveTwistedEdwards(
   d: bigint,
   cofactor: bigint
 ) {
+  const CurveBigint = createBigintTwistedEdwards(Field, d, cofactor);
+
   // write d to memory
   let [dPtr] = Field.local.getStablePointers(1);
   Field.writeBigint(dPtr, d);
@@ -265,18 +273,17 @@ function createCurveTwistedEdwards(
   }
 
   function toBigint(point: number): BigintPoint {
-    if (isZero(point)) return BigintPoint.zero;
+    if (isZero(point)) return CurveBigint.zero;
     let [x, y, z, t] = coords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
     Field.fromMontgomery(z);
     Field.fromMontgomery(t);
     let pointBigint = {
-      x: Field.readBigint(x),
-      y: Field.readBigint(y),
-      z: Field.readBigint(z),
-      t: Field.readBigint(t),
-      isInfinity: false,
+      X: Field.readBigint(x),
+      Y: Field.readBigint(y),
+      Z: Field.readBigint(z),
+      T: Field.readBigint(t),
     };
     Field.toMontgomery(x);
     Field.toMontgomery(y);
@@ -285,19 +292,21 @@ function createCurveTwistedEdwards(
     return pointBigint;
   }
 
-  function writeBigint(point: number, { x, y, isInfinity }: BigintPoint) {
-    if (isInfinity) {
+  function writeBigint(point: number, P: BigintPoint) {
+    if (CurveBigint.isZero(P)) {
       setZero(point);
       return;
     }
+    let { X, Y, Z, T } = P;
     let [xPtr, yPtr, zPtr, tPtr] = coords(point);
-    Field.writeBigint(xPtr, x);
-    Field.writeBigint(yPtr, y);
-    Field.writeBigint(tPtr, y);
+    Field.writeBigint(xPtr, X);
+    Field.writeBigint(yPtr, Y);
+    Field.writeBigint(zPtr, Z);
+    Field.writeBigint(tPtr, T);
     Field.toMontgomery(xPtr);
     Field.toMontgomery(yPtr);
+    Field.toMontgomery(zPtr);
     Field.toMontgomery(tPtr);
-    Field.copy(zPtr, Field.constants.mg1);
     setNonZero(point);
   }
 
@@ -318,13 +327,161 @@ function createCurveTwistedEdwards(
   };
 }
 
-type BigintPoint = {
-  x: bigint;
-  y: bigint;
-  z: bigint;
-  t: bigint;
-  isInfinity: boolean;
-};
-const BigintPoint = {
-  zero: { x: 0n, y: 1n, z: 0n, t: 0n, isInfinity: true },
-};
+type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
+
+function createBigintTwistedEdwards(
+  Field: MsmField,
+  d: bigint,
+  cofactor: bigint
+) {
+  let k = 2n * d;
+  let { p } = Field;
+
+  const zero = { X: 0n, Y: 1n, Z: 1n, T: 0n } satisfies BigintPoint;
+
+  /**
+   * Addition, P1 + P2
+   *
+   * Strongly unified
+   */
+  function add(P1: BigintPoint, P2: BigintPoint): BigintPoint {
+    let { X: X1, Y: Y1, Z: Z1, T: T1 } = P1;
+    let { X: X2, Y: Y2, Z: Z2, T: T2 } = P2;
+    // http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
+    // Assumptions: k=2*d.
+
+    // A = (Y1-X1)*(Y2-X2)
+    let A = mod((Y1 - X1) * (Y2 - X2), p);
+    // B = (Y1+X1)*(Y2+X2)
+    let B = mod((Y1 + X1) * (Y2 + X2), p);
+    // C = T1*k*T2
+    let C = mod(T1 * T2, p);
+    C = mod(C * k, p);
+    // D = Z1*2*Z2
+    let D = mod(2n * Z1 * Z2, p);
+    // E = B-A
+    let E = ffSub(B, A, p);
+    // F = D-C
+    let F = ffSub(D, C, p);
+    // G = D+C
+    let G = ffAdd(D, C, p);
+    // H = B+A
+    let H = ffAdd(B, A, p);
+    // X3 = E*F
+    let X3 = mod(E * F, p);
+    // Y3 = G*H
+    let Y3 = mod(G * H, p);
+    // T3 = E*H
+    let T3 = mod(E * H, p);
+    // Z3 = F*G
+    let Z3 = mod(F * G, p);
+
+    return { X: X3, Y: Y3, Z: Z3, T: T3 };
+  }
+
+  /**
+   * Doubling, 2*P
+   *
+   * Strongly unified
+   */
+  function double(P: BigintPoint) {
+    return add(P, P);
+  }
+
+  /**
+   * Negation, -P
+   */
+  function negate(P: BigintPoint): BigintPoint {
+    return { X: ffNegate(P.X, p), Y: P.Y, Z: P.Z, T: ffNegate(P.T, p) };
+  }
+
+  function isEqual(P1: BigintPoint, P2: BigintPoint, p: bigint) {
+    return (
+      // protect against invalid points with z=0
+      mod(P1.Z, p) !== 0n &&
+      mod(P2.Z, p) !== 0n &&
+      // multiply out with Z
+      mod(P1.X * P2.Z - P2.X * P1.Z, p) === 0n &&
+      mod(P1.Y * P2.Z - P2.Y * P1.Z, p) === 0n &&
+      // redundant for valid points, but this function should work if one input is invalid
+      mod(P1.T * P2.Z - P2.T * P1.Z, p) === 0n
+    );
+  }
+
+  function isZero({ X, Y, Z, T }: BigintPoint): boolean {
+    return (
+      mod(Z, p) !== 0n &&
+      mod(X, p) === 0n &&
+      mod(T, p) === 0n &&
+      mod(Y - Z, p) === 0n
+    );
+  }
+
+  /**
+   * Scalar multiplication, s*P
+   */
+  function scale(s: bigint, P: BigintPoint): BigintPoint {
+    let Q = zero;
+    let bits = bigintToBits(s);
+    for (let i = bits.length - 1; i >= 0; i--) {
+      Q = double(Q);
+      if (bits[i]) Q = add(Q, P);
+    }
+    return Q;
+  }
+
+  /**
+   * Project a point to the correct subgroup
+   */
+  function toSubgroup(P: BigintPoint): BigintPoint {
+    if (cofactor === 1n) return P;
+    return scale(cofactor, P);
+  }
+
+  /**
+   * Check if a point is on the curve
+   *
+   * In projective coordinates, the curve equation is
+   *
+   * -X^2 Z^2 + Y^2 Z^2 = Z^4 + d X^2 Y^2
+   *
+   * or, after dividing by Z^2 and using T = XY/Z,
+   *
+   * -X^2 + Y^2 = Z^2 + d T^2
+   */
+  function isOnCurve(P: BigintPoint): boolean {
+    let { X, Y, T, Z } = P;
+    // validity of Z
+    if (mod(Z, p) === 0n) return false;
+    // validity of T
+    if (mod(T * Z - X * Y, p) !== 0n) return false;
+    // curve equation
+    return mod(-X * X + Y * Y - Z * Z + d * mod(T * T, p), p) === 0n;
+  }
+
+  return {
+    zero,
+    add,
+    double,
+    negate,
+    scale,
+    toSubgroup,
+    isOnCurve,
+    isEqual,
+    isZero,
+  };
+}
+
+function ffAdd(x: bigint, y: bigint, p: bigint) {
+  let z = x + y;
+  return z >= p ? z - p : z;
+}
+
+function ffSub(x: bigint, y: bigint, p: bigint) {
+  let z = x - y;
+  return z < 0 ? z + p : z;
+}
+
+function ffNegate(x: bigint, p: bigint) {
+  return x === 0n ? 0n : p - x;
+}
