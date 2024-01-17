@@ -272,8 +272,8 @@ function bench(
   tic();
   compute(x, N);
   let time = toc();
-  console.log(`${name} \t ${(N / time / 1e6).toFixed(1).padStart(4)}M ops/s`);
-  console.log(`${name} \t ${((time / N) * 1e9).toFixed(0)}ns`);
+  console.log(`${name} \t ${(N / time / 1e3).toFixed(1).padStart(4)}M ops/s`);
+  console.log(`${name} \t ${((time / N) * 1e6).toFixed(0)}ns`);
   console.log();
   return time / N;
 }
@@ -287,11 +287,11 @@ function bench2(
   tic();
   compute();
   let time = toc();
-  console.log(`${name} \t ${(N / time / 1e3).toFixed(0).padStart(4)}K ops/s`);
+  console.log(`${name} \t ${(N / time).toFixed(0).padStart(4)}K ops/s`);
   console.log(
     `${name} \t ${(time / N / tMul).toFixed(0)} muls / ${(
       (time / N) *
-      1e9
+      1e6
     ).toFixed(0)}ns`
   );
   console.log();
