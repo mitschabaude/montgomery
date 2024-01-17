@@ -345,7 +345,7 @@ function createBigintTwistedEdwards(
     // validity of T
     if (mod(T * Z - X * Y, p) !== 0n) return false;
     // curve equation
-    return mod(-X * X + Y * Y - Z * Z + d * mod(T * T, p), p) === 0n;
+    return mod(-X * X + Y * Y - Z * Z - d * mod(T * T, p), p) === 0n;
   }
 
   return {
