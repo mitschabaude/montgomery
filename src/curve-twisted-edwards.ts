@@ -11,7 +11,7 @@
  */
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
-import { mod, randomGenerators } from "./field-util.js";
+import { createField, randomGenerators } from "./field-util.js";
 import { assert, bigintToBits } from "./util.js";
 
 export { createCurveTwistedEdwards, CurveTwistedEdwards };
@@ -23,7 +23,7 @@ function createCurveTwistedEdwards(
   d: bigint,
   cofactor: bigint
 ) {
-  const CurveBigint = createBigintTwistedEdwards(Field, d, cofactor);
+  const CurveBigint = createBigintTwistedEdwards(Field.p, d, cofactor);
 
   // write d to memory
   let [dPtr] = Field.local.getStablePointers(1);
@@ -218,13 +218,9 @@ function createCurveTwistedEdwards(
 
 type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
 
-function createBigintTwistedEdwards(
-  Field: MsmField,
-  d: bigint,
-  cofactor: bigint
-) {
+function createBigintTwistedEdwards(p: bigint, d: bigint, cofactor: bigint) {
   let k = 2n * d;
-  let { p } = Field;
+  const Fp = createField(p);
 
   const zero = { X: 0n, Y: 1n, Z: 1n, T: 0n } satisfies BigintPoint;
 
@@ -240,30 +236,30 @@ function createBigintTwistedEdwards(
     // Assumptions: k=2*d.
 
     // A = (Y1-X1)*(Y2-X2)
-    let A = mod((Y1 - X1) * (Y2 - X2), p);
+    let A = Fp.mul(Y1 - X1, Y2 - X2);
     // B = (Y1+X1)*(Y2+X2)
-    let B = mod((Y1 + X1) * (Y2 + X2), p);
+    let B = Fp.mul(Y1 + X1, Y2 + X2);
     // C = T1*k*T2
-    let C = mod(T1 * T2, p);
-    C = mod(C * k, p);
+    let C = Fp.mul(T1, T2);
+    C = Fp.mul(C, k);
     // D = Z1*2*Z2
-    let D = mod(2n * Z1 * Z2, p);
+    let D = Fp.mul(2n * Z1, Z2);
     // E = B-A
-    let E = ffSub(B, A, p);
+    let E = Fp.sub(B, A);
     // F = D-C
-    let F = ffSub(D, C, p);
+    let F = Fp.sub(D, C);
     // G = D+C
-    let G = ffAdd(D, C, p);
+    let G = Fp.add(D, C);
     // H = B+A
-    let H = ffAdd(B, A, p);
+    let H = Fp.add(B, A);
     // X3 = E*F
-    let X3 = mod(E * F, p);
+    let X3 = Fp.mul(E, F);
     // Y3 = G*H
-    let Y3 = mod(G * H, p);
+    let Y3 = Fp.mul(G, H);
     // T3 = E*H
-    let T3 = mod(E * H, p);
+    let T3 = Fp.mul(E, H);
     // Z3 = F*G
-    let Z3 = mod(F * G, p);
+    let Z3 = Fp.mul(F, G);
 
     return { X: X3, Y: Y3, Z: Z3, T: T3 };
   }
@@ -281,28 +277,25 @@ function createBigintTwistedEdwards(
    * Negation, -P
    */
   function negate(P: BigintPoint): BigintPoint {
-    return { X: ffNegate(P.X, p), Y: P.Y, Z: P.Z, T: ffNegate(P.T, p) };
+    return { X: Fp.neg(P.X), Y: P.Y, Z: P.Z, T: Fp.neg(P.T) };
   }
 
   function isEqual(P1: BigintPoint, P2: BigintPoint, p: bigint) {
     return (
       // protect against invalid points with z=0
-      mod(P1.Z, p) !== 0n &&
-      mod(P2.Z, p) !== 0n &&
+      !Fp.equal(P1.Z, 0n) &&
+      !Fp.equal(P2.Z, 0n) &&
       // multiply out with Z
-      mod(P1.X * P2.Z - P2.X * P1.Z, p) === 0n &&
-      mod(P1.Y * P2.Z - P2.Y * P1.Z, p) === 0n &&
+      Fp.equal(P1.X * P2.Z, P2.X * P1.Z) &&
+      Fp.equal(P1.Y * P2.Z, P2.Y * P1.Z) &&
       // redundant for valid points, but this function should work if one input is invalid
-      mod(P1.T * P2.Z - P2.T * P1.Z, p) === 0n
+      Fp.equal(P1.T * P2.Z, P2.T * P1.Z)
     );
   }
 
   function isZero({ X, Y, Z, T }: BigintPoint): boolean {
     return (
-      mod(Z, p) !== 0n &&
-      mod(X, p) === 0n &&
-      mod(T, p) === 0n &&
-      mod(Y - Z, p) === 0n
+      !Fp.equal(Z, 0n) && Fp.equal(X, 0n) && Fp.equal(T, 0n) && Fp.equal(Y, Z)
     );
   }
 
@@ -341,11 +334,28 @@ function createBigintTwistedEdwards(
   function isOnCurve(P: BigintPoint): boolean {
     let { X, Y, T, Z } = P;
     // validity of Z
-    if (mod(Z, p) === 0n) return false;
+    if (Fp.equal(Z, 0n)) return false;
     // validity of T
-    if (mod(T * Z - X * Y, p) !== 0n) return false;
+    if (!Fp.equal(T * Z, X * Y)) return false;
     // curve equation
-    return mod(-X * X + Y * Y - Z * Z - d * mod(T * T, p), p) === 0n;
+    return Fp.equal(-X * X + Y * Y, Z * Z + d * Fp.mul(T, T));
+  }
+
+  function random(): BigintPoint {
+    // random x
+    let x = Fp.random();
+    let y: bigint | undefined;
+
+    while (y === undefined) {
+      x = Fp.add(x, 1n);
+      // solve -x^2 + y^2 = 1 + d x^2 y^2 for y
+      // => y^2 = (1 + x^2) / (1 - d x^2)
+      let y2 = Fp.mul(1n + Fp.mul(x, x), Fp.inv(1n - Fp.mul(d, Fp.mul(x, x))));
+      y = Fp.sqrt(y2);
+    }
+
+    let P = { X: x, Y: y, Z: 1n, T: Fp.mul(x, y) };
+    return toSubgroup(P);
   }
 
   return {
@@ -358,19 +368,6 @@ function createBigintTwistedEdwards(
     isOnCurve,
     isEqual,
     isZero,
+    random,
   };
-}
-
-function ffAdd(x: bigint, y: bigint, p: bigint) {
-  let z = x + y;
-  return z >= p ? z - p : z;
-}
-
-function ffSub(x: bigint, y: bigint, p: bigint) {
-  let z = x - y;
-  return z < 0 ? z + p : z;
-}
-
-function ffNegate(x: bigint, p: bigint) {
-  return x === 0n ? 0n : p - x;
 }
