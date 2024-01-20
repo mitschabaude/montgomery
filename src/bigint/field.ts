@@ -5,7 +5,7 @@ import { assert, log2 } from "../util.js";
 import { randomField } from "./field-random.js";
 import { mod } from "./field-util.js";
 
-export { createField, modInverse, modExp };
+export { createField, inverse, exp };
 
 function createField(p: bigint) {
   let roots = rootsOfUnity(p);
@@ -43,7 +43,7 @@ function createField(p: bigint) {
       return mod(x * y, p);
     },
     inv(x: bigint) {
-      return modInverse(x, p);
+      return inverse(x, p);
     },
     sqrt(x: bigint) {
       return sqrt(x, p, roots);
@@ -56,16 +56,18 @@ function createField(p: bigint) {
 
 // FINITE FIELD ALGORITHMS
 
-function modExp(a: bigint, n: bigint, p: bigint) {
-  a = mod(a, p);
-  // this assumes that p is prime, so that a^(p-1) % p = 1
-  n = mod(n, p - 1n);
-  let x = 1n;
+/**
+ * Finite field exponentiation, x^n mod p.
+ * Uses multiply-and-square
+ */
+function exp(x: bigint, n: bigint, p: bigint) {
+  x = mod(x, p);
+  let u = 1n;
   for (; n > 0n; n >>= 1n) {
-    if (n & 1n) x = mod(x * a, p);
-    a = mod(a * a, p);
+    if (n & 1n) u = mod(u * x, p);
+    x = mod(x * x, p);
   }
-  return x;
+  return u;
 }
 
 /**
@@ -95,15 +97,18 @@ function egcd(a: bigint, p: bigint): [d: bigint, x: bigint, y: bigint] {
 }
 
 /**
- * inverting with EGCD, 1/a in Z_p
+ * Finite field inverse 1/x mod p, using EGCD
  */
-function modInverse(a: bigint, p: bigint) {
-  if (a === 0n) throw Error("cannot invert 0");
-  let [d, x, _y] = egcd(mod(a, p), p);
+function inverse(x: bigint, p: bigint) {
+  if (x === 0n) throw Error("cannot invert 0");
+  let [d, xInv, _y] = egcd(mod(x, p), p);
   if (d !== 1n) throw Error("inverting failed (no inverse)");
-  return mod(x, p);
+  return mod(xInv, p);
 }
 
+/**
+ * Tonelli-Shanks algorithm for finding square roots in Z_p
+ */
 function sqrt(
   x: bigint,
   p: bigint,
@@ -112,7 +117,7 @@ function sqrt(
   if (x === 0n) return 0n;
 
   let i = M;
-  let u = modExp(x, (t - 1n) / 2n, p); // u = x^(t-1)/2
+  let u = exp(x, (t - 1n) / 2n, p); // u = x^(t-1)/2
   let sqrtx = mod(x * u, p); // sqrtx = x^(t+1)/2
   u = mod(u * sqrtx, p); // u = x^t
 
@@ -153,11 +158,11 @@ function rootsOfUnity(p: bigint) {
   let t0 = (p - 1n) >> 1n;
 
   // Euler's criterion, test z^(p-1)/2 = 1
-  while (modExp(z, t0, p) === 1n) z++;
+  while (exp(z, t0, p) === 1n) z++;
 
   // roots of unity w = z^t, w^2, ..., w^(2^(M-1)) = -1
   let roots = Array<bigint>(M);
-  roots[0] = modExp(z, t, p);
+  roots[0] = exp(z, t, p);
 
   for (let i = 0; i < M; i++) {
     roots[i + 1] = mod(roots[i] * roots[i], p);

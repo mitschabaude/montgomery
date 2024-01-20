@@ -7,7 +7,7 @@ import {
   extractBitSlice as extractBitSliceJS,
 } from "../src/util.js";
 import { mod } from "../src/bigint/field-util.js";
-import { modExp, modInverse } from "../src/bigint/field.js";
+import { exp, inverse } from "../src/bigint/field.js";
 import { G, q } from "../src/concrete/bls12-377.params.js";
 
 let { Field, Scalar, CurveAffine, Random } = BLS12_377;
@@ -27,7 +27,7 @@ let [x, y, z, z_hi, ...scratch] = Field.getPointers(40);
 let scratchScalar = Scalar.getPointers(10);
 
 let R = mod(1n << BigInt(Field.w * Field.n), p);
-let Rinv = modInverse(R, p);
+let Rinv = inverse(R, p);
 
 function test() {
   let x0 = Random.randomFieldx2();
@@ -95,11 +95,11 @@ function test() {
   Field.multiply(z, z, x);
   z1 = ofWasm(scratch, z);
   if (z1 !== 1n) throw Error("inverse");
-  z0 = modInverse(x0, p);
+  z0 = inverse(x0, p);
   if (mod(z0 * x0, p) !== 1n) throw Error("inverse");
 
   // sqrt
-  let exists0 = modExp(x0, (p - 1n) >> 1n, p) === 1n;
+  let exists0 = exp(x0, (p - 1n) >> 1n, p) === 1n;
   let exists1 = Field.sqrt(scratch, z, x);
   if (exists0 !== exists1) throw Error("isSquare");
   if (exists0) {

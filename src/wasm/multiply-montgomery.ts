@@ -14,7 +14,7 @@ import {
   local,
 } from "wasmati";
 import { montgomeryParams } from "../bigint/field-util.js";
-import { modInverse } from "../bigint/field.js";
+import { inverse } from "../bigint/field.js";
 import { bigintToLimbs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 import { createField } from "./field-helpers.js";
@@ -38,7 +38,7 @@ function multiplyMontgomery(
   const Field = createField(p, w);
 
   // constants
-  let mu = modInverse(-p, 1n << wn);
+  let mu = inverse(-p, 1n << wn);
   let P = bigintToLimbs(p, w, n);
   // how much terms we can add before a carry
   let nSafeTerms = 2 ** (64 - 2 * w);

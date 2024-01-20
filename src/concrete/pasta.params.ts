@@ -1,5 +1,5 @@
 import { mod } from "../bigint/field-util.js";
-import { modExp } from "../bigint/field.js";
+import { exp } from "../bigint/field.js";
 
 export { p, q, b, lambda, beta, nBits, nBytes };
 
@@ -16,7 +16,7 @@ const nBits = 255;
 const nBytes = 32;
 
 // compute cube root in Fq (endo scalar) as lambda =  5 ^ (q - 1)/3
-const lambda = modExp(5n, (q - 1n) / 3n, q);
+const lambda = exp(5n, (q - 1n) / 3n, q);
 const lambda2 = mod(lambda * lambda, q);
 
 if (mod(lambda2 * lambda, q) !== 1n) throw Error("lambda is not cube root");
@@ -25,7 +25,7 @@ if (mod(lambda2 * lambda, q) !== 1n) throw Error("lambda is not cube root");
 // lambda * (1, y) = (beta, y)
 // where (1, y) is the canonical generator of E(Fp)
 // turns out that beta is lambda^2 in Fp and vice versa
-const beta2 = modExp(5n, (p - 1n) / 3n, p);
+const beta2 = exp(5n, (p - 1n) / 3n, p);
 const beta = mod(beta2 * beta2, p);
 
 if (mod(beta2 * beta, p) !== 1n) throw Error("beta is not cube root");

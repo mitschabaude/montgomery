@@ -1,5 +1,5 @@
 import { mod } from "../bigint/field-util.js";
-import { modInverse } from "../bigint/field.js";
+import { inverse } from "../bigint/field.js";
 import type { BigintPoint } from "../msm.js";
 import { assert, bigintToBits } from "../util.js";
 
@@ -41,7 +41,7 @@ function addAffine(G: BigintPoint, H: BigintPoint, p: bigint): BigintPoint {
     assert(false, "unreachable");
   }
   // m = (y2 - y1)/(x2 - x1)
-  let d = modInverse(x2 - x1, p);
+  let d = inverse(x2 - x1, p);
   let m = mod((y2 - y1) * d, p);
   // x3 = m^2 - x1 - x2
   let x3 = mod(m * m - x1 - x2, p);
@@ -56,7 +56,7 @@ function doubleAffine(
 ): BigintPoint {
   if (isInfinity) zero;
   // m = 3*x^2 / 2y
-  let d = modInverse(2n * y, p);
+  let d = inverse(2n * y, p);
   let m = mod(3n * x * x * d, p);
   // x2 = m^2 - 2x
   let x2 = mod(m * m - 2n * x, p);

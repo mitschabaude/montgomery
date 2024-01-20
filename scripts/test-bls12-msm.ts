@@ -21,7 +21,7 @@ import { msmAffine, msmBigint } from "../src/msm-bls12-zprize.js";
 import { bigintFromBytes } from "../src/util.js";
 import { load } from "./store-inputs.js";
 import { createMsm } from "../src/msm.js";
-import { modInverse } from "../src/bigint/field.js";
+import { inverse } from "../src/bigint/field.js";
 
 let runSlowMsm = false;
 
@@ -96,12 +96,12 @@ console.log("ref === big new", { x: xRef === xBigNew, y: yRef === yBigNew });
 
 function toAffine(x: bigint, y: bigint, z: bigint) {
   if (z === 0n) return [0n, 0n, true];
-  let zInv = modInverse(z, p);
+  let zInv = inverse(z, p);
   return [mod(x * zInv, p), mod(y * zInv, p)];
 }
 function toAffineFromJacobi(x: bigint, y: bigint, z: bigint) {
   if (z === 0n) return [0n, 0n, true];
-  let zInv = modInverse(z, p);
+  let zInv = inverse(z, p);
   let zInvSquared = mod(zInv * zInv, p);
   return [mod(x * zInvSquared, p), mod(y * zInvSquared * zInv, p)];
 }
