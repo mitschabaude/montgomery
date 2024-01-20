@@ -14,11 +14,13 @@ test(point, point, point, scalar, scalar, (P, Q, R, s, t) => {
   assert(Curve.isOnCurve(P), "point is on curve");
   assert(Curve.isZero(Curve.scale(Curve.order, P)), "order * P = ∞");
 
-  // random points are not equal
+  // random points are not equal, and not zero
   assert(!Curve.isEqual(P, Q), "random points are not equal");
+  assert(!Curve.isZero(P), "random points are not zero");
 
-  // a point equals itself
+  // a point equals itself, and zero equals zero
   assert(Curve.isEqual(P, P), "P = P");
+  assert(Curve.isZero(Curve.zero), "zero is zero");
 
   // addition maps to the curve
   assert(Curve.isOnCurve(Curve.add(P, Q)), "addition maps to the curve");
