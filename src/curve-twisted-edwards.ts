@@ -4,6 +4,7 @@ import { assert, bigintToBits } from "./util.js";
 import { randomGenerators } from "./bigint/field-random.js";
 import {
   BigintPoint,
+  CurveParams,
   createCurveTwistedEdwards as createBigint,
 } from "./bigint/twisted-edwards.js";
 
@@ -22,12 +23,9 @@ type CurveTwistedEdwards = ReturnType<typeof createCurveTwistedEdwards>;
  * y = Y/Z
  * T = XY/Z
  */
-function createCurveTwistedEdwards(
-  Field: MsmField,
-  d: bigint,
-  cofactor: bigint
-) {
-  const CurveBigint = createBigint(Field.p, d, cofactor);
+function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
+  const CurveBigint = createBigint(params);
+  let { cofactor, d } = params;
 
   // write d to memory
   let [dPtr] = Field.local.getStablePointers(1);

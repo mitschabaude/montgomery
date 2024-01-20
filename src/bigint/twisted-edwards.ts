@@ -1,9 +1,18 @@
-import { bigintToBits } from "../util.js";
+import { assert, bigintToBits } from "../util.js";
+import { computeEndoConstants } from "./curve-endomorphism.js";
 import { createField } from "./field.js";
 
-export { createCurveTwistedEdwards, BigintPoint };
+export { createCurveTwistedEdwards, BigintPoint, CurveParams };
 
 type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
+
+type CurveParams = {
+  modulus: bigint;
+  order: bigint;
+  cofactor: bigint;
+  d: bigint;
+  generator: { x: bigint; y: bigint };
+};
 
 /**
  * Operations on a twisted edwards curve, with a = -1
@@ -16,11 +25,21 @@ type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
  * y = Y/Z
  * T = XY/Z
  */
-function createCurveTwistedEdwards(p: bigint, d: bigint, cofactor: bigint) {
+function createCurveTwistedEdwards(params: CurveParams) {
+  let { modulus: p, order: q, cofactor, d, generator } = params;
   let k = 2n * d;
   const Fp = createField(p);
+  const Fq = createField(q);
 
   const zero = { X: 0n, Y: 1n, Z: 1n, T: 0n } satisfies BigintPoint;
+
+  function fromAffine({ x, y }: { x: bigint; y: bigint }): BigintPoint {
+    return { X: x, Y: y, Z: 1n, T: Fp.mul(x, y) };
+  }
+  function toAffine({ X, Y, Z }: BigintPoint): { x: bigint; y: bigint } {
+    assert(!Fp.equal(Z, 0n), "Not an affine point");
+    return { x: Fp.mul(X, Fp.inv(Z)), y: Fp.mul(Y, Fp.inv(Z)) };
+  }
 
   /**
    * Addition, P1 + P2
@@ -156,8 +175,13 @@ function createCurveTwistedEdwards(p: bigint, d: bigint, cofactor: bigint) {
     return toSubgroup(P);
   }
 
+  let { beta, lambda } = computeEndoConstants(Fp, Fq, generator, (s, P) =>
+    toAffine(scale(s, fromAffine(P)))
+  );
+
   return {
     zero,
+    generator: fromAffine(generator),
     add,
     double,
     negate,
@@ -167,5 +191,9 @@ function createCurveTwistedEdwards(p: bigint, d: bigint, cofactor: bigint) {
     isEqual,
     isZero,
     random,
+    fromAffine,
+    toAffine,
+    beta,
+    lambda,
   };
 }
