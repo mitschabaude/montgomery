@@ -25,7 +25,7 @@
     "start": "node --loader=ts-node/esm scripts/test-bls12377-msm.ts 16",
     "start-web": "npx chrode ./scripts/run.web.ts --no-headless",
     "evaluate": "node --loader=ts-node/esm scripts/evaluate-msm-pasta.ts",
-    "test": "node --loader=ts-node/esm  scripts/test-pasta.ts",
+    "test": "npm run build && node --test build/src/**/*.test.js",
     "test-msm": "node --loader=ts-node/esm scripts/test-pasta-msm.ts",
     "benchmark": "node --loader=ts-node/esm scripts/multiply-benchmark.ts",
     "benchmark-377": "node --loader=ts-node/esm scripts/multiply-benchmark-377.ts",

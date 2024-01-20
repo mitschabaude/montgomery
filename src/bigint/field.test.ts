@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
 import { Random, test } from "../testing/property.js";
 import { exampleFields } from "./field-examples.js";
+import { it } from "node:test";
 
-let fields = Object.values(exampleFields);
+let fields = Object.keys(exampleFields);
 
-for (let F of fields) {
+for (let fieldName of fields) {
+  it(`field ${fieldName}`, () => testField(fieldName));
+}
+
+function testField(fieldName: string) {
+  const F = exampleFields[fieldName as keyof typeof exampleFields];
   let p = F.modulus;
   let field = Random.field(p);
   let uniformField = Random(F.random);
