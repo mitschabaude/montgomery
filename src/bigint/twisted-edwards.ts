@@ -97,7 +97,7 @@ function createCurveTwistedEdwards(params: CurveParams) {
     return { X: Fp.neg(P.X), Y: P.Y, Z: P.Z, T: Fp.neg(P.T) };
   }
 
-  function isEqual(P1: BigintPoint, P2: BigintPoint, p: bigint) {
+  function isEqual(P1: BigintPoint, P2: BigintPoint) {
     return (
       // protect against invalid points with z=0
       !Fp.equal(P1.Z, 0n) &&
@@ -176,8 +176,12 @@ function createCurveTwistedEdwards(params: CurveParams) {
   }
 
   return {
+    Field: Fp,
+    Scalar: Fq,
+    ...params,
+
     zero,
-    generator: fromAffine(generator),
+    one: fromAffine(generator),
     add,
     double,
     negate,
