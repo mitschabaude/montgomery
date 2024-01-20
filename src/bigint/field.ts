@@ -5,7 +5,9 @@ import { assert, log2 } from "../util.js";
 import { randomField } from "./field-random.js";
 import { mod } from "./field-util.js";
 
-export { createField, inverse, exp };
+export { createField, BigintField, inverse, exp };
+
+type BigintField = ReturnType<typeof createField>;
 
 function createField(p: bigint) {
   let roots = rootsOfUnity(p);

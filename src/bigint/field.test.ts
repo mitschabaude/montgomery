@@ -2,15 +2,14 @@ import assert from "node:assert/strict";
 import { Random, test } from "../testing/property.js";
 import { exampleFields } from "./field-examples.js";
 import { it } from "node:test";
+import type { BigintField } from "./field.js";
 
-let fields = Object.keys(exampleFields);
-
-for (let fieldName of fields) {
-  it(`field ${fieldName}`, () => testField(fieldName));
+for (let fieldName in exampleFields) {
+  it(`field ${fieldName}`, () =>
+    testField(exampleFields[fieldName as keyof typeof exampleFields]));
 }
 
-function testField(fieldName: string) {
-  const F = exampleFields[fieldName as keyof typeof exampleFields];
+function testField(F: BigintField) {
   let p = F.modulus;
   let field = Random.field(p);
   let uniformField = Random(F.random);
