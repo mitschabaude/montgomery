@@ -8,7 +8,7 @@ import {
   fromPackedBytes,
   toPackedBytes,
 } from "./wasm/field-helpers.js";
-import { mod, montgomeryParams } from "./field-util.js";
+import { mod, montgomeryParams } from "./bigint/field-util.js";
 import { UnwrapPromise, WasmArtifacts } from "./types.js";
 
 export {

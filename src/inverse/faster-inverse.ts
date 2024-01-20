@@ -1,6 +1,6 @@
 import { Module, memory } from "wasmati";
 import { Field, Random } from "../concrete/pasta.js";
-import { mod } from "../field-util.js";
+import { mod } from "../bigint/field-util.js";
 import { assert, log2 } from "../util.js";
 import { ImplicitMemory } from "../wasm/wasm-util.js";
 import { fastInverse } from "./faster-inverse-wasm.js";

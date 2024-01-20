@@ -11,7 +11,7 @@ import { fieldInverse } from "../src/wasm/inverse.js";
 import { fieldExp } from "../src/wasm/exp.js";
 import { createSqrt } from "../src/field-sqrt.js";
 import { createConstants } from "../src/field-msm.js";
-import { mod } from "../src/field-util.js";
+import { mod } from "../src/bigint/field-util.js";
 import { fastInverse } from "../src/inverse/faster-inverse-wasm.js";
 import {
   bigintFromBytes,

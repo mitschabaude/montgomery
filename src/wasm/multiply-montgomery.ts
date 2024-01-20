@@ -13,7 +13,8 @@ import {
   i64,
   local,
 } from "wasmati";
-import { modInverse, montgomeryParams } from "../field-util.js";
+import { montgomeryParams } from "../bigint/field-util.js";
+import { modInverse } from "../bigint/field.js";
 import { bigintToLimbs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 import { createField } from "./field-helpers.js";

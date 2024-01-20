@@ -4,7 +4,7 @@ import { FieldWithArithmetic } from "./wasm/field-arithmetic.js";
 import { fieldInverse } from "./wasm/inverse.js";
 import { multiplyMontgomery } from "./wasm/multiply-montgomery.js";
 import { ImplicitMemory } from "./wasm/wasm-util.js";
-import { mod, montgomeryParams } from "./field-util.js";
+import { mod, montgomeryParams } from "./bigint/field-util.js";
 import { curveOps } from "./wasm/curve.js";
 import { MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.js";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";

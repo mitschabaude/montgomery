@@ -2,7 +2,8 @@
 import "../src/extra/fix-webcrypto.js";
 import { Pallas } from "../src/index.js";
 import { extractBitSlice as extractBitSliceJS } from "../src/util.js";
-import { mod, modExp, modInverse } from "../src/field-util.js";
+import { mod } from "../src/bigint/field-util.js";
+import { modExp, modInverse } from "../src/bigint/field.js";
 
 let { Field, Scalar, Random } = Pallas;
 const { p } = Field;
@@ -112,7 +113,7 @@ function test() {
   if (mod(z0 * x0, p) !== 1n) throw Error("inverse");
 
   // sqrt
-  let exists0 = modExp(x0, (p - 1n) >> 1n, { p }) === 1n;
+  let exists0 = modExp(x0, (p - 1n) >> 1n, p) === 1n;
   let exists1 = Field.sqrt(scratch, z, x);
   if (exists0 !== exists1) throw Error("isSquare");
   if (exists0) {

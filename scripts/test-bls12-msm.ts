@@ -16,11 +16,12 @@ import {
   CurveProjective,
   Bigint,
 } from "../src/concrete/bls12-381.js";
-import { mod, modInverse } from "../src/field-util.js";
+import { mod } from "../src/bigint/field-util.js";
 import { msmAffine, msmBigint } from "../src/msm-bls12-zprize.js";
 import { bigintFromBytes } from "../src/util.js";
 import { load } from "./store-inputs.js";
 import { createMsm } from "../src/msm.js";
+import { modInverse } from "../src/bigint/field.js";
 
 let runSlowMsm = false;
 

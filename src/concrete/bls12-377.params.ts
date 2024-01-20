@@ -1,5 +1,6 @@
 import { scale } from "../extra/dumb-curve-affine.js";
-import { mod, modExp, modInverse } from "../field-util.js";
+import { mod } from "../bigint/field-util.js";
+import { modExp, modInverse } from "../bigint/field.js";
 import { assert, bigintToBits } from "../util.js";
 
 export { p, q, h, b, lambda, beta, nBits, nBytes, G };
@@ -33,7 +34,7 @@ const debug = false;
 
 if (debug) {
   // compute cube root in Fq (endo scalar) as lambda =  x^(q - 1)/3 for some small x
-  const lambda_ = modExp(11n, (q - 1n) / 3n, { p: q });
+  const lambda_ = modExp(11n, (q - 1n) / 3n, q);
 
   assert(lambda === lambda_, "lambda is correct");
   const lambda2 = mod(lambda * lambda, q);
@@ -46,7 +47,7 @@ if (debug) {
 
   const beta_ = mod(lambdaG.x * modInverse(G.x, p), p);
   assert(beta === beta_, "beta is correct");
-  assert(modExp(beta, 3n, { p }) === 1n, "beta is a cube root");
+  assert(modExp(beta, 3n, p) === 1n, "beta is a cube root");
 
   // note: since both phi1: p -> lambda*p and phi2: p -> (beta*p.x, p.y) are homomorphisms (easy to check),
   // and they agree on a single point, they must agree on all points in the same subgroup:

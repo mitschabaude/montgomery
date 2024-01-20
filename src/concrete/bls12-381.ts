@@ -4,7 +4,7 @@ import { createMsmField } from "../field-msm.js";
 import { createGlvScalar, createSpecialGlvScalar } from "../scalar-glv.js";
 import { createCurveAffine } from "../curve-affine.js";
 import { createCurveProjective } from "../curve-projective.js";
-import { randomGenerators } from "../field-util.js";
+import { randomGenerators } from "../bigint/field-random.js";
 import { createBigintApi } from "../bigint.js";
 import { createMsm } from "../msm.js";
 import { createRandomPointsFast } from "../curve-random.js";

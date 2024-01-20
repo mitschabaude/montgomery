@@ -1,4 +1,5 @@
-import { mod, modInverse } from "../field-util.js";
+import { mod } from "../bigint/field-util.js";
+import { modInverse } from "../bigint/field.js";
 import type { BigintPoint } from "../msm.js";
 import { assert, bigintToBits } from "../util.js";
 

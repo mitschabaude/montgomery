@@ -19,7 +19,7 @@ import {
   bigintToBytes,
   bigintToLimbs as bigintToLimbs_,
 } from "../util.js";
-import { montgomeryParams } from "../field-util.js";
+import { montgomeryParams } from "../bigint/field-util.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };

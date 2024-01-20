@@ -6,7 +6,8 @@ import {
   bigintToBits,
   extractBitSlice as extractBitSliceJS,
 } from "../src/util.js";
-import { mod, modExp, modInverse } from "../src/field-util.js";
+import { mod } from "../src/bigint/field-util.js";
+import { modExp, modInverse } from "../src/bigint/field.js";
 import { G, q } from "../src/concrete/bls12-377.params.js";
 
 let { Field, Scalar, CurveAffine, Random } = BLS12_377;
@@ -98,7 +99,7 @@ function test() {
   if (mod(z0 * x0, p) !== 1n) throw Error("inverse");
 
   // sqrt
-  let exists0 = modExp(x0, (p - 1n) >> 1n, { p }) === 1n;
+  let exists0 = modExp(x0, (p - 1n) >> 1n, p) === 1n;
   let exists1 = Field.sqrt(scratch, z, x);
   if (exists0 !== exists1) throw Error("isSquare");
   if (exists0) {

@@ -11,7 +11,7 @@ import {
   br_if,
 } from "wasmati";
 import { FieldWithMultiply } from "./multiply-montgomery.js";
-import { mod } from "../field-util.js";
+import { mod } from "../bigint/field-util.js";
 import { ImplicitMemory } from "./wasm-util.js";
 
 export { curveOps };

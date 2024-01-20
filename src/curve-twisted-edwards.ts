@@ -11,8 +11,9 @@
  */
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
-import { createField, randomGenerators } from "./field-util.js";
 import { assert, bigintToBits } from "./util.js";
+import { randomGenerators } from "./bigint/field-random.js";
+import { createField } from "./bigint/field.js";
 
 export { createCurveTwistedEdwards, CurveTwistedEdwards };
 

@@ -27,7 +27,7 @@ import {
   scale,
 } from "../util.js";
 import { barrettError, barrettReduction, findMsbCutoff } from "./barrett.js";
-import { montgomeryParams } from "../field-util.js";
+import { montgomeryParams } from "../bigint/field-util.js";
 import { egcdStopEarly } from "../glv/glv.js";
 import { createField } from "./field-helpers.js";
 

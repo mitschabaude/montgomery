@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import { randomGenerators } from "../field-util.js";
+import { randomGenerators } from "../bigint/field-random.js";
 import { p, q, b, beta, lambda } from "./pasta.params.js";
 import { createMsmField } from "../field-msm.js";
 import { createGlvScalar } from "../scalar-glv.js";

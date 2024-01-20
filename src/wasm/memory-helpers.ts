@@ -1,4 +1,4 @@
-import { montgomeryParams } from "../field-util.js";
+import { montgomeryParams } from "../bigint/field-util.js";
 import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
 import { assert } from "../util.js";
 
