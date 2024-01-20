@@ -75,7 +75,7 @@ function testField(F: BigintField) {
   assert.equal(F.inv(2n), (p + 1n) / 2n, "inverse 2");
   assert.equal(F.inv(F.neg(2n)), (p - 1n) / 2n, "inverse -2");
   if (p % 3n === 1n) {
-    assert.equal(F.inv(3n), p - (p - 1n) / 3n, "inverse 3");
+    assert.equal(F.inv(3n), (2n * p + 1n) / 3n, "inverse 3");
   } else {
     assert.equal(F.inv(3n), (p + 1n) / 3n, "inverse 3");
   }
