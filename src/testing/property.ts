@@ -20,16 +20,14 @@ const test = Object.assign(testCustom(), {
  * Create a customized test runner.
  *
  * The runner takes any number of generators (Random<T>) and a function which gets samples as inputs, and performs the test.
- * The test can be either performed by using the `assert` function which is passed as argument, or simply throw an error when an assertion fails:
+ * The test is performed by throwing an error when an assertion fails:
  *
  * ```ts
  * let test = testCustom();
  *
- * test(Random.nat(5), (x, assert) => {
+ * test(Random.nat(5), (x) => {
  *   // x is one sample of the `Random.nat(5)` distribution
- *   // we can make assertions about it by using `assert`
- *   assert(x < 6, "should not exceed max value of 5");
- *   // or by using any other assertion library which throws errors on failing assertions:
+ *   // we can make assertions about it by using any assertion utility which throws errors on failing assertions:
  *   expect(x).toBeLessThan(6);
  * })
  * ```
@@ -56,14 +54,7 @@ function testCustom({
   return function <T extends readonly Random<any>[]>(
     ...args: ArrayTestArgs<T>
   ) {
-    let run: (...args: ArrayRunArgs<Nexts<T>>) => void;
-    let arg = args.pop();
-    if (typeof arg !== "function") {
-      if (arg !== undefined) timeBudget = (arg as any).timeBudget;
-      run = args.pop() as any;
-    } else {
-      run = arg;
-    }
+    let run: (...args: ArrayRunArgs<Nexts<T>>) => void = args.pop() as any;
     let gens = args as any as T;
     let nexts = gens.map((g) => g.create()) as Nexts<T>;
     let start = performance.now();
@@ -89,22 +80,13 @@ function testN<T extends readonly (() => any)[]>(
   let errorMessages: string[] = [];
   let fail = false;
   let count = 0;
-  function assert(ok: boolean, message?: string) {
-    count++;
-    if (!ok) {
-      fail = true;
-      errorMessages.push(
-        `Failed: ${message ? `"${message}"` : `assertion #${count}`}`
-      );
-    }
-  }
   for (let i = 0; i < N; i++) {
     count = 0;
     fail = false;
     let error: Error | undefined;
     let values = nexts.map((next) => next());
     try {
-      (run as any)(...values, assert);
+      (run as any)(...values);
     } catch (e: any) {
       error = e;
       fail = true;
@@ -142,7 +124,6 @@ type ArrayTestArgs<T extends readonly Random<any>[]> = [
   run: (...args: ArrayRunArgs<Nexts<T>>) => void,
 ];
 
-type ArrayRunArgs<Nexts extends readonly (() => any)[]> = [
-  ...values: { [i in keyof Nexts]: Nexts[i] extends () => infer U ? U : never },
-  assert: (b: boolean, message?: string) => void,
-];
+type ArrayRunArgs<Nexts extends readonly (() => any)[]> = {
+  [i in keyof Nexts]: Nexts[i] extends () => infer U ? U : never;
+};
