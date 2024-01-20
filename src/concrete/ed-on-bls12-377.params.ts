@@ -1,9 +1,6 @@
-import {
-  createCurveTwistedEdwards,
-  CurveParams,
-} from "../bigint/twisted-edwards.js";
+import { CurveParams } from "../bigint/twisted-edwards.js";
 
-export { p, q, h, d, lambda, beta, nBits, nBytes, G };
+export { p, q, h, d, nBits, nBytes, G, curveParams };
 
 const p = 0x12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001n;
 const q =
@@ -25,23 +22,10 @@ const G = {
   isInfinity: false,
 };
 
-const params: CurveParams = {
+const curveParams: CurveParams = {
   modulus: p,
   order: q,
   cofactor: h,
   d,
   generator: G,
 };
-
-const lambda =
-  0x12ab655e9a2ca55660b44d1e5c37b00114885f32400000000000000000000000n;
-const beta =
-  0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffffn;
-
-const debug = true;
-
-if (debug) {
-  let { beta, lambda } = createCurveTwistedEdwards(params);
-  console.log("lambda", lambda);
-  console.log("beta", beta);
-}

@@ -175,10 +175,6 @@ function createCurveTwistedEdwards(params: CurveParams) {
     return toSubgroup(P);
   }
 
-  let { beta, lambda } = computeEndoConstants(Fp, Fq, generator, (s, P) =>
-    toAffine(scale(s, fromAffine(P)))
-  );
-
   return {
     zero,
     generator: fromAffine(generator),
@@ -193,7 +189,5 @@ function createCurveTwistedEdwards(params: CurveParams) {
     random,
     fromAffine,
     toAffine,
-    beta,
-    lambda,
   };
 }
