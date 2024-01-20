@@ -17,9 +17,13 @@ function createField(p: bigint) {
 
   return {
     p,
+    modulus: p,
     sizeInBits,
     sizeInBytes,
-    roots,
+
+    roots: roots.roots,
+    t: roots.t,
+    M: roots.M,
 
     mod(x: bigint) {
       return mod(x, p);
@@ -42,8 +46,17 @@ function createField(p: bigint) {
     mul(x: bigint, y: bigint) {
       return mod(x * y, p);
     },
+    square(x: bigint) {
+      return mod(x * x, p);
+    },
     inv(x: bigint) {
       return inverse(x, p);
+    },
+    exp(x: bigint, n: bigint) {
+      return exp(x, n, p);
+    },
+    isSquare(x: bigint) {
+      return mod(x, p) === 0n || exp(x, (p - 1n) / 2n, p) === 1n;
     },
     sqrt(x: bigint) {
       return sqrt(x, p, roots);
