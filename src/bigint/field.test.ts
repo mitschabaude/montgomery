@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
 import { Random, test } from "../testing/property.js";
 import { exampleFields } from "./field-examples.js";
-import { it } from "node:test";
 import type { BigintField } from "./field.js";
 
 for (let fieldName in exampleFields) {
-  it(`field ${fieldName}`, () =>
-    testField(exampleFields[fieldName as keyof typeof exampleFields]));
+  testField(exampleFields[fieldName as keyof typeof exampleFields]);
 }
 
 function testField(F: BigintField) {
