@@ -77,32 +77,27 @@ function equivalent<
   return function run(
     f1: (...args: Params1<In>) => First<Out>,
     f2: (...args: Params2<In>) => Second<Out>,
-    label = "expect equal results"
+    label?: string
   ) {
     let generators = from.map((spec) => spec.rng);
     let assertEqual = to.assertEqual ?? deepEqual;
-    let start = performance.now();
-    let nRuns = test(...(generators as any[]), (...args) => {
-      args.pop();
-      let inputs = args as Params1<In>;
-      handleErrors(
-        () => f1(...inputs),
-        () =>
-          to.back(
-            f2(...(inputs.map((x, i) => from[i].there(x)) as Params2<In>))
-          ),
-        (x, y) => assertEqual(x, y, label),
-        label
-      );
-    });
-
-    if (verbose) {
-      let ms = (performance.now() - start).toFixed(1);
-      let runs = nRuns.toString().padStart(2, " ");
-      console.log(
-        `${label.padEnd(20, " ")}    success on ${runs} runs in ${ms}ms.`
-      );
-    }
+    return test.custom({ logSuccess: verbose })(
+      label ?? "Eqivalence test",
+      ...(generators as any[]),
+      (...args) => {
+        args.pop();
+        let inputs = args as Params1<In>;
+        handleErrors(
+          () => f1(...inputs),
+          () =>
+            to.back(
+              f2(...(inputs.map((x, i) => from[i].there(x)) as Params2<In>))
+            ),
+          (x, y) => assertEqual(x, y, label ?? "expect equal results"),
+          label
+        );
+      }
+    );
   };
 }
 
@@ -157,9 +152,7 @@ function spec<T, S>(
 ): Spec<T, S>;
 function spec<T>(
   rng: Random<T>,
-  spec?: {
-    assertEqual?: (x: T, y: T, message: string) => void;
-  }
+  spec?: { assertEqual?: (x: T, y: T, message: string) => void }
 ): Spec<T, T>;
 function spec<T, S>(
   rng: Random<T>,
@@ -182,13 +175,6 @@ function spec<T, S>(
 let unit: ToSpec<void, void> = { back: id, assertEqual() {} };
 
 let boolean = spec(Random.boolean);
-
-// let field: Spec<bigint, Field> = {
-//   rng: Random.field,
-//   there: Field,
-//   back: (x) => x.toBigInt(),
-//   provable: Field,
-// };
 
 // spec combinators
 
