@@ -14,6 +14,7 @@ const defaultMaxRuns = 400;
 const test = Object.assign(testCustom(), {
   negative: testCustom({ negative: true }),
   custom: testCustom,
+  verbose: testCustom({ logSuccess: true }),
 });
 
 /**
@@ -50,25 +51,48 @@ function testCustom({
   timeBudget = defaultTimeBudget,
   negative = false,
   logFailures = true,
+  logSuccess = false,
 } = {}) {
-  return function <T extends readonly Random<any>[]>(
+  function runTest<T extends readonly Random<any>[]>(
     ...args: ArrayTestArgs<T>
-  ) {
-    let run: (...args: ArrayRunArgs<Nexts<T>>) => void = args.pop() as any;
+  ): number;
+  function runTest<T extends readonly Random<any>[]>(
+    label: string,
+    ...args: ArrayTestArgs<T>
+  ): number;
+  function runTest<T extends readonly Random<any>[]>(...args: any[]) {
+    let label =
+      typeof args[0] === "string" ? (args.shift() as string) : undefined;
+
+    let run: (...args: ArrayRunArgs<Nexts<T>>) => void = args.pop();
     let gens = args as any as T;
     let nexts = gens.map((g) => g.create()) as Nexts<T>;
     let start = performance.now();
+
     // run at least `minRuns` times
     testN(minRuns, nexts, run, { negative, logFailures });
     let time = performance.now() - start;
-    if (time > timeBudget || minRuns >= maxRuns) return minRuns;
-    // (minRuns + remainingRuns) * timePerRun = timeBudget
-    let remainingRuns = Math.floor(timeBudget / (time / minRuns)) - minRuns;
-    // run at most `maxRuns` times
-    if (remainingRuns > maxRuns - minRuns) remainingRuns = maxRuns - minRuns;
-    testN(remainingRuns, nexts, run, { negative, logFailures });
-    return minRuns + remainingRuns;
-  };
+    let totalRuns = minRuns;
+
+    if (!(time > timeBudget || minRuns >= maxRuns)) {
+      // (minRuns + remainingRuns) * timePerRun = timeBudget
+      let remainingRuns = Math.floor(timeBudget / (time / minRuns)) - minRuns;
+      // run at most `maxRuns` times
+      if (remainingRuns > maxRuns - minRuns) remainingRuns = maxRuns - minRuns;
+      testN(remainingRuns, nexts, run, { negative, logFailures });
+      totalRuns = minRuns + remainingRuns;
+    }
+
+    if (logSuccess) {
+      let ms = (performance.now() - start).toFixed(1);
+      let runs = totalRuns.toString().padStart(2, " ");
+      let paddedLabel = (label ?? "Unlabeled test").padEnd(20, " ");
+      console.log(`${paddedLabel}    success on ${runs} runs in ${ms}ms.`);
+    }
+    return totalRuns;
+  }
+
+  return runTest;
 }
 
 function testN<T extends readonly (() => any)[]>(

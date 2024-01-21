@@ -4,48 +4,59 @@ import { exampleFields } from "./field-examples.js";
 import type { BigintField } from "./field.js";
 
 for (let fieldName in exampleFields) {
-  testField(exampleFields[fieldName as keyof typeof exampleFields]);
+  testField(fieldName, exampleFields[fieldName as keyof typeof exampleFields]);
 }
 
-function testField(F: BigintField) {
+function testField(label: string, F: BigintField) {
   let p = F.modulus;
   let field = Random.field(p);
   let uniformField = Random(F.random);
 
   // random
-  test(field, field, field, uniformField, (x, y, z, xUniform) => {
-    assert.equal(F.add(x, F.neg(x)), 0n, "add & negate");
-    assert.equal(F.sub(F.add(x, y), x), y, "add & sub");
+  test.verbose(
+    label,
+    field,
+    field,
+    field,
+    uniformField,
+    (x, y, z, xUniform) => {
+      assert.equal(F.add(x, F.neg(x)), 0n, "add & negate");
+      assert.equal(F.sub(F.add(x, y), x), y, "add & sub");
 
-    assert.equal(
-      F.mul(F.mul(x, y), z),
-      F.mul(x, F.mul(y, z)),
-      "mul associative"
-    );
-    assert.equal(
-      F.mul(z, F.add(x, y)),
-      F.add(F.mul(z, x), F.mul(z, y)),
-      "mul distributive"
-    );
+      assert.equal(
+        F.mul(F.mul(x, y), z),
+        F.mul(x, F.mul(y, z)),
+        "mul associative"
+      );
+      assert.equal(
+        F.mul(z, F.add(x, y)),
+        F.add(F.mul(z, x), F.mul(z, y)),
+        "mul distributive"
+      );
 
-    if (x !== 0n) {
-      let xInv = F.inv(x);
-      assert.equal(F.mul(xInv, x), 1n, "inverse & mul");
+      if (x !== 0n) {
+        let xInv = F.inv(x);
+        assert.equal(F.mul(xInv, x), 1n, "inverse & mul");
+      }
+
+      let squareX = F.square(x);
+      assert(F.isSquare(squareX), "square + isSquare");
+      assert([x, F.neg(x)].includes(F.sqrt(squareX)!), "square + sqrt");
+
+      assert.equal(F.exp(x, 4n), F.square(F.square(x)), "exp");
+      assert.equal(
+        F.exp(x, y + z),
+        F.mul(F.exp(x, y), F.exp(x, z)),
+        "exp & mul"
+      );
+
+      if (p >> 250n) {
+        assert(xUniform > 1n << 128n, "random x is large");
+        assert(xUniform < p - (1n << 128n), "random x is not small negative");
+      }
+      assert(x >= 0 && x < p, "random x is in range");
     }
-
-    let squareX = F.square(x);
-    assert(F.isSquare(squareX), "square + isSquare");
-    assert([x, F.neg(x)].includes(F.sqrt(squareX)!), "square + sqrt");
-
-    assert.equal(F.exp(x, 4n), F.square(F.square(x)), "exp");
-    assert.equal(F.exp(x, y + z), F.mul(F.exp(x, y), F.exp(x, z)), "exp & mul");
-
-    if (p >> 250n) {
-      assert(xUniform > 1n << 128n, "random x is large");
-      assert(xUniform < p - (1n << 128n), "random x is not small negative");
-    }
-    assert(x >= 0 && x < p, "random x is in range");
-  });
+  );
 
   // hard-coded
   // t is computed correctly from p = 2^M * t + 1
