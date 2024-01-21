@@ -1,6 +1,13 @@
 import { Dependency, JSFunction } from "wasmati";
 
-export { AnyFunction, UnwrapPromise, WasmArtifacts, WasmFunctions };
+export {
+  AnyFunction,
+  UnwrapPromise,
+  WasmArtifacts,
+  WasmFunctions,
+  Tuple,
+  AnyTuple,
+};
 
 type AnyFunction = (...args: any) => any;
 
@@ -13,7 +20,7 @@ type WasmArtifacts = {
 
 type WasmFunctions<
   Exports extends Record<string, any>,
-  Keys extends keyof Exports = keyof Exports
+  Keys extends keyof Exports = keyof Exports,
 > = Pick<
   {
     [K in keyof Exports]-?: Exports[K] extends Dependency.AnyFunc
@@ -24,3 +31,6 @@ type WasmFunctions<
     [K in Keys]-?: Exports[K] extends Dependency.AnyFunc ? K : never;
   }[Keys]
 >;
+
+type Tuple<T> = [T, ...T[]] | [];
+type AnyTuple = Tuple<any>;
