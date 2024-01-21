@@ -5,8 +5,9 @@ import { assert } from "../util.js";
 
 let Curve = createCurveTwistedEdwards(curveParams);
 
+// TODO use the same tests for other curve implementations as well, like affine and projective Weierstrass
+
 let scalar = Random.field(Curve.order);
-// let point = Random.map(scalar, (s) => Curve.scale(s, Curve.one));
 let point = Random(Curve.random);
 
 test(point, point, point, scalar, scalar, (P, Q, R, s, t) => {
