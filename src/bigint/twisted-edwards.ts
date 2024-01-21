@@ -1,5 +1,4 @@
 import { assert, bigintToBits } from "../util.js";
-import { computeEndoConstants } from "./curve-endomorphism.js";
 import { createField } from "./field.js";
 
 export { createCurveTwistedEdwards, BigintPoint, CurveParams };
