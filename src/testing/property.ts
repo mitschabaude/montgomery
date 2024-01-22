@@ -4,7 +4,7 @@
  * This code is taken from o1js: https://github.com/o1-labs/o1js
  */
 import { Random } from "./random.js";
-export { test };
+export { test, TestParams };
 export { Random, sample } from "./random.js";
 
 const defaultTimeBudget = 100; // ms
@@ -16,6 +16,15 @@ const test = Object.assign(testCustom(), {
   custom: testCustom,
   verbose: testCustom({ logSuccess: true }),
 });
+
+type TestParams = {
+  minRuns?: number;
+  maxRuns?: number;
+  timeBudget?: number;
+  negative?: boolean;
+  logFailures?: boolean;
+  logSuccess?: boolean;
+};
 
 /**
  * Create a customized test runner.

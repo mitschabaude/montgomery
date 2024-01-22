@@ -11,7 +11,7 @@ import {
   handleErrors,
   spec,
 } from "./equivalent.js";
-import { test } from "./property.js";
+import { TestParams, test } from "./property.js";
 import { Random } from "./random.js";
 
 export { createEquivalentWasm, WasmSpec };
@@ -89,10 +89,7 @@ type WasmReturn<Out extends ToSpec<any, any>> = IsWasm<Out> extends true
   ? void
   : Second<Out>;
 
-function createEquivalentWasm(
-  Memory: MemoryHelpers,
-  { verbose }: { verbose?: boolean }
-) {
+function createEquivalentWasm(Memory: MemoryHelpers, testParams?: TestParams) {
   return function run<
     const Signature extends {
       from: Tuple<FromSpec<any, any>>;
@@ -114,7 +111,7 @@ function createEquivalentWasm(
     let scratchPtrs =
       scratch === undefined ? [] : Memory.local.getPointers(scratch);
 
-    return test.custom({ logSuccess: verbose })(
+    return test.custom(testParams)(
       label ?? "Wasm eqivalence test",
       ...generators,
       (...args) => {
