@@ -11,7 +11,7 @@ import { fieldInverse } from "../src/wasm/inverse.js";
 import { fieldExp } from "../src/wasm/exp.js";
 import { createSqrt } from "../src/field-sqrt.js";
 import { createConstants } from "../src/field-msm.js";
-import { mod } from "../src/bigint/field-util.js";
+import { mod, montgomeryParams } from "../src/bigint/field-util.js";
 import { fastInverse } from "../src/inverse/faster-inverse-wasm.js";
 import {
   bigintFromBytes,
@@ -39,22 +39,29 @@ async function benchmark(
   let Npow = 5e4;
 
   for (let w of [29]) {
+    let { n } = montgomeryParams(p, w);
     let {
       benchMultiply: benchMontgomery,
       benchSquare,
       multiply,
       leftShift,
       square,
-    } = multiplyMontgomery(p, w, { countMultiplications: false });
+    } = multiplyMontgomery(p, w, n, { countMultiplications: false });
     let { benchMultiply: benchSchoolbook, multiply: multiplySchoolbook_ } =
-      multiplySchoolbook(p, w);
+      multiplySchoolbook(p, w, n);
     let { benchMultiply: benchBarrett } = multiplyBarrett(
       p,
       w,
+      n,
       multiplySchoolbook_
     );
 
-    const Field = { ...FieldWithArithmetic(p, w), multiply, leftShift, square };
+    const Field = {
+      ...FieldWithArithmetic(p, w, n),
+      multiply,
+      leftShift,
+      square,
+    };
 
     const benchAdd = func(
       { in: [i32, i32], locals: [i32], out: [] },
@@ -131,8 +138,8 @@ async function benchmark(
     }
 
     let wasm = (await module.instantiate()).instance.exports;
-    let helpers = memoryHelpers(p, w, wasm);
-    let { writeBigint, readBigint, getPointer, getPointers, n } = helpers;
+    let helpers = memoryHelpers(p, w, n, wasm);
+    let { writeBigint, readBigint, getPointer, getPointers } = helpers;
 
     function benchMultiplyBigint(x0: number, N: number) {
       let x = readBigint(x0);

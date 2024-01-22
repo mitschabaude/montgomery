@@ -84,6 +84,7 @@ function bigintToLimbs(x0: bigint, w: number, n: number) {
     limbs[i] = x0 & wordMax;
     x0 >>= wn;
   }
+  if (x0 !== 0n) throw Error("input too large");
   return limbs;
 }
 

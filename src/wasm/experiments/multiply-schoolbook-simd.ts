@@ -2,7 +2,6 @@ import type * as W from "wasmati";
 import { $, Type, call, func, i32, i64, i64x2, local, v128 } from "wasmati";
 import { forLoop1, forLoop4 } from "../wasm-util.js";
 import { Local } from "wasmati";
-import { montgomeryParams } from "../../bigint/field-util.js";
 
 /**
  * this is a failed experiment of using simd for i64x2 mults
@@ -11,8 +10,9 @@ import { montgomeryParams } from "../../bigint/field-util.js";
 
 export { multiplySchoolbook };
 
-function multiplySchoolbook(p: bigint, w: number) {
-  let { n, wn, wordMax } = montgomeryParams(p, w);
+function multiplySchoolbook(p: bigint, w: number, n: number) {
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
   let nIsEven = n % 2 === 0;
   let vIndices: number[] = [];
   for (let i = 2; i < n - 1; i += 2) {

@@ -15,7 +15,7 @@ function mod(x: bigint, p: bigint) {
  * @param p modulus
  * @param w word size in bits
  */
-function montgomeryParams(p: bigint, w: number) {
+function montgomeryParams(p: bigint, w: number, minExtraBits = 2) {
   // word size has to be <= 32, to be able to multiply 2 words as i64
   if (w > 32) {
     throw Error("word size has to be <= 32 for efficient multiplication");
@@ -24,7 +24,7 @@ function montgomeryParams(p: bigint, w: number) {
   // where K is exactly divisible by the word size w
   // i.e., K = n*w, where n is the number of limbs our field elements are stored in
   let lengthP = log2(p);
-  let minK = lengthP + 1; // want 2^K > 2p bc montgomery mult. is modulo 2p
+  let minK = lengthP + minExtraBits; // want 2^K > 2p or 4p for some algorithms
   // number of limbs is smallest n such that K := n*w >= minK
   let n = Math.ceil(minK / w);
   let K = n * w;

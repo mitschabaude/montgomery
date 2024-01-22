@@ -19,7 +19,6 @@ import {
   bigintToBytes,
   bigintToLimbs as bigintToLimbs_,
 } from "../util.js";
-import { montgomeryParams } from "../bigint/field-util.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
@@ -28,8 +27,10 @@ export { fromPackedBytes, toPackedBytes, extractBitSlice };
 
 type Field = ReturnType<typeof createField>;
 
-function createField(p: bigint, w: number) {
-  const { n, wn, wordMax, R } = montgomeryParams(p, w);
+function createField(p: bigint, w: number, n: number) {
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  let R = 1n << (BigInt(n) * wn);
   const size = 4 * n; // size in bytes
 
   function loadLimb(x: Local<i32>, i: number) {

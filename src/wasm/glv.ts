@@ -26,16 +26,15 @@ import {
   max,
   scale,
 } from "../util.js";
-import { barrettError, barrettReduction, findMsbCutoff } from "./barrett.js";
-import { montgomeryParams } from "../bigint/field-util.js";
+import { barrettError, barrettReduction } from "./barrett.js";
 import { egcdStopEarly } from "../glv/glv.js";
 import { createField } from "./field-helpers.js";
 
 export { glvSpecial as glv, glvGeneral };
 
-function glvGeneral(q: bigint, lambda: bigint, w: number) {
-  let Field = createField(q, w);
-  let { n, lengthP: lengthQ, wn } = montgomeryParams(q, w);
+function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
+  let Field = createField(q, w, n);
+  let wn = BigInt(w);
   // n0 is the number of limbs we need for scalar halves and intermediate values
   let n0 = Math.ceil(n / 2);
   let m = BigInt(n0 * w);
@@ -246,8 +245,10 @@ function bigintToLimbsPositive(
  * GLV decomposition in the special case that the cube root of unity lambda has only half the bit length of the scalar field modulus,
  * and we can just use barrett reduction s = s0 + s1*lambda to get small s0, s1
  */
-function glvSpecial(q: bigint, lambda: bigint, w: number) {
-  let { n, wordMax, lengthP, wn } = montgomeryParams(lambda, w);
+function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
+  let lengthP = log2(lambda);
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
   let k = lengthP - 1;
   let N = n * w;
   let m = 2n ** BigInt(k + N) / lambda;
@@ -255,7 +256,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number) {
   let Q = bigintToLimbs(q, w, 2 * n);
   let sizeScalar = 4 * n;
 
-  const barrett = barrettReduction(lambda, w);
+  const barrett = barrettReduction(lambda, w, n);
 
   // let's compute the maximum error in barrett reduction
   // scalars are < q, which is slightly larger than lambda^2

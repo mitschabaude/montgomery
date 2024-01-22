@@ -13,7 +13,6 @@ import {
   i64,
   local,
 } from "wasmati";
-import { montgomeryParams } from "../bigint/field-util.js";
 import { inverse } from "../bigint/field.js";
 import { assert, bigintToLimbs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
@@ -32,10 +31,12 @@ type FieldWithMultiply = FieldWithArithmetic & FieldMultiplications;
 function multiplyMontgomery(
   p: bigint,
   w: number,
+  n: number,
   { countMultiplications = false }
 ) {
-  let { n, wn, wordMax } = montgomeryParams(p, w);
-  const Field = createField(p, w);
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  const Field = createField(p, w, n);
 
   // constants
   let mu = inverse(-p, 1n << wn);

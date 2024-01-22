@@ -19,8 +19,8 @@ export { arithmetic, fieldHelpers, FieldWithArithmetic };
 
 type FieldWithArithmetic = ReturnType<typeof FieldWithArithmetic>;
 
-function FieldWithArithmetic(p: bigint, w: number) {
-  const Field = createField(p, w);
+function FieldWithArithmetic(p: bigint, w: number, n: number) {
+  const Field = createField(p, w, n);
   const arithmetic_ = arithmetic(Field);
   const helper_ = fieldHelpers(Field);
   return { ...Field, ...arithmetic_, ...helper_ };

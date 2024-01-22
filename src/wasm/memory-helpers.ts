@@ -1,6 +1,5 @@
-import { montgomeryParams } from "../bigint/field-util.js";
 import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
-import { assert } from "../util.js";
+import { assert, log2 } from "../util.js";
 
 export { memoryHelpers, MemoryHelpers };
 
@@ -19,6 +18,7 @@ type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 function memoryHelpers(
   p: bigint,
   w: number,
+  n: number,
   {
     memory,
     toPackedBytes,
@@ -31,7 +31,10 @@ function memoryHelpers(
     dataOffset?: { valueOf(): number };
   }
 ) {
-  let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  let lengthP = log2(p);
+  let R = 1n << BigInt(n * w);
   let packedSizeField = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;

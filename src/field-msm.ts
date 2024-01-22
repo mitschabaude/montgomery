@@ -18,7 +18,7 @@ export { createMsmField, MsmField };
 export { createConstants };
 
 async function createMsmField(
-  params: { p: bigint; beta: bigint; w: number },
+  params: { p: bigint; beta: bigint; w: number; minExtraBits?: number },
   wasm?: WasmArtifacts
 ) {
   if (wasm !== undefined) {
@@ -37,18 +37,20 @@ async function createFieldWasm({
   p,
   beta,
   w,
+  minExtraBits,
 }: {
   p: bigint;
   beta: bigint;
   w: number;
+  minExtraBits?: number;
 }) {
-  let { n, nPackedBytes } = montgomeryParams(p, w);
+  let { n, nPackedBytes } = montgomeryParams(p, w, minExtraBits);
 
   let wasmMemory = importMemory({ min: 1 << 16, max: 1 << 16, shared: true });
   let implicitMemory = new ImplicitMemory(wasmMemory);
 
-  let Field_ = FieldWithArithmetic(p, w);
-  let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
+  let Field_ = FieldWithArithmetic(p, w, n);
+  let { multiply, square, leftShift } = multiplyMontgomery(p, w, n, {
     countMultiplications: false,
   });
   const Field = Object.assign(Field_, { multiply, square, leftShift });
@@ -121,7 +123,7 @@ async function createFieldWasm({
 }
 
 async function createFieldFromWasm(
-  { p, w }: { p: bigint; w: number },
+  { p, w, minExtraBits }: { p: bigint; w: number; minExtraBits?: number },
   wasmArtifacts: WasmArtifacts,
   instance?: MsmFieldWasm
 ) {
@@ -139,10 +141,11 @@ async function createFieldFromWasm(
     )) as MsmFieldWasm;
   }
   let wasm = instance.exports;
-  let helpers = memoryHelpers(p, w, wasm);
+
+  let { R, K, n, lengthP: N } = montgomeryParams(p, w, minExtraBits);
+  let helpers = memoryHelpers(p, w, n, wasm);
 
   // put some constants in wasm memory
-  let { R, K, lengthP: N } = montgomeryParams(p, w);
 
   let constants = createConstants(helpers, {
     zero: 0n,

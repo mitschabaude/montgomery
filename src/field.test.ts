@@ -12,6 +12,8 @@ Error.stackTraceLimit = 1000;
 // - bls12-377, w=27 (first failure in subtract positive)
 // - ed-bls12-377-scalar, w=28 (first failure in subtract positive)
 
+await testField("bls12-377 w=27", 27, exampleFields.bls12377);
+
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];
   if (BigintField.sizeInBits < 33) continue; // parts of our code assume at least 2 limbs
@@ -71,8 +73,8 @@ async function testField(label: string, w: number, BigintField: BigintField) {
   // TODO fails on bls12-377, w=27
   equiv(
     {
-      from: [fieldUntransformed, fieldUntransformed],
-      to: fieldUntransformed,
+      from: [fieldUntransformedReduced, fieldUntransformedReduced],
+      to: fieldUntransformedReduced,
     },
     (x, y) => x - y + 2n * Field.p,
     Field.subtractPositive,

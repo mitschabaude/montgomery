@@ -20,8 +20,8 @@ const verbose = false;
 // create wasm
 let implicitMemory = new ImplicitMemory(memory({ min: 1 << 10 }));
 
-let Field0 = FieldWithArithmetic(p, w);
-let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
+let Field0 = FieldWithArithmetic(p, w, n);
+let { multiply, square, leftShift } = multiplyMontgomery(p, w, n, {
   countMultiplications: false,
 });
 const Field1 = Object.assign(Field0, { multiply, square, leftShift });
@@ -33,7 +33,7 @@ let module = Module({
   },
 });
 let wasm_ = (await module.instantiate()).instance.exports;
-let wasm = { ...wasm_, ...memoryHelpers(p, w, wasm_) };
+let wasm = { ...wasm_, ...memoryHelpers(p, w, n, wasm_) };
 
 let signFlips = 0;
 

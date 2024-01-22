@@ -28,7 +28,7 @@ type SpecialGlvScalar = UnwrapPromise<
 type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
 
 type Params = { q: bigint; lambda: bigint; w: number };
-type GlvScalarParams = Params & { n0: number; maxBits: number };
+type GlvScalarParams = Params & { n: number; n0: number; maxBits: number };
 
 /**
  * scalar module for MSM with GLV
@@ -37,7 +37,7 @@ async function createGlvScalar(
   params: Params,
   wasmAndFullParams?: {
     wasm: WasmArtifacts;
-    fullParams: Params & { n0: number; maxBits: number };
+    fullParams: Params & { n: number; n0: number; maxBits: number };
   }
 ) {
   if (wasmAndFullParams !== undefined) {
@@ -61,8 +61,8 @@ async function createGlvScalarWasm({
   lambda: bigint;
   w: number;
 }) {
-  const { n } = montgomeryParams(q, w);
-  const { decompose, n0, maxBits } = glvGeneral(q, lambda, w);
+  const { n } = montgomeryParams(q, w, 1);
+  const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
   let wasmMemory = importMemory({ min: 1 << 15, max: 1 << 15, shared: true });
 
   let module = Module({
@@ -80,7 +80,7 @@ async function createGlvScalarWasm({
   return {
     wasmArtifacts: { module: wasmModule, memory: wasmMemory.value },
     instance,
-    fullParams: { q, lambda, w, n0, maxBits },
+    fullParams: { q, lambda, w, n, n0, maxBits },
   };
 }
 
@@ -89,11 +89,18 @@ type GlvScalarWasm = UnwrapPromise<
 >["instance"];
 
 async function createGlvScalarFromWasm(
-  params: { q: bigint; lambda: bigint; w: number; n0: number; maxBits: number },
+  params: {
+    q: bigint;
+    lambda: bigint;
+    w: number;
+    n: number;
+    n0: number;
+    maxBits: number;
+  },
   wasmArtifacts: WasmArtifacts,
   instance?: GlvScalarWasm
 ) {
-  let { q, lambda, w, n0, maxBits } = params;
+  let { q, lambda, w, n, n0, maxBits } = params;
   if (instance === undefined) {
     let imports = WebAssembly.Module.imports(wasmArtifacts.module);
     // TODO abstraction leak - we have to know that there is no other import to do this
@@ -108,7 +115,7 @@ async function createGlvScalarFromWasm(
     )) as GlvScalarWasm;
   }
   const glvWasm = instance.exports;
-  const glvHelpers = memoryHelpers(q, w, glvWasm);
+  const glvHelpers = memoryHelpers(q, w, n, glvWasm);
 
   const sizeInBits = log2(q);
 
@@ -151,8 +158,8 @@ async function createGlvScalarFromWasm(
  * scalar module for MSM with GLV
  */
 async function createSpecialGlvScalar(q: bigint, lambda: bigint, w: number) {
-  const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w);
-  const { decompose, decomposeNoMsb } = glv(q, lambda, w);
+  const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w, 1);
+  const { decompose, decomposeNoMsb } = glv(q, lambda, w, n);
 
   let module = Module({
     exports: {
@@ -170,7 +177,7 @@ async function createSpecialGlvScalar(q: bigint, lambda: bigint, w: number) {
   let m = await module.instantiate();
   const glvWasm = m.instance.exports;
 
-  const glvHelpers = memoryHelpers(lambda, w, glvWasm);
+  const glvHelpers = memoryHelpers(lambda, w, n, glvWasm);
 
   let [scratchPtr, , bytesPtr, bytesPtr2] =
     glvHelpers.local.getStablePointers(5);
@@ -219,7 +226,7 @@ async function createSpecialGlvScalar(q: bigint, lambda: bigint, w: number) {
  * simple scalar utils for MSM without GLV
  */
 async function createSimpleScalar(q: bigint, w: number) {
-  const { n, nPackedBytes } = montgomeryParams(q, w);
+  const { n, nPackedBytes } = montgomeryParams(q, w, 1);
 
   let module = Module({
     exports: {
@@ -233,7 +240,7 @@ async function createSimpleScalar(q: bigint, w: number) {
 
   let m = await module.instantiate();
   const wasm = m.instance.exports;
-  const helpers = memoryHelpers(q, w, wasm);
+  const helpers = memoryHelpers(q, w, n, wasm);
 
   return { ...helpers, ...wasm };
 }
