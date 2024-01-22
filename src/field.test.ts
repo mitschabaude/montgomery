@@ -10,8 +10,6 @@ Error.stackTraceLimit = 1000;
 // TODO a few cases always fail:
 // - pastaFq, w=26 and w=29 (only fast sqrt fails)
 
-await testField("bls12-377 w=27", 27, exampleFields.bls12377);
-
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];
   if (BigintField.sizeInBits < 33) continue; // parts of our code assume at least 2 limbs
