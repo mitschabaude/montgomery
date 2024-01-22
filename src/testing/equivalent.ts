@@ -29,7 +29,7 @@ export {
   first,
   second,
 };
-export { Spec, ToSpec, FromSpec, First, Second };
+export { Spec, ToSpec, FromSpec, First, Second, Params1, Params2 };
 
 // a `Spec` tells us how to compare two functions
 
@@ -66,9 +66,8 @@ function equivalent<
     let assertEqual = to.assertEqual ?? deepEqual;
     return test.custom({ logSuccess: verbose })(
       label ?? "Eqivalence test",
-      ...(generators as any[]),
+      ...generators,
       (...args) => {
-        args.pop();
         let inputs = args as Params1<In>;
         handleErrors(
           () => f1(...inputs),

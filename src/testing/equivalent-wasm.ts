@@ -1,0 +1,154 @@
+import { MsmField } from "../field-msm.js";
+import { MemoryHelpers } from "../wasm/memory-helpers.js";
+import { Get, Tuple } from "../types.js";
+import {
+  First,
+  FromSpec,
+  Params1,
+  Params2,
+  Second,
+  ToSpec,
+  handleErrors,
+  spec,
+} from "./equivalent.js";
+import { test } from "./property.js";
+import { Random } from "./random.js";
+
+export { createEquivalentWasm, WasmSpec };
+
+type WasmFromSpec<In> = FromSpec<In, number> & { size: number };
+type WasmToSpec<Out> = ToSpec<Out, number> & { size: number };
+type WasmSpec<T> = WasmFromSpec<T> & WasmToSpec<T>;
+
+type IsWasm<Spec> = Spec extends { size: number } ? true : false;
+
+// wasm specs
+
+const WasmSpec = {
+  field(Field: MsmField) {
+    return wasmSpec(Field, Random.field(Field.p), {
+      size: Field.sizeField,
+      there(xPtr, x) {
+        Field.fromBigint(xPtr, x);
+      },
+      back(x) {
+        return Field.toBigint(x);
+      },
+    });
+  },
+  boolean: spec(Random.boolean, {
+    there: (b): number => (b ? 1 : 0),
+    back: (b) => b === 1,
+  }),
+};
+
+// wasm equivalence test
+
+type WasmParamsWithScratch<
+  Signature extends {
+    from: Tuple<FromSpec<any, any>>;
+    to: ToSpec<any, any>;
+    scratch?: number | undefined;
+  },
+> = IsWasm<Signature["to"]> extends true
+  ? Get<Signature, "scratch"> extends undefined
+    ? [out: number, ...Params2<Signature["from"]>]
+    : [scratch: number[], out: number, ...Params2<Signature["from"]>]
+  : Get<Signature, "scratch"> extends undefined
+    ? Params2<Signature["from"]>
+    : [scratch: number[], ...Params2<Signature["from"]>];
+
+type WasmReturn<Out extends ToSpec<any, any>> = IsWasm<Out> extends true
+  ? void
+  : Second<Out>;
+
+function createEquivalentWasm(
+  Memory: MemoryHelpers,
+  { verbose }: { verbose?: boolean }
+) {
+  return function run<
+    const Signature extends {
+      from: Tuple<FromSpec<any, any>>;
+      to: ToSpec<any, any>;
+      scratch?: number | undefined;
+    },
+  >(
+    { from, to, scratch }: Signature,
+    f1: (...args: Params1<Signature["from"]>) => First<Signature["to"]>,
+    f2: (
+      ...args: WasmParamsWithScratch<Signature>
+    ) => WasmReturn<Signature["to"]>,
+    label?: string
+  ) {
+    let generators = from.map((spec) => spec.rng);
+    let assertEqual = to.assertEqual ?? defaultAssertEqual;
+    let isWasmOutput = "size" in to;
+    let outPtr = isWasmOutput ? Memory.local.getPointer((to as any).size) : 0;
+    let scratchPtrs =
+      scratch === undefined ? [] : Memory.local.getPointers(scratch);
+
+    return test.custom({ logSuccess: verbose })(
+      label ?? "Wasm eqivalence test",
+      ...generators,
+      (...args) => {
+        let inputs = args as Params1<Signature["from"]>;
+        // console.log(inputs);
+
+        handleErrors(
+          () => f1(...inputs),
+          () => {
+            let inputs2 = inputs.map((x: any, i: number) => from[i].there(x));
+            if (isWasmOutput) inputs2 = [outPtr, ...inputs2];
+            if (scratch !== undefined) inputs2 = [...scratchPtrs, ...inputs2];
+            let result = f2(...(inputs2 as WasmParamsWithScratch<Signature>));
+            return to.back(isWasmOutput ? outPtr : result);
+          },
+          (x, y) => {
+            assertEqual(x, y, `${label}: Expect equal results`);
+          },
+          label
+        );
+      }
+    );
+  };
+}
+
+function defaultAssertEqual(x: any, y: any, message: string) {
+  if (x !== y) {
+    console.log("First result:", x);
+    console.log("Second result:", y);
+    throw Error(message);
+  }
+}
+
+// helper for writing wasm specs
+
+function wasmSpec<T>(
+  Memory: MemoryHelpers,
+  rng: Random<T>,
+  {
+    size,
+    there,
+    back,
+    assertEqual,
+  }: {
+    size: number;
+    there: (xPtr: number, x: T) => void;
+    back: (xPtr: number) => T;
+    assertEqual?: (x: T, y: T, message: string) => void;
+  }
+): WasmSpec<T> {
+  return {
+    rng,
+    size,
+    there(x) {
+      let xPtr = Memory.local.getPointer(size);
+      there(xPtr, x);
+      return xPtr;
+    },
+    back(xPtr) {
+      return back(xPtr);
+    },
+    assertEqual,
+  };
+}
