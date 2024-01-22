@@ -9,8 +9,6 @@ Error.stackTraceLimit = 1000;
 
 // TODO a few cases always fail:
 // - pastaFq, w=26 and w=29 (only fast sqrt fails)
-// - bls12-377, w=27 (first failure in subtract positive)
-// - ed-bls12-377-scalar, w=28 (first failure in subtract positive)
 
 await testField("bls12-377 w=27", 27, exampleFields.bls12377);
 
@@ -28,10 +26,7 @@ for (let label in exampleFields) {
 
 async function testField(label: string, w: number, BigintField: BigintField) {
   const Field = await createMsmField({ p: BigintField.modulus, w, beta: 1n });
-  const equiv = createEquivalentWasm(Field, {
-    // logSuccess: true,
-    maxRuns: 1000,
-  });
+  const equiv = createEquivalentWasm(Field, { maxRuns: 1000 });
 
   const field = WasmSpec.fieldUnreduced(Field);
   const fieldReduced = WasmSpec.field(Field);
