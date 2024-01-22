@@ -63,7 +63,6 @@ async function testField(label: string, w: number, BigintField: BigintField) {
     `${label} subtract`
   );
 
-  // TODO fails on bls12-377, w=27
   equiv(
     {
       from: [fieldUntransformedReduced, fieldUntransformedReduced],
@@ -106,7 +105,6 @@ async function testField(label: string, w: number, BigintField: BigintField) {
     Field.isEqual,
     `${label} isEqual`
   );
-  // fails
   equiv(
     { from: [fieldUntransformed], to: boolean },
     (x) => x === 0n,
