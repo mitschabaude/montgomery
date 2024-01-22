@@ -1,15 +1,16 @@
 import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.js";
 import { BigintField } from "./bigint/field.js";
 import { createMsmField } from "./field-msm.js";
-import { exampleFields } from "./bigint/field-examples.js";
+import { exampleFields } from "./concrete/field-examples.js";
 import { Spec, throwError } from "./testing/equivalent.js";
 import { test } from "node:test";
 
 Error.stackTraceLimit = 1000;
 
 // TODO a few cases always fail:
-// - pastaFq, w=26 and w=29 (sqrt only)
-// - bls12-377, w=27 (multiple tests)
+// - pastaFq, w=26 and w=29 (only fast sqrt fails)
+// - bls12-377, w=27 (first failure in subtract positive)
+// - ed-bls12-377-scalar, w=28 (first failure in subtract positive)
 
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];

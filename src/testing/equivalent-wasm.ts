@@ -116,7 +116,6 @@ function createEquivalentWasm(Memory: MemoryHelpers, testParams?: TestParams) {
       ...generators,
       (...args) => {
         let inputs = args as Params1<Signature["from"]>;
-        // console.log(inputs);
 
         handleErrors(
           () => f1(...inputs),
