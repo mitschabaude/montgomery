@@ -4,11 +4,10 @@
  * This code is taken from o1js: https://github.com/o1-labs/o1js
  *
  * contains helpers for testing equivalence of two implementations
- * specifically, equivalence between a bigint and wasm version
  */
 import { test, Random } from "../testing/property.js";
 import { deepEqual } from "node:assert/strict";
-import { AnyFunction, Tuple } from "../types.js";
+import { Tuple } from "../types.js";
 
 export {
   equivalent,
@@ -30,7 +29,7 @@ export {
   first,
   second,
 };
-export { Spec, ToSpec, FromSpec, SpecFromFunctions, First, Second };
+export { Spec, ToSpec, FromSpec, First, Second };
 
 // a `Spec` tells us how to compare two functions
 
@@ -51,22 +50,6 @@ type ToSpec<Out1, Out2> = {
 };
 
 type Spec<T1, T2> = FromSpec<T1, T2> & ToSpec<T1, T2>;
-
-type FuncSpec<In1 extends Tuple<any>, Out1, In2 extends Tuple<any>, Out2> = {
-  from: {
-    [k in keyof In1]: k extends keyof In2 ? FromSpec<In1[k], In2[k]> : never;
-  };
-  to: ToSpec<Out1, Out2>;
-};
-
-type SpecFromFunctions<
-  F1 extends AnyFunction,
-  F2 extends AnyFunction,
-> = FuncSpec<Parameters<F1>, ReturnType<F1>, Parameters<F2>, ReturnType<F2>>;
-
-function id<T>(x: T) {
-  return x;
-}
 
 // equivalence tester
 
@@ -106,7 +89,7 @@ function equivalent<
 function equivalentAsync<
   In extends Tuple<FromSpec<any, any>>,
   Out extends ToSpec<any, any>,
->({ from, to }: { from: In; to: Out }, { runs = 1 } = {}) {
+>({ from, to }: { from: In; to: Out }, { runs = 5 } = {}) {
   return async function run(
     f1: (...args: Params1<In>) => Promise<First<Out>> | First<Out>,
     f2: (...args: Params2<In>) => Promise<Second<Out>> | Second<Out>,
@@ -141,6 +124,10 @@ function equivalentAsync<
 }
 
 // creating specs
+
+function id<T>(x: T) {
+  return x;
+}
 
 function spec<T, S>(
   rng: Random<T>,
