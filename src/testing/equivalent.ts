@@ -17,19 +17,7 @@ export {
   deepEqual as defaultAssertEqual,
   id,
 };
-export {
-  spec,
-  boolean,
-  unit,
-  array,
-  record,
-  map,
-  onlyIf,
-  fromRandom,
-  first,
-  second,
-};
-export { Spec, ToSpec, FromSpec, First, Second, Params1, Params2 };
+export { spec, Spec, ToSpec, FromSpec, First, Second, Params1, Params2 };
 
 // a `Spec` tells us how to compare two functions
 
@@ -158,9 +146,24 @@ function spec<T, S>(
 
 // some useful specs
 
-let unit: ToSpec<void, void> = { back: id, assertEqual() {} };
+const unit: ToSpec<void, void> = { back: id, assertEqual() {} };
+const boolean: Spec<boolean, boolean> = spec(Random.boolean);
 
-let boolean = spec(Random.boolean);
+function numberLessThan(n: number): Spec<number, number> {
+  return spec(Random.nat(n - 1));
+}
+
+const Spec = {
+  unit,
+  boolean,
+  numberLessThan,
+  array,
+  record,
+  map,
+  onlyIf,
+  first,
+  second,
+};
 
 // spec combinators
 
@@ -206,10 +209,6 @@ function mapObject<K extends string, T, S>(
   return Object.fromEntries(
     Object.entries<T>(t).map(([k, v]) => [k, map(v, k as K)])
   ) as any;
-}
-
-function fromRandom<T>(rng: Random<T>): Spec<T, T> {
-  return { rng, there: id, back: id };
 }
 
 function first<T, S>(spec: Spec<T, S>): Spec<T, T> {
