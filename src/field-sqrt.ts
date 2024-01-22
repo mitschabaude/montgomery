@@ -73,6 +73,7 @@ function createSqrt(
    * probably possible optimize the second part of the algorithm with more caching
    */
   function sqrt([u, s, scratch]: number[], sqrtx: number, x: number) {
+    wasm.reduce(x);
     if (wasm.isZero(x)) {
       wasm.copy(sqrtx, constants.zero);
       return true;
@@ -85,14 +86,18 @@ function createSqrt(
 
     while (true) {
       // if u === 1, we're done
+      wasm.reduce(u);
       if (wasm.isEqual(u, constants.mg1)) return true;
 
       // use repeated squaring to find the least i', 0 < i' < i, such that u^(2^i') = 1
       let i_ = 1;
       wasm.square(s, u);
+      wasm.reduce(s);
       while (!wasm.isEqual(s, constants.mg1)) {
         wasm.square(s, s);
+        wasm.reduce(s);
         i_++;
+        if (i_ > i) throw Error("infinite loop");
       }
       if (i_ === i) return false; // no solution
       assert(i_ < i); // by construction
@@ -102,7 +107,8 @@ function createSqrt(
     }
   }
 
-  // TODO
+  // TODO fastSqrt sometimes fails tests on Pasta fields
+  return { sqrt, t, roots };
   if (M <= 4) return { sqrt, t, roots };
 
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
@@ -191,6 +197,7 @@ function createSqrt(
    * This makes the exponentation x^(t-1)/2 at the beginning by far the dominant part (~80%).
    */
   function fastSqrt([u, scratch]: number[], sqrtx: number, x: number) {
+    wasm.reduce(x);
     if (wasm.isZero(x)) {
       wasm.copy(sqrtx, constants.zero);
       return true;

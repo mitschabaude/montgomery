@@ -48,18 +48,6 @@ const WasmSpec = {
     }
   },
 
-  fieldWithRngMontgomery(Field: MsmField, rng: Random<bigint>) {
-    return wasmSpec(Field, rng, {
-      size: Field.sizeField,
-      there(xPtr, x) {
-        Field.writeBigint(xPtr, x);
-      },
-      back(x) {
-        return Field.readBigint(x);
-      },
-    });
-  },
-
   field(Field: MsmField, { montgomeryTransform = true } = {}) {
     return WasmSpec.fieldWithRng(
       Field,
