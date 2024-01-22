@@ -2,21 +2,33 @@ import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.js";
 import { BigintField } from "./bigint/field.js";
 import { createMsmField } from "./field-msm.js";
 import { exampleFields } from "./bigint/field-examples.js";
-import { Random, sample, sampleOne } from "./testing/random.js";
 import { Spec, throwError } from "./testing/equivalent.js";
+import { test } from "node:test";
 
 Error.stackTraceLimit = 1000;
+
+// TODO a few cases always fail:
+// - pastaFq, w=26 and w=29 (sqrt only)
+// - bls12-377, w=27 (multiple tests)
 
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];
   if (BigintField.sizeInBits < 33) continue; // parts of our code assume at least 2 limbs
-  await testField(label, BigintField);
+
+  for (let w of [26, 27, 28, 29, 30, 31]) {
+    let l = `${label} w=${w}`;
+    await test(l, async () => {
+      await testField(l, w, BigintField);
+    });
+  }
 }
 
-async function testField(label: string, BigintField: BigintField) {
-  const w = sampleOne(Random.int(26, 31));
+async function testField(label: string, w: number, BigintField: BigintField) {
   const Field = await createMsmField({ p: BigintField.modulus, w, beta: 1n });
-  const equiv = createEquivalentWasm(Field, { verbose: true });
+  const equiv = createEquivalentWasm(Field, {
+    // logSuccess: true,
+    maxRuns: 1000,
+  });
 
   const field = WasmSpec.fieldUnreduced(Field);
   const fieldReduced = WasmSpec.field(Field);
@@ -28,8 +40,6 @@ async function testField(label: string, BigintField: BigintField) {
   });
 
   const boolean = WasmSpec.boolean;
-
-  // console.log(sample(field.rng, 100).map((x) => x.toString(16)));
 
   // reduce
   equiv(
@@ -57,18 +67,16 @@ async function testField(label: string, BigintField: BigintField) {
     `${label} subtract`
   );
 
-  // TODO fails in rare cases on bls12-377
-  if (label !== "bls12_377_base") {
-    equiv(
-      {
-        from: [fieldUntransformed, fieldUntransformed],
-        to: fieldUntransformed,
-      },
-      (x, y) => x - y + 2n * Field.p,
-      Field.subtractPositive,
-      `${label} subtractPositive`
-    );
-  }
+  // TODO fails on bls12-377, w=27
+  equiv(
+    {
+      from: [fieldUntransformed, fieldUntransformed],
+      to: fieldUntransformed,
+    },
+    (x, y) => x - y + 2n * Field.p,
+    Field.subtractPositive,
+    `${label} subtractPositive`
+  );
 
   // mul, square, shift
   equiv(
@@ -110,45 +118,36 @@ async function testField(label: string, BigintField: BigintField) {
   );
 
   // inverse
-  // TODO fails in rare cases on bls12-377
-  if (label !== "bls12_377_base") {
-    equiv(
-      { from: [field], to: field, scratch: 3 },
-      BigintField.inv,
-      ([scratch], out, x) => Field.inverse(scratch, out, x),
-      `${label} inverse`
-    );
-  }
+  equiv(
+    { from: [field], to: field, scratch: 3 },
+    BigintField.inv,
+    ([scratch], out, x) => Field.inverse(scratch, out, x),
+    `${label} inverse`
+  );
 
   // exp
-  // TODO fails in rare cases on bls12-377
-  if (label !== "bls12_377_base") {
-    equiv(
-      { from: [field, fieldUntransformed], to: field, scratch: 1 },
-      (x, k) => BigintField.exp(x, k),
-      ([scratch], out, x, k) => Field.exp(scratch, out, x, k),
-      `${label} exp`
-    );
-  }
+  equiv(
+    { from: [field, fieldUntransformed], to: field, scratch: 1 },
+    (x, k) => BigintField.exp(x, k),
+    ([scratch], out, x, k) => Field.exp(scratch, out, x, k),
+    `${label} exp`
+  );
 
   // sqrt
-  // TODO fails in rare cases on bls12-377
-  if (label !== "bls12_377_base") {
-    equiv(
-      { from: [fieldReduced], to: fieldReduced, scratch: 10 },
-      (x) => {
-        let exists =
-          x === 0n || BigintField.exp(x, (BigintField.p - 1n) >> 1n) === 1n;
-        if (!exists) throwError("no sqrt (bigint)");
-        return x;
-      },
-      (scratch, out, x) => {
-        Field.reduce(x);
-        let exists = Field.sqrt(scratch, out, x);
-        if (!exists) throwError("no sqrt (wasm)");
-        Field.square(out, out);
-      },
-      `${label} sqrt`
-    );
-  }
+  equiv(
+    { from: [fieldReduced], to: fieldReduced, scratch: 10 },
+    (x) => {
+      let exists =
+        x === 0n || BigintField.exp(x, (BigintField.p - 1n) >> 1n) === 1n;
+      if (!exists) throwError("no sqrt (bigint)");
+      return x;
+    },
+    (scratch, out, x) => {
+      Field.reduce(x);
+      let exists = Field.sqrt(scratch, out, x);
+      if (!exists) throwError("no sqrt (wasm)");
+      Field.square(out, out);
+    },
+    `${label} sqrt`
+  );
 }

@@ -107,8 +107,7 @@ function createSqrt(
     }
   }
 
-  // TODO fastSqrt sometimes fails tests on Pasta fields
-  return { sqrt, t, roots };
+  // TODO fastSqrt fails tests on Pasta Fq field with w = 26, 29
   if (M <= 4) return { sqrt, t, roots };
 
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
