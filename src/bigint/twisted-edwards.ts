@@ -33,11 +33,14 @@ function createCurveTwistedEdwards(params: CurveParams) {
   const zero = { X: 0n, Y: 1n, Z: 1n, T: 0n } satisfies BigintPoint;
 
   function fromAffine({ x, y }: { x: bigint; y: bigint }): BigintPoint {
-    return { X: x, Y: y, Z: 1n, T: Fp.mul(x, y) };
+    return { X: x, Y: y, Z: 1n, T: Fp.multiply(x, y) };
   }
   function toAffine({ X, Y, Z }: BigintPoint): { x: bigint; y: bigint } {
-    assert(!Fp.equal(Z, 0n), "Not an affine point");
-    return { x: Fp.mul(X, Fp.inv(Z)), y: Fp.mul(Y, Fp.inv(Z)) };
+    assert(!Fp.isEqual(Z, 0n), "Not an affine point");
+    return {
+      x: Fp.multiply(X, Fp.inverse(Z)),
+      y: Fp.multiply(Y, Fp.inverse(Z)),
+    };
   }
 
   /**
@@ -52,30 +55,30 @@ function createCurveTwistedEdwards(params: CurveParams) {
     // Assumptions: k=2*d.
 
     // A = (Y1-X1)*(Y2-X2)
-    let A = Fp.mul(Y1 - X1, Y2 - X2);
+    let A = Fp.multiply(Y1 - X1, Y2 - X2);
     // B = (Y1+X1)*(Y2+X2)
-    let B = Fp.mul(Y1 + X1, Y2 + X2);
+    let B = Fp.multiply(Y1 + X1, Y2 + X2);
     // C = T1*k*T2
-    let C = Fp.mul(T1, T2);
-    C = Fp.mul(C, k);
+    let C = Fp.multiply(T1, T2);
+    C = Fp.multiply(C, k);
     // D = Z1*2*Z2
-    let D = Fp.mul(2n * Z1, Z2);
+    let D = Fp.multiply(2n * Z1, Z2);
     // E = B-A
-    let E = Fp.sub(B, A);
+    let E = Fp.subtract(B, A);
     // F = D-C
-    let F = Fp.sub(D, C);
+    let F = Fp.subtract(D, C);
     // G = D+C
     let G = Fp.add(D, C);
     // H = B+A
     let H = Fp.add(B, A);
     // X3 = E*F
-    let X3 = Fp.mul(E, F);
+    let X3 = Fp.multiply(E, F);
     // Y3 = G*H
-    let Y3 = Fp.mul(G, H);
+    let Y3 = Fp.multiply(G, H);
     // T3 = E*H
-    let T3 = Fp.mul(E, H);
+    let T3 = Fp.multiply(E, H);
     // Z3 = F*G
-    let Z3 = Fp.mul(F, G);
+    let Z3 = Fp.multiply(F, G);
 
     return { X: X3, Y: Y3, Z: Z3, T: T3 };
   }
@@ -93,25 +96,28 @@ function createCurveTwistedEdwards(params: CurveParams) {
    * Negation, -P
    */
   function negate(P: BigintPoint): BigintPoint {
-    return { X: Fp.neg(P.X), Y: P.Y, Z: P.Z, T: Fp.neg(P.T) };
+    return { X: Fp.negate(P.X), Y: P.Y, Z: P.Z, T: Fp.negate(P.T) };
   }
 
   function isEqual(P1: BigintPoint, P2: BigintPoint) {
     return (
       // protect against invalid points with z=0
-      !Fp.equal(P1.Z, 0n) &&
-      !Fp.equal(P2.Z, 0n) &&
+      !Fp.isEqual(P1.Z, 0n) &&
+      !Fp.isEqual(P2.Z, 0n) &&
       // multiply out with Z
-      Fp.equal(P1.X * P2.Z, P2.X * P1.Z) &&
-      Fp.equal(P1.Y * P2.Z, P2.Y * P1.Z) &&
+      Fp.isEqual(P1.X * P2.Z, P2.X * P1.Z) &&
+      Fp.isEqual(P1.Y * P2.Z, P2.Y * P1.Z) &&
       // redundant for valid points, but this function should work if one input is invalid
-      Fp.equal(P1.T * P2.Z, P2.T * P1.Z)
+      Fp.isEqual(P1.T * P2.Z, P2.T * P1.Z)
     );
   }
 
   function isZero({ X, Y, Z, T }: BigintPoint): boolean {
     return (
-      !Fp.equal(Z, 0n) && Fp.equal(X, 0n) && Fp.equal(T, 0n) && Fp.equal(Y, Z)
+      !Fp.isEqual(Z, 0n) &&
+      Fp.isEqual(X, 0n) &&
+      Fp.isEqual(T, 0n) &&
+      Fp.isEqual(Y, Z)
     );
   }
 
@@ -150,11 +156,11 @@ function createCurveTwistedEdwards(params: CurveParams) {
   function isOnCurve(P: BigintPoint): boolean {
     let { X, Y, T, Z } = P;
     // validity of Z
-    if (Fp.equal(Z, 0n)) return false;
+    if (Fp.isEqual(Z, 0n)) return false;
     // validity of T
-    if (!Fp.equal(T * Z, X * Y)) return false;
+    if (!Fp.isEqual(T * Z, X * Y)) return false;
     // curve equation
-    return Fp.equal(-X * X + Y * Y, Z * Z + d * Fp.mul(T, T));
+    return Fp.isEqual(-X * X + Y * Y, Z * Z + d * Fp.multiply(T, T));
   }
 
   function random(): BigintPoint {
@@ -166,11 +172,14 @@ function createCurveTwistedEdwards(params: CurveParams) {
       x = Fp.add(x, 1n);
       // solve -x^2 + y^2 = 1 + d x^2 y^2 for y
       // => y^2 = (1 + x^2) / (1 - d x^2)
-      let y2 = Fp.mul(1n + Fp.mul(x, x), Fp.inv(1n - Fp.mul(d, Fp.mul(x, x))));
+      let y2 = Fp.multiply(
+        1n + Fp.multiply(x, x),
+        Fp.inverse(1n - Fp.multiply(d, Fp.multiply(x, x)))
+      );
       y = Fp.sqrt(y2);
     }
 
-    let P = { X: x, Y: y, Z: 1n, T: Fp.mul(x, y) };
+    let P = { X: x, Y: y, Z: 1n, T: Fp.multiply(x, y) };
     return toSubgroup(P);
   }
 

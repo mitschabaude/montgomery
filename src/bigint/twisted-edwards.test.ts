@@ -86,7 +86,7 @@ test.verbose(
     assert(
       Curve.isEqual(
         Curve.scale(s, Curve.scale(t, P)),
-        Curve.scale(Curve.Scalar.mul(s, t), P)
+        Curve.scale(Curve.Scalar.multiply(s, t), P)
       ),
       "scaling twice"
     );

@@ -30,7 +30,7 @@ function createField(p: bigint) {
     mod(x: bigint) {
       return mod(x, p);
     },
-    equal(x: bigint, y: bigint) {
+    isEqual(x: bigint, y: bigint) {
       return mod(x - y, p) === 0n;
     },
 
@@ -38,20 +38,20 @@ function createField(p: bigint) {
       let z = x + y;
       return z >= p ? z - p : z;
     },
-    sub(x: bigint, y: bigint) {
+    subtract(x: bigint, y: bigint) {
       let z = x - y;
       return z < 0n ? z + p : z;
     },
-    neg(x: bigint) {
+    negate(x: bigint) {
       return x === 0n ? 0n : p - x;
     },
-    mul(x: bigint, y: bigint) {
+    multiply(x: bigint, y: bigint) {
       return mod(x * y, p);
     },
     square(x: bigint) {
       return mod(x * x, p);
     },
-    inv(x: bigint) {
+    inverse(x: bigint) {
       return inverse(x, p);
     },
     exp(x: bigint, n: bigint) {

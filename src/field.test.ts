@@ -63,7 +63,7 @@ async function testField(label: string, w: number, BigintField: BigintField) {
   );
   equiv(
     { from: [fieldReduced, fieldReduced], to: field },
-    BigintField.sub,
+    BigintField.subtract,
     Field.subtract,
     `${label} subtract`
   );
@@ -82,7 +82,7 @@ async function testField(label: string, w: number, BigintField: BigintField) {
   // mul, square, shift
   equiv(
     { from: [field, field], to: field },
-    BigintField.mul,
+    BigintField.multiply,
     Field.multiply,
     `${label} multiply`
   );
@@ -98,7 +98,8 @@ async function testField(label: string, w: number, BigintField: BigintField) {
       to: field,
     },
     // 2^k is not in montgomery form, so this ends up with a R^-1 factor
-    (x, k) => BigintField.mul(x << BigInt(k), BigintField.inv(Field.R)),
+    (x, k) =>
+      BigintField.multiply(x << BigInt(k), BigintField.inverse(Field.R)),
     Field.leftShift,
     `${label} left shift`
   );
@@ -121,7 +122,7 @@ async function testField(label: string, w: number, BigintField: BigintField) {
   // inverse
   equiv(
     { from: [field], to: field, scratch: 3 },
-    BigintField.inv,
+    BigintField.inverse,
     ([scratch], out, x) => Field.inverse(scratch, out, x),
     `${label} inverse`
   );

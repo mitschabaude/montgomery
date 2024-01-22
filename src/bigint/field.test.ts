@@ -20,33 +20,33 @@ function testField(label: string, F: BigintField) {
     field,
     uniformField,
     (x, y, z, xUniform) => {
-      assert.equal(F.add(x, F.neg(x)), 0n, "add & negate");
-      assert.equal(F.sub(F.add(x, y), x), y, "add & sub");
+      assert.equal(F.add(x, F.negate(x)), 0n, "add & negate");
+      assert.equal(F.subtract(F.add(x, y), x), y, "add & sub");
 
       assert.equal(
-        F.mul(F.mul(x, y), z),
-        F.mul(x, F.mul(y, z)),
+        F.multiply(F.multiply(x, y), z),
+        F.multiply(x, F.multiply(y, z)),
         "mul associative"
       );
       assert.equal(
-        F.mul(z, F.add(x, y)),
-        F.add(F.mul(z, x), F.mul(z, y)),
+        F.multiply(z, F.add(x, y)),
+        F.add(F.multiply(z, x), F.multiply(z, y)),
         "mul distributive"
       );
 
       if (x !== 0n) {
-        let xInv = F.inv(x);
-        assert.equal(F.mul(xInv, x), 1n, "inverse & mul");
+        let xInv = F.inverse(x);
+        assert.equal(F.multiply(xInv, x), 1n, "inverse & mul");
       }
 
       let squareX = F.square(x);
       assert(F.isSquare(squareX), "square + isSquare");
-      assert([x, F.neg(x)].includes(F.sqrt(squareX)!), "square + sqrt");
+      assert([x, F.negate(x)].includes(F.sqrt(squareX)!), "square + sqrt");
 
       assert.equal(F.exp(x, 4n), F.square(F.square(x)), "exp");
       assert.equal(
         F.exp(x, y + z),
-        F.mul(F.exp(x, y), F.exp(x, z)),
+        F.multiply(F.exp(x, y), F.exp(x, z)),
         "exp & mul"
       );
 
@@ -73,33 +73,33 @@ function testField(label: string, F: BigintField) {
   // -> verifies that the two-adicity is 32, and that they can be used as non-squares in the sqrt algorithm
   assert(!F.isSquare(F.roots[0]), "roots of unity are non-squares");
 
-  assert.equal(F.sub(3n, 3n), 0n, "sub");
-  assert.equal(F.sub(3n, 8n), p - 5n, "sub");
+  assert.equal(F.subtract(3n, 3n), 0n, "sub");
+  assert.equal(F.subtract(3n, 8n), p - 5n, "sub");
   assert.equal(F.add(1n, 1n), 2n, "add");
   assert.equal(F.add(p - 1n, 2n), 1n, "add");
-  assert.equal(F.neg(5n), p - 5n, "negate");
-  assert.equal(F.mul(p - 1n, 2n), p - 2n, "mul");
-  assert.equal(F.mul(p - 3n, p - 3n), 9n, "mul");
-  assert.equal(F.inv(1n), 1n, "inverse 1");
-  assert.equal(F.inv(2n), (p + 1n) / 2n, "inverse 2");
-  assert.equal(F.inv(F.neg(2n)), (p - 1n) / 2n, "inverse -2");
+  assert.equal(F.negate(5n), p - 5n, "negate");
+  assert.equal(F.multiply(p - 1n, 2n), p - 2n, "mul");
+  assert.equal(F.multiply(p - 3n, p - 3n), 9n, "mul");
+  assert.equal(F.inverse(1n), 1n, "inverse 1");
+  assert.equal(F.inverse(2n), (p + 1n) / 2n, "inverse 2");
+  assert.equal(F.inverse(F.negate(2n)), (p - 1n) / 2n, "inverse -2");
   if (p % 3n === 1n) {
-    assert.equal(F.inv(3n), (2n * p + 1n) / 3n, "inverse 3");
+    assert.equal(F.inverse(3n), (2n * p + 1n) / 3n, "inverse 3");
   } else {
-    assert.equal(F.inv(3n), (p + 1n) / 3n, "inverse 3");
+    assert.equal(F.inverse(3n), (p + 1n) / 3n, "inverse 3");
   }
-  assert.equal(F.square(F.neg(10n)), 100n, "square");
-  assert.equal(F.exp(F.neg(2n), 3n), F.neg(8n), "exp");
+  assert.equal(F.square(F.negate(10n)), 100n, "square");
+  assert.equal(F.exp(F.negate(2n), 3n), F.negate(8n), "exp");
   assert.equal(F.exp(2n, p - 1n), 1n, "exp mod p-1");
   assert.equal(F.exp(2n, p - 1n + 3n), 8n, "exp mod p-1");
   if (F.M >= 2n) {
     assert(F.isSquare(p - 1n), "isSquare -1");
     let i = F.exp(F.roots[0], twoToM >> 2n);
-    assert([i, F.neg(i)].includes(F.sqrt(p - 1n)!), "sqrt -1");
+    assert([i, F.negate(i)].includes(F.sqrt(p - 1n)!), "sqrt -1");
   }
   assert.equal(F.mod(-1n), p - 1n, "mod");
   assert.equal(F.mod(p + 1n), 1n, "mod");
-  assert(F.equal(10n, 10n), "equal");
-  assert(F.equal(10n, F.mod(p + 10n)), "equal + mod");
-  assert(!F.equal(5n, p - 5n), "not equal");
+  assert(F.isEqual(10n, 10n), "equal");
+  assert(F.isEqual(10n, F.mod(p + 10n)), "equal + mod");
+  assert(!F.isEqual(5n, p - 5n), "not equal");
 }
