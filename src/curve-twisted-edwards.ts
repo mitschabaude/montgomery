@@ -28,14 +28,14 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   let { cofactor, d } = params;
 
   // write d to memory
-  let [dPtr] = Field.local.getStablePointers(1);
-  Field.writeBigint(dPtr, d);
-  Field.toMontgomery(dPtr);
+  let [dPtr, k] = Field.local.getStablePointers(2);
+  Field.fromBigint(dPtr, d);
+  Field.fromBigint(k, 2n * d);
 
   // convert the cofactor to bits
   let cofactorBits = bigintToBits(cofactor);
 
-  const { sizeField, square, multiply, add, copy, memoryBytes, p } = Field;
+  const { sizeField, memoryBytes, p } = Field;
 
   // memory layout: x | y | z | t | isNonZero
   let size = 4 * sizeField + 4;
@@ -70,7 +70,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    */
   function addAssign(scratch: number[], P1: number, P2: number) {
     if (isZero(P1)) {
-      copy(P1, P2);
+      Field.copy(P1, P2);
       return;
     }
     if (isZero(P2)) return;
@@ -112,7 +112,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     point: number
   ) {
     if (cofactor === 1n) return;
-    copy(tmp, point);
+    Field.copy(tmp, point);
     scale(scratch, point, tmp, cofactorBits);
   }
 
