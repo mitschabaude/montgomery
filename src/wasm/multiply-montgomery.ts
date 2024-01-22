@@ -15,7 +15,7 @@ import {
 } from "wasmati";
 import { montgomeryParams } from "../bigint/field-util.js";
 import { inverse } from "../bigint/field.js";
-import { bigintToLimbs } from "../util.js";
+import { assert, bigintToLimbs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 import { createField } from "./field-helpers.js";
 import { FieldWithArithmetic } from "./field-arithmetic.js";
@@ -106,6 +106,7 @@ function multiplyMontgomery(
         }
 
         j = n - 1;
+        assert(j > 0, "field with n=1 not supported");
         let didCarry = (j - 1) % nSafeSteps === 0;
         let doCarry = j % nSafeSteps === 0;
         if (doCarry) {

@@ -6,7 +6,7 @@
 import { randomGenerators } from "../bigint/field-random.js";
 import { bigintFromBytes, log2, randomBytes } from "../util.js";
 
-export { Random, sample };
+export { Random, sample, sampleOne };
 
 type Random<T> = {
   create(): () => T;
@@ -26,6 +26,10 @@ function Random_<T>(
 function sample<T>(rng: Random<T>, size: number) {
   let next = rng.create();
   return Array.from({ length: size }, next);
+}
+
+function sampleOne<T>(rng: Random<T>) {
+  return rng.create()();
 }
 
 const boolean = Random_(() => drawOneOf8() < 4);
