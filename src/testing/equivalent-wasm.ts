@@ -23,26 +23,58 @@ type WasmSpec<T> = WasmFromSpec<T> & WasmToSpec<T>;
 type IsWasm<Spec> = Spec extends { size: number } ? true : false;
 
 // wasm specs
-// TODO field spec which has the bigint in montgomery form as well
+
+// TODO for better comparison, need field spec which has the bigint in montgomery form
+// and keeps bigints in unreduced range [0, 2p)
 
 const WasmSpec = {
-  fieldWithRng(Field: MsmField, rng: Random<bigint>) {
+  fieldWithRng(
+    Field: MsmField,
+    rng: Random<bigint>,
+    montgomeryTransform = true
+  ) {
+    if (!montgomeryTransform) {
+      return wasmSpec(Field, rng, {
+        size: Field.sizeField,
+        there: Field.writeBigint,
+        back: Field.readBigint,
+      });
+    } else {
+      return wasmSpec(Field, rng, {
+        size: Field.sizeField,
+        there: Field.fromBigint,
+        back: Field.toBigint,
+      });
+    }
+  },
+
+  fieldWithRngMontgomery(Field: MsmField, rng: Random<bigint>) {
     return wasmSpec(Field, rng, {
       size: Field.sizeField,
       there(xPtr, x) {
-        Field.fromBigint(xPtr, x);
+        Field.writeBigint(xPtr, x);
       },
       back(x) {
-        return Field.toBigint(x);
+        return Field.readBigint(x);
       },
     });
   },
-  field(Field: MsmField) {
-    return WasmSpec.fieldWithRng(Field, Random.field(Field.p));
+
+  field(Field: MsmField, { montgomeryTransform = true } = {}) {
+    return WasmSpec.fieldWithRng(
+      Field,
+      Random.field(Field.p),
+      montgomeryTransform
+    );
   },
-  fieldUnreduced(Field: MsmField) {
-    return WasmSpec.fieldWithRng(Field, Random.fieldx2(Field.p));
+  fieldUnreduced(Field: MsmField, { montgomeryTransform = true } = {}) {
+    return WasmSpec.fieldWithRng(
+      Field,
+      Random.fieldx2(Field.p),
+      montgomeryTransform
+    );
   },
+
   boolean: spec(Random.boolean, {
     there: (b): number => (b ? 1 : 0),
     back: (b) => b === 1,
