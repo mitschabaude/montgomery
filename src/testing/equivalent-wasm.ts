@@ -23,10 +23,11 @@ type WasmSpec<T> = WasmFromSpec<T> & WasmToSpec<T>;
 type IsWasm<Spec> = Spec extends { size: number } ? true : false;
 
 // wasm specs
+// TODO field spec which has the bigint in montgomery form as well
 
 const WasmSpec = {
-  field(Field: MsmField) {
-    return wasmSpec(Field, Random.field(Field.p), {
+  fieldWithRng(Field: MsmField, rng: Random<bigint>) {
+    return wasmSpec(Field, rng, {
       size: Field.sizeField,
       there(xPtr, x) {
         Field.fromBigint(xPtr, x);
@@ -35,6 +36,12 @@ const WasmSpec = {
         return Field.toBigint(x);
       },
     });
+  },
+  field(Field: MsmField) {
+    return WasmSpec.fieldWithRng(Field, Random.field(Field.p));
+  },
+  fieldUnreduced(Field: MsmField) {
+    return WasmSpec.fieldWithRng(Field, Random.fieldx2(Field.p));
   },
   boolean: spec(Random.boolean, {
     there: (b): number => (b ? 1 : 0),

@@ -40,6 +40,7 @@ const byte = Random_(drawRandomByte);
 const Random = Object.assign(Random_, {
   constant,
   field: fieldWithInvalid,
+  fieldx2,
   int,
   nat,
   fraction,
@@ -481,15 +482,47 @@ function bignatWithInvalid(max: bigint): RandomWithInvalid<bigint> {
 
 function fieldWithInvalid(p: bigint): RandomWithInvalid<bigint> {
   let { randomField } = randomGenerators(p);
+
   let uniformField = Random_(randomField);
-  let specialField = oneOf(0n, 1n, p - 1n);
-  let roughLogSize = 1 << Math.ceil(Math.log2(log2(p)) - 1);
+  let specialField = oneOf(0n, 1n, 2n, p - 1n, p - 2n);
+
+  let logp = log2(p);
+  let roughLogSize = 1 << Math.ceil(Math.log2(logp) - 1);
   let uint = biguint(roughLogSize);
-  let field = oneOf<bigint[]>(uniformField, uniformField, uint, specialField);
+
+  let power2Like = map(
+    Random.int(0, logp - 2),
+    oneOf(-1n, 0n, 1n),
+    (k, eps) => (1n << BigInt(k)) + eps
+  );
+
+  let field = oneOf<bigint[]>(uniformField, uint, specialField, power2Like);
+
   let tooLarge = map(field, (x) => x + p);
   let negative = map(field, (x) => -x - 1n);
   let invalid = oneOf(tooLarge, negative);
   return Object.assign(field, { invalid });
+}
+
+function fieldx2(p: bigint): Random<bigint> {
+  let { randomField } = randomGenerators(2n * p);
+
+  let uniformField = Random_(randomField);
+  let specialField = oneOf(0n, 1n, 2n, p - 1n, p, p + 1n, 2n * p - 1n);
+
+  let log2p = log2(2n * p);
+  let roughLogSize = 1 << Math.ceil(Math.log2(log2p) - 1);
+  let uint = biguint(roughLogSize);
+
+  let power2Like = map(
+    Random.int(0, log2p - 2),
+    oneOf(-1n, 0n, 1n),
+    (k, eps) => (1n << BigInt(k)) + eps
+  );
+
+  let field = oneOf<bigint[]>(uniformField, uint, specialField, power2Like);
+
+  return field;
 }
 
 /**
