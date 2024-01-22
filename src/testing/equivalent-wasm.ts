@@ -92,10 +92,10 @@ type WasmParamsWithScratch<
 > = IsWasm<Signature["to"]> extends true
   ? Get<Signature, "scratch"> extends undefined
     ? [out: number, ...Params2<Signature["from"]>]
-    : [scratch: number, out: number, ...Params2<Signature["from"]>]
+    : [scratch: number[], out: number, ...Params2<Signature["from"]>]
   : Get<Signature, "scratch"> extends undefined
     ? Params2<Signature["from"]>
-    : [scratch: number, ...Params2<Signature["from"]>];
+    : [scratch: number[], ...Params2<Signature["from"]>];
 
 type WasmReturn<Out extends ToSpec<any, any>> = IsWasm<Out> extends true
   ? void
@@ -123,10 +123,8 @@ function createEquivalentWasm(
     let assertEqual = to.assertEqual ?? defaultAssertEqual;
     let isWasmOutput = "size" in to;
     let outPtr = isWasmOutput ? Memory.local.getPointer((to as any).size) : 0;
-    let scratchPtr =
-      scratch === undefined
-        ? 0
-        : Memory.local.getPointer(scratch * Memory.sizeField);
+    let scratchPtrs =
+      scratch === undefined ? [] : Memory.local.getPointers(scratch);
 
     return test.custom({ logSuccess: verbose })(
       label ?? "Wasm eqivalence test",
@@ -140,7 +138,7 @@ function createEquivalentWasm(
           () => {
             let inputs2 = inputs.map((x: any, i: number) => from[i].there(x));
             if (isWasmOutput) inputs2 = [outPtr, ...inputs2];
-            if (scratch !== undefined) inputs2 = [scratchPtr, ...inputs2];
+            if (scratch !== undefined) inputs2 = [scratchPtrs, ...inputs2];
             let result = f2(...(inputs2 as WasmParamsWithScratch<Signature>));
             return to.back(isWasmOutput ? outPtr : result);
           },

@@ -103,7 +103,7 @@ async function testField(label: string, BigintField: BigintField) {
   equiv(
     { from: [field], to: field, scratch: 3 },
     BigintField.inv,
-    Field.inverse,
+    ([scratch], out, x) => Field.inverse(scratch, out, x),
     `${label} inverse`
   );
 
@@ -111,7 +111,7 @@ async function testField(label: string, BigintField: BigintField) {
   equiv(
     { from: [field, fieldUntransformed], to: field, scratch: 1 },
     (x, k) => BigintField.exp(x, k),
-    Field.exp,
+    ([scratch], out, x, k) => Field.exp(scratch, out, x, k),
     `${label} exp`
   );
 
