@@ -214,39 +214,6 @@ function multiplyMontgomery(
     }
   );
 
-  /**
-   * x*k where k is a small integer
-   *
-   * TODO
-   */
-  const multiplyI32 = func(
-    {
-      in: [i32, i32, i32],
-      locals: [i64, i64, i64, i64, i64],
-      out: [],
-    },
-    ([out, x, k0], [k, xi, carry, tmp, q]) => {
-      local.set(k, i64.extend_i32_s(k0));
-
-      local.set(xi, Field.loadLimb(x, 0));
-      local.set(tmp, i64.mul(xi, k));
-      local.set(q, computeQ(tmp));
-      i64.add(i64.mul(q, P[0]), tmp);
-      local.set(carry, i64.shr_u($, wn));
-
-      for (let i = 1; i < n; i++) {
-        local.set(xi, Field.loadLimb(x, i));
-
-        // TODO
-
-        i64.add(i64.mul(xi, k), carry);
-        Field.carrySigned($, tmp);
-        Field.storeLimb(out, i, $);
-        local.set(carry);
-      }
-    }
-  );
-
   // multiplication by 2^k, where 2^k < 2p
   // TODO: right now, this is implemented exactly like multiply,
   // just that xi is computed instead of loaded from memory.
