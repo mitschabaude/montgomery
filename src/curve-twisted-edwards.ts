@@ -1,13 +1,12 @@
 import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
-import { assert, bigintToBits } from "./util.js";
+import { TODO, bigintToBits } from "./util.js";
 import { randomGenerators } from "./bigint/field-random.js";
 import {
   BigintPoint,
   CurveParams,
   createCurveTwistedEdwards as createBigint,
 } from "./bigint/twisted-edwards.js";
-import { add } from "./extra/old-wasm/wasm/finite-field.wasm.js";
 
 export { createCurveTwistedEdwards, CurveTwistedEdwards };
 
@@ -65,8 +64,12 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   /**
    * projective point addition, P3 = P1 + P2
    *
-   * strongly unified addition
-   * handles if P3 is the same pointer as P1 and/or P2
+   * - strongly unified addition
+   * - handles if P3 is the same pointer as P1 and/or P2
+   * - uses 2 full MULs for k*T1*T2
+   * - 9M
+   *
+   * TODO: dedicated mixed addition and doubling
    */
   function add(
     [tmp, A, B, C, D, E, F, G, H]: number[],
@@ -139,6 +142,9 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
 
   /**
    * Double in place, P *= 2
+   *
+   * TODO: implement dedicated doubling, saves some operations compared to add
+   * squares instead of multiplies etc
    */
   function doubleInPlace(scratch: number[], P: number) {
     add(scratch, P, P, P);
@@ -200,8 +206,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
       Field.toMontgomery(x);
 
       while (true) {
-        // TODO
-        assert(false, "TODO");
+        TODO();
       }
       setNonZero(x);
     }
@@ -217,7 +222,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   // note: this fails on zero
   function assertOnCurve([y2, y2_]: number[], p: number) {
     let [X, Y, Z, T] = coords(p);
-    assert(false, "TODO");
+    TODO();
   }
 
   function toBigint(point: number): BigintPoint {

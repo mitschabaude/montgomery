@@ -18,6 +18,7 @@ export {
   abs,
   sign,
   assert,
+  TODO,
   chunk,
 };
 
@@ -234,4 +235,8 @@ function assert(condition: boolean, message?: string): asserts condition {
         ? "Assertion failed"
         : `Assertion failed: ${message}`
     );
+}
+
+function TODO(message?: string, FALSE: false = false): asserts FALSE {
+  throw Error("TODO: " + (message ?? "this function is not implemented yet"));
 }
