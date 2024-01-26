@@ -7,7 +7,7 @@ import {
   createEquivalentWasm,
   wasmSpec,
 } from "./testing/equivalent-wasm.js";
-import { spec, throwError } from "./testing/equivalent.js";
+import { Spec, spec, throwError } from "./testing/equivalent.js";
 import { Random } from "./testing/random.js";
 import { bigintToBits } from "./util.js";
 
@@ -37,6 +37,12 @@ const point: WasmSpec<BigintPoint> = {
     }
   },
 };
+const field = Random.uniformField(CurveBigint.modulus);
+const notAPoint = wasmSpec(
+  Field,
+  Random.record({ X: field, Y: field, Z: field, T: field }),
+  { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
+);
 
 const equiv = createEquivalentWasm(Field, { logSuccess: true });
 
@@ -111,7 +117,7 @@ equiv(
 // is zero
 
 equiv(
-  { from: [point], to: WasmSpec.boolean },
+  { from: [point], to: Spec.boolean },
   CurveBigint.isZero,
   Curve.isZero,
   "is zero"
@@ -120,8 +126,24 @@ equiv(
 const zero = WasmSpec.constant(point, CurveBigint.zero);
 
 equiv(
-  { from: [zero], to: WasmSpec.boolean },
+  { from: [zero], to: Spec.boolean },
   CurveBigint.isZero,
   Curve.isZero,
   "is zero"
+);
+
+// is on curve
+
+equiv(
+  { from: [point], to: Spec.boolean, scratch: 2 },
+  CurveBigint.isOnCurve,
+  Curve.isOnCurve,
+  "is on curve"
+);
+
+equiv(
+  { from: [notAPoint], to: Spec.boolean, scratch: 2 },
+  CurveBigint.isOnCurve,
+  Curve.isOnCurve,
+  "is on curve (on invalid point)"
 );

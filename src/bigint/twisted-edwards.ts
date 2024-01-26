@@ -160,7 +160,7 @@ function createCurveTwistedEdwards(params: CurveParams) {
     // validity of T
     if (!Fp.isEqual(T * Z, X * Y)) return false;
     // curve equation
-    return Fp.isEqual(-X * X + Y * Y, Z * Z + d * Fp.multiply(T, T));
+    return Fp.isEqual(-X * X + Y * Y, Z * Z + d * Fp.square(T));
   }
 
   function random(): BigintPoint {

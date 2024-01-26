@@ -58,15 +58,14 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   function isZero(P: number) {
     // P is zero <=> X = 0 and Y = Z
     let X = P;
+    Field.reduce(X);
+    if (!Field.isZero(X)) return false;
+
     let Y = X + sizeField;
     let Z = Y + sizeField;
-
-    Field.reduce(X);
-    let xIs0 = Field.isZero(X);
     Field.reduce(Y);
     Field.reduce(Z);
-    let yIsZ = Field.isEqual(Y, Z);
-    return xIs0 && yIsZ;
+    return !!Field.isEqual(Y, Z);
   }
 
   /**
@@ -251,9 +250,31 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   }
 
   // note: this fails on zero
-  function assertOnCurve([y2, y2_]: number[], p: number) {
-    let [X, Y, Z, T] = coords(p);
-    TODO();
+  function isOnCurve([A, B]: number[], P: number) {
+    let [X, Y, Z, T] = coords(P);
+
+    // validity of Z
+    Field.reduce(Z);
+    if (Field.isZero(Z)) return false;
+
+    // validity of T
+    Field.multiply(A, X, Y);
+    Field.multiply(B, Z, T);
+    Field.reduce(A);
+    Field.reduce(B);
+    if (!Field.isEqual(A, B)) return false;
+
+    // curve equation
+    Field.square(A, X);
+    Field.square(B, Y);
+    Field.subtract(A, B, A); // -X^2 + Y^2
+    Field.square(B, Z);
+    Field.subtract(A, A, B); // -X^2 + Y^2 - Z^2
+    Field.square(B, T);
+    Field.multiply(B, B, dPtr);
+    Field.subtract(A, A, B); // -X^2 + Y^2 - Z^2 - d*T^2
+    Field.reduce(A);
+    return !!Field.isZero(A);
   }
 
   function toBigint(point: number): BigintPoint {
@@ -299,7 +320,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     size,
     scale,
     toSubgroupInPlace,
-    assertOnCurve,
+    isOnCurve,
     zero,
     isZero,
     copyPoint,

@@ -41,6 +41,7 @@ const Random = Object.assign(Random_, {
   constant,
   field: fieldWithInvalid,
   fieldx2,
+  uniformField,
   int,
   nat,
   fraction,
@@ -523,6 +524,11 @@ function fieldx2(p: bigint): Random<bigint> {
   let field = oneOf<bigint[]>(uniformField, uint, specialField, power2Like);
 
   return field;
+}
+
+function uniformField(p: bigint): Random<bigint> {
+  let { randomField } = randomGenerators(p);
+  return Random_(randomField);
 }
 
 /**

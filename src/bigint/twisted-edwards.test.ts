@@ -10,14 +10,23 @@ let Curve = createCurveTwistedEdwards(curveParams);
 let scalar = Random.field(Curve.order);
 let point = Random(Curve.random);
 
+const uniformField = Random.uniformField(Curve.modulus);
+const notAPoint = Random.record({
+  X: uniformField,
+  Y: uniformField,
+  Z: uniformField,
+  T: uniformField,
+});
+
 test.verbose(
   "ed-on-bls12-377",
   point,
   point,
   point,
+  notAPoint,
   scalar,
   scalar,
-  (P, Q, R, s, t) => {
+  (P, Q, R, noP, s, t) => {
     // random point is as expected
     assert(Curve.isOnCurve(P), "point is on curve");
     assert(Curve.isZero(Curve.scale(Curve.order, P)), "order * P = ∞");
@@ -25,6 +34,9 @@ test.verbose(
     // random points are not equal, and not zero
     assert(!Curve.isEqual(P, Q), "random points are not equal");
     assert(!Curve.isZero(P), "random points are not zero");
+
+    // isOnCurve detects points not on the curve
+    assert(!Curve.isOnCurve(noP), "isOnCurve");
 
     // a point equals itself, and zero equals zero
     assert(Curve.isEqual(P, P), "P = P");
