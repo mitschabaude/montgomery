@@ -7,6 +7,7 @@ import {
   CurveParams,
   createCurveTwistedEdwards as createBigint,
 } from "./bigint/twisted-edwards.js";
+import { add } from "./extra/old-wasm/wasm/finite-field.wasm.js";
 
 export { createCurveTwistedEdwards, CurveTwistedEdwards };
 
@@ -62,48 +63,104 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   }
 
   /**
-   * projective point addition with assignment, P1 += P2
+   * projective point addition, P3 = P1 + P2
    *
-   * @param scratch
-   * @param P1
-   * @param P2
+   * strongly unified addition
+   * handles if P3 is the same pointer as P1 and/or P2
    */
-  function addAssign(scratch: number[], P1: number, P2: number) {
-    if (isZero(P1)) {
-      Field.copy(P1, P2);
-      return;
-    }
-    if (isZero(P2)) return;
-    setNonZero(P1);
-    let [X1, Y1, Z1, T1] = coords(P1);
-    let [X2, Y2, Z2, T2] = coords(P2);
-    assert(false, "TODO");
+  function add(
+    [tmp, A, B, C, D, E, F, G, H]: number[],
+    P3: number,
+    P1: number,
+    P2: number
+  ) {
+    // get coordinates
+    let X1 = P1;
+    let Y1 = X1 + sizeField;
+    let Z1 = Y1 + sizeField;
+    let T1 = Z1 + sizeField;
+
+    let X2 = P2;
+    let Y2 = X2 + sizeField;
+    let Z2 = Y2 + sizeField;
+    let T2 = Z2 + sizeField;
+
+    let X3 = P3;
+    let Y3 = X3 + sizeField;
+    let Z3 = Y3 + sizeField;
+    let T3 = Z3 + sizeField;
+
+    // http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
+    // Assumptions: k=2*d.
+
+    // A = (Y1-X1)*(Y2-X2)
+    Field.subtractPositive(A, Y1, X1);
+    Field.subtractPositive(tmp, Y2, X2);
+    Field.multiply(A, A, tmp);
+
+    // B = (Y1+X1)*(Y2+X2)
+    Field.addNoReduce(B, Y1, X1);
+    Field.addNoReduce(tmp, Y2, X2);
+    Field.multiply(B, B, tmp);
+
+    // C = T1*k*T2
+    Field.multiply(C, T1, T2);
+    Field.multiply(C, C, k);
+
+    // D = Z1*2*Z2
+    Field.multiply(D, Z1, Z2);
+    Field.addNoReduce(D, D, D);
+
+    // E = B-A
+    Field.subtractPositive(E, B, A);
+    // F = D-C
+    Field.subtractPositive(F, D, C);
+    // G = D+C
+    Field.addNoReduce(G, D, C);
+    // H = B+A
+    Field.addNoReduce(H, B, A);
+
+    // X3 = E*F
+    Field.multiply(X3, E, F);
+    // Y3 = G*H
+    Field.multiply(Y3, G, H);
+    // T3 = E*H
+    Field.multiply(T3, E, H);
+    // Z3 = F*G
+    Field.multiply(Z3, F, G);
   }
 
   /**
-   * projective point doubling with assignment, P *= 2
-   *
-   * @param scratch
-   * @param P
+   * addition with assignment, P += Q
    */
-  function doubleInPlace(scratch: number[], P: number) {
-    if (isZero(P)) return;
-    let [X1, Y1, Z1, T1] = coords(P);
-    assert(false, "TODO");
+  function addAssign(scratch: number[], P: number, Q: number) {
+    add(scratch, P, P, Q);
   }
 
+  /**
+   * Double in place, P *= 2
+   */
+  function doubleInPlace(scratch: number[], P: number) {
+    add(scratch, P, P, P);
+  }
+
+  /**
+   * Scalar multiplication
+   */
   function scale(
     scratch: number[],
     result: number,
     point: number,
     scalar: boolean[]
   ) {
-    setZero(result);
     let n = scalar.length;
-    for (let i = n - 1; i >= 0; i--) {
-      if (scalar[i]) addAssign(scratch, result, point);
-      if (i === 0) break;
+
+    if (scalar[n - 1]) copyPoint(result, point);
+    else setZero(result);
+
+    for (let i = n - 2; i >= 0; i--) {
       doubleInPlace(scratch, result);
+      if (scalar[i]) addAssign(scratch, result, point);
     }
   }
 
@@ -202,6 +259,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   }
 
   return {
+    add,
     addAssign,
     doubleInPlace,
     size,

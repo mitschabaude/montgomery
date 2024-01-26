@@ -69,6 +69,7 @@ async function createFieldWasm({
     isGreater,
     isZero,
     add,
+    addNoReduce,
     subtract,
     subtractPositive,
     reduce,
@@ -99,6 +100,7 @@ async function createFieldWasm({
       batchInverse,
       // arithmetic
       add,
+      addNoReduce,
       subtract,
       subtractPositive,
       reduce,
