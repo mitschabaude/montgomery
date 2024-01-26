@@ -1,3 +1,8 @@
+/**
+ * Copyright 2024 o1Labs
+ *
+ * This code is taken from o1js: https://github.com/o1-labs/o1js
+ */
 export { assertDeepEqual, deepEqual, stringify, Nested };
 
 type Nested =
