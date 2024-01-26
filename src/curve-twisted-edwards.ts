@@ -26,19 +26,22 @@ type CurveTwistedEdwards = ReturnType<typeof createCurveTwistedEdwards>;
 function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   const CurveBigint = createBigint(params);
   let { cofactor, d } = params;
+  const { sizeField, memoryBytes, p } = Field;
+
+  // memory layout: x | y | z | t
+  let size = 4 * sizeField;
 
   // write d to memory
   let [dPtr, k] = Field.local.getStablePointers(2);
   Field.fromBigint(dPtr, d);
   Field.fromBigint(k, 2n * d);
 
+  // write the zero point to memory
+  let [zero] = Field.local.getStablePointers(1, size);
+  fromBigint(zero, CurveBigint.zero);
+
   // convert the cofactor to bits
   let cofactorBits = bigintToBits(cofactor);
-
-  const { sizeField, memoryBytes, p } = Field;
-
-  // memory layout: x | y | z | t | isNonZero
-  let size = 4 * sizeField + 4;
 
   function coords(pointer: number) {
     return [
@@ -51,14 +54,19 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   function copyPoint(target: number, source: number) {
     memoryBytes.copyWithin(target, source, source + size);
   }
-  function isZero(pointer: number) {
-    return !memoryBytes[pointer + 4 * sizeField];
-  }
-  function setNonZero(pointer: number) {
-    memoryBytes[pointer + 4 * sizeField] = 1;
-  }
-  function setZero(pointer: number) {
-    memoryBytes[pointer + 4 * sizeField] = 0;
+
+  function isZero(P: number) {
+    // P is zero <=> X = 0 and Y = Z
+    let X = P;
+    let Y = X + sizeField;
+    let Z = Y + sizeField;
+
+    Field.reduce(X);
+    let xIs0 = Field.isZero(X);
+    Field.reduce(Y);
+    Field.reduce(Z);
+    let yIsZ = Field.isEqual(Y, Z);
+    return xIs0 && yIsZ;
   }
 
   /**
@@ -141,6 +149,15 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   }
 
   /**
+   * double, P3 = 2*P1
+   *
+   * TODO: dedicated doubling, saves some operations compared to add
+   */
+  function double(scratch: number[], P3: number, P1: number) {
+    add(scratch, P3, P1, P1);
+  }
+
+  /**
    * Double in place, P *= 2
    *
    * TODO: implement dedicated doubling, saves some operations compared to add
@@ -162,7 +179,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     let n = scalar.length;
 
     if (scalar[n - 1]) copyPoint(result, point);
-    else setZero(result);
+    else copyPoint(result, zero);
 
     for (let i = n - 2; i >= 0; i--) {
       doubleInPlace(scratch, result);
@@ -208,7 +225,6 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
       while (true) {
         TODO();
       }
-      setNonZero(x);
     }
 
     if (cofactor !== 1n) {
@@ -226,7 +242,6 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   }
 
   function toBigint(point: number): BigintPoint {
-    if (isZero(point)) return CurveBigint.zero;
     let [x, y, z, t] = coords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
@@ -245,11 +260,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     return pointBigint;
   }
 
-  function writeBigint(point: number, P: BigintPoint) {
-    if (CurveBigint.isZero(P)) {
-      setZero(point);
-      return;
-    }
+  function fromBigint(point: number, P: BigintPoint) {
     let { X, Y, Z, T } = P;
     let [xPtr, yPtr, zPtr, tPtr] = coords(point);
     Field.writeBigint(xPtr, X);
@@ -260,23 +271,25 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Field.toMontgomery(yPtr);
     Field.toMontgomery(zPtr);
     Field.toMontgomery(tPtr);
-    setNonZero(point);
   }
 
   return {
+    Bigint: CurveBigint,
     add,
     addAssign,
+    double,
     doubleInPlace,
     size,
     scale,
     toSubgroupInPlace,
     assertOnCurve,
+    zero,
     isZero,
-    setZero,
-    setNonZero,
     copyPoint,
     toBigint,
-    writeBigint,
+    fromBigint,
     randomPoints,
   };
 }
+
+const Specs = {};
