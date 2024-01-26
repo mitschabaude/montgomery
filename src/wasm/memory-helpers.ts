@@ -358,26 +358,15 @@ class MemorySection {
       !this.isShared || !isParallel(),
       "zero pointers only implemented for local memory"
     );
-    // TODO this logic is not valid, needs a lock
-    if (this.isShared && isParallel()) {
-      assert(size % 4 === 0, "pointer size must be a multiple of 4");
-      // zero out the memory with Atomic.store
-      let n = N * (size / 4);
-      let arr = new Int32Array(this.memory.buffer, offset, n);
-      for (let i = 0; i < n; i++) {
-        Atomics.store(arr, i, 0);
-      }
-    } else {
-      new Uint8Array(this.memory.buffer, offset, N * size).fill(0);
-    }
+    new Uint8Array(this.memory.buffer, offset, N * size).fill(0);
     return this.getPointers(N, size);
   }
 
   /**
    * @param N
    */
-  getStablePointers(N: number) {
-    let pointers = this.getPointers(N);
+  getStablePointers(N: number, size = this.n * 4) {
+    let pointers = this.getPointers(N, size);
     this.initial = this.offset;
     return pointers;
   }
