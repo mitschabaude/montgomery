@@ -4,7 +4,13 @@ import { randomGenerators } from "./bigint/field-random.js";
 import type { CurveProjective } from "./curve-projective.js";
 import { assert } from "./util.js";
 
-export { createCurveAffine, CurveAffine };
+export {
+  createCurveAffine,
+  batchAdd,
+  batchAddUnsafe,
+  batchDoubleInPlace,
+  CurveAffine,
+};
 
 export { getSizeAffine };
 
@@ -328,3 +334,163 @@ type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
 const BigintPoint = {
   zero: { x: 0n, y: 0n, isInfinity: true },
 };
+
+/**
+ * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
+ *
+ * Si = Gi + Hi, i=0,...,n-1
+ *
+ * @param {number[]} scratch
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} S
+ * @param {Uint32Array} G
+ * @param {Uint32Array} H
+ * @param {number} n
+ */
+function batchAdd(
+  Field: MsmField,
+  Curve: CurveAffine,
+  scratch: number[],
+  tmp: Uint32Array,
+  d: Uint32Array,
+  S: Uint32Array,
+  G: Uint32Array,
+  H: Uint32Array,
+  n: number
+) {
+  let { sizeField, subtractPositive, batchInverse, addAffine, isEqual, add } =
+    Field;
+  let { doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } = Curve;
+
+  let iAdd = Array(n);
+  let iDouble = Array(n);
+  let iBoth = Array(n);
+  let nAdd = 0;
+  let nDouble = 0;
+  let nBoth = 0;
+
+  for (let i = 0; i < n; i++) {
+    // check G, H for zero
+    if (isZeroAffine(G[i])) {
+      copyAffine(S[i], H[i]);
+      continue;
+    }
+    if (isZeroAffine(H[i])) {
+      if (S[i] !== G[i]) copyAffine(S[i], G[i]);
+      continue;
+    }
+    if (isEqual(G[i], H[i])) {
+      // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+      // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
+      let y = G[i] + sizeField;
+      if (!isEqual(y, H[i] + sizeField)) {
+        setIsNonZeroAffine(S[i], false);
+        continue;
+      }
+      add(tmp[nBoth], y, y); // TODO: efficient doubling
+      iDouble[nDouble] = i;
+      iBoth[i] = nBoth;
+      nDouble++, nBoth++;
+    } else {
+      // typical case, where x1 !== x2 and we add the points
+      subtractPositive(tmp[nBoth], H[i], G[i]);
+      iAdd[nAdd] = i;
+      iBoth[i] = nBoth;
+      nAdd++, nBoth++;
+    }
+  }
+  batchInverse(scratch[0], d[0], tmp[0], nBoth);
+  for (let j = 0; j < nAdd; j++) {
+    let i = iAdd[j];
+    addAffine(scratch[0], S[i], G[i], H[i], d[iBoth[i]]);
+  }
+  for (let j = 0; j < nDouble; j++) {
+    let i = iDouble[j];
+    doubleAffine(scratch, S[i], G[i], d[iBoth[i]]);
+  }
+}
+
+/**
+ * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
+ *
+ * Si = Gi + Hi, i=0,...,n-1
+ *
+ * unsafe: this is a faster version which doesn't handle edge cases!
+ * it assumes all the Gi, Hi are non-zero and we won't hit cases where Gi === +/-Hi
+ *
+ * this is a valid assumption in parts of the msm, for important applications like the prover side of a commitment scheme like KZG or IPA,
+ * where inputs are independent and pseudo-random in significant parts of the msm algorithm
+ * (we always use the safe version in those parts of the msm where the chance of edge cases is non-negligible)
+ *
+ * the performance improvement is in the ballpark of 5%
+ *
+ * @param scratch
+ * @param tmp pointers of length n
+ * @param d pointers of length n
+ * @param S
+ * @param G
+ * @param H
+ * @param n
+ */
+function batchAddUnsafe(
+  Field: MsmField,
+  scratch: number[],
+  tmp: number,
+  d: number,
+  S: Uint32Array,
+  G: Uint32Array,
+  H: Uint32Array,
+  n: number
+) {
+  let { sizeField, subtractPositive, batchInverse, addAffine } = Field;
+
+  for (let i = 0, tmpi = tmp; i < n; i++, tmpi += sizeField) {
+    subtractPositive(tmpi, H[i], G[i]);
+  }
+  batchInverse(scratch[0], d, tmp, n);
+  for (let i = 0, di = d; i < n; i++, di += sizeField) {
+    addAffine(scratch[0], S[i], G[i], H[i], di);
+  }
+}
+
+/**
+ * Given points G0,...,G(n-1), compute
+ *
+ * Gi *= 2, i=0,...,n-1
+ *
+ * @param {number[]} scratch
+ * @param {Uint32Array} tmp pointers of length n
+ * @param {Uint32Array} d pointers of length n
+ * @param {Uint32Array} G
+ * @param {number} n
+ */
+function batchDoubleInPlace(
+  Field: MsmField,
+  Curve: CurveAffine,
+  scratch: number[],
+  tmp: Uint32Array,
+  d: Uint32Array,
+  G: Uint32Array,
+  n: number
+) {
+  let { sizeField, batchInverse, add } = Field;
+  let { doubleAffine, isZeroAffine } = Curve;
+  // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
+
+  // check G for zero
+  let G1 = Array(n);
+  let n1 = 0;
+  for (let i = 0; i < n; i++) {
+    if (isZeroAffine(G[i])) continue;
+    G1[n1] = G[i];
+    // TODO: confirm that y === 0 can't happen, either bc 0 === x^3 + 4 has no solutions in the field or bc the (x,0) aren't in G1
+    let y = G1[n1] + sizeField;
+    add(tmp[n1], y, y); // TODO: efficient doubling
+    n1++;
+  }
+  batchInverse(scratch[0], d[0], tmp[0], n1);
+  for (let i = 0; i < n1; i++) {
+    doubleAffine(scratch, G1[i], G1[i], d[i]);
+  }
+}
