@@ -13,8 +13,9 @@ import {
 } from "./equivalent.js";
 import { TestParams, test } from "./property.js";
 import { Random } from "./random.js";
+import { assertDeepEqual } from "./nested.js";
 
-export { createEquivalentWasm, WasmSpec };
+export { createEquivalentWasm, wasmSpec, WasmSpec };
 
 type WasmFromSpec<In> = FromSpec<In, number> & { size: number };
 type WasmToSpec<Out> = ToSpec<Out, number> & { size: number };
@@ -105,7 +106,7 @@ function createEquivalentWasm(Memory: MemoryHelpers, testParams?: TestParams) {
     label?: string
   ) {
     let generators = from.map((spec) => spec.rng);
-    let assertEqual = to.assertEqual ?? defaultAssertEqual;
+    let assertEqual = to.assertEqual ?? assertDeepEqual;
     let isWasmOutput = "size" in to;
     let outPtr = isWasmOutput ? Memory.local.getPointer((to as any).size) : 0;
     let scratchPtrs =
@@ -134,14 +135,6 @@ function createEquivalentWasm(Memory: MemoryHelpers, testParams?: TestParams) {
       }
     );
   };
-}
-
-function defaultAssertEqual(x: any, y: any, message: string) {
-  if (x !== y) {
-    console.log("First result:", x);
-    console.log("Second result:", y);
-    throw Error(message);
-  }
 }
 
 // helper for writing wasm specs
