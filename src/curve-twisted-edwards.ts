@@ -141,6 +141,21 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Field.multiply(Z3, F, G);
   }
 
+  function negateInPlace(P: number) {
+    // get coordinates to negate
+    let X = P;
+    let T = X + 3 * sizeField;
+
+    // negate X and T
+    Field.subtract(X, Field.constants.zero, X);
+    Field.subtract(T, Field.constants.zero, T);
+  }
+
+  function negate(Q: number, P: number) {
+    copyPoint(Q, P);
+    negateInPlace(Q);
+  }
+
   /**
    * addition with assignment, P += Q
    */
@@ -173,8 +188,8 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   function scale(
     scratch: number[],
     result: number,
-    point: number,
-    scalar: boolean[]
+    scalar: boolean[],
+    point: number
   ) {
     let n = scalar.length;
 
@@ -193,7 +208,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   ) {
     if (cofactor === 1n) return;
     Field.copy(tmp, point);
-    scale(scratch, point, tmp, cofactorBits);
+    scale(scratch, point, cofactorBits, tmp);
   }
 
   let { randomFields } = randomGenerators(p);
@@ -279,6 +294,8 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     addAssign,
     double,
     doubleInPlace,
+    negate,
+    negateInPlace,
     size,
     scale,
     toSubgroupInPlace,

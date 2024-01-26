@@ -157,6 +157,7 @@ const Spec = {
   unit,
   boolean,
   numberLessThan,
+  constant,
   array,
   record,
   map,
@@ -166,6 +167,10 @@ const Spec = {
 };
 
 // spec combinators
+
+function constant<T, S>(spec: Spec<T, S>, x: T): Spec<T, S> {
+  return { ...spec, rng: Random.constant(x) };
+}
 
 function array<T, S>(
   spec: Spec<T, S>,

@@ -68,6 +68,10 @@ const WasmSpec = {
     there: (b): number => (b ? 1 : 0),
     back: (b) => b === 1,
   }),
+
+  constant<T>(spec: WasmSpec<T>, x: T): WasmSpec<T> {
+    return { ...spec, rng: Random.constant(x) };
+  },
 };
 
 // wasm equivalence test
@@ -127,8 +131,10 @@ function createEquivalentWasm(Memory: MemoryHelpers, testParams?: TestParams) {
             let result = f2(...(inputs2 as WasmParamsWithScratch<Signature>));
             return to.back(isWasmOutput ? outPtr : result);
           },
-          (x, y) => {
-            assertEqual(x, y, `${label}: Expect equal results`);
+          (bigint, wasm) => {
+            // we switch the order because the bigint output is typically the reference,
+            // while `assertEqual` treats the inputs as (actual, expected)
+            assertEqual(wasm, bigint, `${label}: Expect equal results`);
           },
           label
         );
