@@ -9,7 +9,7 @@ import {
 } from "./testing/equivalent-wasm.js";
 import { Spec, spec, throwError } from "./testing/equivalent.js";
 import { Random } from "./testing/random.js";
-import { bigintToBits } from "./util.js";
+import { assert, bigintToBits } from "./util.js";
 
 const Field = await createMsmField({ p, w: 29, beta: 1n });
 
@@ -158,3 +158,16 @@ equiv(
 );
 
 // random points
+
+let points = Field.global.getPointers(1 << 8, Curve.size);
+let scratch = Field.global.getPointers(20);
+Curve.randomPoints(points);
+
+for (let point of points) {
+  assert(Curve.isOnCurve(scratch, point), "point is on curve");
+  assert(Curve.isInSubgroup(scratch, point), "point is in subgroup");
+
+  let p = Curve.toBigint(point);
+  assert(CurveBigint.isOnCurve(p), "point is on curve");
+  assert(CurveBigint.isInSubgroup(p), "point is in subgroup");
+}

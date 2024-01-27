@@ -244,7 +244,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
         Field.multiply(y, dPtr, x2);
         Field.subtract(y, Field.constants.mg1, y);
         Field.inverse(tmp[0], inv, y);
-        Field.add(x2, x2, Field.constants.one);
+        Field.add(x2, x2, Field.constants.mg1);
         Field.multiply(y, x2, inv);
         let isSquare = Field.sqrt(tmp, y, y);
 
