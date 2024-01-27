@@ -39,7 +39,7 @@ toc();
 tic("msm (core)");
 console.log();
 let { result, log } = await BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
-let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.CurveAffine.sizeAffine);
+let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.CurveAffine.size);
 BLS12_377.CurveProjective.projectiveToAffine(scratch, sAffinePtr, result);
 let s = BLS12_377.CurveAffine.toBigint(sAffinePtr);
 toc();

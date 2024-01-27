@@ -23,7 +23,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
   ) {
     let { Field, CurveAffine, CurveProjective } = msmCurve;
 
-    let pointsAffine = Field.global.getPointers(n, CurveAffine.sizeAffine);
+    let pointsAffine = Field.global.getPointers(n, CurveAffine.size);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
 
@@ -37,11 +37,11 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     let L = 1 << c;
     let B = Array<number[]>(K);
     for (let k = 0; k < K; k++) {
-      B[k] = Field.global.getPointers(L, CurveProjective.sizeProjective);
+      B[k] = Field.global.getPointers(L, CurveProjective.size);
     }
     for (let [k, ke] = range(K); k < ke; k++) {
       // compute random basis point
-      let basis = Field.local.getPointer(CurveAffine.sizeAffine);
+      let basis = Field.local.getPointer(CurveAffine.size);
       CurveAffine.randomPoints(scratch, [basis]);
 
       let Bk = B[k];
@@ -63,7 +63,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     await barrier();
 
     // 2. generate random points by taking a sum of random basis multiples
-    let points = Field.global.getPointers(n, CurveProjective.sizeProjective);
+    let points = Field.global.getPointers(n, CurveProjective.size);
 
     for (let [i, ie] = range(n); i < ie; i++) {
       let windows = randomWindows(c, K);

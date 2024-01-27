@@ -13,7 +13,7 @@ import { evaluateParameters } from "./evaluate-util.js";
 let Nmax = 1 << 18;
 
 tic("random points");
-let points = Field.getZeroPointers(Nmax, CurveAffine.sizeAffine);
+let points = Field.getZeroPointers(Nmax, CurveAffine.size);
 let scratch = Field.getPointers(20);
 CurveAffine.randomPoints(scratch, points);
 let scalars = Random.randomScalars(Nmax);

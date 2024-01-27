@@ -71,7 +71,7 @@ function createCurveAffine(
     Field;
 
   // an affine point is 2 field elements + 1 int32 for isNonZero flag
-  let sizeAffine = 2 * sizeField + 4;
+  let size = 2 * sizeField + 4;
 
   /**
    * affine EC doubling, H = 2*G
@@ -206,7 +206,7 @@ function createCurveAffine(
   }
 
   function copyAffine(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + sizeAffine);
+    memoryBytes.copyWithin(target, source, source + size);
   }
 
   function affineCoords(pointer: number) {
@@ -284,7 +284,7 @@ function createCurveAffine(
 
   return {
     b,
-    sizeAffine,
+    size,
     doubleAffine,
     scale,
     toSubgroupInPlace,
@@ -299,7 +299,7 @@ function createCurveAffine(
     randomPoints,
     randomPointsBigint(n: number, { montgomery = false } = {}) {
       let memoryOffset = Field.getOffset();
-      let points = Field.getZeroPointers(n, sizeAffine);
+      let points = Field.getZeroPointers(n, size);
       let scratch = Field.getPointers(20);
       randomPoints(scratch, points);
       let pointsBigint: BigintPoint[] = Array(n);

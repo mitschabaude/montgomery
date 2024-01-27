@@ -262,7 +262,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     scale,
     toSubgroupInPlace,
     toBigint,
-    sizeProjective: size,
+    size,
     isZero,
     isEqual: isEqualProjective,
     copy,

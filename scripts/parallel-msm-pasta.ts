@@ -43,7 +43,7 @@ let doEvaluate = process.argv[5] === "--evaluate";
 if (!doEvaluate) {
   tic(`msm (n=${n})`);
   let { result, log } = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, true);
-  let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.sizeAffine);
+  let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.size);
   Pasta.CurveProjective.projectiveToAffine(scratch, sAffinePtr, result);
   let s = Pasta.CurveAffine.toBigint(sAffinePtr);
 

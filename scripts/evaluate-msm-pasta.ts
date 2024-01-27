@@ -15,7 +15,7 @@ let N = [14, 16, 18];
 let Nmax = 1 << Math.max(...N);
 
 tic("random points");
-let points = Field.getZeroPointers(Nmax, CurveAffine.sizeAffine);
+let points = Field.getZeroPointers(Nmax, CurveAffine.size);
 let scratch = Field.getPointers(20);
 
 CurveAffine.randomPoints(scratch, points);

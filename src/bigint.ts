@@ -17,7 +17,7 @@ function createBigintApi({
   function randomPoints(n: number, { montgomery = false } = {}) {
     let sizeField = Field.sizeField;
     let memoryOffset = Field.getOffset();
-    let points = Field.getZeroPointers(n, CurveAffine.sizeAffine);
+    let points = Field.getZeroPointers(n, CurveAffine.size);
     let scratch = Field.getPointers(20);
     CurveAffine.randomPoints(scratch, points);
     let pointsBigint: BigintPoint[] = Array(n);

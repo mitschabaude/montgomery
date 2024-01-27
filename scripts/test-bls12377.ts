@@ -196,7 +196,7 @@ function testBatchMontgomery() {
 
 function testCurve() {
   // prepare inputs
-  let [g, qG] = Field.getPointers(2, CurveAffine.sizeAffine);
+  let [g, qG] = Field.getPointers(2, CurveAffine.size);
   CurveAffine.writeBigint(g, G);
   let qBits = bigintToBits(q);
 
@@ -205,7 +205,7 @@ function testCurve() {
   assert(CurveAffine.isZeroAffine(qG), "order*G = 0");
 
   // create random point and check if it is in the subgroup
-  let [r, qR] = Field.getPointers(2, CurveAffine.sizeAffine);
+  let [r, qR] = Field.getPointers(2, CurveAffine.size);
   CurveAffine.randomPoints(scratch, [r]);
   assert(!CurveAffine.isZeroAffine(r), "random point R is not zero");
   CurveAffine.scale(scratch, qR, r, qBits);

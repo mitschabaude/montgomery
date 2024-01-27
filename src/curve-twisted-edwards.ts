@@ -1,6 +1,5 @@
-import type * as W from "wasmati"; // for type names
 import { MsmField } from "./field-msm.js";
-import { TODO, bigintToBits } from "./util.js";
+import { bigintToBits } from "./util.js";
 import { randomGenerators } from "./bigint/field-random.js";
 import {
   BigintPoint,

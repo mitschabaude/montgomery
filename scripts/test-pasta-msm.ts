@@ -18,7 +18,7 @@ let N = 1 << n;
 console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 
 tic("random points");
-let points = Field.getZeroPointers(N, CurveAffine.sizeAffine);
+let points = Field.getZeroPointers(N, CurveAffine.size);
 let scratch = Field.getPointers(20);
 CurveAffine.randomPoints(scratch, points);
 

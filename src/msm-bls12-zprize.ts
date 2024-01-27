@@ -50,11 +50,16 @@ let {
   bitLength: scalarBitlength,
 } = SpecialScalar;
 
-let { sizeAffine, doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } =
-  CurveAffine;
+let {
+  size: sizeAffine,
+  doubleAffine,
+  isZeroAffine,
+  copyAffine,
+  setIsNonZeroAffine,
+} = CurveAffine;
 
 let {
-  sizeProjective,
+  size: sizeProjective,
   addAssign: addAssignProjective,
   doubleInPlace: doubleInPlaceProjective,
   isZero: isZeroProjective,
