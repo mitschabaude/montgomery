@@ -87,12 +87,24 @@ test.verbose(
     // negating twice is the identity
     assert(Curve.isEqual(Curve.negate(Curve.negate(P)), P), "-(-P) = P");
 
+    // scaling by order-1 is negation
+    assert(
+      Curve.isEqual(Curve.scale(Curve.order - 1n, P), Curve.negate(P)),
+      "scaling by order-1 is negation"
+    );
+
     // zero is the identity
     assert(Curve.isEqual(Curve.add(P, Curve.zero), P), "P + 0 = P");
     assert(Curve.isEqual(Curve.add(Curve.zero, P), P), "0 + P = P");
 
     // scaling maps to the curve
     assert(Curve.isOnCurve(Curve.scale(s, P)), "scaling maps to the curve");
+
+    // scaling by a non-zero scalar yields a non-zero point
+    assert(
+      s === 0n || !Curve.isZero(Curve.scale(s, P)),
+      "scaling is injective"
+    );
 
     // scaling by two scalars is scaling by the product
     assert(

@@ -108,7 +108,7 @@ equiv(
 // scalar multiplication
 
 equiv(
-  { from: [scalar, point], to: point, scratch: 9 },
+  { from: [scalar, point], to: point, scratch: 13 },
   CurveBigint.scale,
   Curve.scale,
   "scale"
@@ -147,3 +147,14 @@ equiv(
   Curve.isOnCurve,
   "is on curve (on invalid point)"
 );
+
+// is in subgroup
+
+equiv(
+  { from: [point], to: Spec.boolean, scratch: 17 },
+  () => true,
+  Curve.isInSubgroup,
+  "is in subgroup"
+);
+
+// random points

@@ -42,6 +42,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
 
   // convert the cofactor to bits
   let cofactorBits = bigintToBits(cofactor);
+  let orderBits = bigintToBits(CurveBigint.order);
 
   function coords(pointer: number) {
     return [
@@ -185,67 +186,83 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * Scalar multiplication
    */
   function scale(
-    scratch: number[],
+    [P, _py, _pz, _pt, ...scratch]: number[],
     result: number,
     scalar: boolean[],
     point: number
   ) {
     let n = scalar.length;
+    copyPoint(P, point);
 
-    if (scalar[n - 1]) copyPoint(result, point);
+    if (scalar[n - 1]) copyPoint(result, P);
     else copyPoint(result, zero);
 
     for (let i = n - 2; i >= 0; i--) {
       doubleInPlace(scratch, result);
-      if (scalar[i]) addAssign(scratch, result, point);
+      if (scalar[i]) addAssign(scratch, result, P);
     }
   }
 
-  function toSubgroupInPlace(
-    [tmp, _tmpy, _tmpz, _tmpt, _tmpInf, ...scratch]: number[],
+  function toSubgroupInPlace(scratch: number[], point: number) {
+    if (cofactor === 1n) return;
+    scale(scratch, point, cofactorBits, point);
+  }
+
+  function isInSubgroup(
+    [zero, _y, _z, _t, ...scratch]: number[],
     point: number
   ) {
-    if (cofactor === 1n) return;
-    Field.copy(tmp, point);
-    scale(scratch, point, cofactorBits, tmp);
+    if (cofactor === 1n) return true;
+    scale(scratch, zero, orderBits, point);
+    return isZero(zero);
   }
 
   let { randomFields } = randomGenerators(p);
 
   /**
    * sample random curve points
-   *
-   * expects the points as an array of pointers which can hold an affine point
-   *
-   * strategy: try random x coordinates until one of them fits the curve equation
-   * if one doesn't work, increment until it does
-   * just use the returned square root
-   *
-   * if the curve has a cofactor, we multiply by it to get points in the subgroup
-   * (in that case, the cofactor multiplication is by far the dominant part)
    */
-  function randomPoints(scratch: number[], points: number[]) {
+  function randomPoints(points: number[]) {
     let n = points.length;
     let xs = randomFields(n);
 
-    for (let i = 0; i < n; i++) {
-      let x0 = xs[i];
-      let x = points[i];
+    using _ = Field.local.atCurrentOffset;
+    let scratch = Field.local.getPointers(20);
+    let [x2, inv, ...tmp] = scratch;
 
-      // copy x into memory
-      Field.writeBigint(x, x0);
-      Field.toMontgomery(x);
+    for (let i = 0; i < n; i++) {
+      let x = points[i];
+      let y = x + sizeField;
+
+      // copy x into memory / montgomery form
+      Field.fromBigint(x, xs[i]);
 
       while (true) {
-        TODO();
+        // solve -x^2 + y^2 = 1 + d x^2 y^2 for y
+        // => y^2 = (1 + x^2) / (1 - d x^2)
+        Field.square(x2, x);
+        Field.multiply(y, dPtr, x2);
+        Field.subtract(y, Field.constants.mg1, y);
+        Field.inverse(tmp[0], inv, y);
+        Field.add(x2, x2, Field.constants.one);
+        Field.multiply(y, x2, inv);
+        let isSquare = Field.sqrt(tmp, y, y);
+
+        // if we didn't find a square root, try again with x+1
+        if (isSquare) break;
+        Field.add(x, x, Field.constants.mg1);
       }
+
+      // we found a square root!
+      // also compute z and t
+      let z = y + sizeField;
+      let t = z + sizeField;
+      Field.copy(z, Field.constants.mg1);
+      Field.multiply(t, x, y);
+
+      toSubgroupInPlace(scratch, x);
     }
 
-    if (cofactor !== 1n) {
-      for (let i = 0; i < n; i++) {
-        toSubgroupInPlace(scratch, points[i]);
-      }
-    }
     return points;
   }
 
@@ -321,6 +338,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     scale,
     toSubgroupInPlace,
     isOnCurve,
+    isInSubgroup,
     zero,
     isZero,
     copyPoint,
@@ -329,5 +347,3 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     randomPoints,
   };
 }
-
-const Specs = {};
