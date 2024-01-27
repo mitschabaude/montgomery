@@ -7,7 +7,7 @@ import { MemoryHelpers } from "./wasm/memory-helpers.js";
 
 export { createRandomPointsFast, createRandomScalars };
 
-function createRandomPointsFast(msmCurve: RandomPointsInputs) {
+function createRandomPointsFast(inputs: RandomPointsInputs) {
   /**
    * Generate n random points on the curve with given entropy
    *
@@ -21,7 +21,7 @@ function createRandomPointsFast(msmCurve: RandomPointsInputs) {
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
-    let { Field, CurveAffine, CurveProjective } = msmCurve;
+    let { Field, CurveAffine, CurveProjective } = inputs;
 
     let pointsAffine = Field.global.getPointers(n, CurveAffine.size);
     using _l = Field.local.atCurrentOffset;

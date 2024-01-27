@@ -361,7 +361,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
       for (let i = 0; i < n; i++) {
         let affine = affinePointers[i];
         let projective = projectivePointers[i];
-        copyPoint(projective, affine);
+        copyPoint(affine, projective);
       }
     },
   };

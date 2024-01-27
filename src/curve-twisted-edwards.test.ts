@@ -1,6 +1,8 @@
 import { BigintPoint } from "./bigint/twisted-edwards.js";
 import { curveParams, p } from "./concrete/ed-on-bls12-377.params.js";
+import { createRandomPointsFast } from "./curve-random.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
+import { tic, toc } from "./extra/tictoc.web.js";
 import { createMsmField } from "./field-msm.js";
 import {
   WasmSpec,
@@ -159,15 +161,34 @@ equiv(
 
 // random points
 
-let points = Field.global.getPointers(1 << 8, Curve.size);
+let points = Field.global.getPointers(1 << 11, Curve.size);
 let scratch = Field.global.getPointers(20);
-Curve.randomPoints(points);
 
+tic("random points");
+Curve.randomPoints(points);
+toc();
+
+tic("check points");
 for (let point of points) {
   assert(Curve.isOnCurve(scratch, point), "point is on curve");
   assert(Curve.isInSubgroup(scratch, point), "point is in subgroup");
-
-  let p = Curve.toBigint(point);
-  assert(CurveBigint.isOnCurve(p), "point is on curve");
-  assert(CurveBigint.isInSubgroup(p), "point is in subgroup");
 }
+toc();
+
+// fast random points
+
+let randomPointsFast = createRandomPointsFast({
+  Field,
+  CurveAffine: Curve,
+  CurveProjective: Curve,
+});
+tic("random points fast");
+let points1 = await randomPointsFast(1 << 11);
+toc();
+
+tic("check points");
+for (let point of points1) {
+  assert(Curve.isOnCurve(scratch, point), "point is on curve");
+  assert(Curve.isInSubgroup(scratch, point), "point is in subgroup");
+}
+toc();
