@@ -91,7 +91,7 @@ async function createFieldWasm({
       inverse,
       makeOdd,
       /**
-       * batch inversion
+       * batch inversion, using 4 field elements of scratch space
        * @param scratch
        * @param xInvs
        * @param xs

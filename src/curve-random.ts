@@ -42,7 +42,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     for (let [k, ke] = range(K); k < ke; k++) {
       // compute random basis point
       let basis = Field.local.getPointer(CurveAffine.size);
-      CurveAffine.randomPoints(scratch, [basis]);
+      CurveAffine.randomPoints([basis]);
 
       let Bk = B[k];
 
@@ -77,8 +77,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
 
     // 3. convert to affine
     let [start, end] = range(n);
-    CurveAffine.batchFromProjective(
-      scratch,
+    CurveAffine.batchNormalize(
       pointsAffine.slice(start, end),
       points.slice(start, end)
     );

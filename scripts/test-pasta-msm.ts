@@ -20,7 +20,7 @@ console.log(`running msm with 2^${n} = ${2 ** n} inputs`);
 tic("random points");
 let points = Field.getZeroPointers(N, CurveAffine.size);
 let scratch = Field.getPointers(20);
-CurveAffine.randomPoints(scratch, points);
+CurveAffine.randomPoints(points);
 
 let scalars = Random.randomScalars(N);
 let scalarPtr = bigintScalarsToMemory(Scalar, scalars);

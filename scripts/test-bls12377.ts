@@ -206,7 +206,7 @@ function testCurve() {
 
   // create random point and check if it is in the subgroup
   let [r, qR] = Field.getPointers(2, CurveAffine.size);
-  CurveAffine.randomPoints(scratch, [r]);
+  CurveAffine.randomPoints([r]);
   assert(!CurveAffine.isZeroAffine(r), "random point R is not zero");
   CurveAffine.scale(scratch, qR, r, qBits);
   assert(CurveAffine.isZeroAffine(qR), "order*h*R = 0");

@@ -154,9 +154,11 @@ function createCurveAffine(
    * if the curve has a cofactor, we multiply by it to get points in the subgroup
    * (in that case, the cofactor multiplication is by far the dominant part)
    */
-  function randomPoints(scratch: number[], points: number[]) {
+  function randomPoints(points: number[]) {
     let n = points.length;
     let xs = randomFields(n);
+    using _ = Field.local.atCurrentOffset;
+    let scratch = Field.local.getPointers(30);
 
     for (let i = 0; i < n; i++) {
       let x0 = xs[i];
@@ -245,17 +247,14 @@ function createCurveAffine(
     setIsNonZero(point, true);
   }
 
-  function batchFromProjective(
-    scratch: number[],
-    points: number[],
-    pointsProj: number[]
-  ) {
+  function batchFromProjective(points: number[], pointsProj: number[]) {
     let n = points.length;
     assert(n === pointsProj.length, "lengths must match");
     // copy x, y coordinates and collect z coordinates
     using _ = Field.local.atCurrentOffset;
     let zInvs = Field.local.getZeroPointers(n, sizeField);
     let zs = Field.local.getPointers(n, sizeField);
+    let scratch = Field.local.getPointer(5 * sizeField);
     for (let i = 0; i < n; i++) {
       if (CurveProjective.isZero(pointsProj[i])) {
         setIsNonZero(points[i], false);
@@ -271,7 +270,7 @@ function createCurveAffine(
       Field.copy(zs[i], z);
     }
     // batch invert z coordinates
-    Field.batchInverse(scratch[0], zInvs[0], zs[0], n);
+    Field.batchInverse(scratch, zInvs[0], zs[0], n);
     // x, y <- x/z, y/z
     for (let i = 0; i < n; i++) {
       if (isZero(points[i])) continue;
@@ -295,13 +294,12 @@ function createCurveAffine(
     setIsNonZeroAffine: setIsNonZero,
     toBigint,
     writeBigint,
-    batchFromProjective,
+    batchNormalize: batchFromProjective,
     randomPoints,
     randomPointsBigint(n: number, { montgomery = false } = {}) {
       let memoryOffset = Field.getOffset();
       let points = Field.getZeroPointers(n, size);
-      let scratch = Field.getPointers(20);
-      randomPoints(scratch, points);
+      randomPoints(points);
       let pointsBigint: BigintPoint[] = Array(n);
       for (let i = 0; i < n; i++) {
         let point = points[i];
