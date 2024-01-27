@@ -38,58 +38,6 @@ type MsmCurve = {
  * 1. each bucket is accumulated into a single point, the _bucket sum_ `B_(l,k)`, which is simply the sum of all points in the bucket.
  * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
  * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
- *
- * ### High-level implementation
- *
- * - we use **batch-affine additions** for step 1 (bucket accumulation).
- *   thus, in this step we loop over all buckets, collect pairs of points to add, and then do a batch-addition on all of them.
- *   this is done in multiple passes, until the points of each bucket are summed to a single point, in an implicit binary tree.
- *   (in each pass, empty buckets and buckets with 1 remaining point are skipped;
- *   also, buckets of uneven length have a dangling point at the end, which doesn't belong to a pair and is skipped and included in a later pass)
- * - we also use **batch-affine additions for all of step 2** (bucket reduction).
- *   we achieve this by splitting up each partition recursively into sub-partitions, which are reduced independently from each other.
- *   this gives us enough independent additions to amortize the cost of the inversion in the batch-add step.
- *   sub-partitions are recombined in a series of comparatively cheap, log-sized steps. for details, see {@link reduceBucketsAffine}.
- * - we switch from an affine to a projective point representation between steps 2 and 3. step 3 is so tiny (< 0.1% of the computation)
- *   that the performance of projective curve arithmetic becomes irrelevant.
- *
- * the algorithm has a significant **preparation phase**, which happens before step 1, where we split scalars and sort points and such.
- * before splitting scalars into length-c slices, we do a **GLV decomposition**, where each 256-bit scalar is split into two
- * 128-bit chunks as `s = s0 + s1*lambda`. multiplying a point by `lambda` is a curve endomorphism,
- * with an efficient implementation `[lambda] (x,y) = (beta*x, y) =: endo((x, y))`,
- * where `lambda` and `beta` are certain cube roots of 1 in their respective fields.
- * correspondingly, each point `G` becomes two points `G`, `endo(G)`.
- * we also store `-G` and `-endo(G)` which are used when the NAF slices of `s0`, `s1` are negative.
- *
- * other than processing inputs, the preparation phase is concerned with organizing points. this should be done in a way which:
- * 1. enables to efficiently collect independent point pairs to add, in multiple successive passes over all buckets;
- * 2. makes memory access efficient when batch-adding pairs => ideally, the 2 points that form a pair, as well as consecutive pairs, are stored next to each other
- *
- * we address these two goals by copying all points to K independent linear arrays; one for each partition.
- * ordering in each of these arrays is achieved by performing a _counting sort_ of all points with respect to their bucket `l` in partition `k`.
- *
- * between step 1 and 2, there is a similar re-organization step. at the end of step 1, bucket sums are accumulated into the `0` locations
- * of each original bucket, which are spread apart as far as the original buckets were long.
- * before step 2, we copy bucket sums to a new linear array from 1 to L, for each partition.
- *
- * finally, here's a rough breakdown of the time spent in the 5 different phases of the algorithm.
- * we split the preparation phase into two; the "summation steps" are the three steps also defined above.
- *
- * ```txt
- *  8% - preparation 1 (input processing)
- * 12% - preparation 2 (sorting points in bucket order)
- * 65% - summation step 1 (bucket accumulation)
- * 15% - summation step 2 (bucket reduction)
- *  0% - summation step 3 (final sum over partitions)
- * ```
- *
- * you can find more details on each phase and reasoning about performance in the comments below!
- *
- * @param scalars pointer to array of scalars `s_0, ..., s_(N-1)`
- * @param points pointer to array of points `G_0, ..., G_(N-1)`
- * @param N number of scalars/points
- * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
- * than our well-optimized, hard-coded ones; see {@link cTable})
  */
 function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   const { copy, subtract, endomorphism, sizeField, memoryBytes, constants } =
@@ -97,20 +45,18 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   let { decompose, extractBitSlice, sizeField: sizeScalar } = Scalar;
   const scalarBitlength = Scalar.maxBits;
 
-  let {
-    size: sizeAffine,
-    copy: copyAffine,
-    setIsNonZero: setIsNonZeroAffine,
-  } = CurveAffine;
+  let sizeAffine = CurveAffine.size;
+  let sizeProjective = CurveProjective.size;
 
-  let {
-    size: sizeProjective,
-    addAssign: addAssignProjective,
-    doubleInPlace: doubleInPlaceProjective,
-    copy: copyProjective,
-    fromAffine: affineToProjective,
-  } = CurveProjective;
-
+  /**
+   *
+   * @param scalarPtr0 pointer to array of scalars `s_0, ..., s_(N-1)`
+   * @param pointPtr0 pointer to array of points `G_0, ..., G_(N-1)`
+   * @param N number of scalars/points
+   * @param verboseTiming whether to log timing information
+   * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
+   * than our well-optimized, hard-coded ones; see {@link cTable})
+   */
   async function msm(
     scalarPtr0: number,
     pointPtr0: number,
@@ -364,7 +310,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       let columns = columnss[k];
       let partitionSum = columns[0];
       for (let j = 1, n = columns.length; j < n; j++) {
-        addAssignProjective(scratch, partitionSum, columns[j]);
+        CurveProjective.addAssign(scratch, partitionSum, columns[j]);
       }
     }
     let partialSums = columnss.map((column) => column[0]);
@@ -373,15 +319,15 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic("final sum");
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
-    copyProjective(finalSum, partialSums[k]);
+    CurveProjective.copy(finalSum, partialSums[k]);
     k--;
     for (; k >= 0; k--) {
       for (let j = 0; j < c; j++) {
-        doubleInPlaceProjective(scratch, finalSum);
+        CurveProjective.doubleInPlace(scratch, finalSum);
       }
-      addAssignProjective(scratch, finalSum, partialSums[k]);
+      CurveProjective.addAssign(scratch, finalSum, partialSums[k]);
     }
-    copyProjective(result, finalSum);
+    CurveProjective.copy(result, finalSum);
     toc();
     toc();
     return { result, log: getLog() };
@@ -544,7 +490,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
 
         // copy point to the bucket array -- expensive operation! (but it pays off)
-        copyAffine(newPtr, ptr);
+        CurveAffine.copy(newPtr, ptr);
       }
     }
   }
@@ -557,8 +503,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     let size = toProjective ? sizeProjective : sizeAffine;
     let setZero = toProjective
       ? CurveProjective.setZero
-      : (ptr: number) => setIsNonZeroAffine(ptr, false);
-    let copy = toProjective ? affineToProjective : copyAffine;
+      : (ptr: number) => CurveAffine.setIsNonZero(ptr, false);
+    let copy = toProjective ? CurveProjective.fromAffine : CurveAffine.copy;
 
     // normalize the way buckets are stored
     let nChunks = chunksPerThread.length;
@@ -607,6 +553,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     lstart: number
   ) {
     let L = buckets.length;
+    let { addAssign, doubleInPlace } = CurveProjective;
 
     using _ = Field.local.atCurrentOffset;
     let scratch = Field.local.getPointers(20);
@@ -614,19 +561,19 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
     // compute triangle and row
     for (let l = L - 1; l >= 0; l--) {
-      addAssignProjective(scratch, row, buckets[l]);
-      addAssignProjective(scratch, triangle, row);
+      addAssign(scratch, row, buckets[l]);
+      addAssign(scratch, triangle, row);
     }
 
     // triangle += (lstart - 1) * row
     lstart--;
     while (true) {
-      if (lstart & 1) addAssignProjective(scratch, triangle, row);
+      if (lstart & 1) addAssign(scratch, triangle, row);
       if ((lstart >>= 1) === 0) break;
-      doubleInPlaceProjective(scratch, row);
+      doubleInPlace(scratch, row);
     }
 
-    copyProjective(column, triangle);
+    CurveProjective.copy(column, triangle);
   }
 
   return {
