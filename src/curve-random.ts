@@ -1,7 +1,6 @@
 // fast random point generation
 
 import type { MsmField } from "./field-msm.js";
-import type { MsmCurve } from "./msm.js";
 import { barrier, range, shareOf } from "./threads/threads.js";
 import { assert, bigintFromBytes32, log2, randomBytes } from "./util.js";
 import { MemoryHelpers } from "./wasm/memory-helpers.js";
@@ -108,16 +107,16 @@ type RandomPointsInputs = {
   };
 };
 
-function createRandomScalars(msmCurve: Pick<MsmCurve, "Scalar">) {
+function createRandomScalars(msmCurve: { Scalar: RandomFieldsInputs }) {
   return createRandomFields256(msmCurve.Scalar);
 }
 
-function createRandomFields256(
-  Field: {
-    modulus: bigint;
-    fromPackedBytes: (x: number, bytes: number) => void;
-  } & MemoryHelpers
-) {
+type RandomFieldsInputs = {
+  modulus: bigint;
+  fromPackedBytes: (x: number, bytes: number) => void;
+} & MemoryHelpers;
+
+function createRandomFields256(Field: RandomFieldsInputs) {
   let p = Field.modulus;
   let sizeInBits = log2(p);
   let size = Math.ceil(sizeInBits / 8);
