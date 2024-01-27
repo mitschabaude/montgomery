@@ -104,7 +104,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     addAssign: addAssignProjective,
     doubleInPlace: doubleInPlaceProjective,
     copy: copyProjective,
-    affineToProjective,
+    fromAffine: affineToProjective,
   } = CurveProjective;
 
   async function msm(

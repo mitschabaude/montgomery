@@ -64,8 +64,8 @@ let {
   doubleInPlace: doubleInPlaceProjective,
   isZero: isZeroProjective,
   copy: copyProjective,
-  affineToProjective,
-  projectiveCoords,
+  fromAffine: affineToProjective,
+  coords: projectiveCoords,
 } = CurveProjective;
 
 export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };

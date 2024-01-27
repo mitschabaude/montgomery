@@ -49,7 +49,7 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
       // zeroth point is zero
       CurveProjective.setZero(Bk[0]);
       // first point is the basis point
-      CurveProjective.affineToProjective(Bk[1], basis);
+      CurveProjective.fromAffine(Bk[1], basis);
       // second needs double
       CurveProjective.copy(Bk[2], Bk[1]);
       CurveProjective.doubleInPlace(scratch, Bk[2]);

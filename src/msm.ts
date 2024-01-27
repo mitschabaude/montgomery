@@ -135,8 +135,8 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     doubleInPlace: doubleInPlaceProjective,
     isZero: isZeroProjective,
     copy: copyProjective,
-    affineToProjective,
-    projectiveCoords,
+    fromAffine: affineToProjective,
+    coords: projectiveCoords,
   } = CurveProjective;
 
   // MSM where input scalars and points are bigints

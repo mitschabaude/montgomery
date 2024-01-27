@@ -126,9 +126,9 @@ function createCurveAffine(
     point: number,
     scalar: boolean[]
   ) {
-    CurveProjective.affineToProjective(pointProj, point);
+    CurveProjective.fromAffine(pointProj, point);
     CurveProjective.scale(scratch, resultProj, pointProj, scalar);
-    CurveProjective.projectiveToAffine(scratch, result, resultProj);
+    CurveProjective.toAffine(scratch, result, resultProj);
   }
 
   function toSubgroupInPlace(
@@ -264,7 +264,7 @@ function createCurveAffine(
       let xAffine = points[i];
       let yAffine = points[i] + sizeField;
       setIsNonZero(xAffine, true);
-      let [x, y, z] = CurveProjective.projectiveCoords(pointsProj[i]);
+      let [x, y, z] = CurveProjective.coords(pointsProj[i]);
       Field.copy(xAffine, x);
       Field.copy(yAffine, y);
       Field.copy(zs[i], z);

@@ -171,7 +171,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
   function copy(target: number, source: number) {
     memoryBytes.copyWithin(target, source, source + size);
   }
-  function affineToProjective(P: number, A: number) {
+  function fromAffine(P: number, A: number) {
     // x,y = x,y
     memoryBytes.copyWithin(P, A, A + 2 * sizeField);
     // z = 1
@@ -184,11 +184,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
   }
 
-  function projectiveToAffine(
-    scratch: number[],
-    affine: number,
-    point: number
-  ) {
+  function toAffine(scratch: number[], affine: number, point: number) {
     if (isZero(point)) {
       memoryBytes[affine + 2 * sizeField] = 0;
       return;
@@ -266,9 +262,9 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     isZero,
     isEqual: isEqualProjective,
     copy,
-    affineToProjective,
-    projectiveToAffine,
-    projectiveCoords: coords,
+    fromAffine: fromAffine,
+    toAffine: toAffine,
+    coords,
     setNonZero,
     setZero,
   };
