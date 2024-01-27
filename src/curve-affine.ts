@@ -84,14 +84,9 @@ function createCurveAffine(
    * @param G input point (x, y)
    * @param d 1/(2y)
    */
-  function doubleAffine(
-    [m, tmp, x2, y2]: number[],
-    H: number,
-    G: number,
-    d: number
-  ) {
-    let [x, y] = affineCoords(G);
-    let [xOut, yOut] = affineCoords(H);
+  function double([m, tmp, x2, y2]: number[], H: number, G: number, d: number) {
+    let [x, y] = coords(G);
+    let [xOut, yOut] = coords(H);
     // m = 3*x^2*d
     square(m, x);
     add(tmp, m, m); // TODO efficient doubling
@@ -193,7 +188,7 @@ function createCurveAffine(
 
   // note: this fails on zero
   function assertOnCurve([y2, y2_]: number[], p: number) {
-    let [x, y] = affineCoords(p);
+    let [x, y] = coords(p);
     square(y2, x);
     multiply(y2, y2, x);
     add(y2, y2, bPtr);
@@ -211,7 +206,7 @@ function createCurveAffine(
     memoryBytes.copyWithin(target, source, source + size);
   }
 
-  function affineCoords(pointer: number) {
+  function coords(pointer: number) {
     return [pointer, pointer + sizeField];
   }
 
@@ -221,7 +216,7 @@ function createCurveAffine(
 
   function toBigint(point: number): BigintPoint {
     if (isZero(point)) return BigintPoint.zero;
-    let [x, y] = affineCoords(point);
+    let [x, y] = coords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
     let pointBigint = {
@@ -239,7 +234,7 @@ function createCurveAffine(
       setIsNonZero(point, false);
       return;
     }
-    let [xPtr, yPtr] = affineCoords(point);
+    let [xPtr, yPtr] = coords(point);
     Field.writeBigint(xPtr, x);
     Field.writeBigint(yPtr, y);
     Field.toMontgomery(xPtr);
@@ -284,14 +279,14 @@ function createCurveAffine(
   return {
     b,
     size,
-    doubleAffine,
+    double,
     scale,
     toSubgroupInPlace,
     assertOnCurve,
-    isZeroAffine: isZero,
-    copyAffine,
-    affineCoords,
-    setIsNonZeroAffine: setIsNonZero,
+    isZero,
+    copy: copyAffine,
+    coords,
+    setIsNonZero,
     toBigint,
     writeBigint,
     batchNormalize: batchFromProjective,
@@ -359,7 +354,12 @@ function batchAdd(
 ) {
   let { sizeField, subtractPositive, batchInverse, addAffine, isEqual, add } =
     Field;
-  let { doubleAffine, isZeroAffine, copyAffine, setIsNonZeroAffine } = Curve;
+  let {
+    double: doubleAffine,
+    isZero: isZeroAffine,
+    copy: copyAffine,
+    setIsNonZero: setIsNonZeroAffine,
+  } = Curve;
 
   let iAdd = Array(n);
   let iDouble = Array(n);
@@ -473,7 +473,7 @@ function batchDoubleInPlace(
   n: number
 ) {
   let { sizeField, batchInverse, add } = Field;
-  let { doubleAffine, isZeroAffine } = Curve;
+  let { double: doubleAffine, isZero: isZeroAffine } = Curve;
   // maybe every curve point should have space for one extra field element so we have those tmp pointers ready?
 
   // check G for zero

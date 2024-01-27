@@ -97,7 +97,11 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   let { decompose, extractBitSlice, sizeField: sizeScalar } = Scalar;
   const scalarBitlength = Scalar.maxBits;
 
-  let { size: sizeAffine, copyAffine, setIsNonZeroAffine } = CurveAffine;
+  let {
+    size: sizeAffine,
+    copy: copyAffine,
+    setIsNonZero: setIsNonZeroAffine,
+  } = CurveAffine;
 
   let {
     size: sizeProjective,

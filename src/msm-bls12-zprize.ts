@@ -52,10 +52,10 @@ let {
 
 let {
   size: sizeAffine,
-  doubleAffine,
-  isZeroAffine,
-  copyAffine,
-  setIsNonZeroAffine,
+  double: doubleAffine,
+  isZero: isZeroAffine,
+  copy: copyAffine,
+  setIsNonZero: setIsNonZeroAffine,
 } = CurveAffine;
 
 let {
