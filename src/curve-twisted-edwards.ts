@@ -67,6 +67,9 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Field.reduce(Z);
     return !!Field.isEqual(Y, Z);
   }
+  function setZero(P: number) {
+    copyPoint(P, zero);
+  }
 
   /**
    * projective point addition, P3 = P1 + P2
@@ -340,9 +343,44 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     isInSubgroup,
     zero,
     isZero,
-    copyPoint,
+    setZero,
+    copy: copyPoint,
     toBigint,
     fromBigint,
     randomPoints,
+    // for compatibility with affine / projective
+    fromAffine(point: number, affinePoint: number) {
+      copyPoint(point, affinePoint);
+    },
+    // TODO actually normalize here
+    batchNormalize(
+      affinePointers: number[],
+      projectivePointers: number[]
+    ): void {
+      let n = affinePointers.length;
+      for (let i = 0; i < n; i++) {
+        let affine = affinePointers[i];
+        let projective = projectivePointers[i];
+        copyPoint(projective, affine);
+      }
+    },
   };
 }
+
+// what we need in other methods that can use both twisted edwards
+// and affine/projective weierstrass curves
+createCurveTwistedEdwards satisfies (...args: any[]) => MinimalCurve;
+
+type MinimalCurve = {
+  size: number;
+  randomPoints: (pointers: number[]) => void;
+  batchNormalize: (
+    affinePointers: number[],
+    projectivePointers: number[]
+  ) => void;
+  setZero: (pointer: number) => void;
+  fromAffine: (pointer: number, affinePointer: number) => void;
+  doubleInPlace: (scratch: number[], pointer: number) => void;
+  copy: (target: number, source: number) => void;
+  addAssign: (scratch: number[], P1: number, P2: number) => void;
+};

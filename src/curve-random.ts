@@ -1,5 +1,6 @@
 // fast random point generation
 
+import type { MsmField } from "./field-msm.js";
 import type { MsmCurve } from "./msm.js";
 import { barrier, range, shareOf } from "./threads/threads.js";
 import { assert, bigintFromBytes32, log2, randomBytes } from "./util.js";
@@ -7,7 +8,7 @@ import { MemoryHelpers } from "./wasm/memory-helpers.js";
 
 export { createRandomPointsFast, createRandomScalars };
 
-function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
+function createRandomPointsFast(msmCurve: RandomPointsInputs) {
   /**
    * Generate n random points on the curve with given entropy
    *
@@ -86,6 +87,26 @@ function createRandomPointsFast(msmCurve: Omit<MsmCurve, "Scalar">) {
     return pointsAffine;
   };
 }
+
+type RandomPointsInputs = {
+  Field: MsmField;
+  CurveAffine: {
+    size: number;
+    randomPoints: (pointers: number[]) => void;
+    batchNormalize: (
+      affinePointers: number[],
+      projectivePointers: number[]
+    ) => void;
+  };
+  CurveProjective: {
+    size: number;
+    setZero: (pointer: number) => void;
+    fromAffine: (pointer: number, affinePointer: number) => void;
+    doubleInPlace: (scratch: number[], pointer: number) => void;
+    copy: (target: number, source: number) => void;
+    addAssign: (scratch: number[], P1: number, P2: number) => void;
+  };
+};
 
 function createRandomScalars(msmCurve: Pick<MsmCurve, "Scalar">) {
   return createRandomFields256(msmCurve.Scalar);

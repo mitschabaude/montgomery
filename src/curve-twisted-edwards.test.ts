@@ -53,7 +53,7 @@ const equiv = createEquivalentWasm(Field, { logSuccess: true });
 equiv(
   { from: [point], to: pointStrict },
   (P) => P,
-  Curve.copyPoint,
+  Curve.copy,
   "bigint roundtrip"
 );
 
