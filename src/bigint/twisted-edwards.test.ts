@@ -29,7 +29,7 @@ test.verbose(
   (P, Q, R, noP, s, t) => {
     // random point is as expected
     assert(Curve.isOnCurve(P), "point is on curve");
-    assert(Curve.isZero(Curve.scale(Curve.order, P)), "order * P = ∞");
+    assert(Curve.isInSubgroup(P), "order * P = ∞");
 
     // random points are not equal, and not zero
     assert(!Curve.isEqual(P, Q), "random points are not equal");

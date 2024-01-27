@@ -163,6 +163,10 @@ function createCurveTwistedEdwards(params: CurveParams) {
     return Fp.isEqual(-X * X + Y * Y, Z * Z + d * Fp.square(T));
   }
 
+  function isInSubgroup(P: BigintPoint): boolean {
+    return isZero(scale(q, P));
+  }
+
   function random(): BigintPoint {
     // random x
     let x = Fp.random();
@@ -196,6 +200,7 @@ function createCurveTwistedEdwards(params: CurveParams) {
     scale,
     toSubgroup,
     isOnCurve,
+    isInSubgroup,
     isEqual,
     isZero,
     random,
