@@ -1,95 +1,78 @@
 import { assert, bigintToBits } from "../util.js";
 import { createField } from "./field.js";
 
-export { createCurveTwistedEdwards, BigintPoint, CurveParams };
+export { createCurveAffine, BigintPoint, CurveParams };
 
-type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
+type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 
 type CurveParams = {
   modulus: bigint;
   order: bigint;
   cofactor: bigint;
-  d: bigint;
+  b: bigint;
   generator: { x: bigint; y: bigint };
 };
 
 /**
- * Operations on a twisted edwards curve, with a = -1
+ * Operations on a short Weierstrass curve, with a = 0
  *
- * -x^2 + y^2 = 1 + d*x^2*y^2
+ * y^2 = x^3 + b
  *
- * The representation uses extended coordinates (X, Y, Z, T) where
- *
- * x = X/Z
- * y = Y/Z
- * T = XY/Z
+ * The representation uses affine coordinates and a flag for zero.
  */
-function createCurveTwistedEdwards(params: CurveParams) {
-  let { modulus: p, order: q, cofactor, d, generator } = params;
-  let k = 2n * d;
+function createCurveAffine(params: CurveParams) {
+  let { modulus: p, order: q, cofactor, b, generator } = params;
   const Fp = createField(p);
   const Fq = createField(q);
 
-  const zero = { X: 0n, Y: 1n, Z: 1n, T: 0n } satisfies BigintPoint;
-
-  function fromAffine({ x, y }: { x: bigint; y: bigint }): BigintPoint {
-    return { X: x, Y: y, Z: 1n, T: Fp.multiply(x, y) };
-  }
-  function toAffine({ X, Y, Z }: BigintPoint): { x: bigint; y: bigint } {
-    assert(!Fp.isEqual(Z, 0n), "Not an affine point");
-    return {
-      x: Fp.multiply(X, Fp.inverse(Z)),
-      y: Fp.multiply(Y, Fp.inverse(Z)),
-    };
-  }
+  const zero = { x: 0n, y: 1n, isZero: true } satisfies BigintPoint;
 
   /**
    * Addition, P1 + P2
    *
-   * Strongly unified
+   * Complete / handles all edge cases
    */
   function add(P1: BigintPoint, P2: BigintPoint): BigintPoint {
-    let { X: X1, Y: Y1, Z: Z1, T: T1 } = P1;
-    let { X: X2, Y: Y2, Z: Z2, T: T2 } = P2;
-    // http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
-    // Assumptions: k=2*d.
+    if (P1.isZero) return P2;
+    if (P2.isZero) return P1;
 
-    // A = (Y1-X1)*(Y2-X2)
-    let A = Fp.multiply(Y1 - X1, Y2 - X2);
-    // B = (Y1+X1)*(Y2+X2)
-    let B = Fp.multiply(Y1 + X1, Y2 + X2);
-    // C = T1*k*T2
-    let C = Fp.multiply(T1, T2);
-    C = Fp.multiply(C, k);
-    // D = Z1*2*Z2
-    let D = Fp.multiply(2n * Z1, Z2);
-    // E = B-A
-    let E = Fp.subtract(B, A);
-    // F = D-C
-    let F = Fp.subtract(D, C);
-    // G = D+C
-    let G = Fp.add(D, C);
-    // H = B+A
-    let H = Fp.add(B, A);
-    // X3 = E*F
-    let X3 = Fp.multiply(E, F);
-    // Y3 = G*H
-    let Y3 = Fp.multiply(G, H);
-    // T3 = E*H
-    let T3 = Fp.multiply(E, H);
-    // Z3 = F*G
-    let Z3 = Fp.multiply(F, G);
+    let { x: x1, y: y1 } = P1;
+    let { x: x2, y: y2 } = P2;
 
-    return { X: X3, Y: Y3, Z: Z3, T: T3 };
+    if (x1 === x2) {
+      // G + G --> we double
+      if (y1 === y2) return double(P1);
+      // G - G --> return zero
+      if (y1 === Fp.inverse(y2)) return zero;
+      assert(false, "unreachable");
+    }
+
+    // m = (y2 - y1)/(x2 - x1)
+    let d = Fp.inverse(x2 - x1);
+    let m = Fp.multiply(y2 - y1, d);
+    // x3 = m^2 - x1 - x2
+    let x3 = Fp.mod(m * m - x1 - x2);
+    // y3 = m*(x1 - x3) - y1
+    let y3 = Fp.mod(m * (x1 - x3) - y1);
+
+    return { x: x3, y: y3, isZero: false };
   }
 
   /**
    * Doubling, 2*P
-   *
-   * Strongly unified
    */
-  function double(P: BigintPoint) {
-    return add(P, P);
+  function double({ x, y, isZero }: BigintPoint): BigintPoint {
+    if (isZero) zero;
+
+    // m = 3*x^2 / 2y
+    let d = Fp.inverse(2n * y);
+    let m = Fp.mod(3n * x * x * d);
+    // x2 = m^2 - 2x
+    let x2 = Fp.mod(m * m - 2n * x);
+    // y2 = m*(x - x2) - y
+    let y2 = Fp.mod(m * (x - x2) - y);
+
+    return { x: x2, y: y2, isZero: false };
   }
 
   /**
