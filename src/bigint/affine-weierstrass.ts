@@ -25,7 +25,7 @@ function createCurveAffine(params: CurveParams) {
   const Fp = createField(p);
   const Fq = createField(q);
 
-  const zero = { x: 0n, y: 1n, isZero: true } satisfies BigintPoint;
+  const zero: BigintPoint = { x: 0n, y: 1n, isZero: true };
 
   /**
    * Addition, P1 + P2
@@ -78,30 +78,22 @@ function createCurveAffine(params: CurveParams) {
   /**
    * Negation, -P
    */
-  function negate(P: BigintPoint): BigintPoint {
-    return { X: Fp.negate(P.X), Y: P.Y, Z: P.Z, T: Fp.negate(P.T) };
+  function negate({ x, y, isZero }: BigintPoint): BigintPoint {
+    if (isZero) return zero;
+    return { x, y: Fp.negate(y), isZero: false };
   }
 
   function isEqual(P1: BigintPoint, P2: BigintPoint) {
     return (
-      // protect against invalid points with z=0
-      !Fp.isEqual(P1.Z, 0n) &&
-      !Fp.isEqual(P2.Z, 0n) &&
-      // multiply out with Z
-      Fp.isEqual(P1.X * P2.Z, P2.X * P1.Z) &&
-      Fp.isEqual(P1.Y * P2.Z, P2.Y * P1.Z) &&
-      // redundant for valid points, but this function should work if one input is invalid
-      Fp.isEqual(P1.T * P2.Z, P2.T * P1.Z)
+      (P1.isZero === P2.isZero &&
+        Fp.isEqual(P1.x, P2.x) &&
+        Fp.isEqual(P1.y, P2.y)) ||
+      (P1.isZero && P2.isZero)
     );
   }
 
-  function isZero({ X, Y, Z, T }: BigintPoint): boolean {
-    return (
-      !Fp.isEqual(Z, 0n) &&
-      Fp.isEqual(X, 0n) &&
-      Fp.isEqual(T, 0n) &&
-      Fp.isEqual(Y, Z)
-    );
+  function isZero({ isZero }: BigintPoint): boolean {
+    return isZero;
   }
 
   /**
@@ -127,23 +119,10 @@ function createCurveAffine(params: CurveParams) {
 
   /**
    * Check if a point is on the curve
-   *
-   * In projective coordinates, the curve equation is
-   *
-   * -X^2 Z^2 + Y^2 Z^2 = Z^4 + d X^2 Y^2
-   *
-   * or, after dividing by Z^2 and using T = XY/Z,
-   *
-   * -X^2 + Y^2 = Z^2 + d T^2
    */
-  function isOnCurve(P: BigintPoint): boolean {
-    let { X, Y, T, Z } = P;
-    // validity of Z
-    if (Fp.isEqual(Z, 0n)) return false;
-    // validity of T
-    if (!Fp.isEqual(T * Z, X * Y)) return false;
-    // curve equation
-    return Fp.isEqual(-X * X + Y * Y, Z * Z + d * Fp.square(T));
+  function isOnCurve({ x, y, isZero }: BigintPoint): boolean {
+    if (isZero) return true;
+    return Fp.isEqual(y * y, Fp.multiply(x, x) * x + b);
   }
 
   function isInSubgroup(P: BigintPoint): boolean {
@@ -157,16 +136,12 @@ function createCurveAffine(params: CurveParams) {
 
     while (y === undefined) {
       x = Fp.add(x, 1n);
-      // solve -x^2 + y^2 = 1 + d x^2 y^2 for y
-      // => y^2 = (1 + x^2) / (1 - d x^2)
-      let y2 = Fp.multiply(
-        1n + Fp.multiply(x, x),
-        Fp.inverse(1n - Fp.multiply(d, Fp.multiply(x, x)))
-      );
+      // solve y^2 = x^3 + b for y
+      let y2 = Fp.mod(Fp.multiply(x, x) * x + b);
       y = Fp.sqrt(y2);
     }
 
-    let P = { X: x, Y: y, Z: 1n, T: Fp.multiply(x, y) };
+    let P = { x, y, isZero: false };
     return toSubgroup(P);
   }
 
@@ -176,7 +151,7 @@ function createCurveAffine(params: CurveParams) {
     ...params,
 
     zero,
-    one: fromAffine(generator),
+    one: generator,
     add,
     double,
     negate,
@@ -187,7 +162,5 @@ function createCurveAffine(params: CurveParams) {
     isEqual,
     isZero,
     random,
-    fromAffine,
-    toAffine,
   };
 }
