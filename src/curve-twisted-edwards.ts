@@ -1,5 +1,5 @@
 import { MsmField } from "./field-msm.js";
-import { bigintToBits } from "./util.js";
+import { assert, bigintToBits } from "./util.js";
 import { randomGenerators } from "./bigint/field-random.js";
 import {
   BigintPoint,
@@ -265,7 +265,35 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
       toSubgroupInPlace(scratch, x);
     }
 
+    batchNormalize(points, points);
     return points;
+  }
+
+  function batchNormalize(affinePoints: number[], points: number[]): void {
+    let n = affinePoints.length;
+    assert(n === points.length, "lengths must match");
+    using _ = Field.local.atCurrentOffset;
+    let zInvs = Field.local.getZeroPointers(n);
+    let zs = Field.local.getPointers(n);
+    let scratch = Field.local.getPointer(5 * sizeField);
+
+    // copy x, y, t and collect z coordinates
+    for (let i = 0; i < n; i++) {
+      copyPoint(affinePoints[i], points[i]);
+      Field.copy(zs[i], points[i] + 2 * sizeField);
+    }
+
+    // batch invert z coordinates
+    Field.batchInverse(scratch, zInvs[0], zs[0], n);
+
+    // multiply x, y, t by zInv
+    for (let i = 0; i < n; i++) {
+      let [x, y, z, t] = coords(affinePoints[i]);
+      Field.multiply(x, x, zInvs[i]);
+      Field.multiply(y, y, zInvs[i]);
+      Field.copy(z, Field.constants.mg1);
+      Field.multiply(t, t, zInvs[i]);
+    }
   }
 
   // note: this fails on zero
@@ -328,6 +356,19 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Field.toMontgomery(tPtr);
   }
 
+  function X(point: number) {
+    return point;
+  }
+  function Y(point: number) {
+    return point + sizeField;
+  }
+  function Z(point: number) {
+    return point + 2 * sizeField;
+  }
+  function T(point: number) {
+    return point + 3 * sizeField;
+  }
+
   return {
     Bigint: CurveBigint,
     add,
@@ -348,22 +389,18 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     toBigint,
     fromBigint,
     randomPoints,
+
+    X,
+    Y,
+    Z,
+    T,
+
     // for compatibility with affine / projective
     fromAffine(point: number, affinePoint: number) {
       copyPoint(point, affinePoint);
     },
-    // TODO actually normalize here
-    batchNormalize(
-      affinePointers: number[],
-      projectivePointers: number[]
-    ): void {
-      let n = affinePointers.length;
-      for (let i = 0; i < n; i++) {
-        let affine = affinePointers[i];
-        let projective = projectivePointers[i];
-        copyPoint(affine, projective);
-      }
-    },
+
+    batchNormalize,
   };
 }
 

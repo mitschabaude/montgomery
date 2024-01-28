@@ -172,6 +172,10 @@ tic("check points");
 for (let point of points) {
   assert(Curve.isOnCurve(scratch, point), "point is on curve");
   assert(Curve.isInSubgroup(scratch, point), "point is in subgroup");
+  assert(
+    !!Field.isEqual(Curve.Z(point), Field.constants.mg1),
+    "point is affine"
+  );
 }
 toc();
 
@@ -190,5 +194,9 @@ tic("check points");
 for (let point of points1) {
   assert(Curve.isOnCurve(scratch, point), "point is on curve");
   assert(Curve.isInSubgroup(scratch, point), "point is in subgroup");
+  assert(
+    !!Field.isEqual(Curve.Z(point), Field.constants.mg1),
+    "point is affine"
+  );
 }
 toc();
