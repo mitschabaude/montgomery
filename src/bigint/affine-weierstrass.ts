@@ -26,6 +26,7 @@ function createCurveAffine(params: CurveParams) {
   const Fq = createField(q);
 
   const zero: BigintPoint = { x: 0n, y: 1n, isZero: true };
+  const one: BigintPoint = { ...generator, isZero: false };
 
   /**
    * Addition, P1 + P2
@@ -39,11 +40,11 @@ function createCurveAffine(params: CurveParams) {
     let { x: x1, y: y1 } = P1;
     let { x: x2, y: y2 } = P2;
 
-    if (x1 === x2) {
+    if (Fp.isEqual(x1, x2)) {
       // G + G --> we double
-      if (y1 === y2) return double(P1);
+      if (Fp.isEqual(y1, y2)) return double(P1);
       // G - G --> return zero
-      if (y1 === Fp.inverse(y2)) return zero;
+      if (Fp.isEqual(y1, -y2)) return zero;
       assert(false, "unreachable");
     }
 
@@ -62,11 +63,11 @@ function createCurveAffine(params: CurveParams) {
    * Doubling, 2*P
    */
   function double({ x, y, isZero }: BigintPoint): BigintPoint {
-    if (isZero) zero;
+    if (isZero) return zero;
 
     // m = 3*x^2 / 2y
     let d = Fp.inverse(2n * y);
-    let m = Fp.mod(3n * x * x * d);
+    let m = Fp.mod(3n * Fp.multiply(x, x) * d);
     // x2 = m^2 - 2x
     let x2 = Fp.mod(m * m - 2n * x);
     // y2 = m*(x - x2) - y
@@ -151,7 +152,7 @@ function createCurveAffine(params: CurveParams) {
     ...params,
 
     zero,
-    one: generator,
+    one,
     add,
     double,
     negate,

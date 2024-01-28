@@ -3,16 +3,29 @@ import {
   createCurveTwistedEdwards,
   BigintPoint as TePoint,
 } from "./twisted-edwards.js";
-import { curveParams as teParams } from "../concrete/ed-on-bls12-377.params.js";
+import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
+import { curveParams as pallasParams } from "../concrete/pasta.params.js";
 import { assert } from "../util.js";
+import {
+  createCurveAffine,
+  BigintPoint as AffinePoint,
+} from "./affine-weierstrass.js";
 
 let testInputs: TestInput<any>[] = [
+  // twisted edwards curve
   {
-    // twisted edwards curve
     label: "ed-on-bls12-377",
-    Curve: createCurveTwistedEdwards(teParams),
+    Curve: createCurveTwistedEdwards(edBls12377Params),
     randomShape: (f) => Random.record({ X: f, Y: f, Z: f, T: f }),
   } satisfies TestInput<TePoint>,
+
+  // affine weierstrass curve
+  {
+    label: "pallas",
+    Curve: createCurveAffine(pallasParams),
+    randomShape: (f) =>
+      Random.record({ x: f, y: f, isZero: Random.constant(false) }),
+  } satisfies TestInput<AffinePoint>,
 ];
 
 for (let input of testInputs) testCurve(input);
