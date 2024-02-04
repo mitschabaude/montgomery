@@ -6,6 +6,7 @@ import {
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
 import { curveParams as pallasParams } from "../concrete/pasta.params.js";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
+import { curveParams as bls12377Params } from "../concrete/bls12-377.params.js";
 import { assert } from "../util.js";
 import {
   createCurveAffine,
@@ -29,6 +30,11 @@ let testInputs: TestInput<any>[] = [
   {
     label: "bls12-381",
     Curve: createCurveAffine(bls12381Params),
+    randomShape: affineShape,
+  } satisfies TestInput<AffinePoint>,
+  {
+    label: "bls12-377",
+    Curve: createCurveAffine(bls12377Params),
     randomShape: affineShape,
   } satisfies TestInput<AffinePoint>,
 ];
