@@ -26,7 +26,7 @@ const G = {
   isInfinity: false,
 };
 
-let curveParams: CurveParams = {
+const curveParams: CurveParams = {
   modulus: p,
   order: q,
   cofactor: h,

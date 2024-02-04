@@ -41,8 +41,6 @@ let testInputs: TestInput<any>[] = [
 
 for (let input of testInputs) testCurve(input);
 
-// TODO use the same tests for other curve implementations as well, like affine and projective Weierstrass
-
 type TestInput<Point> = {
   label: string;
   Curve: CurveInput<Point>;
