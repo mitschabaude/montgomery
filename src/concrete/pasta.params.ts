@@ -1,4 +1,4 @@
-import { CurveParams } from "../bigint/affine-weierstrass.js";
+import type { CurveParams } from "../bigint/affine-weierstrass.js";
 import { mod } from "../bigint/field-util.js";
 import { exp } from "../bigint/field.js";
 

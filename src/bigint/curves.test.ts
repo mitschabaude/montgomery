@@ -5,6 +5,7 @@ import {
 } from "./twisted-edwards.js";
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
 import { curveParams as pallasParams } from "../concrete/pasta.params.js";
+import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
 import { assert } from "../util.js";
 import {
   createCurveAffine,
@@ -16,15 +17,19 @@ let testInputs: TestInput<any>[] = [
   {
     label: "ed-on-bls12-377",
     Curve: createCurveTwistedEdwards(edBls12377Params),
-    randomShape: (f) => Random.record({ X: f, Y: f, Z: f, T: f }),
+    randomShape: twistedEdwardsShape,
   } satisfies TestInput<TePoint>,
 
-  // affine weierstrass curve
+  // affine weierstrass curves
   {
     label: "pallas",
     Curve: createCurveAffine(pallasParams),
-    randomShape: (f) =>
-      Random.record({ x: f, y: f, isZero: Random.constant(false) }),
+    randomShape: affineShape,
+  } satisfies TestInput<AffinePoint>,
+  {
+    label: "bls12-381",
+    Curve: createCurveAffine(bls12381Params),
+    randomShape: affineShape,
   } satisfies TestInput<AffinePoint>,
 ];
 
@@ -168,3 +173,10 @@ type CurveInput<Point> = {
     multiply: (s: bigint, t: bigint) => bigint;
   };
 };
+
+function affineShape(f: Random<bigint>) {
+  return Random.record({ x: f, y: f, isZero: Random.constant(false) });
+}
+function twistedEdwardsShape(f: Random<bigint>) {
+  return Random.record({ X: f, Y: f, Z: f, T: f });
+}
