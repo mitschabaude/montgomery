@@ -9,6 +9,7 @@ type CurveParams = {
   modulus: bigint;
   order: bigint;
   cofactor: bigint;
+  a: bigint;
   b: bigint;
   generator: { x: bigint; y: bigint };
 };
@@ -21,7 +22,9 @@ type CurveParams = {
  * The representation uses affine coordinates and a flag for zero.
  */
 function createCurveAffine(params: CurveParams) {
-  let { modulus: p, order: q, cofactor, b, generator } = params;
+  let { modulus: p, order: q, cofactor, b, a, generator } = params;
+  assert(a === 0n, "only curves with a = 0 are supported for now");
+
   const Fp = createField(p);
   const Fq = createField(q);
 

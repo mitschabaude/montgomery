@@ -1,17 +1,21 @@
 import { Random, test } from "../testing/property.js";
 import {
   createCurveTwistedEdwards,
-  BigintPoint as TePoint,
+  BigintPoint as TwistedEdwardsExtendedPoint,
 } from "./twisted-edwards.js";
+import {
+  createCurveAffine,
+  BigintPoint as AffinePoint,
+} from "./affine-weierstrass.js";
+import {
+  createCurveProjective,
+  BigintPoint as ProjectivePoint,
+} from "./projective-weierstrass.js";
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
 import { curveParams as pallasParams } from "../concrete/pasta.params.js";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
 import { curveParams as bls12377Params } from "../concrete/bls12-377.params.js";
 import { assert } from "../util.js";
-import {
-  createCurveAffine,
-  BigintPoint as AffinePoint,
-} from "./affine-weierstrass.js";
 
 let testInputs: TestInput<any>[] = [
   // twisted edwards curve
@@ -19,22 +23,29 @@ let testInputs: TestInput<any>[] = [
     label: "ed-on-bls12-377",
     Curve: createCurveTwistedEdwards(edBls12377Params),
     randomShape: twistedEdwardsShape,
-  } satisfies TestInput<TePoint>,
+  } satisfies TestInput<TwistedEdwardsExtendedPoint>,
 
-  // affine weierstrass curves
+  // projective weierstrass curves
   {
     label: "pallas",
-    Curve: createCurveAffine(pallasParams),
-    randomShape: affineShape,
-  } satisfies TestInput<AffinePoint>,
+    Curve: createCurveProjective(pallasParams),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
   {
     label: "bls12-381",
-    Curve: createCurveAffine(bls12381Params),
-    randomShape: affineShape,
-  } satisfies TestInput<AffinePoint>,
+    Curve: createCurveProjective(bls12381Params),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
   {
     label: "bls12-377",
-    Curve: createCurveAffine(bls12377Params),
+    Curve: createCurveProjective(bls12377Params),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+
+  // affine weierstrass curves (just one test because this is very slow)
+  {
+    label: "bls12-381 (affine)",
+    Curve: createCurveAffine(bls12381Params),
     randomShape: affineShape,
   } satisfies TestInput<AffinePoint>,
 ];
@@ -180,6 +191,9 @@ type CurveInput<Point> = {
 
 function affineShape(f: Random<bigint>) {
   return Random.record({ x: f, y: f, isZero: Random.constant(false) });
+}
+function projectiveShape(f: Random<bigint>) {
+  return Random.record({ X: f, Y: f, Z: f });
 }
 function twistedEdwardsShape(f: Random<bigint>) {
   return Random.record({ X: f, Y: f, Z: f, T: f });

@@ -30,6 +30,7 @@ const curveParams: CurveParams = {
   modulus: p,
   order: q,
   cofactor: h,
+  a: 0n,
   b,
   generator: { x: G.x, y: G.y },
 };

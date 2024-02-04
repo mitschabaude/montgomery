@@ -24,6 +24,7 @@ const curveParams: CurveParams = {
   modulus: p,
   order: q,
   cofactor: 1n,
+  a: 0n,
   b,
   generator: {
     x: 1n,
