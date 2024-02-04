@@ -23,19 +23,20 @@ function msm<Point>(
   let partitionSums: Point[] = Array(K);
 
   for (let k = 0; k < K; k++) {
-    let buckets: Point[] = Array(L);
-    for (let l = 0; l < L; l++) {
+    let buckets: Point[] = Array(L - 1);
+    for (let l = 0; l < L - 1; l++) {
       buckets[l] = Curve.zero;
     }
 
     for (let i = 0; i < N; i++) {
       let l = Number((scalars[i] >> BigInt(k * c)) & cMask);
-      buckets[l] = Curve.add(buckets[l], points[i]);
+      if (l === 0) continue;
+      buckets[l - 1] = Curve.add(buckets[l - 1], points[i]);
     }
 
     let runningSum = Curve.zero;
     let triangleSum = Curve.zero;
-    for (let l = L - 1; l > 0; l--) {
+    for (let l = L - 2; l >= 0; l--) {
       runningSum = Curve.add(runningSum, buckets[l]);
       triangleSum = Curve.add(triangleSum, runningSum);
     }
