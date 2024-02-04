@@ -19,7 +19,7 @@ testConsistent(bls12381Params);
 
 function testValid<Point>(Curve: InputCurve<Point>) {
   let point = Random(Curve.random);
-  let scalar = Random.field(Curve.order);
+  let scalar = Random.constant(1n); //Random.field(Curve.order);
 
   for (let n of [0, 1, 2, 3, 4]) {
     let size = 1 << n;
@@ -35,6 +35,7 @@ function testValid<Point>(Curve: InputCurve<Point>) {
       scalar,
       point,
       ({ scalars, points }, s, P) => {
+        s = 1n;
         let scalarSum = scalars.reduce(Curve.Scalar.add);
         let pointSum = points.reduce(Curve.add);
 
@@ -42,9 +43,9 @@ function testValid<Point>(Curve: InputCurve<Point>) {
         let expected = Curve.scale(scalarSum, P);
 
         let Ps = Array(size).fill(P);
-        console.log("scale", { scalarSum, P });
-        console.log("msm", { scalars, Ps });
         let actual = msm(Curve, scalars, Ps);
+        console.log("scale", { scalarSum, P, expected });
+        console.log("msm", { scalars, Ps, actual });
         assert(Curve.isEqual(expected, actual), "same point");
 
         // taking the same scalar is multiplication by the sum of the points

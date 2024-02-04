@@ -15,11 +15,11 @@ function msm<Point>(
   let N = scalars.length;
   assert(N === points.length, "matching length");
   let b = Curve.Scalar.sizeInBits;
-  let c = log2(N) - 1; // window size
-  c = Math.max(1, c);
+  let c = Math.max(log2(N) - 1, 1); // window size
   let cMask = (1 << c) - 1;
   let K = Math.ceil(b / c);
   let L = 1 << c;
+  console.log({ scalars });
 
   let partitionSums: Point[] = Array(K);
 
@@ -34,18 +34,20 @@ function msm<Point>(
       buckets[l] = Curve.add(buckets[l], points[i]);
     }
 
+    if (k === 0) console.log({ k, buckets });
+
     let runningSum = Curve.zero;
     let triangleSum = Curve.zero;
-    for (let l = 0; l < L; l++) {
-      triangleSum = Curve.add(triangleSum, runningSum);
+    for (let l = 1; l < L; l++) {
       runningSum = Curve.add(runningSum, buckets[l]);
+      triangleSum = Curve.add(triangleSum, runningSum);
     }
 
     partitionSums[k] = triangleSum;
   }
 
-  let result = partitionSums[0];
-  for (let k = K - 1; k >= 0; k--) {
+  let result = partitionSums[K - 1];
+  for (let k = K - 2; k >= 0; k--) {
     for (let i = 0; i < c; i++) {
       result = Curve.double(result);
     }

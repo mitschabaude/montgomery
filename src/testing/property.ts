@@ -63,23 +63,16 @@ function testCustom({
   logSuccess = false,
 } = {}) {
   function runTest<T extends readonly Random<any>[]>(
-    ...args: ArrayTestArgs<T>
-  ): number;
-  function runTest<T extends readonly Random<any>[]>(
     label: string,
     ...args: ArrayTestArgs<T>
-  ): number;
-  function runTest<T extends readonly Random<any>[]>(...args: any[]) {
-    let label =
-      typeof args[0] === "string" ? (args.shift() as string) : undefined;
-
-    let run: (...args: ArrayRunArgs<Nexts<T>>) => void = args.pop();
+  ) {
+    let run: (...args: ArrayRunArgs<Nexts<T>>) => void = (args as any).pop();
     let gens = args as any as T;
     let nexts = gens.map((g) => g.create()) as Nexts<T>;
     let start = performance.now();
 
     // run at least `minRuns` times
-    testN(minRuns, nexts, run, { negative, logFailures });
+    testN(label, minRuns, nexts, run, { negative, logFailures });
     let time = performance.now() - start;
     let totalRuns = minRuns;
 
@@ -88,7 +81,7 @@ function testCustom({
       let remainingRuns = Math.floor(timeBudget / (time / minRuns)) - minRuns;
       // run at most `maxRuns` times
       if (remainingRuns > maxRuns - minRuns) remainingRuns = maxRuns - minRuns;
-      testN(remainingRuns, nexts, run, { negative, logFailures });
+      testN(label, remainingRuns, nexts, run, { negative, logFailures });
       totalRuns = minRuns + remainingRuns;
     }
 
@@ -105,6 +98,7 @@ function testCustom({
 }
 
 function testN<T extends readonly (() => any)[]>(
+  label: string,
   N: number,
   nexts: T,
   run: (...args: ArrayRunArgs<T>) => void,
@@ -130,9 +124,8 @@ function testN<T extends readonly (() => any)[]>(
         console.log("failing inputs:");
         values.forEach((v) => console.dir(v, { depth: Infinity }));
       }
-      let message = "\n" + errorMessages.join("\n");
-      if (error === undefined) throw Error(message);
-      error.message = `${message}\nFailed - error during test execution:
+      if (error === undefined) throw Error(label);
+      error.message = `${label}\n\nFailed - error during test execution:
 ${error.message}`;
       throw error;
     } else {
@@ -141,7 +134,7 @@ ${error.message}`;
         console.log("succeeding inputs:");
         values.forEach((v) => console.dir(v, { depth: Infinity }));
       }
-      throw Error("Negative test failed - one run succeeded");
+      throw Error(`${label}\n\nNegative test failed - one run succeeded`);
     }
   }
 }
