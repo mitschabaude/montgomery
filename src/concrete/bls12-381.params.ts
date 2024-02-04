@@ -36,6 +36,7 @@ const cofactor = 0x396c8c005555e1568c00aaab0000aaabn;
 const b = 4n;
 
 const curveParams: CurveParams = {
+  label: "bls12-381",
   modulus: p,
   order: q,
   cofactor,

@@ -27,6 +27,7 @@ const G = {
 };
 
 const curveParams: CurveParams = {
+  label: "bls12-377",
   modulus: p,
   order: q,
   cofactor: h,

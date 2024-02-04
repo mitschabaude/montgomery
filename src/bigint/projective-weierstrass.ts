@@ -1,5 +1,8 @@
 import { assert, bigintToBits } from "../util.js";
-import type { CurveParams } from "./affine-weierstrass.js";
+import type {
+  CurveParams,
+  BigintPoint as AffinePoint,
+} from "./affine-weierstrass.js";
 import { createField } from "./field.js";
 
 export { createCurveProjective, BigintPoint };
@@ -189,6 +192,16 @@ function createCurveProjective(params: CurveParams) {
     return toSubgroup(P);
   }
 
+  function fromAffine({ x, y, isZero }: AffinePoint): BigintPoint {
+    if (isZero) return zero;
+    return { X: x, Y: y, Z: 1n };
+  }
+  function toAffine({ X, Y, Z }: BigintPoint): AffinePoint {
+    if (Fp.isEqual(Z, 0n)) return { x: 0n, y: 1n, isZero: true };
+    let invZ = Fp.inverse(Z);
+    return { x: Fp.multiply(X, invZ), y: Fp.multiply(Y, invZ), isZero: false };
+  }
+
   return {
     Field: Fp,
     Scalar: Fq,
@@ -206,5 +219,8 @@ function createCurveProjective(params: CurveParams) {
     isEqual,
     isZero,
     random,
+
+    fromAffine,
+    toAffine,
   };
 }

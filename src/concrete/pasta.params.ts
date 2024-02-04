@@ -21,6 +21,7 @@ const lambda = exp(5n, (q - 1n) / 3n, q);
 const lambda2 = mod(lambda * lambda, q);
 
 const curveParams: CurveParams = {
+  label: "pallas",
   modulus: p,
   order: q,
   cofactor: 1n,

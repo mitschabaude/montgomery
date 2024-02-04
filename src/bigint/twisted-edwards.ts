@@ -6,6 +6,7 @@ export { createCurveTwistedEdwards, BigintPoint, CurveParams };
 type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
 
 type CurveParams = {
+  label: string;
   modulus: bigint;
   order: bigint;
   cofactor: bigint;

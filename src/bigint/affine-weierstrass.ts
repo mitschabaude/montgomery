@@ -6,6 +6,7 @@ export { createCurveAffine, BigintPoint, CurveParams };
 type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 
 type CurveParams = {
+  label: string;
   modulus: bigint;
   order: bigint;
   cofactor: bigint;

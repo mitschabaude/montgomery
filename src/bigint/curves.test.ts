@@ -54,7 +54,7 @@ for (let input of testInputs) testCurve(input);
 
 type TestInput<Point> = {
   label: string;
-  Curve: CurveInput<Point>;
+  Curve: InputCurve<Point>;
   randomShape: (field: Random<bigint>) => Random<Point>;
 };
 
@@ -168,7 +168,7 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
   );
 }
 
-type CurveInput<Point> = {
+type InputCurve<Point> = {
   modulus: bigint;
   order: bigint;
 

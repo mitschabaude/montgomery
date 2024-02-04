@@ -16,6 +16,7 @@ function msm<Point>(
   assert(N === points.length, "matching length");
   let b = Curve.Scalar.sizeInBits;
   let c = log2(N) - 1; // window size
+  c = Math.max(1, c);
   let cMask = (1 << c) - 1;
   let K = Math.ceil(b / c);
   let L = 1 << c;
