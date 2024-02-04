@@ -84,7 +84,7 @@ let cTable: Record<number, [number, number] | undefined> = {
   [18]: [16, 8],
 };
 
-type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
+type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 
 // MSM where input scalars and points are bigints
 function msmBigint(
@@ -883,7 +883,7 @@ function toAffineOutputBigint(
   point: number
 ): BigintPoint {
   if (isZeroProjective(point)) {
-    return { x: 0n, y: 0n, isInfinity: true };
+    return { x: 0n, y: 0n, isZero: true };
   }
   let [x, y, z] = projectiveCoords(point);
   // return x/z, y/z
@@ -892,7 +892,7 @@ function toAffineOutputBigint(
   multiply(y, y, zinv);
   fromMontgomery(x);
   fromMontgomery(y);
-  return { x: readBigint(x), y: readBigint(y), isInfinity: false };
+  return { x: readBigint(x), y: readBigint(y), isZero: false };
 }
 
 function bigintScalarsToMemory(inputScalars: bigint[]) {
@@ -920,7 +920,7 @@ function bigintPointsToMemory(inputPoints: BigintPoint[]) {
     let y = point + sizeField;
     writeBigint(x, inputPoint.x);
     writeBigint(y, inputPoint.y);
-    let isNonZero = Number(!inputPoint.isInfinity);
+    let isNonZero = Number(!inputPoint.isZero);
     memoryBytes[point + 2 * sizeField] = isNonZero;
 
     // do one multiplication on each coordinate to bring it into montgomery form

@@ -1,37 +1,38 @@
-import { create } from "../src/concrete/pasta.parallel.js";
-import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
+import { create } from "../src/concrete/pallas.parallel.js";
 import { tic, toc } from "../src/extra/tictoc.web.js";
 import assert from "node:assert/strict";
 import { median, standardDev } from "./evaluate-util.js";
+import { msm as bigintMsm } from "../src/bigint/msm.js";
+import { curveParams } from "../src/concrete/pasta.params.js";
+import { createCurveProjective } from "../src/bigint/projective-weierstrass.js";
 
-const Pasta = await create();
+const Pallas = await create();
 
 let n = Number(process.argv[3] ?? 16);
 let N = 1 << n;
 
 let nThreads = Number(process.argv[4] ?? 16);
-await Pasta.startThreads(nThreads);
+await Pallas.startThreads(nThreads);
 
 tic("random points");
-let pointsPtrs = await Pasta.randomPointsFast(N);
+let pointsPtrs = await Pallas.randomPointsFast(N);
 toc();
 
 tic("random scalars");
-let scalarPtrs = await Pasta.randomScalars(N);
+let scalarPtrs = await Pallas.randomScalars(N);
 toc();
 
-tic("convert points to bigint & check");
-let scratch = Pasta.Field.local.getPointers(5);
-let points = pointsPtrs.map((g) => {
-  Pasta.CurveAffine.assertOnCurve(scratch, g);
-  return Pasta.CurveAffine.toBigint(g);
+tic("check points");
+let scratch = Pallas.Field.local.getPointers(5);
+pointsPtrs.forEach((g) => {
+  Pallas.CurveAffine.assertOnCurve(scratch, g);
 });
 toc();
 
 tic("convert scalars to bigint & check");
 let scalars = scalarPtrs.map((s) => {
-  let scalar = Pasta.Scalar.readBigint(s);
-  assert(scalar < Pasta.Scalar.modulus);
+  let scalar = Pallas.Scalar.readBigint(s);
+  assert(scalar < Pallas.Scalar.modulus);
   return scalar;
 });
 assert(scalars.length === N);
@@ -42,17 +43,23 @@ let doEvaluate = process.argv[5] === "--evaluate";
 
 if (!doEvaluate) {
   tic(`msm (n=${n})`);
-  let { result, log } = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, true);
-  let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.size);
-  Pasta.CurveProjective.toAffine(scratch, sAffinePtr, result);
-  let s = Pasta.CurveAffine.toBigint(sAffinePtr);
+  let { result, log } = await Pallas.msm(scalarPtrs[0], pointsPtrs[0], N, true);
+  let sAffinePtr = Pallas.Field.getPointer(Pallas.CurveAffine.size);
+  Pallas.CurveProjective.toAffine(scratch, sAffinePtr, result);
+  let s = Pallas.CurveAffine.toBigint(sAffinePtr);
 
   log.forEach((l) => console.log(...l));
   toc();
 
-  if (n < 10) {
-    tic("msm (simple, slow bigint impl)");
-    let sBigint = msmDumbAffine(scalars, points, Pasta.Scalar, Pasta.Field);
+  if (n < 14) {
+    const PallasBigint = createCurveProjective(curveParams);
+    let points = pointsPtrs.map((g) =>
+      PallasBigint.fromAffine(Pallas.CurveAffine.toBigint(g))
+    );
+    tic("msm (bigint impl)");
+    let sBigint = PallasBigint.toAffine(
+      bigintMsm(PallasBigint, scalars, points)
+    );
     toc();
     assert.deepEqual(s, sBigint, "consistent results");
     console.log("results are consistent!");
@@ -62,21 +69,21 @@ if (!doEvaluate) {
   let pointPtr = pointsPtrs[0];
 
   tic("warm-up JIT compiler");
-  await Pasta.msm(scalarPtr, pointPtr, 1 << 15, true);
+  await Pallas.msm(scalarPtr, pointPtr, 1 << 15, true);
   await new Promise((r) => setTimeout(r, 50));
   toc();
 
   let times: number[] = [];
   for (let i = 0; i < 15; i++) {
-    let [scalarPtr] = await Pasta.randomScalars(N);
+    let [scalarPtr] = await Pallas.randomScalars(N);
     tic();
-    await Pasta.msm(scalarPtr, pointPtr, 1 << n, true);
+    await Pallas.msm(scalarPtr, pointPtr, 1 << n, true);
     let time = toc();
     if (i > 4) times.push(time);
   }
-  [scalarPtr] = await Pasta.randomScalars(N);
+  [scalarPtr] = await Pallas.randomScalars(N);
   tic();
-  let { log } = await Pasta.msm(scalarPtr, pointPtr, 1 << n, true);
+  let { log } = await Pallas.msm(scalarPtr, pointPtr, 1 << n, true);
   let t = toc();
 
   log.forEach((l) => console.log(...l));
@@ -89,4 +96,4 @@ if (!doEvaluate) {
   console.log(`msm (n=${n})... ${avg}ms ± ${std}ms`);
 }
 
-await Pasta.stopThreads();
+await Pallas.stopThreads();

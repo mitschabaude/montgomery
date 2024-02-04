@@ -24,11 +24,11 @@ function msmDumbAffine(
   return sum;
 }
 
-const zero: BigintPoint = { x: 0n, y: 0n, isInfinity: true };
+const zero: BigintPoint = { x: 0n, y: 0n, isZero: true };
 
 function addAffine(G: BigintPoint, H: BigintPoint, p: bigint): BigintPoint {
-  if (G.isInfinity) return H;
-  if (H.isInfinity) return G;
+  if (G.isZero) return H;
+  if (H.isZero) return G;
 
   let { x: x1, y: y1 } = G;
   let { x: x2, y: y2 } = H;
@@ -47,11 +47,11 @@ function addAffine(G: BigintPoint, H: BigintPoint, p: bigint): BigintPoint {
   let x3 = mod(m * m - x1 - x2, p);
   // y3 = m*(x1 - x3) - y1
   let y3 = mod(m * (x1 - x3) - y1, p);
-  return { x: x3, y: y3, isInfinity: false };
+  return { x: x3, y: y3, isZero: false };
 }
 
 function doubleAffine(
-  { x, y, isInfinity }: BigintPoint,
+  { x, y, isZero: isInfinity }: BigintPoint,
   p: bigint
 ): BigintPoint {
   if (isInfinity) zero;
@@ -62,11 +62,11 @@ function doubleAffine(
   let x2 = mod(m * m - 2n * x, p);
   // y2 = m*(x - x2) - y
   let y2 = mod(m * (x - x2) - y, p);
-  return { x: x2, y: y2, isInfinity: false };
+  return { x: x2, y: y2, isZero: false };
 }
 
-function checkOnCurve({ x, y, isInfinity }: BigintPoint, p: bigint, b: bigint) {
-  if (isInfinity) return true;
+function checkOnCurve({ x, y, isZero }: BigintPoint, p: bigint, b: bigint) {
+  if (isZero) return true;
   return mod(x * mod(x * x, p) + b - y * y, p) === 0n;
 }
 

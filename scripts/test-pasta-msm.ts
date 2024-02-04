@@ -10,8 +10,11 @@ import {
   Bigint,
 } from "../src/concrete/pasta.js";
 import { bigintScalarsToMemory } from "../src/msm.js";
-import { checkOnCurve, msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
+import { checkOnCurve } from "../src/extra/dumb-curve-affine.js";
+import { msm as bigintMsm } from "../src/bigint/msm.js";
 import assert from "node:assert/strict";
+import { createCurveProjective } from "../src/bigint/projective-weierstrass.js";
+import { curveParams } from "../src/concrete/pasta.params.js";
 
 let n = Number(process.argv[2] ?? 8);
 let N = 1 << n;
@@ -46,8 +49,11 @@ toc();
 assert.deepEqual(s, s1, "consistent with bigint version");
 
 if (n < 12) {
-  tic("msm (simple, slow bigint impl)");
-  let sBigint = msmDumbAffine(scalars, pointsBigint, Scalar, Field);
+  const PallasBigint = createCurveProjective(curveParams);
+  tic("msm (bigint impl)");
+  let sBigint = PallasBigint.toAffine(
+    bigintMsm(PallasBigint, scalars, pointsBigint.map(PallasBigint.fromAffine))
+  );
   toc();
   assert.deepEqual(s, sBigint, "consistent results");
   console.log("results are consistent!");

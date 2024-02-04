@@ -222,15 +222,15 @@ function createCurveAffine(
     let pointBigint = {
       x: Field.readBigint(x),
       y: Field.readBigint(y),
-      isInfinity: false,
+      isZero: false,
     };
     Field.toMontgomery(x);
     Field.toMontgomery(y);
     return pointBigint;
   }
 
-  function writeBigint(point: number, { x, y, isInfinity }: BigintPoint) {
-    if (isInfinity) {
+  function writeBigint(point: number, { x, y, isZero }: BigintPoint) {
+    if (isZero) {
       setIsNonZero(point, false);
       return;
     }
@@ -310,7 +310,7 @@ function createCurveAffine(
         pointsBigint[i] = {
           x: Field.readBigint(x),
           y: Field.readBigint(y),
-          isInfinity: false,
+          isZero: false,
         };
       }
       Field.setOffset(memoryOffset);
@@ -323,9 +323,9 @@ function getSizeAffine(sizeField: number) {
   return 2 * sizeField + 4;
 }
 
-type BigintPoint = { x: bigint; y: bigint; isInfinity: boolean };
+type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 const BigintPoint = {
-  zero: { x: 0n, y: 0n, isInfinity: true },
+  zero: { x: 0n, y: 0n, isZero: true },
 };
 
 /**

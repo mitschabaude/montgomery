@@ -3,9 +3,9 @@ import { BigintPoint, MsmCurve } from "./msm.js";
 export { createBigintApi };
 
 type BigintPointProjective = {
-  x: bigint;
-  y: bigint;
-  z: bigint;
+  X: bigint;
+  Y: bigint;
+  Z: bigint;
 };
 
 function createBigintApi({
@@ -34,7 +34,7 @@ function createBigintApi({
       pointsBigint[i] = {
         x: Field.readBigint(x),
         y: Field.readBigint(y),
-        isInfinity: false,
+        isZero: false,
       };
     }
     Field.setOffset(memoryOffset);
@@ -49,7 +49,7 @@ function createBigintApi({
     let pointsProjective: BigintPointProjective[] = Array(n);
     for (let i = 0; i < n; i++) {
       let { x, y } = points[i];
-      pointsProjective[i] = { x, y, z: 1n };
+      pointsProjective[i] = { X: x, Y: y, Z: 1n };
     }
     return pointsProjective;
   }

@@ -25,8 +25,8 @@ let { points: pointsLoaded, scalars: scalarsLoaded } = await load(18);
 let points = pointsLoaded.map((P) => {
   let x = bigintFromBytes(P[0]);
   let y = bigintFromBytes(P[1]);
-  let isInfinity = P[2];
-  return { x, y, isInfinity };
+  let isZero = P[2];
+  return { x, y, isZero };
 });
 let scalars = scalarsLoaded.map((s) => bigintFromBytes(s));
 toc();

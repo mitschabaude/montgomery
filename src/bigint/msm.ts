@@ -1,8 +1,6 @@
 /**
- * Simple bigint implementation pippenger MSM,
- * generic over the curve.
+ * Simple bigint pippenger MSM, generic over the curve.
  */
-
 import { assert, log2 } from "../util.js";
 
 export { msm };

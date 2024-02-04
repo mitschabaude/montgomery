@@ -70,14 +70,14 @@ let yAff = bigintFromBytes(yAffPacked);
 let pointsBigint = points.map((P) => {
   let x = bigintFromBytes(P[0]);
   let y = bigintFromBytes(P[1]);
-  let isInfinity = P[2];
-  return { x, y, isInfinity };
+  let isZero = P[2];
+  return { x, y, isZero };
 });
 let scalarsBigint = scalars.map((s) => bigintFromBytes(s));
 tic("msm (bigint zprize)");
 let resultBigint = msmBigint(scalarsBigint, pointsBigint);
 toc();
-let { x: xBig, y: yBig, isInfinity } = resultBigint;
+let { x: xBig, y: yBig, isZero: isInfinity } = resultBigint;
 
 // consistency with new impl
 
