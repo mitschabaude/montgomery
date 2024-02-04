@@ -29,7 +29,7 @@ function msm<Point>(
     }
 
     for (let i = 0; i < N; i++) {
-      let l = extractScalarDigit(scalars[i], k, c, cMask);
+      let l = Number(scalars[i] >> BigInt(k * c)) & cMask;
       buckets[l] = Curve.add(buckets[l], points[i]);
     }
 
@@ -62,12 +62,3 @@ type InputCurve<Point> = {
     sizeInBits: number;
   };
 };
-
-function extractScalarDigit(
-  scalar: bigint,
-  k: number,
-  c: number,
-  cMask: number
-): number {
-  return Number(scalar >> BigInt(k * c)) & cMask;
-}
