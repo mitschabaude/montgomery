@@ -7,21 +7,22 @@ import { createCurveAffine, CurveParams } from "./affine-weierstrass.js";
 import { createCurveProjective } from "./projective-weierstrass.js";
 import { curveParams as pallasParams } from "../concrete/pasta.params.js";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
-import { curveParams as bls12377Params } from "../concrete/bls12-377.params.js";
+import { curveParams as edOnBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
 import { assert } from "../util.js";
 import { msm } from "./msm.js";
 
-// TODO
 testValid(createCurveProjective(pallasParams));
+testValid(createCurveTwistedEdwards(edOnBls12377Params));
+testValid(createCurveProjective(bls12381Params));
 
 testConsistent(pallasParams);
 testConsistent(bls12381Params);
 
 function testValid<Point>(Curve: InputCurve<Point>) {
   let point = Random(Curve.random);
-  let scalar = Random.constant(1n); //Random.field(Curve.order);
+  let scalar = Random.field(Curve.order);
 
-  for (let n of [0, 1, 2, 3, 4]) {
+  for (let n of [0, 1, 2, 4]) {
     let size = 1 << n;
 
     let inputs = Random.record({
@@ -35,18 +36,22 @@ function testValid<Point>(Curve: InputCurve<Point>) {
       scalar,
       point,
       ({ scalars, points }, s, P) => {
-        s = 1n;
         let scalarSum = scalars.reduce(Curve.Scalar.add);
         let pointSum = points.reduce(Curve.add);
 
         // taking the same point is multiplication by the sum of the scalars
         let expected = Curve.scale(scalarSum, P);
+        let actual = msm(Curve, scalars, Array(size).fill(P));
 
-        let Ps = Array(size).fill(P);
-        let actual = msm(Curve, scalars, Ps);
-        console.log("scale", { scalarSum, P, expected });
-        console.log("msm", { scalars, Ps, actual });
         assert(Curve.isEqual(expected, actual), "same point");
+
+        expected = Curve.zero;
+        actual = msm(
+          Curve,
+          [...scalars, Curve.Scalar.negate(scalarSum)],
+          Array(size + 1).fill(P)
+        );
+        assert(Curve.isEqual(expected, actual), "zero with same point");
 
         // taking the same scalar is multiplication by the sum of the points
         expected = Curve.scale(s, pointSum);
@@ -64,7 +69,7 @@ function testConsistent(params: CurveParams) {
   let affine = Random(CurveAffine.random);
   let scalar = Random.field(params.order);
 
-  for (let n of [0, 1, 3]) {
+  for (let n of [1, 2]) {
     let size = 1 << n;
 
     let inputs = Random.record({
@@ -113,5 +118,6 @@ type InputCurve<Point> = {
   Scalar: {
     sizeInBits: number;
     add: (a: bigint, b: bigint) => bigint;
+    negate: (a: bigint) => bigint;
   };
 };
