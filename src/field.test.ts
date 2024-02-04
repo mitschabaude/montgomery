@@ -24,7 +24,7 @@ for (let label in exampleFields) {
 
 async function testField(label: string, w: number, BigintField: BigintField) {
   const Field = await createMsmField({ p: BigintField.modulus, w, beta: 1n });
-  const equiv = createEquivalentWasm(Field, { maxRuns: 1000 });
+  const equiv = createEquivalentWasm(Field);
 
   const field = WasmSpec.fieldUnreduced(Field);
   const fieldReduced = WasmSpec.field(Field);
