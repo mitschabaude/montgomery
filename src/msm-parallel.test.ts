@@ -1,49 +1,51 @@
 import { create } from "./concrete/pallas.parallel.js";
-import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
-import { tic, toc } from "../src/extra/tictoc.web.js";
+import { tic, toc } from "./extra/tictoc.web.js";
+import { msm as bigintMsm } from "./bigint/msm.js";
+import { curveParams as pallasParams } from "./concrete/pasta.params.js";
+import { createCurveProjective } from "./bigint/projective-weierstrass.js";
 import assert from "node:assert/strict";
 
-const Pasta = await create();
+const Pallas = await create();
+const PallasBigint = createCurveProjective(pallasParams);
 
-let n = Number(process.argv[3] ?? 16);
-let N = 1 << n;
+let nThreads = 16;
 
-let nThreads = Number(process.argv[4] ?? 16);
-await Pasta.startThreads(nThreads);
+await Pallas.startThreads(nThreads);
+let scratch = Pallas.Field.local.getPointers(5);
 
-tic("random points");
-let pointsPtrs = await Pasta.randomPointsFast(N);
-toc();
+for (let n = 0; n < 14; n += 2) {
+  await testMsm(n);
+}
 
-tic("random scalars");
-let scalarPtrs = await Pasta.randomScalars(N);
-toc();
+await Pallas.stopThreads();
 
-tic("convert points to bigint & check");
-let scratch = Pasta.Field.local.getPointers(5);
-let points = pointsPtrs.map((g) => {
-  Pasta.CurveAffine.assertOnCurve(scratch, g);
-  return Pasta.CurveAffine.toBigint(g);
-});
-toc();
+async function testMsm(n: number) {
+  let N = 1 << n;
 
-tic("convert scalars to bigint & check");
-let scalars = scalarPtrs.map((s) => {
-  let scalar = Pasta.Scalar.readBigint(s);
-  assert(scalar < Pasta.Scalar.modulus);
-  return scalar;
-});
-assert(scalars.length === N);
-toc();
-console.log();
+  let pointsPtrs = await Pallas.randomPointsFast(N);
+  let scalarPtrs = await Pallas.randomScalars(N);
 
-tic(`msm (n=${n})`);
-let { result, log } = await Pasta.msm(scalarPtrs[0], pointsPtrs[0], N, true);
-let sAffinePtr = Pasta.Field.getPointer(Pasta.CurveAffine.size);
-Pasta.CurveProjective.toAffine(scratch, sAffinePtr, result);
-let s = Pasta.CurveAffine.toBigint(sAffinePtr);
+  let points = pointsPtrs.map((g) => {
+    Pallas.CurveAffine.assertOnCurve(scratch, g);
+    return PallasBigint.fromAffine(Pallas.CurveAffine.toBigint(g));
+  });
 
-log.forEach((l) => console.log(...l));
-toc();
+  let scalars = scalarPtrs.map((s) => {
+    let scalar = Pallas.Scalar.readBigint(s);
+    assert(scalar < Pallas.Scalar.modulus);
+    return scalar;
+  });
+  assert(scalars.length === N);
 
-await Pasta.stopThreads();
+  tic(`msm (wasm)  `);
+  let { result } = await Pallas.msm(scalarPtrs[0], pointsPtrs[0], N, true);
+  let s = Pallas.CurveProjective.toBigint(result);
+  toc();
+
+  tic("msm (bigint)");
+  let sBigint = bigintMsm(PallasBigint, scalars, points);
+  toc();
+
+  assert(PallasBigint.isEqual(s, sBigint));
+  console.log(`msm 2^${n} ok`);
+}

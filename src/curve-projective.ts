@@ -218,10 +218,9 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     Field.fromMontgomery(y);
     Field.fromMontgomery(z);
     let pointBigint = {
-      x: Field.readBigint(x),
-      y: Field.readBigint(y),
-      z: Field.readBigint(z),
-      isInfinity: false,
+      X: Field.readBigint(x),
+      Y: Field.readBigint(y),
+      Z: Field.readBigint(z),
     };
     Field.toMontgomery(x);
     Field.toMontgomery(y);
@@ -270,12 +269,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
   };
 }
 
-type BigintPointProjective = {
-  x: bigint;
-  y: bigint;
-  z: bigint;
-  isInfinity: boolean;
-};
+type BigintPointProjective = { X: bigint; Y: bigint; Z: bigint };
 const BigintPointProjective = {
-  zero: { x: 0n, y: 1n, z: 0n, isInfinity: true },
+  zero: { X: 0n, Y: 1n, Z: 0n },
 };

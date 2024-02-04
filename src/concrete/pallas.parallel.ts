@@ -50,7 +50,6 @@ async function create(
     msm,
 
     async startThreads(n: number) {
-      console.log(`starting ${n} workers`);
       await pool.start(n);
       Field.updateThreads();
       await pool.callWorkers(create, Field.wasmArtifacts, Scalar.wasmParams);
