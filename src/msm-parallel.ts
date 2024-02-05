@@ -578,13 +578,18 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
 
   return {
     msm,
-    msmUnsafe: (
-      s: number,
-      p: number,
+    msmUnsafe(
+      scalarPtr: number,
+      pointPtr: number,
       N: number,
-      v?: boolean,
-      o?: { c?: number; c0?: number }
-    ) => msm(s, p, N, v, { ...o, useSafeAdditions: false }),
+      verbose?: boolean,
+      options?: { c?: number; c0?: number }
+    ) {
+      return msm(scalarPtr, pointPtr, N, verbose, {
+        ...options,
+        useSafeAdditions: false,
+      });
+    },
   };
 }
 
