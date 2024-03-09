@@ -37,15 +37,15 @@
   "author": "Gregor Mitscha-Baude",
   "license": "Apache-2.0",
   "dependencies": {
-    "fast-base64": "^0.1.8",
     "wasmati": "^0.2.0"
   },
   "devDependencies": {
     "chrode": "^0.4.0",
+    "esbuild": "^0.20.1",
     "eslint": "^8.20.0",
     "prettier": "^3.1.1",
     "source-map-support": "^0.5.21",
-    "ts-node": "^10.9.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3",
     "wabt": "^1.0.29"
   }

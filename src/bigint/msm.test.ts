@@ -1,8 +1,5 @@
 import { Random, test } from "../testing/property.js";
-import {
-  createCurveTwistedEdwards,
-  BigintPoint as TwistedEdwardsExtendedPoint,
-} from "./twisted-edwards.js";
+import { createCurveTwistedEdwards } from "./twisted-edwards.js";
 import { createCurveAffine, CurveParams } from "./affine-weierstrass.js";
 import { createCurveProjective } from "./projective-weierstrass.js";
 import { curveParams as pallasParams } from "../concrete/pasta.params.js";
