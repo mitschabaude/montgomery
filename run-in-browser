@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+import fs from "node:fs/promises";
+import path from "node:path";
+import http from "node:http";
+import { buildWeb } from "./build/scripts/bundle/bundle-web.js";
+
+// get first and only command line argument
+let filename = process.argv[2];
+
+// transform ts file name in the source tree to js file in /build
+const src = filename.replace(/\.ts$/, ".js");
+const entrypoint = path.resolve("build/", src);
+
+let targetDir = "build/web";
+let absPath = await buildWeb(entrypoint, targetDir);
+let fileName = path.basename(absPath);
+let filePath = `${targetDir}/${fileName}`;
+
+console.log(`running in the browser: ${filePath}`);
+
+const indexHtml = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="data:," />
+    <title>o1js</title>
+    <script type="module" src="./${fileName}">
+    </script>
+  </head>
+  <body>
+    <div>Check out the console (F12)</div>
+  </body>
+</html>
+
+`;
+
+const port = 8000;
+const defaultHeaders = {
+  "content-type": "text/html",
+  "Cross-Origin-Embedder-Policy": "require-corp",
+  "Cross-Origin-Opener-Policy": "same-origin",
+};
+
+const server = http.createServer(async (req, res) => {
+  let file = "." + req.url;
+  if (file === "./") file = "./index.html";
+  // console.log('serving', file);
+
+  let content;
+  if (file === "./index.html") content = indexHtml;
+  else {
+    try {
+      content = await fs.readFile(path.resolve(targetDir, file), "utf8");
+    } catch (err) {
+      res.writeHead(404, defaultHeaders);
+      res.write("<html><body>404</body><html>");
+      res.end();
+      return;
+    }
+  }
+
+  const extension = path.basename(file).split(".").pop();
+  const contentType = {
+    html: "text/html",
+    js: "application/javascript",
+    map: "application/json",
+  }[extension];
+  const headers = { ...defaultHeaders, "content-type": contentType };
+
+  res.writeHead(200, headers);
+  res.write(content);
+  res.end();
+});
+
+server.listen(port, () => {
+  console.log(`Server is running on: http://localhost:${port}`);
+});

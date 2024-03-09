@@ -3,7 +3,7 @@ import path from "node:path";
 import "source-map-support/register.js";
 
 // get first and only command line argument
-const [filename] = process.argv.slice(2);
+const filename = process.argv[2];
 
 // transform ts file name in the source tree to js file in /build
 const src = filename.replace(/\.ts$/, ".js");
