@@ -3,7 +3,7 @@ import { tic, toc } from "./extra/tictoc.web.js";
 import { msm as bigintMsm } from "./bigint/msm.js";
 import { curveParams as pallasParams } from "./concrete/pasta.params.js";
 import { createCurveProjective } from "./bigint/projective-weierstrass.js";
-import assert from "node:assert/strict";
+import { assert } from "./util.js";
 
 const Pallas = await create();
 const PallasBigint = createCurveProjective(pallasParams);

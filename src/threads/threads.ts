@@ -1,6 +1,5 @@
-import { Worker, parentPort } from "node:worker_threads";
 import type { EventEmitter } from "node:events";
-import { availableParallelism } from "node:os";
+import { availableParallelism, Worker, parentPort } from "./worker.node.js";
 import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
 
