@@ -1,11 +1,13 @@
+// import type { MessagePort } from "node:worker_threads";
+
 export { WebWorker as Worker, parentPort, availableParallelism };
 
-let parentPort: MessagePort | null = null;
+let parentPort: Pick<
+  Window,
+  "addEventListener" | "removeEventListener" | "postMessage"
+> = self;
 
-function WebWorker(url: string) {
-  // TODO should create a worker from an "inline file"
-  return new Worker(url);
-}
+const WebWorker = Worker;
 
 function availableParallelism() {
   return navigator.hardwareConcurrency;

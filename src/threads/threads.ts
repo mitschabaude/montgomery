@@ -1,4 +1,3 @@
-import type { EventEmitter } from "node:events";
 import { availableParallelism, Worker, parentPort } from "./worker.node.js";
 import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
@@ -73,26 +72,30 @@ type Message =
 
 const functions = new Map<string, (...args: any) => any>();
 
-parentPort?.on("message", async (message: Message) => {
-  if (DEBUG) console.log(`worker ${thread}/${THREADS} got message`, message);
+parentPort?.addEventListener(
+  "message",
+  async ({ data: message }: MessageEvent<Message>) => {
+    if (!("type" in message)) return;
+    if (DEBUG) console.log(`worker ${thread}/${THREADS} got message`, message);
 
-  if (message.type === MessageType.CALL) {
-    let { func: funcName, args, callId } = message;
+    if (message.type === MessageType.CALL) {
+      let { func: funcName, args, callId } = message;
 
-    let func = functions.get(funcName);
-    if (func === undefined) {
-      throw Error(`Method ${message.func} not registered`);
+      let func = functions.get(funcName);
+      if (func === undefined) {
+        throw Error(`Method ${message.func} not registered`);
+      }
+
+      await func(...args);
+      parentPort?.postMessage({ type: MessageType.ANSWER, callId });
+    } else if (message.type === MessageType.INIT) {
+      thread = message.thread;
+      THREADS = message.THREADS;
+      sharedArray = new Int32Array(message.sharedArray);
+      parentPort?.postMessage({ type: MessageType.ANSWER, callId: 0 });
     }
-
-    await func(...args);
-    parentPort?.postMessage({ type: MessageType.ANSWER, callId });
-  } else if (message.type === MessageType.INIT) {
-    thread = message.thread;
-    THREADS = message.THREADS;
-    sharedArray = new Int32Array(message.sharedArray);
-    parentPort?.postMessage({ type: MessageType.ANSWER, callId: 0 });
   }
-});
+);
 
 let NAMESPACE = Symbol("namespace");
 
@@ -159,18 +162,17 @@ class ThreadPool {
     const workers = [];
     let promises = [];
     for (let t = 1; t < T; t++) {
-      let worker = new Worker(this.source);
+      let worker = new (Worker as any)(this.source, { type: "module" });
       // TODO: do we want this?
-      worker.unref();
+      // worker.unref?.(); // TODO implement
       worker.postMessage({
         type: MessageType.INIT,
         thread: t,
         THREADS: T,
         sharedArray: sharedArray.buffer,
       } satisfies Message);
-      let initPromise = awaitEvent(
+      let initPromise = awaitMessage(
         worker,
-        "message",
         (m: Message) => m.type === MessageType.ANSWER && m.callId === 0
       );
       promises.push(initPromise);
@@ -202,9 +204,8 @@ class ThreadPool {
         args,
         callId,
       } satisfies Message);
-      return awaitEvent(
+      return awaitMessage(
         worker,
-        "message",
         (m: Message) => m.type === MessageType.ANSWER && m.callId === callId
       );
     });
@@ -286,18 +287,20 @@ function withNamespace(namespace: string | undefined, string: string) {
   return `${namespace};${string}`;
 }
 
-function awaitEvent<E>(
-  target: EventEmitter,
-  name: string,
+function awaitMessage<E>(
+  target: Worker,
   filter?: (event: E) => boolean
 ): Promise<E> {
   return new Promise((resolve) => {
-    target.on(name, function handler(event: E) {
-      if (filter === undefined || filter(event)) {
-        target.off(name, handler);
-        resolve(event);
+    target.addEventListener(
+      "message",
+      function handler(event: MessageEvent<E>) {
+        if (filter === undefined || filter(event.data)) {
+          target.removeEventListener("message", handler);
+          resolve(event.data);
+        }
       }
-    });
+    );
   });
 }
 

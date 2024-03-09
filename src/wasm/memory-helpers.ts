@@ -1,3 +1,4 @@
+import "./symbol-dispose-polyfill.js";
 import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
 import { assert, log2 } from "../util.js";
 

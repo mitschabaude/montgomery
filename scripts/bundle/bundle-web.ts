@@ -12,6 +12,7 @@ async function buildWeb(entrypoint: string, outdir: string) {
   await esbuild.build({
     entryPoints: [entrypoint],
     bundle: true,
+    keepNames: true,
     outdir,
     format: "esm",
     platform: "browser",
@@ -27,7 +28,7 @@ async function buildBlobUrl(path: string) {
   let { outputFiles } = await esbuild.build({
     entryPoints: [path],
     bundle: true,
-    minify: true,
+    keepNames: true,
     write: false,
     format: "esm",
     platform: "browser",
