@@ -16,7 +16,7 @@ export { create };
 
 const NAME = "Pasta";
 
-pool.setSource(import.meta.url);
+INLINE_URL: pool.setSource(import.meta.url);
 pool.register(NAME, create);
 
 async function create(
