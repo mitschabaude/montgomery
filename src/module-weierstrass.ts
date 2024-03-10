@@ -2,6 +2,7 @@ import type * as _W from "wasmati";
 import { WasmArtifacts } from "./types.js";
 import { createMsmField } from "./field-msm.js";
 import { createCurveProjective } from "./curve-projective.js";
+import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.js";
 import { createCurveAffine } from "./curve-affine.js";
 import { createRandomPointsFast, createRandomScalars } from "./curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "./scalar-glv.js";
@@ -10,10 +11,12 @@ import { pool } from "./threads/global-pool.js";
 import { CurveParams } from "./bigint/affine-weierstrass.js";
 import { assert } from "./util.js";
 
-export { create };
+export { create, Weierstraß };
 
 INLINE_URL: pool.setSource(import.meta.url);
 pool.register("Weierstraß", create);
+
+type Weierstraß = Awaited<ReturnType<typeof create>>;
 
 async function create(
   params: CurveParams,
@@ -36,13 +39,18 @@ async function create(
 
   const randomPointsFast = createRandomPointsFast(Inputs);
   const randomScalars = createRandomScalars(Inputs);
-  const MSM = createMsm(Inputs);
+  const { msm, msmUnsafe } = createMsm(Inputs);
+
   const Parallel = pool.register(`Weierstraß-${label}`, {
     randomPointsFast,
     randomScalars,
-    msmUnsafe: MSM.msmUnsafe,
-    msm: MSM.msm,
+    msmUnsafe,
+    msm,
   });
+
+  const Bigint = {
+    CurveProjective: createBigintCurve(params),
+  };
 
   return {
     Field,
@@ -50,6 +58,7 @@ async function create(
     CurveAffine,
     CurveProjective,
     Parallel,
+    Bigint,
 
     async startThreads(n?: number) {
       await pool.start(n);

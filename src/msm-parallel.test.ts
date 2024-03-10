@@ -1,56 +1,65 @@
-import { create } from "./module-weierstrass.js";
+import { Weierstraß, create } from "./module-weierstrass.js";
 import { tic, toc } from "./extra/tictoc.web.js";
 import { msm as bigintMsm } from "./bigint/msm.js";
 import { pallasParams } from "./concrete/pasta.params.js";
-import { createCurveProjective } from "./bigint/projective-weierstrass.js";
+import { curveParams as bls12377Params } from "./concrete/bls12-377.params.js";
 import { assert } from "./util.js";
-
-const Pallas = await create(pallasParams);
-const PallasBigint = createCurveProjective(pallasParams);
+import { CurveParams } from "./bigint/affine-weierstrass.js";
 
 let nThreads = 16;
 
-await Pallas.startThreads(nThreads);
-let scratch = Pallas.Field.local.getPointers(5);
+await testMsm(pallasParams);
+await testMsm(bls12377Params);
 
-for (let n = 0; n < 14; n += 2) {
-  await testMsm(n);
+async function testMsm(curveParams: CurveParams) {
+  console.log("testing msm", curveParams.label);
+  const Module = await create(curveParams);
+  await Module.startThreads(nThreads);
+
+  for (let n = 0; n < 14; n += 2) {
+    await testOneMsm(Module, n);
+  }
+
+  await Module.stopThreads();
 }
 
-await Pallas.stopThreads();
-
-async function testMsm(n: number) {
+async function testOneMsm(Inputs: Weierstraß, n: number) {
+  const { Field, CurveAffine, CurveProjective, Scalar, Parallel, Bigint } =
+    Inputs;
   let N = 1 << n;
+  const CurveBigint = Bigint.CurveProjective;
+  using _ = Field.local.atCurrentOffset;
+  let scratch = Field.local.getPointers(5);
 
-  let pointsPtrs = await Pallas.Parallel.randomPointsFast(N);
-  let scalarPtrs = await Pallas.Parallel.randomScalars(N);
+  let pointsPtrs = await Parallel.randomPointsFast(N);
+  let scalarPtrs = await Parallel.randomScalars(N);
 
   let points = pointsPtrs.map((g) => {
-    Pallas.CurveAffine.assertOnCurve(scratch, g);
-    return PallasBigint.fromAffine(Pallas.CurveAffine.toBigint(g));
+    CurveAffine.assertOnCurve(scratch, g);
+    return CurveBigint.fromAffine(CurveAffine.toBigint(g));
   });
 
   let scalars = scalarPtrs.map((s) => {
-    let scalar = Pallas.Scalar.readBigint(s);
-    assert(scalar < Pallas.Scalar.modulus);
+    let scalar = Scalar.readBigint(s);
+    assert(scalar < Scalar.modulus);
     return scalar;
   });
   assert(scalars.length === N);
 
   tic(`msm (wasm)  `);
-  let { result } = await Pallas.Parallel.msmUnsafe(
+  let { result } = await Parallel.msmUnsafe(
     scalarPtrs[0],
     pointsPtrs[0],
     N,
     true
   );
-  let s = Pallas.CurveProjective.toBigint(result);
+  let s = CurveProjective.toBigint(result);
   toc();
 
   tic("msm (bigint)");
-  let sBigint = bigintMsm(PallasBigint, scalars, points);
+  let sBigint = bigintMsm(CurveBigint, scalars, points);
   toc();
 
-  assert(PallasBigint.isEqual(s, sBigint));
+  assert(CurveBigint.isEqual(s, sBigint));
   console.log(`msm 2^${n} ok`);
 }

@@ -26,16 +26,6 @@ const G = {
   isZero: false,
 };
 
-const curveParams: CurveParams = {
-  label: "bls12-377",
-  modulus: p,
-  order: q,
-  cofactor: h,
-  a: 0n,
-  b,
-  generator: { x: G.x, y: G.y },
-};
-
 const lambda =
   0x12ab655e9a2ca55660b44d1e5c37b00114885f32400000000000000000000000n;
 const beta =
@@ -64,3 +54,14 @@ if (debug) {
   // and they agree on a single point, they must agree on all points in the same subgroup:
   // (phi1 - phi2)(s*G) = s*(phi1 - pgi2)(G) = 0
 }
+
+const curveParams: CurveParams = {
+  label: "bls12-377",
+  modulus: p,
+  order: q,
+  cofactor: h,
+  a: 0n,
+  b,
+  generator: { x: G.x, y: G.y },
+  endomorphism: { lambda, beta },
+};
