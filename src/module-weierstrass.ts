@@ -23,7 +23,7 @@ async function create(
   wasm?: WasmArtifacts,
   scalarWasmParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
 ) {
-  let { modulus: p, order: q, endomorphism, a, b, label } = params;
+  let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
   assert(a === 0n, "only curves with a = 0 are supported");
   assert(endomorphism !== undefined, "endomorphism required");
   let { beta, lambda } = endomorphism;
@@ -33,7 +33,7 @@ async function create(
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField({ p, beta, w: 29 }, wasm);
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasmParams);
-  const CurveProjective = createCurveProjective(Field);
+  const CurveProjective = createCurveProjective(Field, h);
   const CurveAffine = createCurveAffine(Field, CurveProjective, b);
   const Inputs = { Field, Scalar, CurveAffine, CurveProjective };
 
