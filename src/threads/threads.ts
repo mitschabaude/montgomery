@@ -1,6 +1,7 @@
-import { availableParallelism, Worker, parentPort } from "./worker.node.js";
+import { Worker, getParentPort, availableParallelism } from "./worker.node.js";
 import { assert } from "../util.js";
 import { AnyFunction } from "../types.js";
+import { SimpleWorker, awaitMessage } from "./simple-worker.js";
 
 export {
   thread as t,
@@ -70,32 +71,31 @@ type Message =
       sharedArray: ArrayBuffer;
     };
 
+type PoolWorker = SimpleWorker<Message>;
+
 const functions = new Map<string, (...args: any) => any>();
+const parentPort = getParentPort<Message>();
 
-parentPort?.addEventListener(
-  "message",
-  async ({ data: message }: MessageEvent<Message>) => {
-    if (!("type" in message)) return;
-    if (DEBUG) console.log(`worker ${thread}/${THREADS} got message`, message);
+parentPort?.onMessage(async (message: Message) => {
+  if (DEBUG) console.log(`worker ${thread}/${THREADS} got message`, message);
 
-    if (message.type === MessageType.CALL) {
-      let { func: funcName, args, callId } = message;
+  if (message.type === MessageType.CALL) {
+    let { func: funcName, args, callId } = message;
 
-      let func = functions.get(funcName);
-      if (func === undefined) {
-        throw Error(`Method ${message.func} not registered`);
-      }
-
-      await func(...args);
-      parentPort?.postMessage({ type: MessageType.ANSWER, callId });
-    } else if (message.type === MessageType.INIT) {
-      thread = message.thread;
-      THREADS = message.THREADS;
-      sharedArray = new Int32Array(message.sharedArray);
-      parentPort?.postMessage({ type: MessageType.ANSWER, callId: 0 });
+    let func = functions.get(funcName);
+    if (func === undefined) {
+      throw Error(`Method ${message.func} not registered`);
     }
+
+    await func(...args);
+    parentPort.postMessage({ type: MessageType.ANSWER, callId });
+  } else if (message.type === MessageType.INIT) {
+    thread = message.thread;
+    THREADS = message.THREADS;
+    sharedArray = new Int32Array(message.sharedArray);
+    parentPort.postMessage({ type: MessageType.ANSWER, callId: 0 });
   }
-);
+});
 
 let NAMESPACE = Symbol("namespace");
 
@@ -131,10 +131,10 @@ function expose<T extends Record<string, AnyFunction> | AnyFunction>(
 
 class ThreadPool {
   source: URL;
-  workers: Worker[];
+  workers: PoolWorker[];
   isRunning: boolean;
 
-  constructor(source: URL | string, workers: Worker[]) {
+  constructor(source: URL | string, workers: PoolWorker[]) {
     this.source = typeof source === "string" ? new URL(source) : source;
     this.workers = workers;
     this.isRunning = workers.length > 0;
@@ -159,10 +159,10 @@ class ThreadPool {
     assert(T > 0, "T must be greater than 0");
     THREADS = T;
     this.isRunning = true;
-    const workers = [];
+    const workers: PoolWorker[] = [];
     let promises = [];
     for (let t = 1; t < T; t++) {
-      let worker = new (Worker as any)(this.source, { type: "module" });
+      let worker = Worker<Message>(this.source, `ThreadPool worker #${t}`);
       // TODO: do we want this?
       // worker.unref?.(); // TODO implement
       worker.postMessage({
@@ -170,10 +170,11 @@ class ThreadPool {
         thread: t,
         THREADS: T,
         sharedArray: sharedArray.buffer,
-      } satisfies Message);
+      });
+
       let initPromise = awaitMessage(
         worker,
-        (m: Message) => m.type === MessageType.ANSWER && m.callId === 0
+        (m) => m.type === MessageType.ANSWER && m.callId === 0
       );
       promises.push(initPromise);
       workers.push(worker);
@@ -203,10 +204,11 @@ class ThreadPool {
         func: funcName,
         args,
         callId,
-      } satisfies Message);
+      });
+
       return awaitMessage(
         worker,
-        (m: Message) => m.type === MessageType.ANSWER && m.callId === callId
+        (m) => m.type === MessageType.ANSWER && m.callId === callId
       );
     });
     return Promise.all(promises);
@@ -285,23 +287,6 @@ type ToPromise<T> = T extends Promise<any> ? T : Promise<T>;
 function withNamespace(namespace: string | undefined, string: string) {
   if (namespace === undefined) return string;
   return `${namespace};${string}`;
-}
-
-function awaitMessage<E>(
-  target: Worker,
-  filter?: (event: E) => boolean
-): Promise<E> {
-  return new Promise((resolve) => {
-    target.addEventListener(
-      "message",
-      function handler(event: MessageEvent<E>) {
-        if (filter === undefined || filter(event.data)) {
-          target.removeEventListener("message", handler);
-          resolve(event.data);
-        }
-      }
-    );
-  });
 }
 
 // concurrent programming primitives

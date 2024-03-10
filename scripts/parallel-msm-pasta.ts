@@ -1,10 +1,11 @@
 import { create } from "../src/concrete/pallas.parallel.js";
 import { tic, toc } from "../src/extra/tictoc.web.js";
-import assert from "node:assert/strict";
+import { assert } from "../src/util.js";
 import { median, standardDev } from "./evaluate-util.js";
 import { msm as bigintMsm } from "../src/bigint/msm.js";
 import { curveParams } from "../src/concrete/pasta.params.js";
 import { createCurveProjective } from "../src/bigint/projective-weierstrass.js";
+import { assertDeepEqual } from "../src/testing/nested.js";
 
 const Pallas = await create();
 
@@ -61,7 +62,7 @@ if (!doEvaluate) {
       bigintMsm(PallasBigint, scalars, points)
     );
     toc();
-    assert.deepEqual(s, sBigint, "consistent results");
+    assertDeepEqual(s, sBigint, "consistent results");
     console.log("results are consistent!");
   }
 } else {
