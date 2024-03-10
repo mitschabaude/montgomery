@@ -1,12 +1,11 @@
-import { create } from "./concrete/pallas.parallel.js";
-import { p, q, b, beta, lambda } from "../src/concrete/pasta.params.js";
+import { create } from "./module-weierstrass.js";
 import { tic, toc } from "./extra/tictoc.web.js";
 import { msm as bigintMsm } from "./bigint/msm.js";
-import { curveParams as pallasParams } from "./concrete/pasta.params.js";
+import { pallasParams } from "./concrete/pasta.params.js";
 import { createCurveProjective } from "./bigint/projective-weierstrass.js";
 import { assert } from "./util.js";
 
-const Pallas = await create({ p, q, b, beta, lambda });
+const Pallas = await create(pallasParams);
 const PallasBigint = createCurveProjective(pallasParams);
 
 let nThreads = 16;
@@ -23,8 +22,8 @@ await Pallas.stopThreads();
 async function testMsm(n: number) {
   let N = 1 << n;
 
-  let pointsPtrs = await Pallas.randomPointsFast(N);
-  let scalarPtrs = await Pallas.randomScalars(N);
+  let pointsPtrs = await Pallas.Parallel.randomPointsFast(N);
+  let scalarPtrs = await Pallas.Parallel.randomScalars(N);
 
   let points = pointsPtrs.map((g) => {
     Pallas.CurveAffine.assertOnCurve(scratch, g);
@@ -39,7 +38,12 @@ async function testMsm(n: number) {
   assert(scalars.length === N);
 
   tic(`msm (wasm)  `);
-  let { result } = await Pallas.msm(scalarPtrs[0], pointsPtrs[0], N, true);
+  let { result } = await Pallas.Parallel.msmUnsafe(
+    scalarPtrs[0],
+    pointsPtrs[0],
+    N,
+    true
+  );
   let s = Pallas.CurveProjective.toBigint(result);
   toc();
 

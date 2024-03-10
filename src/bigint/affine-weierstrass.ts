@@ -13,6 +13,10 @@ type CurveParams = {
   a: bigint;
   b: bigint;
   generator: { x: bigint; y: bigint };
+  endomorphism?: {
+    beta: bigint;
+    lambda: bigint;
+  };
 };
 
 /**

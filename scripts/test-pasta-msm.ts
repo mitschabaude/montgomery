@@ -14,7 +14,7 @@ import { checkOnCurve } from "../src/extra/dumb-curve-affine.js";
 import { msm as bigintMsm } from "../src/bigint/msm.js";
 import assert from "node:assert/strict";
 import { createCurveProjective } from "../src/bigint/projective-weierstrass.js";
-import { curveParams } from "../src/concrete/pasta.params.js";
+import { pallasParams } from "../src/concrete/pasta.params.js";
 
 let n = Number(process.argv[2] ?? 8);
 let N = 1 << n;
@@ -49,7 +49,7 @@ toc();
 assert.deepEqual(s, s1, "consistent with bigint version");
 
 if (n < 12) {
-  const PallasBigint = createCurveProjective(curveParams);
+  const PallasBigint = createCurveProjective(pallasParams);
   tic("msm (bigint impl)");
   let sBigint = PallasBigint.toAffine(
     bigintMsm(PallasBigint, scalars, pointsBigint.map(PallasBigint.fromAffine))

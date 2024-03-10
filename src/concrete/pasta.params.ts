@@ -2,7 +2,7 @@ import type { CurveParams } from "../bigint/affine-weierstrass.js";
 import { mod } from "../bigint/field-util.js";
 import { exp } from "../bigint/field.js";
 
-export { p, q, b, lambda, beta, nBits, nBytes, curveParams };
+export { p, q, b, lambda, beta, nBits, nBytes, pallasParams };
 
 // base / scalar field moduli
 // Fp is the base field of Pallas, scalar field of Vesta
@@ -20,19 +20,6 @@ const nBytes = 32;
 const lambda = exp(5n, (q - 1n) / 3n, q);
 const lambda2 = mod(lambda * lambda, q);
 
-const curveParams: CurveParams = {
-  label: "pallas",
-  modulus: p,
-  order: q,
-  cofactor: 1n,
-  a: 0n,
-  b,
-  generator: {
-    x: 1n,
-    y: 0x1b74b5a30a12937c53dfa9f06378ee548f655bd4333d477119cf7a23caed2abbn,
-  },
-};
-
 if (mod(lambda2 * lambda, q) !== 1n) throw Error("lambda is not cube root");
 
 // corresponding cube root in Fp (endo base) is found by computing beta such that
@@ -43,3 +30,17 @@ const beta2 = exp(5n, (p - 1n) / 3n, p);
 const beta = mod(beta2 * beta2, p);
 
 if (mod(beta2 * beta, p) !== 1n) throw Error("beta is not cube root");
+
+const pallasParams: CurveParams = {
+  label: "pallas",
+  modulus: p,
+  order: q,
+  cofactor: 1n,
+  a: 0n,
+  b,
+  generator: {
+    x: 1n,
+    y: 0x1b74b5a30a12937c53dfa9f06378ee548f655bd4333d477119cf7a23caed2abbn,
+  },
+  endomorphism: { beta, lambda },
+};

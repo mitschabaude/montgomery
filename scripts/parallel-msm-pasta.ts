@@ -1,14 +1,5 @@
-import {
-  p,
-  q,
-  b,
-  beta,
-  lambda,
-  curveParams,
-} from "../src/concrete/pasta.params.js";
+import { pallasParams } from "../src/concrete/pasta.params.js";
 import { benchmarkMsm, runMsm } from "./parallel-msm.js";
-
-const pallasMsmParams = { p, q, b, beta, lambda };
 
 let n = 12;
 let nThreads = 16;
@@ -21,7 +12,7 @@ if (typeof window === "undefined") {
 }
 
 if (!doEvaluate) {
-  await runMsm(n, nThreads, pallasMsmParams, curveParams);
+  await runMsm(pallasParams, n, nThreads);
 } else {
-  await benchmarkMsm(n, nThreads, pallasMsmParams);
+  await benchmarkMsm(pallasParams, n, nThreads);
 }

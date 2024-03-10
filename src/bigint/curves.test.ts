@@ -12,7 +12,7 @@ import {
   BigintPoint as ProjectivePoint,
 } from "./projective-weierstrass.js";
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
-import { curveParams as pallasParams } from "../concrete/pasta.params.js";
+import { pallasParams } from "../concrete/pasta.params.js";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
 import { curveParams as bls12377Params } from "../concrete/bls12-377.params.js";
 import { assert } from "../util.js";
