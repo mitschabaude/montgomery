@@ -1,5 +1,4 @@
 import type * as _W from "wasmati";
-import { p, q, b, beta, lambda } from "./pasta.params.js";
 import { WasmArtifacts } from "../types.js";
 import { createMsmField } from "../field-msm.js";
 import { createCurveProjective } from "../curve-projective.js";
@@ -12,14 +11,23 @@ import { GlvScalarParams, createGlvScalar } from "../scalar-glv.js";
 import { createMsm } from "../msm-parallel.js";
 import { pool } from "../threads/global-pool.js";
 
-export { create };
+export { create, MsmParams };
 
 const NAME = "Pasta";
 
 INLINE_URL: pool.setSource(import.meta.url);
 pool.register(NAME, create);
 
+type MsmParams = {
+  p: bigint;
+  q: bigint;
+  b: bigint;
+  beta: bigint;
+  lambda: bigint;
+};
+
 async function create(
+  { p, q, b, beta, lambda }: MsmParams,
   wasm?: WasmArtifacts,
   scalarWasmParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
 ) {
@@ -49,10 +57,15 @@ async function create(
 
     msm,
 
-    async startThreads(n: number) {
+    async startThreads(n?: number) {
       await pool.start(n);
       Field.updateThreads();
-      await pool.callWorkers(create, Field.wasmArtifacts, Scalar.wasmParams);
+      await pool.callWorkers(
+        create,
+        { p, q, b, beta, lambda },
+        Field.wasmArtifacts,
+        Scalar.wasmParams
+      );
     },
 
     async stopThreads() {

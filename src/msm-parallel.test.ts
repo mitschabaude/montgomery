@@ -1,11 +1,12 @@
 import { create } from "./concrete/pallas.parallel.js";
+import { p, q, b, beta, lambda } from "../src/concrete/pasta.params.js";
 import { tic, toc } from "./extra/tictoc.web.js";
 import { msm as bigintMsm } from "./bigint/msm.js";
 import { curveParams as pallasParams } from "./concrete/pasta.params.js";
 import { createCurveProjective } from "./bigint/projective-weierstrass.js";
 import { assert } from "./util.js";
 
-const Pallas = await create();
+const Pallas = await create({ p, q, b, beta, lambda });
 const PallasBigint = createCurveProjective(pallasParams);
 
 let nThreads = 16;
