@@ -1,5 +1,4 @@
-import "../src/extra/fix-webcrypto.js";
-import { tic, toc } from "../src/extra/tictoc.js";
+import { tic, toc } from "../src/testing/tictoc.js";
 import {
   msmUnsafe,
   Field,

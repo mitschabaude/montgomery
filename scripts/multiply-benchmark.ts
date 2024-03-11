@@ -1,5 +1,5 @@
 import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
-import { tic, toc } from "../src/extra/tictoc.js";
+import { tic, toc } from "../src/testing/tictoc.js";
 import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
 import { memoryHelpers } from "../src/wasm/memory-helpers.js";
 import { writeWat } from "../src/wasm/wat-helpers.js";

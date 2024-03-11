@@ -2,7 +2,7 @@ import { BigintPoint } from "./bigint/twisted-edwards.js";
 import { curveParams, p } from "./concrete/ed-on-bls12-377.params.js";
 import { createRandomPointsFast } from "./curve-random.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
-import { tic, toc } from "./extra/tictoc.web.js";
+import { tic, toc } from "./testing/tictoc.js";
 import { createMsmField } from "./field-msm.js";
 import {
   WasmSpec,

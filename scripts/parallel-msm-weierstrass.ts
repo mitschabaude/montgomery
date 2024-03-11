@@ -3,7 +3,7 @@ import {
   startThreads,
   stopThreads,
 } from "../src/module-weierstrass.js";
-import { tic, toc } from "../src/extra/tictoc.web.js";
+import { tic, toc } from "../src/testing/tictoc.js";
 import { assertDeepEqual } from "../src/testing/nested.js";
 import { assert } from "../src/util.js";
 import { median, standardDev } from "./evaluate-util.js";

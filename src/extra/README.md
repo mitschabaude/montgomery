@@ -5,5 +5,4 @@ This folder contains miscellaneous code which currently doesn't contribute to an
 This also includes code that is really useful for testing, debugging and benchmarking, and is in active use by some of the scripts used to develop this library:
 
 - the Arkworks reference implementation, compiled to Wasm from Rust
-- the `tictoc.js` micro-library which makes timing performance much more convenient than `let t = performance.now()`
 - the old (Zprize) MSM implementation not written in TS, and using a more ad hoc way to generate wasm

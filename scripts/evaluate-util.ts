@@ -1,4 +1,4 @@
-import { tic, toc } from "../src/extra/tictoc.js";
+import { tic, toc } from "../src/testing/tictoc.js";
 import type { BigintPoint } from "../src/msm.js";
 
 export { evaluate, evaluateBigint, evaluateParameters, median, standardDev };

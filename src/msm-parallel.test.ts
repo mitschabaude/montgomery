@@ -9,7 +9,7 @@ import {
   startThreads,
   stopThreads,
 } from "./module-weierstrass.js";
-import { tic, toc } from "./extra/tictoc.web.js";
+import { tic, toc } from "./testing/tictoc.js";
 import { msm as bigintMsm } from "./bigint/msm.js";
 import { pallasParams } from "./concrete/pasta.params.js";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.js";
