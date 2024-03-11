@@ -24,11 +24,6 @@ import {
 
 export { benchmark };
 
-if (import.meta.url.slice(7) === process.argv[1]) {
-  let { Field: Field0, Random } = await import("../src/concrete/pasta.js");
-  await benchmark(Field0, Random, true);
-}
-
 async function benchmark(
   { p, t }: { p: bigint; t: bigint },
   { randomFieldx2 }: { randomFieldx2: () => bigint },

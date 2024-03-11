@@ -1,3 +1,5 @@
+// outdated, non-functional script, kept here for reference if needed later
+
 import "../src/extra/fix-webcrypto.js";
 import fs from "node:fs/promises";
 import { tic, toc } from "../src/extra/tictoc.js";

@@ -1,8 +1,10 @@
-import { scale } from "../extra/dumb-curve-affine.js";
 import { mod } from "../bigint/field-util.js";
 import { exp, inverse } from "../bigint/field.js";
-import { assert, bigintToBits } from "../util.js";
-import type { CurveParams } from "../bigint/affine-weierstrass.js";
+import { assert } from "../util.js";
+import {
+  CurveParams,
+  createCurveAffine,
+} from "../bigint/affine-weierstrass.js";
 
 export { p, q, h, b, lambda, beta, nBits, nBytes, G, curveParams };
 
@@ -31,6 +33,17 @@ const lambda =
 const beta =
   0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffffn;
 
+const curveParams: CurveParams = {
+  label: "bls12-377",
+  modulus: p,
+  order: q,
+  cofactor: h,
+  a: 0n,
+  b,
+  generator: { x: G.x, y: G.y },
+  endomorphism: { lambda, beta },
+};
+
 const debug = false;
 
 if (debug) {
@@ -42,8 +55,7 @@ if (debug) {
   assert(mod(lambda * lambda2, q) === 1n, "lambda is a cube root");
 
   // compute beta such that lambda * (x, y) = (beta * x, y) (endo base)
-  let lambdaBits = bigintToBits(lambda, 256);
-  let lambdaG = scale(lambdaBits, G, p);
+  let lambdaG = createCurveAffine(curveParams).scale(lambda, G);
   assert(lambdaG.y === G.y, "multiplication by lambda is a cheap endomorphism");
 
   const beta_ = mod(lambdaG.x * inverse(G.x, p), p);
@@ -54,14 +66,3 @@ if (debug) {
   // and they agree on a single point, they must agree on all points in the same subgroup:
   // (phi1 - phi2)(s*G) = s*(phi1 - pgi2)(G) = 0
 }
-
-const curveParams: CurveParams = {
-  label: "bls12-377",
-  modulus: p,
-  order: q,
-  cofactor: h,
-  a: 0n,
-  b,
-  generator: { x: G.x, y: G.y },
-  endomorphism: { lambda, beta },
-};

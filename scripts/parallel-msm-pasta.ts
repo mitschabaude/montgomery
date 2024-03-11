@@ -1,5 +1,5 @@
 import { pallasParams } from "../src/concrete/pasta.params.js";
-import { benchmarkMsm, runMsm } from "./parallel-msm.js";
+import { benchmarkMsm, runMsm } from "./parallel-msm-weierstrass.js";
 
 let n = 16;
 let nThreads = 16;

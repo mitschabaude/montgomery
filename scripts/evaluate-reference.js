@@ -1,3 +1,5 @@
+// outdated, non-functional script, kept here for reference if needed later
+
 import "../src/extra/fix-webcrypto.js";
 import { tic, toc } from "../src/extra/tictoc.js";
 import { load } from "./store-inputs.js";
