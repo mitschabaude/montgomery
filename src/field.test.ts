@@ -1,7 +1,7 @@
 import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.js";
 import { BigintField } from "./bigint/field.js";
 import { createMsmField } from "./field-msm.js";
-import { exampleFields } from "./concrete/field-examples.js";
+import { exampleFields } from "./concrete/example-fields.js";
 import { Spec, throwError } from "./testing/equivalent.js";
 import { test } from "node:test";
 

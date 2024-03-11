@@ -1,62 +1,19 @@
-import { create } from "../src/concrete/bls12-377.parallel.js";
-import { msmDumbAffine } from "../src/extra/dumb-curve-affine.js";
-import { tic, toc } from "../src/extra/tictoc.js";
-import assert from "node:assert/strict";
+import { curveParams } from "../src/concrete/bls12-377.params.js";
+import { benchmarkMsm, runMsm } from "./parallel-msm.js";
 
-const BLS12_377 = await create();
+let n = 16;
+let nThreads = 16;
+let doEvaluate = false;
 
-let n = Number(process.argv[3] ?? 16);
-let N = 1 << n;
+if (typeof process !== "undefined") {
+  console.log(process.argv.slice(3));
+  n = Number(process.argv[3] ?? 16);
+  nThreads = Number(process.argv[4] ?? 16);
+  doEvaluate = process.argv[5] === "--evaluate";
+}
 
-let nThreads = Number(process.argv[4] ?? 16);
-await BLS12_377.startThreads(nThreads);
-
-tic("random points");
-let pointsPtrs = await BLS12_377.randomPointsFast(N);
-toc();
-
-tic("random scalars");
-let scalarPtrs = await BLS12_377.randomScalars(N);
-toc();
-
-tic("convert points to bigint & check");
-let scratch = BLS12_377.Field.local.getPointers(5);
-let points = pointsPtrs.map((g) => {
-  BLS12_377.Affine.assertOnCurve(scratch, g);
-  return BLS12_377.Affine.toBigint(g);
-});
-toc();
-
-tic("convert scalars to bigint & check");
-let scalars = scalarPtrs.map((s) => {
-  let scalar = BLS12_377.Scalar.readBigint(s);
-  assert(scalar < BLS12_377.Scalar.modulus);
-  return scalar;
-});
-assert(scalars.length === N);
-toc();
-
-tic("msm (core)");
-console.log();
-let { result, log } = await BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
-let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.Affine.size);
-BLS12_377.Projective.toAffine(scratch, sAffinePtr, result);
-let s = BLS12_377.Affine.toBigint(sAffinePtr);
-toc();
-
-log.forEach((l) => console.log(...l));
-
-await BLS12_377.stopThreads();
-
-if (n < 10) {
-  tic("msm (simple, slow bigint impl)");
-  let sBigint = msmDumbAffine(
-    scalars,
-    points,
-    BLS12_377.Scalar,
-    BLS12_377.Field
-  );
-  toc();
-  assert.deepEqual(s, sBigint, "consistent results");
-  console.log("results are consistent!");
+if (!doEvaluate) {
+  await runMsm(curveParams, n, nThreads);
+} else {
+  await benchmarkMsm(curveParams, n, nThreads);
 }

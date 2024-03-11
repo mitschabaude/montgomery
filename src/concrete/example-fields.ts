@@ -9,7 +9,6 @@ import {
 
 export { exampleFields };
 
-// some other primes
 let pSmall = 101n;
 let pBabybear = (1n << 31n) - 1n;
 let pGoldilocks = (1n << 64n) - (1n << 32n) + 1n;

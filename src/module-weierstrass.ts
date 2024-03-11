@@ -95,9 +95,10 @@ async function startThreads(n?: number) {
   URL.revokeObjectURL(source); // no-op in node, intended to free memory in the browser
 
   // the memory is segmented differently depending on # of threads
+  // so there is this method to resegment when the # of threads changed
   curves.forEach((curve) => curve.Field.updateThreads());
 
-  // send wasm modules to workers
+  // send wasm modules to newly created workers
   await Promise.all(
     curves.map((curve) =>
       pool.callWorkers(
