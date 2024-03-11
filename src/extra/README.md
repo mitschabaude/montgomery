@@ -1,3 +1,5 @@
+TODO delete this entire folder
+
 # Extra stuff
 
 This folder contains miscellaneous code which currently doesn't contribute to any core functionality of this library, or has some other reason to be tucked away.
