@@ -20,8 +20,8 @@ export { bigintPointsToMemory, bigintScalarsToMemory };
 type MsmCurve = {
   Field: MsmField;
   Scalar: GlvScalar;
-  CurveAffine: CurveAffine;
-  CurveProjective: CurveProjective;
+  Affine: CurveAffine;
+  Projective: CurveProjective;
 };
 
 type BytesPoint = [xArray: Uint8Array, yArray: Uint8Array, isZero: boolean];
@@ -99,7 +99,7 @@ type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
  * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
-function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
+function createMsm({ Field, Scalar, Affine, Projective }: MsmCurve) {
   const {
     multiply,
     copy,
@@ -127,11 +127,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   } = Scalar;
   const scalarBitlength = Scalar.maxBits;
 
-  let {
-    size: sizeAffine,
-    isZero: isZeroAffine,
-    copy: copyAffine,
-  } = CurveAffine;
+  let { size: sizeAffine, isZero: isZeroAffine, copy: copyAffine } = Affine;
 
   let {
     size: sizeProjective,
@@ -141,7 +137,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     copy: copyProjective,
     fromAffine: affineToProjective,
     coords: projectiveCoords,
-  } = CurveProjective;
+  } = Projective;
 
   // MSM where input scalars and points are bigints
   function msmBigint(
@@ -485,7 +481,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       nPairs = p;
       // now (G,H) represents a big array of independent additions, which we batch-add
       if (useSafeAdditions) {
-        batchAdd(Field, CurveAffine, scratch, tmp, denom, G, G, H, nPairs);
+        batchAdd(Field, Affine, scratch, tmp, denom, G, G, H, nPairs);
       } else {
         batchAddUnsafe(Field, scratch, tmp[0], denom[0], G, G, H, nPairs);
         // wasm version has indistinguishable performance
@@ -572,7 +568,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       // building up a list of intermediary partial sums at the pointers that were the buckets before
       batchAdd(
         Field,
-        CurveAffine,
+        Affine,
         scratch,
         tmp,
         d,
@@ -601,7 +597,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       }
       batchAdd(
         Field,
-        CurveAffine,
+        Affine,
         scratch,
         tmp,
         d,
@@ -622,7 +618,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     }
     if (D > 1) {
       for (let j = 0; j < c0; j++) {
-        batchDoubleInPlace(Field, CurveAffine, scratch, tmp, d, minorSums, p);
+        batchDoubleInPlace(Field, Affine, scratch, tmp, d, minorSums, p);
       }
     }
     // now, double successively smaller sets of buckets until the biggest is 2^(c-1) * x_(2^(c-1) + 1)
@@ -635,7 +631,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           majorSums[p] = buckets[k][d * L1 + 1];
         }
       }
-      batchDoubleInPlace(Field, CurveAffine, scratch, tmp, d, majorSums, p);
+      batchDoubleInPlace(Field, Affine, scratch, tmp, d, majorSums, p);
     }
 
     // alright! now our buckets precisely fill up the big triangle
@@ -658,7 +654,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
           H[p] = buckets[k][l + m];
         }
       }
-      batchAdd(Field, CurveAffine, scratch, tmp, d, G, G, H, p);
+      batchAdd(Field, Affine, scratch, tmp, d, G, G, H, p);
     }
 
     // finally, return the output sum of each partition as a projective point

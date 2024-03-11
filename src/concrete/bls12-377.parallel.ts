@@ -28,9 +28,9 @@ async function create(
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField({ p, beta, w: 29 }, wasm);
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasmParams);
-  const CurveProjective = createCurveProjective(Field, h);
-  const CurveAffine = createCurveAffine(Field, CurveProjective, b);
-  const Inputs = { Field, Scalar, CurveAffine, CurveProjective };
+  const Projective = createCurveProjective(Field, h);
+  const Affine = createCurveAffine(Field, Projective, b);
+  const Inputs = { Field, Scalar, Affine, Projective };
 
   const randomPointsFast = pool.register(NAME, createRandomPointsFast(Inputs));
   const randomScalars = pool.register(NAME, createRandomScalars(Inputs));
@@ -41,8 +41,8 @@ async function create(
   return {
     Field,
     Scalar,
-    CurveAffine,
-    CurveProjective,
+    Affine,
+    Projective,
 
     randomPointsFast,
     randomScalars,

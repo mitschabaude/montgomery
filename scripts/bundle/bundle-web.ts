@@ -66,7 +66,7 @@ function inlineUrl() {
         let contents = await fs.promises.readFile(args.path, "utf8");
 
         // check for `ESBUILD_INLINE_URL` labels
-        let inlineUrlMatch = contents.match(/INLINE_URL: (.+);/);
+        let inlineUrlMatch = contents.match(/INLINE_META_URL: (.+);/);
         if (inlineUrlMatch === null) return undefined;
 
         // bundle source code which will be inlined

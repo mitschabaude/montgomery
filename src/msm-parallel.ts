@@ -9,15 +9,15 @@ import { broadcastFromMain } from "./threads/global-pool.js";
 import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
-export { createMsm, MsmCurve };
+export { createMsm, MsmInputCurve };
 
 const REMOVE_ALL_LOGS = false;
 
-type MsmCurve = {
+type MsmInputCurve = {
   Field: MsmField;
   Scalar: GlvScalar;
-  CurveAffine: CurveAffine;
-  CurveProjective: CurveProjective;
+  Affine: CurveAffine;
+  Projective: CurveProjective;
 };
 
 /**
@@ -39,14 +39,14 @@ type MsmCurve = {
  * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
  * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
  */
-function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
+function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
   const { copy, subtract, endomorphism, sizeField, memoryBytes, constants } =
     Field;
   let { decompose, extractBitSlice, sizeField: sizeScalar } = Scalar;
   const scalarBitlength = Scalar.maxBits;
 
-  let sizeAffine = CurveAffine.size;
-  let sizeProjective = CurveProjective.size;
+  let sizeAffine = Affine.size;
+  let sizeProjective = Projective.size;
 
   /**
    *
@@ -135,7 +135,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
       for (let j = 0; j < nChunks; j++) {
         columnss[k][j] = chunkPtrs[j];
-        if (isMain()) CurveProjective.setZero(columnss[k][j]);
+        if (isMain()) Projective.setZero(columnss[k][j]);
       }
     }
     toc();
@@ -264,7 +264,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       // now (G,H) represents a big array of independent additions, which we batch-add
       tic();
       if (useSafeAdditions) {
-        batchAdd(Field, CurveAffine, scratch, tmp, denom, G, G, H, nPairs);
+        batchAdd(Field, Affine, scratch, tmp, denom, G, G, H, nPairs);
       } else {
         batchAddUnsafe(Field, scratch, tmp[0], denom[0], G, G, H, nPairs);
       }
@@ -310,7 +310,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       let columns = columnss[k];
       let partitionSum = columns[0];
       for (let j = 1, n = columns.length; j < n; j++) {
-        CurveProjective.addAssign(scratch, partitionSum, columns[j]);
+        Projective.addAssign(scratch, partitionSum, columns[j]);
       }
     }
     let partialSums = columnss.map((column) => column[0]);
@@ -319,15 +319,15 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     tic("final sum");
     let finalSum = Field.global.getPointer(sizeProjective);
     let k = K - 1;
-    CurveProjective.copy(finalSum, partialSums[k]);
+    Projective.copy(finalSum, partialSums[k]);
     k--;
     for (; k >= 0; k--) {
       for (let j = 0; j < c; j++) {
-        CurveProjective.doubleInPlace(scratch, finalSum);
+        Projective.doubleInPlace(scratch, finalSum);
       }
-      CurveProjective.addAssign(scratch, finalSum, partialSums[k]);
+      Projective.addAssign(scratch, finalSum, partialSums[k]);
     }
-    CurveProjective.copy(result, finalSum);
+    Projective.copy(result, finalSum);
     toc();
     toc();
     return { result, log: getLog() };
@@ -490,7 +490,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
         let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
 
         // copy point to the bucket array -- expensive operation! (but it pays off)
-        CurveAffine.copy(newPtr, ptr);
+        Affine.copy(newPtr, ptr);
       }
     }
   }
@@ -502,9 +502,9 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
   ) {
     let size = toProjective ? sizeProjective : sizeAffine;
     let setZero = toProjective
-      ? CurveProjective.setZero
-      : (ptr: number) => CurveAffine.setIsNonZero(ptr, false);
-    let copy = toProjective ? CurveProjective.fromAffine : CurveAffine.copy;
+      ? Projective.setZero
+      : (ptr: number) => Affine.setIsNonZero(ptr, false);
+    let copy = toProjective ? Projective.fromAffine : Affine.copy;
 
     // normalize the way buckets are stored
     let nChunks = chunksPerThread.length;
@@ -553,7 +553,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
     lstart: number
   ) {
     let L = buckets.length;
-    let { addAssign, doubleInPlace } = CurveProjective;
+    let { addAssign, doubleInPlace } = Projective;
 
     using _ = Field.local.atCurrentOffset;
     let scratch = Field.local.getPointers(20);
@@ -573,7 +573,7 @@ function createMsm({ Field, Scalar, CurveAffine, CurveProjective }: MsmCurve) {
       doubleInPlace(scratch, row);
     }
 
-    CurveProjective.copy(column, triangle);
+    Projective.copy(column, triangle);
   }
 
   return {

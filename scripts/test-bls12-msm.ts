@@ -9,13 +9,7 @@ import {
   msmProjective,
 } from "../src/extra/old-wasm/msm-projective.js";
 import { tic, toc } from "../src/extra/tictoc.js";
-import {
-  Field,
-  Scalar,
-  CurveAffine,
-  CurveProjective,
-  Bigint,
-} from "../src/concrete/bls12-381.js";
+import { Field, Bigint } from "../src/concrete/bls12-381.js";
 import { mod } from "../src/bigint/field-util.js";
 import { msmAffine, msmBigint } from "../src/msm-bls12-zprize.js";
 import { bigintFromBytes } from "../src/util.js";

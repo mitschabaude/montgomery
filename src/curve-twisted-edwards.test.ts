@@ -183,8 +183,8 @@ toc();
 
 let randomPointsFast = createRandomPointsFast({
   Field,
-  CurveAffine: Curve,
-  CurveProjective: Curve,
+  Affine: Curve,
+  Projective: Curve,
 });
 tic("random points fast");
 let points1 = await randomPointsFast(1 << 11);

@@ -7,8 +7,8 @@ import { createMsm } from "../src/msm.js";
 import {
   Field,
   Scalar,
-  CurveAffine,
-  CurveProjective,
+  Affine,
+  Projective,
 } from "../src/concrete/bls12-381.js";
 import { evaluateBigint } from "./evaluate-util.js";
 
@@ -16,8 +16,8 @@ import { evaluateBigint } from "./evaluate-util.js";
 const { msmBigint: msmBigintNew } = createMsm({
   Field,
   Scalar: Scalar,
-  CurveAffine,
-  CurveProjective,
+  Affine,
+  Projective,
 });
 
 tic("load inputs and convert to bigints");

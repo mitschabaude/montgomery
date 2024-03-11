@@ -22,8 +22,8 @@ toc();
 tic("convert points to bigint & check");
 let scratch = BLS12_377.Field.local.getPointers(5);
 let points = pointsPtrs.map((g) => {
-  BLS12_377.CurveAffine.assertOnCurve(scratch, g);
-  return BLS12_377.CurveAffine.toBigint(g);
+  BLS12_377.Affine.assertOnCurve(scratch, g);
+  return BLS12_377.Affine.toBigint(g);
 });
 toc();
 
@@ -39,9 +39,9 @@ toc();
 tic("msm (core)");
 console.log();
 let { result, log } = await BLS12_377.msm(scalarPtrs[0], pointsPtrs[0], N);
-let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.CurveAffine.size);
-BLS12_377.CurveProjective.toAffine(scratch, sAffinePtr, result);
-let s = BLS12_377.CurveAffine.toBigint(sAffinePtr);
+let sAffinePtr = BLS12_377.Field.getPointer(BLS12_377.Affine.size);
+BLS12_377.Projective.toAffine(scratch, sAffinePtr, result);
+let s = BLS12_377.Affine.toBigint(sAffinePtr);
 toc();
 
 log.forEach((l) => console.log(...l));

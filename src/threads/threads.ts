@@ -141,6 +141,10 @@ class ThreadPool {
   }
 
   setSource(source: URL | string) {
+    assert(
+      !this.isRunning,
+      "ThreadPool is running. The source must be set when starting the pool, so set it before starting (or after stopping)."
+    );
     this.source = typeof source === "string" ? new URL(source) : source;
   }
 
@@ -164,7 +168,7 @@ class ThreadPool {
     for (let t = 1; t < T; t++) {
       let worker = Worker<Message>(this.source, `ThreadPool worker #${t}`);
       // TODO: do we want this?
-      // worker.unref?.(); // TODO implement
+      worker.unref?.();
       worker.postMessage({
         type: MessageType.INIT,
         thread: t,

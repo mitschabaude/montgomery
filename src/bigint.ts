@@ -8,17 +8,12 @@ type BigintPointProjective = {
   Z: bigint;
 };
 
-function createBigintApi({
-  Field,
-  Scalar,
-  CurveAffine,
-  CurveProjective,
-}: MsmCurve) {
+function createBigintApi({ Field, Affine }: MsmCurve) {
   function randomPoints(n: number, { montgomery = false } = {}) {
     let sizeField = Field.sizeField;
     let memoryOffset = Field.getOffset();
-    let points = Field.getZeroPointers(n, CurveAffine.size);
-    CurveAffine.randomPoints(points);
+    let points = Field.getZeroPointers(n, Affine.size);
+    Affine.randomPoints(points);
     let pointsBigint: BigintPoint[] = Array(n);
     for (let i = 0; i < n; i++) {
       let point = points[i];

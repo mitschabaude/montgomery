@@ -18,6 +18,6 @@ await BLS12_377.stopThreads();
 tic("check points");
 let scratch = BLS12_377.Field.getPointers(5);
 points.forEach((gPtr) => {
-  BLS12_377.CurveAffine.assertOnCurve(scratch, gPtr);
+  BLS12_377.Affine.assertOnCurve(scratch, gPtr);
 });
 toc();

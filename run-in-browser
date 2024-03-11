@@ -25,6 +25,10 @@ const indexHtml = `
     <meta charset="utf-8" />
     <link rel="icon" href="data:," />
     <title>${fileName}</title>
+    <script>
+      // pass command line arguments
+      window.process = { argv: ${JSON.stringify(process.argv)} };
+    </script>
     <script type="module" src="./${fileName}">
     </script>
   </head>

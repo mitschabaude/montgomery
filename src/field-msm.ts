@@ -46,7 +46,8 @@ async function createFieldWasm({
 }) {
   let { n, nPackedBytes } = montgomeryParams(p, w, minExtraBits);
 
-  let wasmMemory = importMemory({ min: 1 << 16, max: 1 << 16, shared: true });
+  let memSize = 1 << 16;
+  let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
   let implicitMemory = new ImplicitMemory(wasmMemory);
 
   let Field_ = FieldWithArithmetic(p, w, n);

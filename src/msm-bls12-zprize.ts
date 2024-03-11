@@ -2,8 +2,8 @@
  * The main MSM implementation, based on batched-affine additions
  */
 import {
-  CurveAffine,
-  CurveProjective,
+  Affine,
+  Projective,
   Field,
   SpecialScalar,
 } from "./concrete/bls12-381.js";
@@ -56,7 +56,7 @@ let {
   isZero: isZeroAffine,
   copy: copyAffine,
   setIsNonZero: setIsNonZeroAffine,
-} = CurveAffine;
+} = Affine;
 
 let {
   size: sizeProjective,
@@ -66,7 +66,7 @@ let {
   copy: copyProjective,
   fromAffine: affineToProjective,
   coords: projectiveCoords,
-} = CurveProjective;
+} = Projective;
 
 export { msmBytesInput as msmAffine, msmBigint, batchAdd, BytesPoint };
 

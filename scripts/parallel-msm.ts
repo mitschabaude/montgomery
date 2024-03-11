@@ -1,4 +1,8 @@
-import { create } from "../src/module-weierstrass.js";
+import {
+  create,
+  startThreads,
+  stopThreads,
+} from "../src/module-weierstrass.js";
 import { tic, toc } from "../src/extra/tictoc.web.js";
 import { assertDeepEqual } from "../src/testing/nested.js";
 import { assert } from "../src/util.js";
@@ -11,9 +15,9 @@ export { benchmarkMsm, runMsm };
 
 async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   let N = 1 << n;
-
-  const { startThreads, stopThreads, Parallel } = await create(params);
   await startThreads(nThreads);
+
+  const { Parallel } = await create(params);
 
   tic("random points");
   let [pointPtr] = await Parallel.randomPointsFast(N);
@@ -52,28 +56,28 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
 
 async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   let N = 1 << n;
-  const Msm = await create(params);
-  await Msm.startThreads(nThreads);
+  const Curve = await create(params);
+  await startThreads(nThreads);
 
   tic("random points");
-  let pointsPtrs = await Msm.Parallel.randomPointsFast(N);
+  let pointsPtrs = await Curve.Parallel.randomPointsFast(N);
   toc();
 
   tic("random scalars");
-  let scalarPtrs = await Msm.Parallel.randomScalars(N);
+  let scalarPtrs = await Curve.Parallel.randomScalars(N);
   toc();
 
   tic("check points");
-  let scratch = Msm.Field.local.getPointers(5);
+  let scratch = Curve.Field.local.getPointers(5);
   pointsPtrs.forEach((g) => {
-    Msm.CurveAffine.assertOnCurve(scratch, g);
+    Curve.Affine.assertOnCurve(scratch, g);
   });
   toc();
 
   tic("convert scalars to bigint & check");
   let scalars = scalarPtrs.map((s) => {
-    let scalar = Msm.Scalar.readBigint(s);
-    assert(scalar < Msm.Scalar.modulus);
+    let scalar = Curve.Scalar.readBigint(s);
+    assert(scalar < Curve.Scalar.modulus);
     return scalar;
   });
   assert(scalars.length === N);
@@ -81,15 +85,15 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   console.log();
 
   tic(`msm (n=${n})`);
-  let { result, log } = await Msm.Parallel.msmUnsafe(
+  let { result, log } = await Curve.Parallel.msmUnsafe(
     scalarPtrs[0],
     pointsPtrs[0],
     N,
     true
   );
-  let sAffinePtr = Msm.Field.getPointer(Msm.CurveAffine.size);
-  Msm.CurveProjective.toAffine(scratch, sAffinePtr, result);
-  let s = Msm.CurveAffine.toBigint(sAffinePtr);
+  let sAffinePtr = Curve.Field.getPointer(Curve.Affine.size);
+  Curve.Projective.toAffine(scratch, sAffinePtr, result);
+  let s = Curve.Affine.toBigint(sAffinePtr);
 
   log.forEach((l) => console.log(...l));
   toc();
@@ -97,7 +101,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   if (n < 14) {
     const CurveBigint = createCurveProjective(params);
     let points = pointsPtrs.map((g) =>
-      CurveBigint.fromAffine(Msm.CurveAffine.toBigint(g))
+      CurveBigint.fromAffine(Curve.Affine.toBigint(g))
     );
     tic("msm (bigint impl)");
     let sBigint = CurveBigint.toAffine(bigintMsm(CurveBigint, scalars, points));
@@ -106,5 +110,5 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
     console.log("results are consistent!");
   }
 
-  await Msm.stopThreads();
+  await stopThreads();
 }

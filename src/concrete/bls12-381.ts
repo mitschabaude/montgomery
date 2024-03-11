@@ -9,25 +9,17 @@ import { createBigintApi } from "../bigint.js";
 import { createMsm } from "../msm.js";
 import { createRandomPointsFast } from "../curve-random.js";
 
-export {
-  Bigint,
-  Field,
-  Scalar,
-  CurveAffine,
-  CurveProjective,
-  Random,
-  SpecialScalar,
-};
+export { Bigint, Field, Scalar, Affine, Projective, Random, SpecialScalar };
 export { msm, msmUnsafe, msmUtil };
 
 const Field = await createMsmField({ p, beta, w: 30 });
 const Scalar = await createGlvScalar({ q, lambda, w: 29 });
-const CurveProjective = createCurveProjective(Field);
-const CurveAffine = createCurveAffine(Field, CurveProjective, 4n);
+const Projective = createCurveProjective(Field);
+const Affine = createCurveAffine(Field, Projective, 4n);
 
 const SpecialScalar = await createSpecialGlvScalar(q, lambda, 29);
 
-const MsmInputs = { Field, Scalar, CurveAffine, CurveProjective };
+const MsmInputs = { Field, Scalar, Affine, Projective };
 
 const { msm, msmUnsafe, msmBigint, ...msmUtil } = createMsm(MsmInputs);
 
@@ -43,8 +35,8 @@ const Random = {
 const Bigint_ = createBigintApi({
   Field,
   Scalar,
-  CurveAffine,
-  CurveProjective,
+  Affine: Affine,
+  Projective: Projective,
 });
 const Bigint = {
   ...Bigint_,

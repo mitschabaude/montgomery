@@ -21,9 +21,9 @@ function createRandomPointsFast(inputs: RandomPointsInputs) {
     n: number,
     { entropy = 64, windowSize = 13 } = {}
   ) {
-    let { Field, CurveAffine, CurveProjective } = inputs;
+    let { Field, Affine, Projective } = inputs;
 
-    let pointsAffine = Field.global.getPointers(n, CurveAffine.size);
+    let pointsAffine = Field.global.getPointers(n, Affine.size);
     using _l = Field.local.atCurrentOffset;
     using _g = Field.global.atCurrentOffset;
 
@@ -37,47 +37,47 @@ function createRandomPointsFast(inputs: RandomPointsInputs) {
     let L = 1 << c;
     let B = Array<number[]>(K);
     for (let k = 0; k < K; k++) {
-      B[k] = Field.global.getPointers(L, CurveProjective.size);
+      B[k] = Field.global.getPointers(L, Projective.size);
     }
     for (let [k, ke] = range(K); k < ke; k++) {
       // compute random basis point
-      let basis = Field.local.getPointer(CurveAffine.size);
-      CurveAffine.randomPoints([basis]);
+      let basis = Field.local.getPointer(Affine.size);
+      Affine.randomPoints([basis]);
 
       let Bk = B[k];
 
       // zeroth point is zero
-      CurveProjective.setZero(Bk[0]);
+      Projective.setZero(Bk[0]);
       // first point is the basis point
-      CurveProjective.fromAffine(Bk[1], basis);
+      Projective.fromAffine(Bk[1], basis);
       // second needs double
-      CurveProjective.copy(Bk[2], Bk[1]);
-      CurveProjective.doubleInPlace(scratch, Bk[2]);
+      Projective.copy(Bk[2], Bk[1]);
+      Projective.doubleInPlace(scratch, Bk[2]);
       // the rest with additions
       for (let l = 3; l < L; l++) {
-        CurveProjective.copy(Bk[l], Bk[l - 1]);
-        CurveProjective.addAssign(scratch, Bk[l], Bk[1]);
+        Projective.copy(Bk[l], Bk[l - 1]);
+        Projective.addAssign(scratch, Bk[l], Bk[1]);
       }
       B[k] = Bk;
     }
     await barrier();
 
     // 2. generate random points by taking a sum of random basis multiples
-    let points = Field.global.getPointers(n, CurveProjective.size);
+    let points = Field.global.getPointers(n, Projective.size);
 
     for (let [i, ie] = range(n); i < ie; i++) {
       let windows = randomWindows(c, K);
       let P = points[i];
-      CurveProjective.copy(P, B[0][windows[0]]);
+      Projective.copy(P, B[0][windows[0]]);
       for (let k = 1; k < K; k++) {
         let l = windows[k];
-        CurveProjective.addAssign(scratch, P, B[k][l]);
+        Projective.addAssign(scratch, P, B[k][l]);
       }
     }
 
     // 3. convert to affine
     let [start, end] = range(n);
-    CurveAffine.batchNormalize(
+    Affine.batchNormalize(
       pointsAffine.slice(start, end),
       points.slice(start, end)
     );
@@ -89,7 +89,7 @@ function createRandomPointsFast(inputs: RandomPointsInputs) {
 
 type RandomPointsInputs = {
   Field: MsmField;
-  CurveAffine: {
+  Affine: {
     size: number;
     randomPoints: (pointers: number[]) => void;
     batchNormalize: (
@@ -97,7 +97,7 @@ type RandomPointsInputs = {
       projectivePointers: number[]
     ) => void;
   };
-  CurveProjective: {
+  Projective: {
     size: number;
     setZero: (pointer: number) => void;
     fromAffine: (pointer: number, affinePointer: number) => void;
