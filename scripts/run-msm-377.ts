@@ -1,5 +1,5 @@
 import { curveParams } from "../src/concrete/bls12-377.params.js";
-import { benchmarkMsm, runMsm } from "./parallel-msm-weierstrass.js";
+import { benchmarkMsm, runMsm } from "./run-msm-weierstrass.js";
 
 let n = 16;
 let nThreads = 16;

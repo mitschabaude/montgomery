@@ -66,13 +66,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
       c: c_,
       c0: c0_,
       useSafeAdditions = true,
-    }:
-      | {
-          c?: number;
-          c0?: number;
-          useSafeAdditions?: boolean;
-        }
-      | undefined = {}
+    }: { c?: number; c0?: number; useSafeAdditions?: boolean } = {}
   ) {
     let { tic, toc, log, getLog } = createLog(verboseTiming && isMain());
     tic("msm total");
