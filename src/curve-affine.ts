@@ -463,15 +463,42 @@ function batchAddUnsafeOld(
   if (n === 0) return;
 
   using _ = Field.local.atCurrentOffset;
-  let tmp = Uint32Array.from(Field.local.getPointers(n, sizeField));
+  let inv = Field.local.getPointer();
   let scratch = Field.local.getPointers(10);
+  let x = Field.local.getPointers(n, sizeField);
+  let xInv = Field.local.getPointers(n, sizeField);
 
   for (let i = 0; i < n; i++) {
-    subtractPositive(tmp[i], H[i], G[i]);
+    subtractPositive(x[i], H[i], G[i]);
   }
-  let d = batchInverse(Field, tmp);
+
+  // this holds the accumulated products x[0]*...*x[i]
+  let z = Field.local.getPointers(n, sizeField);
+
+  // z[0] = x[0]
+  Field.copy(z[0], x[0]);
+
+  for (let i = 1; i < n; i++) {
+    // z[i] = z[i-1] * x[i]
+    Field.multiply(z[i], z[i - 1], x[i]);
+  }
+
+  // inv = 1/z[n-1]
+  Field.inverse(scratch[0], inv, z[n - 1]);
+
+  for (let i = n - 1; i > 0; i--) {
+    // xInv[i] = z[i-1] * inv
+    Field.multiply(xInv[i], z[i - 1], inv);
+
+    // inv = inv * x[i]
+    Field.multiply(inv, inv, x[i]);
+  }
+
+  // xInv[0] = inv
+  Field.copy(xInv[0], inv);
+
   for (let i = 0; i < n; i++) {
-    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
+    addAffine(scratch[0], S[i], G[i], H[i], xInv[i]);
   }
 }
 
