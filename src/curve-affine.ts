@@ -6,6 +6,8 @@ import { assert } from "./util.js";
 
 export {
   createCurveAffine,
+  batchAddNew,
+  batchAddUnsafeNew,
   batchAdd,
   batchAddUnsafe,
   batchDoubleInPlace,
@@ -327,6 +329,125 @@ type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 const BigintPoint = {
   zero: { x: 0n, y: 0n, isZero: true },
 };
+
+/**
+ * Like {@link batchAdd}, but uses less memory.
+ */
+function batchAddNew(
+  Field: MsmField,
+  Curve: CurveAffine,
+  scratch: number[],
+  S: Uint32Array,
+  G: Uint32Array,
+  H: Uint32Array,
+  n: number
+) {
+  let { sizeField, subtractPositive, batchInverse, addAffine, isEqual, add } =
+    Field;
+  let {
+    double: doubleAffine,
+    isZero: isZeroAffine,
+    copy: copyAffine,
+    setIsNonZero: setIsNonZeroAffine,
+  } = Curve;
+
+  using _ = Field.local.atCurrentOffset;
+  let d = Uint32Array.from(Field.local.getPointers(n, sizeField));
+  let tmp = Uint32Array.from(Field.local.getPointers(n, sizeField));
+
+  let iAdd = Array(n);
+  let iDouble = Array(n);
+  let iBoth = Array(n);
+  let nAdd = 0;
+  let nDouble = 0;
+  let nBoth = 0;
+
+  for (let i = 0; i < n; i++) {
+    // check G, H for zero
+    if (isZeroAffine(G[i])) {
+      copyAffine(S[i], H[i]);
+      continue;
+    }
+    if (isZeroAffine(H[i])) {
+      if (S[i] !== G[i]) copyAffine(S[i], G[i]);
+      continue;
+    }
+    if (isEqual(G[i], H[i])) {
+      // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
+      // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
+      let y = G[i] + sizeField;
+      if (!isEqual(y, H[i] + sizeField)) {
+        setIsNonZeroAffine(S[i], false);
+        continue;
+      }
+      add(tmp[nBoth], y, y); // TODO: efficient doubling
+      iDouble[nDouble] = i;
+      iBoth[i] = nBoth;
+      nDouble++, nBoth++;
+    } else {
+      // typical case, where x1 !== x2 and we add the points
+      subtractPositive(tmp[nBoth], H[i], G[i]);
+      iAdd[nAdd] = i;
+      iBoth[i] = nBoth;
+      nAdd++, nBoth++;
+    }
+  }
+  batchInverse(scratch[0], d[0], tmp[0], nBoth);
+  for (let j = 0; j < nAdd; j++) {
+    let i = iAdd[j];
+    addAffine(scratch[0], S[i], G[i], H[i], d[iBoth[i]]);
+  }
+  for (let j = 0; j < nDouble; j++) {
+    let i = iDouble[j];
+    doubleAffine(scratch, S[i], G[i], d[iBoth[i]]);
+  }
+}
+
+/**
+ * Like {@link batchAddUnsafe}, but uses less memory.
+ */
+function batchAddUnsafeNew(
+  Field: MsmField,
+  [delta, I, ...scratch]: number[],
+  S: Uint32Array,
+  G: Uint32Array,
+  H: Uint32Array,
+  n: number
+) {
+  let { sizeField, subtractPositive, addAffine, multiply } = Field;
+
+  if (n === 0) return;
+
+  using _ = Field.local.atCurrentOffset;
+  let z0 = Field.local.getPointer(n * sizeField);
+
+  // z[0] = (H[0] - G[0])
+  subtractPositive(z0, H[0], G[0]);
+
+  let zi = z0;
+  for (let i = 1; i < n; i++, zi += sizeField) {
+    // z[i] = z[i-1] (H[i] - G[i]) = Prod_{j<=i} (H[j] - G[j])
+    subtractPositive(delta, H[i], G[i]);
+    multiply(zi + sizeField, delta, zi);
+  }
+
+  // I = 1/z[n-1] = Prod_{j<=n-1} (H[j] - G[j])^(-1)
+  Field.inverse(scratch[0], I, zi);
+
+  let invDelta = delta;
+  zi -= sizeField;
+  for (let i = n - 1; i > 0; i--, zi -= sizeField) {
+    // invDelta = (H[i] - G[i])^(-1)
+    multiply(invDelta, I, zi);
+    addAffine(scratch[0], S[i], G[i], H[i], invDelta);
+
+    // I = I * (H[i] - G[i]) = Prod_{j<i} (H[j] - G[j])^(-1)
+    subtractPositive(delta, H[i], G[i]);
+    multiply(I, I, delta);
+  }
+  // I = (H[0] - G[0])^(-1)
+  addAffine(scratch[0], S[0], G[0], H[0], I);
+}
 
 /**
  * Given points G0,...,G(n-1) and H0,...,H(n-1), compute
