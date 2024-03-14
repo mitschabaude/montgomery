@@ -421,42 +421,52 @@ function batchAddUnsafeNew(
 
   using _ = Field.local.atCurrentOffset;
   let inv = Field.local.getPointer();
-  let delta = Field.local.getPointer();
-  let invDelta = Field.local.getPointer();
+  let deltaX = Field.local.getPointer();
+  let deltaY = Field.local.getPointer();
+  let zAcc = Field.local.getPointer();
   let tmp = Field.local.getPointer(3 * sizeField);
   let z = Field.local.getPointers(n, sizeField);
 
-  // z[0] = (H[0] - G[0])
-  subtractPositive(z[0], H[0], G[0]);
+  // z[0] = dy[0] := y2[0] - y1[0]
+  // zacc = dx[0] := x2[0] - x1[0]
+  subtractPositive(deltaY, H[0] + sizeField, G[0] + sizeField);
+  subtractPositive(zAcc, H[0], G[0]);
+  Field.copy(z[0], deltaY);
 
   for (let i = 1; i < n; i++) {
-    // z[i] = z[i-1] (H[i] - G[i]) = Prod_{j<=i} (H[j] - G[j])
-    subtractPositive(delta, H[i], G[i]);
-    multiply(z[i], z[i - 1], delta);
+    // z[i] = dy[i] Prod_{j<i} dx[j]
+    // zacc = Prod_{j<=i} dx[j]
+    subtractPositive(deltaY, H[i] + sizeField, G[i] + sizeField);
+    subtractPositive(deltaX, H[i], G[i]);
+    multiply(z[i], zAcc, deltaY);
+    multiply(zAcc, zAcc, deltaX);
   }
 
-  // inv = 1/z[n-1] = Prod_{j<=n-1} (H[j] - G[j])^(-1)
-  Field.inverse(tmp, inv, z[n - 1]);
+  // inv = 1/zAcc = Prod_{j<=n-1} dx[j]^(-1)
+  Field.inverse(tmp, inv, zAcc);
 
   for (let i = n - 1; i > 0; i--) {
-    subtractPositive(delta, H[i], G[i]);
+    // compute dx[i]
+    subtractPositive(deltaX, H[i], G[i]);
 
-    // invDelta = (H[i] - G[i])^(-1)
-    multiply(invDelta, z[i - 1], inv);
-
+    // m = dy[i] / dx[i]
+    //   = (dy[i] Prod_{j<i} dx[j]) * Prod_{j<=i} dx[j]^(-1)
+    //   = z[i] * inv
     // store m in S[i].y
     let m = S[i] + sizeField;
-    Field.subtractPositive(m, H[i] + sizeField, G[i] + sizeField);
-    Field.multiply(m, m, invDelta);
+    multiply(m, z[i], inv);
 
     // affine add with invDelta
     addAffinePacked(tmp, S[i], G[i], H[i]);
 
-    // inv = inv * (H[i] - G[i]) = Prod_{j<i} (H[j] - G[j])^(-1)
-    multiply(inv, inv, delta);
+    // inv = inv * dx[i] = Prod_{j<i} dx[j]^(-1)
+    multiply(inv, inv, deltaX);
   }
-  // I = (H[0] - G[0])^(-1)
-  addAffine(tmp, S[0], G[0], H[0], inv);
+  // now, inv = dx[0]^(-1)
+  // m = dy[0] / dx[0] = z[0] * inv
+  let m = S[0] + sizeField;
+  multiply(m, z[0], inv);
+  addAffinePacked(tmp, S[0], G[0], H[0]);
 }
 
 /**
