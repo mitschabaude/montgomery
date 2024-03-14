@@ -74,6 +74,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     let result = Field.global.getPointer(sizeProjective);
     using _g = Field.global.atCurrentOffset;
     using _l = Field.local.atCurrentOffset;
+    using _s = Scalar.global.atCurrentOffset;
     let n = log2(N);
     let c = n - 1;
     if (c < 1) c = 1;
@@ -342,7 +343,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     let sizeAffine4 = 4 * sizeAffine;
     let pointPtr = Field.global.getPointer(N * sizeAffine4);
     let sizeScalar2 = 2 * sizeScalar;
-    let scalarPtr = Field.global.getPointer(N * sizeScalar2);
+    let scalarPtr = Scalar.global.getPointer(N * sizeScalar2);
 
     let [i, iend] = range(N);
     let point = pointPtr + sizeAffine4 * i;
