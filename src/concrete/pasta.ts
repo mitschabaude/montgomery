@@ -39,8 +39,8 @@ const Random = {
 const Bigint_ = createBigintApi({
   Field,
   Scalar,
-  Affine: Affine,
-  Projective: Projective,
+  Affine,
+  Projective,
 });
 const Bigint = {
   ...Bigint_,

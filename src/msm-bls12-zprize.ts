@@ -1,5 +1,5 @@
 /**
- * The main MSM implementation, based on batched-affine additions
+ * DEPRECATED. The current implementation is `msm-parallel.ts`
  */
 import {
   Affine,
