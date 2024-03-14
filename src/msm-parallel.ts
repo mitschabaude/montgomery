@@ -206,7 +206,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     toc();
 
     tic("integrate bucket counts");
-    // this takes < 1ms, so we do just it on the main thread
+    // this takes < 1ms, so we just do it on the main thread
     if (isMain()) {
       integrateBucketCounts(bucketCounts, buckets, params);
     }
@@ -221,7 +221,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     await barrier();
     toc();
 
-    // first stage - bucket accumulation
+    // first large computation stage - bucket accumulation
     tic("bucket accumulation");
     let nPairsMax = N * K; // maximum number of pairs = half the number of points, times K partitions
     let G = new Uint32Array(nPairsMax); // holds first summands
@@ -271,7 +271,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     // we're done!!
     // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
 
-    // second stage
+    // second computation stage
     tic("normalize bucket storage");
     let chunks = normalizeBucketsStorage(
       buckets,
