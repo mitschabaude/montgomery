@@ -1,7 +1,7 @@
 /**
  * The main MSM implementation, based on batched-affine additions
  */
-import { CurveAffine, batchAdd, batchAddUnsafe } from "./curve-affine.js";
+import { CurveAffine, batchAddNew, batchAddUnsafeNew } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
@@ -251,16 +251,12 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
       let nPairs = p;
       if (nPairs === 0) continue;
 
-      using _ = Field.local.atCurrentOffset;
-      let denom = Uint32Array.from(Field.local.getPointers(nPairs, sizeField));
-      let tmp = Uint32Array.from(Field.local.getPointers(nPairs, sizeField));
-
       // now (G,H) represents a big array of independent additions, which we batch-add
       tic();
       if (useSafeAdditions) {
-        batchAdd(Field, Affine, scratch, tmp, denom, G, G, H, nPairs);
+        batchAddNew(Field, Affine, scratch, G, G, H, nPairs);
       } else {
-        batchAddUnsafe(Field, scratch, tmp[0], denom[0], G, G, H, nPairs);
+        batchAddUnsafeNew(Field, G, G, H, nPairs);
       }
       let t = toc();
       if (t > 0)
@@ -323,6 +319,9 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     }
     Projective.copy(result, finalSum);
     toc();
+
+    log(Field.global.printMaxSizeUsed());
+    log(Field.local.printMaxSizeUsed());
     toc();
     return { result, log: getLog() };
   }

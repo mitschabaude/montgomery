@@ -271,7 +271,7 @@ class MemorySection {
       100
     ).toFixed(1);
     let kind = this.isShared ? "global" : "local";
-    return `max size used (${kind}):\t ${maxUsedPercent}% = ${maxUsedMB} / ${maxMb} MB`;
+    return `max memory used (${kind}):\t ${maxUsedPercent}% = ${maxUsedMB} / ${maxMb} MB`;
   }
 
   // this will be called with `using section.atCurrentOffset`
