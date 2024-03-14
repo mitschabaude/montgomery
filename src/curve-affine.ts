@@ -439,12 +439,15 @@ function batchAddUnsafeNew(
   Field.inverse(scratch[0], inv, z[n - 1]);
 
   for (let i = n - 1; i > 0; i--) {
+    subtractPositive(delta, H[i], G[i]);
+
     // invDelta = (H[i] - G[i])^(-1)
     multiply(invDelta, z[i - 1], inv);
+
+    // affine add with invDelta
     addAffine(scratch[0], S[i], G[i], H[i], invDelta);
 
     // inv = inv * (H[i] - G[i]) = Prod_{j<i} (H[j] - G[j])^(-1)
-    subtractPositive(delta, H[i], G[i]);
     multiply(inv, inv, delta);
   }
   // I = (H[0] - G[0])^(-1)
@@ -464,21 +467,20 @@ function batchAddUnsafeOld(
 
   using _ = Field.local.atCurrentOffset;
   let inv = Field.local.getPointer();
+  let delta = Field.local.getPointer();
   let scratch = Field.local.getPointers(10);
   let x = Field.local.getPointers(n, sizeField);
   let xInv = Field.local.getPointers(n, sizeField);
-
-  for (let i = 0; i < n; i++) {
-    subtractPositive(x[i], H[i], G[i]);
-  }
 
   // this holds the accumulated products x[0]*...*x[i]
   let z = Field.local.getPointers(n, sizeField);
 
   // z[0] = x[0]
+  subtractPositive(x[0], H[0], G[0]);
   Field.copy(z[0], x[0]);
 
   for (let i = 1; i < n; i++) {
+    subtractPositive(x[i], H[i], G[i]);
     // z[i] = z[i-1] * x[i]
     Field.multiply(z[i], z[i - 1], x[i]);
   }
@@ -491,6 +493,7 @@ function batchAddUnsafeOld(
     Field.multiply(xInv[i], z[i - 1], inv);
 
     // inv = inv * x[i]
+    subtractPositive(x[i], H[i], G[i]);
     Field.multiply(inv, inv, x[i]);
   }
 
