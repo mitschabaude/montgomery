@@ -458,19 +458,18 @@ function batchAddUnsafeOld(
   H: Uint32Array,
   n: number
 ) {
-  let { sizeField, subtractPositive, batchInverse, addAffine } = Field;
+  let { sizeField, subtractPositive, addAffine } = Field;
 
   if (n === 0) return;
 
   using _ = Field.local.atCurrentOffset;
-  let d = Uint32Array.from(Field.local.getPointers(n, sizeField));
   let tmp = Uint32Array.from(Field.local.getPointers(n, sizeField));
   let scratch = Field.local.getPointers(10);
 
   for (let i = 0; i < n; i++) {
     subtractPositive(tmp[i], H[i], G[i]);
   }
-  batchInverse(scratch[0], d[0], tmp[0], n);
+  let d = batchInverse(Field, tmp);
   for (let i = 0; i < n; i++) {
     addAffine(scratch[0], S[i], G[i], H[i], d[i]);
   }
