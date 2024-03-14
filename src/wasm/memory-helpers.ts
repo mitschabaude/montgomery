@@ -5,7 +5,7 @@ import { assert, log2 } from "../util.js";
 export { memoryHelpers, MemoryHelpers };
 
 // how much memory is reserved for thread-local memory as a fraction of total memory
-const localRatio = 0.4;
+const localRatio = 0.2;
 
 type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 
