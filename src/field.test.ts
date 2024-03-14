@@ -4,7 +4,8 @@ import { createMsmField, MsmField } from "./field-msm.js";
 import { exampleFields } from "./concrete/example-fields.js";
 import { Spec, throwError } from "./testing/equivalent.js";
 import { test } from "node:test";
-import { Random, sampleOne } from "./testing/random.js";
+import { Random, sample, sampleOne } from "./testing/random.js";
+import { batchInverse } from "./curve-affine.js";
 
 Error.stackTraceLimit = 1000;
 
@@ -148,17 +149,23 @@ async function testField(label: string, w: number, BigintField: BigintField) {
   );
 
   // batch inverse
-  testBatchMontgomery(BigintField, Field);
+  for (let n of sample(Random.nat(100), 20)) {
+    testBatchMontgomery(n, BigintField, Field);
+  }
 }
 
 // TODO represent this test more elegantly as as equivalence test
 // by defining how to map arrays to/from wasm
-function testBatchMontgomery(BigintField: BigintField, Field: MsmField) {
+function testBatchMontgomery(
+  n: number,
+  BigintField: BigintField,
+  Field: MsmField
+) {
   let field = Random.reject(Random.field(Field.p), (x) => x === 0n);
-  let n = 1000;
-  let X = Field.getPointers(n);
-  let invX = Field.getPointers(n);
-  let scratch = Field.getPointers(10);
+  let X = Field.local.getPointers(n);
+  let invX = Field.local.getPointers(n);
+  let scratch = Field.local.getPointers(10);
+
   for (let i = 0; i < n; i++) {
     let x0 = sampleOne(field);
     Field.writeBigint(X[i], x0);
@@ -168,14 +175,18 @@ function testBatchMontgomery(BigintField: BigintField, Field: MsmField) {
   // compute inverses as batch
   let invX1 = Field.getPointers(n);
   Field.batchInverse(scratch[0], invX1[0], X[0], n);
+  let invX2 = batchInverse(Field, X);
 
   // check that all inverses are equal
   for (let i = 0; i < n; i++) {
     let z0 = Field.readBigint(invX[i]);
     let z1 = Field.readBigint(invX1[i]);
+    let z2 = Field.readBigint(invX2[i]);
     if (!BigintField.isEqual(z1, z0)) throw Error("batch inverse");
+    if (!BigintField.isEqual(z2, z0)) throw Error("batch inverse JS");
 
     Field.reduce(invX1[i]);
+    Field.reduce(invX2[i]);
     Field.reduce(invX[i]);
     if (!Field.isEqual(invX1[i], invX[i])) {
       console.log({
@@ -186,6 +197,16 @@ function testBatchMontgomery(BigintField: BigintField, Field: MsmField) {
         invX1: Field.readBigint(invX1[i]),
       });
       throw Error("batch inverse / reduce");
+    }
+    if (!Field.isEqual(invX2[i], invX[i])) {
+      console.log({
+        i,
+        z0,
+        z1,
+        invX0: Field.readBigint(invX[i]),
+        invX1: Field.readBigint(invX2[i]),
+      });
+      throw Error("batch inverse / reduce JS");
     }
   }
 }

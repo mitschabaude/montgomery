@@ -12,6 +12,7 @@ export {
   batchAddUnsafe,
   batchDoubleInPlace,
   CurveAffine,
+  batchInverse,
 };
 
 export { getSizeAffine };
@@ -612,4 +613,44 @@ function batchDoubleInPlace(
   for (let i = 0; i < n1; i++) {
     doubleAffine(scratch, G1[i], G1[i], d[i]);
   }
+}
+
+/**
+ * JS implementation of batch inverse
+ */
+function batchInverse(Field: MsmField, x: Uint32Array | number[]) {
+  let n = x.length;
+  if (n === 0) return [];
+
+  let xInv = Field.local.getPointers(n, Field.sizeField);
+  using _ = Field.local.atCurrentOffset;
+  let inv = Field.local.getPointer();
+  let scratch = Field.local.getPointers(10);
+
+  // this holds the accumulated products x[0]*...*x[i]
+  let z = Field.local.getPointers(n, Field.sizeField);
+
+  // z[0] = x[0]
+  Field.copy(z[0], x[0]);
+
+  for (let i = 1; i < n; i++) {
+    // z[i] = z[i-1] * x[i]
+    Field.multiply(z[i], z[i - 1], x[i]);
+  }
+
+  // inv = 1/z[n-1]
+  Field.inverse(scratch[0], inv, z[n - 1]);
+
+  for (let i = n - 1; i > 0; i--) {
+    // xInv[i] = z[i-1] * inv
+    Field.multiply(xInv[i], z[i - 1], inv);
+
+    // inv = inv * x[i]
+    Field.multiply(inv, inv, x[i]);
+  }
+
+  // xInv[0] = inv
+  Field.copy(xInv[0], inv);
+
+  return xInv;
 }
