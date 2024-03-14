@@ -8,6 +8,7 @@ export {
   createCurveAffine,
   batchAddNew,
   batchAddUnsafeNew,
+  batchAddUnsafeOld,
   batchAdd,
   batchAddUnsafe,
   batchDoubleInPlace,
@@ -409,7 +410,6 @@ function batchAddNew(
  */
 function batchAddUnsafeNew(
   Field: MsmField,
-  [delta, I, ...scratch]: number[],
   S: Uint32Array,
   G: Uint32Array,
   H: Uint32Array,
@@ -420,34 +420,60 @@ function batchAddUnsafeNew(
   if (n === 0) return;
 
   using _ = Field.local.atCurrentOffset;
-  let z0 = Field.local.getPointer(n * sizeField);
+  let inv = Field.local.getPointer();
+  let delta = Field.local.getPointer();
+  let invDelta = Field.local.getPointer();
+  let scratch = Field.local.getPointers(10);
+  let z = Field.local.getPointers(n, sizeField);
 
   // z[0] = (H[0] - G[0])
-  subtractPositive(z0, H[0], G[0]);
+  subtractPositive(z[0], H[0], G[0]);
 
-  let zi = z0;
-  for (let i = 1; i < n; i++, zi += sizeField) {
+  for (let i = 1; i < n; i++) {
     // z[i] = z[i-1] (H[i] - G[i]) = Prod_{j<=i} (H[j] - G[j])
     subtractPositive(delta, H[i], G[i]);
-    multiply(zi + sizeField, delta, zi);
+    multiply(z[i], z[i - 1], delta);
   }
 
-  // I = 1/z[n-1] = Prod_{j<=n-1} (H[j] - G[j])^(-1)
-  Field.inverse(scratch[0], I, zi);
+  // inv = 1/z[n-1] = Prod_{j<=n-1} (H[j] - G[j])^(-1)
+  Field.inverse(scratch[0], inv, z[n - 1]);
 
-  let invDelta = delta;
-  zi -= sizeField;
-  for (let i = n - 1; i > 0; i--, zi -= sizeField) {
+  for (let i = n - 1; i > 0; i--) {
     // invDelta = (H[i] - G[i])^(-1)
-    multiply(invDelta, I, zi);
+    multiply(invDelta, z[i - 1], inv);
     addAffine(scratch[0], S[i], G[i], H[i], invDelta);
 
-    // I = I * (H[i] - G[i]) = Prod_{j<i} (H[j] - G[j])^(-1)
+    // inv = inv * (H[i] - G[i]) = Prod_{j<i} (H[j] - G[j])^(-1)
     subtractPositive(delta, H[i], G[i]);
-    multiply(I, I, delta);
+    multiply(inv, inv, delta);
   }
   // I = (H[0] - G[0])^(-1)
-  addAffine(scratch[0], S[0], G[0], H[0], I);
+  addAffine(scratch[0], S[0], G[0], H[0], inv);
+}
+
+function batchAddUnsafeOld(
+  Field: MsmField,
+  S: Uint32Array,
+  G: Uint32Array,
+  H: Uint32Array,
+  n: number
+) {
+  let { sizeField, subtractPositive, batchInverse, addAffine } = Field;
+
+  if (n === 0) return;
+
+  using _ = Field.local.atCurrentOffset;
+  let d = Uint32Array.from(Field.local.getPointers(n, sizeField));
+  let tmp = Uint32Array.from(Field.local.getPointers(n, sizeField));
+  let scratch = Field.local.getPointers(10);
+
+  for (let i = 0; i < n; i++) {
+    subtractPositive(tmp[i], H[i], G[i]);
+  }
+  batchInverse(scratch[0], d[0], tmp[0], n);
+  for (let i = 0; i < n; i++) {
+    addAffine(scratch[0], S[i], G[i], H[i], d[i]);
+  }
 }
 
 /**
