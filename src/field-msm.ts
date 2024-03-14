@@ -58,7 +58,7 @@ async function createFieldWasm({
 
   let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
   let exp = fieldExp(Field);
-  let { addAffine, endomorphism } = curveOps(
+  let { addAffine, addAffinePacked, endomorphism } = curveOps(
     implicitMemory,
     Field,
     inverse,
@@ -82,6 +82,7 @@ async function createFieldWasm({
       ...implicitMemory.getExports(),
       // curve ops
       addAffine,
+      addAffinePacked,
       endomorphism,
       // multiplication
       multiply,

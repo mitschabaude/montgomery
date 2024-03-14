@@ -414,7 +414,8 @@ function batchAddUnsafeNew(
   H: Uint32Array,
   n: number
 ) {
-  let { sizeField, subtractPositive, addAffine, multiply } = Field;
+  let { sizeField, subtractPositive, addAffine, addAffinePacked, multiply } =
+    Field;
 
   if (n === 0) return;
 
@@ -422,7 +423,7 @@ function batchAddUnsafeNew(
   let inv = Field.local.getPointer();
   let delta = Field.local.getPointer();
   let invDelta = Field.local.getPointer();
-  let scratch = Field.local.getPointers(10);
+  let tmp = Field.local.getPointer(3 * sizeField);
   let z = Field.local.getPointers(n, sizeField);
 
   // z[0] = (H[0] - G[0])
@@ -435,7 +436,7 @@ function batchAddUnsafeNew(
   }
 
   // inv = 1/z[n-1] = Prod_{j<=n-1} (H[j] - G[j])^(-1)
-  Field.inverse(scratch[0], inv, z[n - 1]);
+  Field.inverse(tmp, inv, z[n - 1]);
 
   for (let i = n - 1; i > 0; i--) {
     subtractPositive(delta, H[i], G[i]);
@@ -443,14 +444,19 @@ function batchAddUnsafeNew(
     // invDelta = (H[i] - G[i])^(-1)
     multiply(invDelta, z[i - 1], inv);
 
+    // store m in S[i].y
+    let m = S[i] + sizeField;
+    Field.subtractPositive(m, H[i] + sizeField, G[i] + sizeField);
+    Field.multiply(m, m, invDelta);
+
     // affine add with invDelta
-    addAffine(scratch[0], S[i], G[i], H[i], invDelta);
+    addAffinePacked(tmp, S[i], G[i], H[i]);
 
     // inv = inv * (H[i] - G[i]) = Prod_{j<i} (H[j] - G[j])^(-1)
     multiply(inv, inv, delta);
   }
   // I = (H[0] - G[0])^(-1)
-  addAffine(scratch[0], S[0], G[0], H[0], inv);
+  addAffine(tmp, S[0], G[0], H[0], inv);
 }
 
 /**

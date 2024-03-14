@@ -57,6 +57,32 @@ function curveOps(
     }
   );
 
+  // version which receives m stored in y3
+  // when add-assigning, y3 = y1; note that given m, we don't need y1
+  // so we replace y1 AND d with m, which saves 1 stored field
+  const addAffinePacked = func(
+    { in: [i32, i32, i32, i32], locals: [i32, i32, i32], out: [] },
+    ([tmp, x3, x1, x2], [y3, y2]) => {
+      // compute other pointers from inputs
+      local.set(y2, i32.add(x2, Field.size));
+      local.set(y3, i32.add(x3, Field.size));
+      let m = y3;
+
+      // mark output point as non-zero
+      i32.store8({ offset: 2 * Field.size }, x3, 1);
+
+      // x3 = m^2 - x1 - x2
+      call(Field.square, [tmp, m]);
+      call(Field.subtract, [x3, tmp, x1]);
+      call(Field.subtract, [x3, x3, x2]);
+
+      // y3 = (x2 - x3)*m - y2
+      call(Field.subtractPositive, [tmp, x2, x3]);
+      call(Field.multiply, [y3, m, tmp]); // y3 = m is fine here
+      call(Field.subtract, [y3, y3, y2]);
+    }
+  );
+
   const { R, p } = Field;
   const betaMontgomery = mod(beta * R, p);
   const betaGlobal = implicitMemory.data(Field.bigintToData(betaMontgomery));
@@ -195,5 +221,5 @@ function curveOps(
     }
   );
 
-  return { addAffine, endomorphism, batchAddUnsafe };
+  return { addAffine, addAffinePacked, endomorphism, batchAddUnsafe };
 }
