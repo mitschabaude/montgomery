@@ -63,7 +63,8 @@ async function createGlvScalarWasm({
 }) {
   const { n } = montgomeryParams(q, w, 1);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
-  let wasmMemory = importMemory({ min: 1 << 15, max: 1 << 15, shared: true });
+  let memSize = 0b11 << 14;
+  let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
 
   let module = Module({
     exports: {
