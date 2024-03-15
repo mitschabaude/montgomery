@@ -1,8 +1,4 @@
-import {
-  create,
-  startThreads,
-  stopThreads,
-} from "../src/module-weierstrass.js";
+import { Weierstraß } from "../src/module-weierstrass.js";
 import { tic, toc } from "../src/testing/tictoc.js";
 import { assertDeepEqual } from "../src/testing/nested.js";
 import { assert } from "../src/util.js";
@@ -15,9 +11,9 @@ export { benchmarkMsm, runMsm };
 
 async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   let N = 1 << n;
-  await startThreads(nThreads);
+  await Weierstraß.startThreads(nThreads);
 
-  const { Parallel } = await create(params);
+  const { Parallel } = await Weierstraß.create(params);
 
   tic("random points");
   let [pointPtr] = await Parallel.randomPointsFast(N);
@@ -51,13 +47,13 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   // console.dir({ n, avg, std, times: times.map(Math.round) });
   console.log(`msm (n=${n})... ${avg}ms ± ${std}ms`);
 
-  await stopThreads();
+  await Weierstraß.stopThreads();
 }
 
 async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   let N = 1 << n;
-  const Curve = await create(params);
-  await startThreads(nThreads);
+  const Curve = await Weierstraß.create(params);
+  await Weierstraß.startThreads(nThreads);
 
   tic("random points");
   let pointsPtrs = await Curve.Parallel.randomPointsFast(N);
@@ -110,5 +106,5 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
     console.log("results are consistent!");
   }
 
-  await stopThreads();
+  await Weierstraß.stopThreads();
 }
