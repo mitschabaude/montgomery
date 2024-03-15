@@ -26,7 +26,7 @@
     "start-web": "npm run build && ./run-in-browser ./scripts/run-msm-pasta.ts",
     "evaluate": "npm run build && ./run scripts/run-msm-pasta.ts 16 16 --evaluate",
     "test": "npm run build && node --test build/src/**/*.test.js build/src/*.test.js",
-    "test-msm": "npm run build && ./run src/msm-parallel.test.ts",
+    "test-msm": "npm run build && ./run src/msm.test.ts",
     "benchmark": "node --loader=ts-node/esm scripts/multiply-benchmark-pasta.ts",
     "benchmark-377": "node --loader=ts-node/esm scripts/multiply-benchmark-377.ts",
     "benchmark-381": "node --loader=ts-node/esm scripts/multiply-benchmark-381.ts",

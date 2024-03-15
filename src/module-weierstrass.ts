@@ -6,7 +6,7 @@ import { createCurveProjective as createBigintCurve } from "./bigint/projective-
 import { createCurveAffine } from "./curve-affine.js";
 import { createRandomPointsFast, createRandomScalars } from "./curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "./scalar-glv.js";
-import { createMsm } from "./msm-parallel.js";
+import { createMsm } from "./msm-batched-affine.js";
 import { pool } from "./threads/global-pool.js";
 import { CurveParams } from "./bigint/affine-weierstrass.js";
 import { assert } from "./util.js";

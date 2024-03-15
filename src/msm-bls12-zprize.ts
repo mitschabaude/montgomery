@@ -1,5 +1,6 @@
 /**
- * DEPRECATED. The current implementation is `msm-parallel.ts`
+ * DEPRECATED.
+ * Outdated implementation which is single-threaded and relies on particular properties of the bls12-381 curve (at no benefit).
  */
 import {
   Affine,

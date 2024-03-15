@@ -1,4 +1,4 @@
-import { BigintPoint, MsmCurve } from "./msm.js";
+import { BigintPoint, MsmCurve } from "./msm-batched-affine-single-thread.js";
 
 export { createBigintApi };
 

@@ -1,5 +1,5 @@
 /**
- * DEPRECATED. The current implementation is `msm-parallel.ts`
+ * DEPRECATED. The current implementation, which supports multi-threading, is in `msm-batched-affine.ts`
  */
 import {
   CurveAffine,

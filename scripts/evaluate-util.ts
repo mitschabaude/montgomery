@@ -1,5 +1,5 @@
 import { tic, toc } from "../src/testing/tictoc.js";
-import type { BigintPoint } from "../src/msm.js";
+import type { BigintPoint } from "../src/msm-batched-affine-single-thread.js";
 
 export { evaluate, evaluateBigint, evaluateParameters, median, standardDev };
 

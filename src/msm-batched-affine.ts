@@ -1,5 +1,7 @@
 /**
- * The main MSM implementation, based on batched-affine additions
+ * The main MSM implementation for Weierstraß curves, based on batched-affine additions.
+ *
+ * Assumes a=0 and that the curve has an endomorphism based on cube roots of 1.
  */
 import { CurveParams } from "./bigint/affine-weierstrass.js";
 import { CurveAffine, batchAddNew, batchAddUnsafeNew } from "./curve-affine.js";

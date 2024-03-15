@@ -6,7 +6,7 @@ import {
   CurveAffine,
   Random,
 } from "../src/concrete/pasta.js";
-import { bigintScalarsToMemory } from "../src/msm.js";
+import { bigintScalarsToMemory } from "../src/msm-batched-affine-single-thread.js";
 import { evaluateParameters } from "./evaluate-util.js";
 
 let Nmax = 1 << 18;

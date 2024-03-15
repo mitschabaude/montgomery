@@ -6,7 +6,7 @@ import { createCurveAffine } from "../curve-affine.js";
 import { createCurveProjective } from "../curve-projective.js";
 import { randomGenerators } from "../bigint/field-random.js";
 import { createBigintApi } from "../bigint.js";
-import { createMsm } from "../msm.js";
+import { createMsm } from "../msm-batched-affine-single-thread.js";
 import { createRandomPointsFast } from "../curve-random.js";
 
 export { Bigint, Field, Scalar, Affine, Projective, Random, SpecialScalar };
