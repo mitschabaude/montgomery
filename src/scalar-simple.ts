@@ -78,7 +78,7 @@ async function createScalarFromWasm(
   let scratch = helpers.local.getStablePointers(10);
 
   return {
-    wasmParams: { wasm: wasmArtifacts, fullParams: params },
+    wasmArtifacts,
     modulus: q,
     ...helpers,
     // TODO this is brittle.. don't spread helpers object here, it has internal state
