@@ -19,7 +19,7 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
 
   let scalars = await Parallel.randomScalars(N);
   tic("warm-up JIT compiler");
-  await Parallel.msm(scalars, points, 1 << 15);
+  await Parallel.msm(scalars[0], points[0], 1 << 15);
   await new Promise((r) => setTimeout(r, 50));
   toc();
 
@@ -27,13 +27,13 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   for (let i = 0; i < 15; i++) {
     let scalars = await Parallel.randomScalars(N);
     tic();
-    await Parallel.msm(scalars, points, 1 << n);
+    await Parallel.msm(scalars[0], points[0], 1 << n);
     let time = toc();
     if (i > 4) times.push(time);
   }
   scalars = await Parallel.randomScalars(N);
   tic();
-  let { log } = await Parallel.msm(scalars, points, 1 << n);
+  let { log } = await Parallel.msm(scalars[0], points[0], 1 << n);
   let t = toc();
 
   log.forEach((l) => console.log(...l));
@@ -79,7 +79,11 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   console.log();
 
   tic(`msm (n=${n})`);
-  let { result, log } = await Curve.Parallel.msm(scalarPtrs, pointsPtrs, N);
+  let { result, log } = await Curve.Parallel.msm(
+    scalarPtrs[0],
+    pointsPtrs[0],
+    N
+  );
   let s = Curve.Curve.toBigint(result);
 
   log.forEach((l) => console.log(...l));

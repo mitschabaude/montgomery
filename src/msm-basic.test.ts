@@ -19,7 +19,7 @@ toc();
 
 // run msm
 tic("msm");
-let { result, log } = await Curve.Parallel.msm(scalars, points, N);
+let { result, log } = await Curve.Parallel.msm(scalars[0], points[0], N);
 toc();
 
 await stopThreads();

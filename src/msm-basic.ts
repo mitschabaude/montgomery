@@ -27,19 +27,19 @@ type MsmInputCurve = {
 
 function createMsmBasic(inputs: MsmInputCurve) {
   return async function (
-    scalars: number[],
-    points: number[],
+    scalarPtr: number,
+    pointPtr: number,
     N: number,
     options?: { c?: number }
   ) {
-    return await msmBasic(inputs, scalars, points, N, options);
+    return await msmBasic(inputs, scalarPtr, pointPtr, N, options);
   };
 }
 
 async function msmBasic(
   inputs: MsmInputCurve,
-  scalars: number[],
-  points: number[],
+  scalarPtr: number,
+  pointPtr: number,
   N: number,
   { c: c_ }: { c?: number } = {}
 ) {
@@ -54,7 +54,8 @@ async function msmBasic(
   let params = { N, K, L, c, b };
   log({ n, K, c });
 
-  let { addAssign, doubleInPlace, setZero } = Curve;
+  let { addAssign, doubleInPlace, setZero, size } = Curve;
+  let { sizeField: sizeScalar } = Scalar;
   let result = Field.global.getPointer(Curve.size);
 
   using _l = Field.local.atCurrentOffset;
@@ -69,9 +70,9 @@ async function msmBasic(
       pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
     }
     // TODO adjust for signed digits
-    for (let i = 0; i < N; i++) {
+    for (let i = 0, si = scalarPtr; i < N; i++, si += sizeScalar) {
       for (let k = 0; k < K; k++) {
-        let l = Scalar.extractBitSlice(scalars[i], k * c, c);
+        let l = Scalar.extractBitSlice(si, k * c, c);
         pointsToBucket[k][i] = l;
       }
     }
@@ -95,10 +96,10 @@ async function msmBasic(
     for (let l = 0; l < length; l++) setZero(buckets[l]);
 
     // accumulation
-    for (let i = 0; i < N; i++) {
+    for (let i = 0, pi = pointPtr; i < N; i++, pi += size) {
       let l = pointsToBucket[k][i] - lstart;
       if (l < 0 || l >= length) continue;
-      addAssign(scratch, buckets[l], points[i]);
+      addAssign(scratch, buckets[l], pi);
     }
     toc();
 

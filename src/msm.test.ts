@@ -100,7 +100,7 @@ async function testOneMsmTE(C: TwistedEdwards, n: number) {
   });
   assert(scalars.length === N);
 
-  let { result } = await Parallel.msm(scalarPtrs, pointsPtrs, N);
+  let { result } = await Parallel.msm(scalarPtrs[0], pointsPtrs[0], N);
   let s = Curve.toBigint(result);
 
   let sBigint = bigintMsm(Bigint, scalars, points);
