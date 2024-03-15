@@ -21,14 +21,12 @@ import {
   log2,
   randomBytes,
 } from "../../src/util.js";
+import { randomGenerators } from "../../src/bigint/field-random.js";
 
 export { benchmark };
 
-async function benchmark(
-  { p, t }: { p: bigint; t: bigint },
-  { randomFieldx2 }: { randomFieldx2: () => bigint },
-  doWrite = false
-) {
+async function benchmark({ p, t }: { p: bigint; t: bigint }, doWrite = false) {
+  let { randomFieldx2 } = randomGenerators(p);
   let N = 1e7;
   let Ninv = 5e5;
   let Npow = 5e4;

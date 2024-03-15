@@ -1,4 +1,4 @@
 import { benchmark } from "./field-benchmark.js";
-import { Field, Random } from "../../src/concrete/bls12-377.js";
+import { BLS12_377 } from "../../src/concrete/bls12-377.js";
 
-await benchmark(Field, Random);
+await benchmark(BLS12_377.Field);

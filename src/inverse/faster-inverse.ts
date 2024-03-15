@@ -1,5 +1,5 @@
 import { Module, memory } from "wasmati";
-import { Field, Random } from "../concrete/pasta.js";
+import { Pallas } from "../concrete/pasta.js";
 import { mod } from "../bigint/field-util.js";
 import { assert, log2 } from "../util.js";
 import { ImplicitMemory } from "../wasm/wasm-util.js";
@@ -7,9 +7,11 @@ import { fastInverse } from "./faster-inverse-wasm.js";
 import { FieldWithArithmetic } from "../wasm/field-arithmetic.js";
 import { multiplyMontgomery } from "../wasm/multiply-montgomery.js";
 import { memoryHelpers } from "../wasm/memory-helpers.js";
+import { randomGenerators } from "../bigint/field-random.js";
 
-const { p, w } = Field;
-let b = Field.bitLength;
+const { p, w } = Pallas.Field;
+let b = Pallas.Field.bitLength;
+let { randomField } = randomGenerators(p);
 
 const n = Math.ceil(b / w);
 const hiBits = 63n;
@@ -45,7 +47,7 @@ let length = wasm.getBitLength(x);
 assert(length === 117);
 
 for (let i = 0; i < N; i++) {
-  let x0 = Random.randomField();
+  let x0 = randomField();
   // x0 =
   //   3644898569073079219285804017037847737335778255461247493887823044200058407990n;
   // x0 = (1n << 254n) + 1n;

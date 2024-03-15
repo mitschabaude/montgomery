@@ -1,4 +1,4 @@
 import { benchmark } from "./field-benchmark.js";
-import { Field, Random } from "../../src/concrete/pasta.js";
+import { Pallas } from "../../src/concrete/pasta.js";
 
-await benchmark(Field, Random);
+await benchmark(Pallas.Field);
