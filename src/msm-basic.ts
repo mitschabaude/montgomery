@@ -20,6 +20,12 @@ type MsmInputCurve = {
     size: number;
     setZero: (P: number) => void;
     addAssign: (scratch: number[], P1: number, P2: number) => void;
+    addOrSubAssign: (
+      scratch: number[],
+      P1: number,
+      P2: number,
+      subtract: boolean
+    ) => void;
     doubleInPlace: (scratch: number[], P: number) => void;
     copy: (target: number, source: number) => void;
   };
@@ -50,11 +56,11 @@ async function msmBasic(
   let n = log2(N);
   let c = c_ ?? windowSize(Field, n);
   let K = Math.ceil(b / c);
-  let L = 1 << c;
+  let L = 1 << (c - 1);
   let params = { N, K, L, c, b };
   log({ n, K, c });
 
-  let { addAssign, doubleInPlace, setZero, size } = Curve;
+  let { addAssign, addOrSubAssign, doubleInPlace, setZero, size } = Curve;
   let { sizeField: sizeScalar } = Scalar;
   let result = Field.global.getPointer(Curve.size);
 
@@ -69,11 +75,16 @@ async function msmBasic(
     for (let k = 0; k < K; k++) {
       pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
     }
-    // TODO adjust for signed digits
     for (let i = 0, si = scalarPtr; i < N; i++, si += sizeScalar) {
-      for (let k = 0; k < K; k++) {
-        let l = Scalar.extractBitSlice(si, k * c, c);
-        pointsToBucket[k][i] = l;
+      for (let k = 0, carry = 0; k < K; k++) {
+        let l = Scalar.extractBitSlice(si, k * c, c) + carry;
+        if (l > L) {
+          l = 2 * L - l;
+          carry = 1;
+        } else {
+          carry = 0;
+        }
+        pointsToBucket[k][i] = l | (carry << 31);
       }
     }
     return pointsToBucket;
@@ -97,9 +108,12 @@ async function msmBasic(
 
     // accumulation
     for (let i = 0, pi = pointPtr; i < N; i++, pi += size) {
-      let l = pointsToBucket[k][i] - lstart;
+      let l = pointsToBucket[k][i];
+      let carry = l >>> 31;
+      l &= 0x7f_ff_ff_ff;
+      l -= lstart;
       if (l < 0 || l >= length) continue;
-      addAssign(scratch, buckets[l], pi);
+      addOrSubAssign(scratch, buckets[l], pi, carry === 1);
     }
     toc();
 
