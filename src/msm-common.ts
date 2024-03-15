@@ -75,7 +75,7 @@ function splitBuckets(
     Curve,
   }: {
     Field: { global: MemorySection };
-    Curve: { size: number; setZero(pointer: number): void };
+    Curve: { size: number };
   },
   params: {
     b: number;
@@ -86,16 +86,22 @@ function splitBuckets(
   THREADS: number
 ) {
   let { b, c, K, L } = params;
-  // Ll = number of non-empty buckets in final partition
-  let overlapBits = b % c;
-  let Ll = overlapBits === 0 ? 1 : 1 << overlapBits; // the 1 is because overflow of carries in the signed digit algorithm
-  let wl = overlapBits === 0 ? L / Ll / 2 ** 5 : L / Ll; // reduced weight in the overflow case
+  // Ll = (upper bound on) number of non-empty buckets in final partition
+  // it's crucial for correctness that this is precise, because we ignore the other buckets
+  // there are 2^c0 buckets for c0 bits, minus 1 for the 0 bucket, PLUS 1 because of the carry in the signed digit algorithm
+  let overlapBits = b % c; // number of bits that can be set in the highest window
+  let Ll = 1 << overlapBits;
+  let wl = overlapBits === 0 ? L / Ll / 2 ** 5 : L / Ll; // reduced weight in the 1 bit overflow case
 
   let totalWork = (K - 1) * L + Ll * wl; // = K*L except in the overflow case
   let workPerThread = Math.ceil(totalWork / THREADS);
 
   let chunksPerThread: Chunk[][] = [];
   let nChunksPerPartition: number[] = Array(K);
+
+  for (let thread = 0; thread < THREADS; thread++) {
+    chunksPerThread[thread] = [];
+  }
 
   let thread = 0;
   let remainingForCurrentThread = workPerThread;
@@ -109,7 +115,6 @@ function splitBuckets(
         remainingInThisPartition,
         remainingForCurrentThread
       );
-      chunksPerThread[thread] ??= [];
       chunksPerThread[thread].push({ k, j, lstart, length });
       j++;
       remainingInThisPartition -= length;
@@ -125,20 +130,21 @@ function splitBuckets(
   {
     let k = K - 1;
     let j = 0;
-    let remainingInThisPartition = Ll * wl;
+    let remainingWorkInThisPartition = Ll * wl;
+    let remainingBucketsInThisPartition = L;
     let lstart = 1;
-    while (remainingInThisPartition > 0) {
-      let length = Math.ceil(
-        Math.min(remainingInThisPartition, remainingForCurrentThread) / wl
+    while (remainingWorkInThisPartition > 0) {
+      let length = Math.min(
+        Math.ceil(remainingForCurrentThread / wl),
+        remainingBucketsInThisPartition
       );
-      chunksPerThread[thread] ??= [];
       chunksPerThread[thread].push({ k, j, lstart, length });
       j++;
-      remainingInThisPartition -= wl * length;
+      remainingWorkInThisPartition -= wl * length;
+      remainingBucketsInThisPartition -= length;
       remainingForCurrentThread -= wl * length;
       lstart += length;
-      if (remainingInThisPartition <= 0) {
-        // last chunk! push the remaining, empty buckets to this chunk as well?
+      if (remainingWorkInThisPartition <= 0) {
         assert(lstart > Ll);
       }
       if (remainingForCurrentThread <= 0) {

@@ -55,7 +55,7 @@ async function msmBasic(
   let b = Scalar.sizeInBits;
   let n = log2(N);
   let c = c_ ?? windowSize(Field, n);
-  let K = Math.ceil(b / c);
+  let K = Math.ceil((b + 1) / c);
   let L = 1 << (c - 1);
   let params = { N, K, L, c, b };
   log({ n, K, c });
