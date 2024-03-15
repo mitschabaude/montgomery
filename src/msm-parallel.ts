@@ -6,7 +6,14 @@ import { CurveProjective } from "./curve-projective.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
+import {
+  THREADS,
+  barrier,
+  isMain,
+  logMain,
+  range,
+  thread,
+} from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmInputCurve };
@@ -63,10 +70,9 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     N: number,
     verboseTiming = false,
     {
-      c: c_,
-      c0: c0_,
+      c,
       useSafeAdditions = true,
-    }: { c?: number; c0?: number; useSafeAdditions?: boolean } = {}
+    }: { c?: number; useSafeAdditions?: boolean } = {}
   ) {
     let { tic, toc, log, getLog } = createLog(verboseTiming && isMain());
     tic("msm total");
@@ -76,18 +82,22 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     using _l = Field.local.atCurrentOffset;
     using _s = Scalar.global.atCurrentOffset;
     let n = log2(N);
-    let c = n - 1;
-    if (c < 1) c = 1;
-    let c0 = c >> 1;
-    [c, c0] = cTable[n as keyof typeof cTable] || [c, c0];
-    // if parameters for c and c0 were passed in, use those instead
-    if (c_) c = c_;
-    if (c0_) c0 = c0_;
+    // pick window size if it was not passed in
+    c ??= cTable[n] ?? Math.max(1, n - 1);
 
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
-    let params = { N, K, L, c, c0 };
-    log({ n, K, c, c0 });
+    let params = { N, K, L, c };
+    log({ n, K, c });
+
+    let overlapBits = scalarBitlength % c;
+    let Llast = 2 ** overlapBits;
+    log("expected points per bucket", {
+      default: (4 * N) / L,
+      last: (4 * N) / Llast,
+      overlapBits,
+      scalarBitlength,
+    });
 
     let scratch = Field.local.getPointers(40);
 
@@ -205,6 +215,14 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     await barrier();
     let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
+
+    // logMain(bucketCounts);
+    // logMain(
+    //   bucketCounts.map((counts, i) => [
+    //     i,
+    //     [...counts].reduce((a, b) => a + b, 0),
+    //   ])
+    // );
 
     tic("integrate bucket counts");
     // this takes < 1ms, so we just do it on the main thread
@@ -643,19 +661,20 @@ function computeBucketsSplit(K: number, L: number) {
 }
 
 /**
- * table of the form `n: (c, c0)`, which has msm parameters c, c0 for different n.
+ * table of the form `n: c`, which has msm window sizes for different n.
  * n is the log-size of scalar and point inputs.
  * table was optimized with pasta curves
  *
  * @param c window size
- * @param c0 log-size of sub-partitions used in the bucket reduction step
  */
-const cTable: Record<number, [c: number, c0: number] | undefined> = {
-  14: [13, 7],
-  15: [13, 7],
-  16: [14, 8],
-  17: [16, 8],
-  18: [16, 8],
+const cTable: Record<number, number | undefined> = {
+  14: 13,
+  15: 14,
+  16: 14,
+  17: 14,
+  18: 14,
+  19: 18,
+  20: 16,
 };
 
 // timing/logging helpers
