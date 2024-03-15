@@ -646,12 +646,12 @@ function computeBucketsSplit(params: {
   let { b, c, K, L } = params;
   let overlapBits = b % c;
   let Llast = 2 ** overlapBits;
-  log("expected points per bucket", {
-    default: (4 * N) / L,
-    last: (4 * N) / Llast,
-    overlapBits,
-    scalarBitlength: b,
-  });
+  // log("expected points per bucket", {
+  //   default: (4 * N) / L,
+  //   last: (4 * N) / Llast,
+  //   overlapBits,
+  //   scalarBitlength: b,
+  // });
 
   let totalWork = K * L;
   let nt = Math.ceil(totalWork / THREADS);
