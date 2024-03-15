@@ -13,6 +13,7 @@ import { assert } from "./util.js";
 import { CurveParams } from "./bigint/affine-weierstrass.js";
 import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.js";
 import { TwistedEdwards } from "./module-twisted-edwards.js";
+import { assertDeepEqual } from "./testing/nested.js";
 
 let nThreads = 16;
 
@@ -97,9 +98,7 @@ async function testOneMsmTE(C: TwistedEdwards, n: number) {
   assert(scalars.length === N);
 
   let { result } = await Parallel.msm(scalarPtrs[0], pointsPtrs[0], N);
-  let s = Curve.toBigint(result);
-
-  let sBigint = bigintMsm(Bigint, scalars, points);
-
-  assert(Bigint.isEqual(s, sBigint), `msm 2^${n} failed`);
+  let s = Bigint.toAffine(Curve.toBigint(result));
+  let sBigint = Bigint.toAffine(bigintMsm(Bigint, scalars, points));
+  assertDeepEqual(s, sBigint, `msm 2^${n} failed`);
 }
