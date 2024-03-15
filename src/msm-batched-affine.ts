@@ -9,14 +9,7 @@ import { CurveProjective } from "./curve-projective.js";
 import { MsmField } from "./field-msm.js";
 import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
-import {
-  THREADS,
-  barrier,
-  isMain,
-  logMain,
-  range,
-  thread,
-} from "./threads/threads.js";
+import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
 import { log2 } from "./util.js";
 
 export { createMsm, MsmInputCurve };

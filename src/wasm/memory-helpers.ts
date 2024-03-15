@@ -2,7 +2,7 @@ import "./symbol-dispose-polyfill.js";
 import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
 import { assert, log2 } from "../util.js";
 
-export { memoryHelpers, MemoryHelpers };
+export { memoryHelpers, MemoryHelpers, MemorySection };
 
 // how much memory is reserved for thread-local memory as a fraction of total memory
 const localRatio = 0.2;
