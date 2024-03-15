@@ -1,18 +1,18 @@
 import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
-import { tic, toc } from "../src/testing/tictoc.js";
-import { multiplyMontgomery } from "../src/wasm/multiply-montgomery.js";
-import { memoryHelpers } from "../src/wasm/memory-helpers.js";
-import { writeWat } from "../src/wasm/wat-helpers.js";
-import { multiplySchoolbook } from "../src/wasm/multiply-schoolbook.js";
-import { multiplyBarrett } from "../src/wasm/barrett.js";
-import { FieldWithArithmetic } from "../src/wasm/field-arithmetic.js";
-import { ImplicitMemory, forLoop1 } from "../src/wasm/wasm-util.js";
-import { fieldInverse } from "../src/wasm/inverse.js";
-import { fieldExp } from "../src/wasm/exp.js";
-import { createSqrt } from "../src/field-sqrt.js";
-import { createConstants } from "../src/field-msm.js";
-import { mod, montgomeryParams } from "../src/bigint/field-util.js";
-import { fastInverse } from "../src/inverse/faster-inverse-wasm.js";
+import { tic, toc } from "../../src/testing/tictoc.js";
+import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.js";
+import { memoryHelpers } from "../../src/wasm/memory-helpers.js";
+import { writeWat } from "../../src/wasm/wat-helpers.js";
+import { multiplySchoolbook } from "../../src/wasm/multiply-schoolbook.js";
+import { multiplyBarrett } from "../../src/wasm/barrett.js";
+import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.js";
+import { ImplicitMemory, forLoop1 } from "../../src/wasm/wasm-util.js";
+import { fieldInverse } from "../../src/wasm/inverse.js";
+import { fieldExp } from "../../src/wasm/exp.js";
+import { createSqrt } from "../../src/field-sqrt.js";
+import { createConstants } from "../../src/field-msm.js";
+import { mod, montgomeryParams } from "../../src/bigint/field-util.js";
+import { fastInverse } from "../../src/inverse/faster-inverse-wasm.js";
 import {
   bigintFromBytes,
   bigintFromBytes32,
@@ -20,7 +20,7 @@ import {
   bigintToBytes32,
   log2,
   randomBytes,
-} from "../src/util.js";
+} from "../../src/util.js";
 
 export { benchmark };
 
