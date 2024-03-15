@@ -1,6 +1,7 @@
 /**
  * The main MSM implementation, based on batched-affine additions
  */
+import { CurveParams } from "./bigint/affine-weierstrass.js";
 import { CurveAffine, batchAddNew, batchAddUnsafeNew } from "./curve-affine.js";
 import { CurveProjective } from "./curve-projective.js";
 import { MsmField } from "./field-msm.js";
@@ -21,6 +22,7 @@ export { createMsm, MsmInputCurve };
 const REMOVE_ALL_LOGS = false;
 
 type MsmInputCurve = {
+  params: CurveParams;
   Field: MsmField;
   Scalar: GlvScalar;
   Affine: CurveAffine;
@@ -46,7 +48,13 @@ type MsmInputCurve = {
  * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
  * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
  */
-function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
+function createMsm({
+  params,
+  Field,
+  Scalar,
+  Affine,
+  Projective,
+}: MsmInputCurve) {
   const { copy, subtract, endomorphism, sizeField, memoryBytes, constants } =
     Field;
   let { decompose, extractBitSlice, sizeField: sizeScalar } = Scalar;
@@ -54,6 +62,8 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
 
   let sizeAffine = Affine.size;
   let sizeProjective = Projective.size;
+
+  let table = cTable[log2(params.modulus) > 260 ? "large" : "small"];
 
   /**
    *
@@ -83,7 +93,7 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmInputCurve) {
     using _s = Scalar.global.atCurrentOffset;
     let n = log2(N);
     // pick window size if it was not passed in
-    c ??= cTable[n] ?? Math.max(1, n - 1);
+    c ??= table[n] ?? Math.max(1, n - 1);
 
     let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
@@ -661,21 +671,29 @@ function computeBucketsSplit(K: number, L: number) {
 }
 
 /**
- * table of the form `n: c`, which has msm window sizes for different n.
+ * tables of the form `n: c`, which has msm window sizes for different n.
  * n is the log-size of scalar and point inputs.
- * table was optimized with pasta curves
+ *
+ * table was optimized with 16 threads on my laptop, with two different types of curves:
+ * - 'large' (~384 bit base field)
+ * - 'small' (~256 bit base field)
  *
  * @param c window size
  */
-const cTable: Record<number, number | undefined> = {
-  14: 13,
-  15: 14,
-  16: 14,
-  17: 14,
-  18: 14,
-  19: 18,
-  20: 16,
-};
+const cTable: { [k in "large" | "small"]: Record<number, number | undefined> } =
+  {
+    large: {
+      14: 13,
+      15: 14,
+      16: 14,
+      17: 14,
+      18: 14,
+      19: 18,
+      20: 18,
+    },
+    // TODO
+    small: {},
+  };
 
 // timing/logging helpers
 

@@ -14,7 +14,7 @@ let n = Number(process.argv[3] ?? 16);
 let warmup = 2;
 let repeat = 5;
 
-await evaluateParameters([n], [-4, -3, -2, -1, 0, 1]);
+await evaluateParameters([n], [0, 1]);
 
 async function evaluateParameters(N: number[], C: number[]) {
   let times: Record<number, Record<number, { time: number; std: number }>> = {}; // { n: { c: { time, std } } }

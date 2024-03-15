@@ -37,6 +37,7 @@ async function create(
   const Projective = createCurveProjective(Field, h);
   const Affine = createCurveAffine(Field, Projective, b);
   const Inputs = {
+    params,
     Field,
     Scalar,
     Affine,
