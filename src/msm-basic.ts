@@ -20,7 +20,7 @@ type MsmInputCurve = {
     size: number;
     setZero: (P: number) => void;
     addAssign: (scratch: number[], P1: number, P2: number) => void;
-    addOrSubAssign: (
+    addOrSubAssignMixed: (
       scratch: number[],
       P1: number,
       P2: number,
@@ -60,7 +60,7 @@ async function msmBasic(
   let params = { N, K, L, c, b };
   log({ n, K, c });
 
-  let { addAssign, addOrSubAssign, doubleInPlace, setZero, size } = Curve;
+  let { addAssign, addOrSubAssignMixed, doubleInPlace, setZero, size } = Curve;
   let { sizeField: sizeScalar } = Scalar;
   let result = Field.global.getPointer(Curve.size);
 
@@ -113,7 +113,7 @@ async function msmBasic(
       l &= 0x7f_ff_ff_ff;
       l -= lstart;
       if (l < 0 || l >= length) continue;
-      addOrSubAssign(scratch, buckets[l], pi, carry === 1);
+      addOrSubAssignMixed(scratch, buckets[l], pi, carry === 1);
     }
     toc();
 

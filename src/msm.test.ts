@@ -16,21 +16,17 @@ import { TwistedEdwards } from "./module-twisted-edwards.js";
 
 let nThreads = 16;
 
+// twisted edwards curves
+await TwistedEdwards.startThreads(nThreads);
+await testMsmTE(edBls12Params);
+await TwistedEdwards.stopThreads();
+
 // weierstrass curves with a=0 and endomorphism
 await Weierstraß.startThreads(nThreads);
-
 await testMsm(pallasParams);
 await testMsm(bls12377Params);
 await testMsm(bls12381Params);
-
 await Weierstraß.stopThreads();
-
-// twisted edwards curves
-await TwistedEdwards.startThreads(nThreads);
-
-await testMsmTE(edBls12Params);
-
-await TwistedEdwards.stopThreads();
 
 async function testMsm(curveParams: CurveParams) {
   console.log("testing msm", curveParams.label);

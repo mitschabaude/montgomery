@@ -87,7 +87,9 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     P1: number,
     P2: number,
     // whether P2 should be negated
-    subtract: boolean
+    subtract: boolean,
+    // whether we can assume Z2 = 1
+    mixed: boolean
   ) {
     // get coordinates
     let X1 = P1;
@@ -136,8 +138,12 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Field.multiply(C, C, k);
 
     // D = Z1*2*Z2
-    Field.multiply(D, Z1, Z2);
-    Field.addNoReduce(D, D, D);
+    if (mixed) {
+      Field.addNoReduce(D, Z1, Z1);
+    } else {
+      Field.multiply(D, Z1, Z2);
+      Field.addNoReduce(D, D, D);
+    }
 
     // E = B-A
     Field.subtractPositive(E, B, A);
@@ -177,26 +183,26 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * addition, P3 = P1 + P2
    */
   function add(scratch: number[], P3: number, P1: number, P2: number) {
-    addOrSubtract(scratch, P3, P1, P2, false);
+    addOrSubtract(scratch, P3, P1, P2, false, false);
   }
 
   /**
    * addition with assignment, P += Q
    */
   function addAssign(scratch: number[], P: number, Q: number) {
-    addOrSubtract(scratch, P, P, Q, false);
+    addOrSubtract(scratch, P, P, Q, false, false);
   }
 
   /**
    * subtraction or addition with assignment, depending on the subtract flag
    */
-  function addOrSubAssign(
+  function addOrSubAssignMixed(
     scratch: number[],
     P: number,
     Q: number,
     subtract: boolean
   ) {
-    addOrSubtract(scratch, P, P, Q, subtract);
+    addOrSubtract(scratch, P, P, Q, subtract, true);
   }
 
   /**
@@ -205,7 +211,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * TODO: dedicated doubling, saves some operations compared to add
    */
   function double(scratch: number[], P3: number, P1: number) {
-    addOrSubtract(scratch, P3, P1, P1, false);
+    addOrSubtract(scratch, P3, P1, P1, false, false);
   }
 
   /**
@@ -215,7 +221,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * squares instead of multiplies etc
    */
   function doubleInPlace(scratch: number[], P: number) {
-    addOrSubtract(scratch, P, P, P, false);
+    addOrSubtract(scratch, P, P, P, false, false);
   }
 
   /**
@@ -407,7 +413,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Bigint: CurveBigint,
     add,
     addAssign,
-    addOrSubAssign,
+    addOrSubAssignMixed,
     double,
     doubleInPlace,
     negate,
