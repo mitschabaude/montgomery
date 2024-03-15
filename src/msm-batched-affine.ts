@@ -92,15 +92,6 @@ function createMsm({
     let params = { N, K, L, c, b };
     log({ n, K, c });
 
-    let overlapBits = b % c;
-    let Llast = 2 ** overlapBits;
-    log("expected points per bucket", {
-      default: (4 * N) / L,
-      last: (4 * N) / Llast,
-      overlapBits,
-      scalarBitlength: b,
-    });
-
     let scratch = Field.local.getPointers(40);
 
     tic("prepare shared pointers");
@@ -255,6 +246,7 @@ function createMsm({
       let sizeAffine2M = 2 * m * sizeAffine;
 
       // walk over this thread's buckets to identify point-pairs to add
+      // TODO don't duplicate the computation of this thread's buckets here, use `chunksPerThread`
       for (
         let [i, iend] = range(K * L), k = Math.floor(i / L), l = (i % L) + 1;
         i < iend;
@@ -629,21 +621,15 @@ type Chunk = {
   length: number;
 };
 
+// TODO this should be changed to the smarter algorithm in msm-common,
+// but the accumulation loop has to be changed as well
 function computeBucketsSplit(params: {
   b: number;
   c: number;
   K: number;
   L: number;
 }) {
-  let { b, c, K, L } = params;
-  let overlapBits = b % c;
-  let Llast = 2 ** overlapBits;
-  // log("expected points per bucket", {
-  //   default: (4 * N) / L,
-  //   last: (4 * N) / Llast,
-  //   overlapBits,
-  //   scalarBitlength: b,
-  // });
+  let { K, L } = params;
 
   let totalWork = K * L;
   let nt = Math.ceil(totalWork / THREADS);
