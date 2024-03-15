@@ -58,7 +58,7 @@ function createMsm({
   const { copy, subtract, endomorphism, sizeField, memoryBytes, constants } =
     Field;
   let { decompose, extractBitSlice, sizeField: sizeScalar } = Scalar;
-  const scalarBitlength = Scalar.maxBits;
+  const b = Scalar.maxBits;
 
   let sizeAffine = Affine.size;
   let sizeProjective = Projective.size;
@@ -95,18 +95,18 @@ function createMsm({
     // pick window size if it was not passed in
     c ??= table[n] ?? Math.max(1, n - 1);
 
-    let K = Math.ceil((scalarBitlength + 1) / c); // number of partitions
+    let K = Math.ceil((b + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
-    let params = { N, K, L, c };
+    let params = { N, K, L, c, b };
     log({ n, K, c });
 
-    let overlapBits = scalarBitlength % c;
+    let overlapBits = b % c;
     let Llast = 2 ** overlapBits;
     log("expected points per bucket", {
       default: (4 * N) / L,
       last: (4 * N) / Llast,
       overlapBits,
-      scalarBitlength,
+      scalarBitlength: b,
     });
 
     let scratch = Field.local.getPointers(40);
@@ -140,7 +140,7 @@ function createMsm({
     }
 
     // compute chunks of buckets that each thread will work on
-    let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(K, L);
+    let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(params);
 
     // allocate space for different threads' contribution to each partitions
     let columnss: Uint32Array[] = Array(K);
@@ -226,7 +226,7 @@ function createMsm({
     let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
 
-    // logMain(bucketCounts);
+    logMain(bucketCounts);
     // logMain(
     //   bucketCounts.map((counts, i) => [
     //     i,
@@ -637,7 +637,22 @@ type Chunk = {
   length: number;
 };
 
-function computeBucketsSplit(K: number, L: number) {
+function computeBucketsSplit(params: {
+  b: number;
+  c: number;
+  K: number;
+  L: number;
+}) {
+  let { b, c, K, L } = params;
+  let overlapBits = b % c;
+  let Llast = 2 ** overlapBits;
+  log("expected points per bucket", {
+    default: (4 * N) / L,
+    last: (4 * N) / Llast,
+    overlapBits,
+    scalarBitlength: b,
+  });
+
   let totalWork = K * L;
   let nt = Math.ceil(totalWork / THREADS);
 
