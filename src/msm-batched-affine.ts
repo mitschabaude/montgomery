@@ -11,10 +11,9 @@ import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
 import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
 import { log2 } from "./util.js";
+import { createLog, windowSize } from "./msm-common.js";
 
 export { createMsm, MsmInputCurve };
-
-const REMOVE_ALL_LOGS = false;
 
 type MsmInputCurve = {
   params: CurveParams;
@@ -58,8 +57,6 @@ function createMsm({
   let sizeAffine = Affine.size;
   let sizeProjective = Projective.size;
 
-  let table = cTable[log2(params.modulus) > 260 ? "large" : "small"];
-
   /**
    *
    * @param scalarPtr0 pointer to array of scalars `s_0, ..., s_(N-1)`
@@ -88,7 +85,7 @@ function createMsm({
     using _s = Scalar.global.atCurrentOffset;
     let n = log2(N);
     // pick window size if it was not passed in
-    c ??= table[n] ?? Math.max(1, n - 1);
+    c ??= windowSize(Field, n);
 
     let K = Math.ceil((b + 1) / c); // number of partitions
     let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
@@ -678,71 +675,4 @@ function computeBucketsSplit(params: {
   }
 
   return { chunksPerThread, nChunksPerPartition };
-}
-
-/**
- * tables of the form `n: c`, which has msm window sizes for different n.
- * n is the log-size of scalar and point inputs.
- *
- * table was optimized with 16 threads on my laptop, with two different types of curves:
- * - 'large' (~384 bit base field)
- * - 'small' (~256 bit base field)
- *
- * @param c window size
- */
-const cTable: { [k in "large" | "small"]: Record<number, number | undefined> } =
-  {
-    large: {
-      14: 13,
-      15: 14,
-      16: 14,
-      17: 14,
-      18: 14,
-      19: 18,
-      20: 18,
-    },
-    // TODO
-    small: {},
-  };
-
-// timing/logging helpers
-
-function createLog(isActive: boolean) {
-  let timingStack: [string | undefined, number][] = [];
-  let deferredLog: any[][] = [];
-
-  if (REMOVE_ALL_LOGS)
-    return {
-      printLog: () => {},
-      log: () => {},
-      tic: () => {},
-      toc: () => 0,
-      getLog: () => [],
-    };
-
-  function printLog() {
-    deferredLog.forEach((log) => isActive && console.log(...log));
-    deferredLog = [];
-  }
-
-  function getLog() {
-    return deferredLog;
-  }
-
-  function log(...args: any[]) {
-    deferredLog.push(args);
-  }
-
-  function tic(label?: string) {
-    timingStack.push([label, performance.now()]);
-  }
-
-  function toc() {
-    let [label, start] = timingStack.pop()!;
-    let time = performance.now() - start;
-    if (label !== undefined) log(`${label}... ${time.toFixed(1)}ms`);
-    return time;
-  }
-
-  return { printLog, getLog, log, tic, toc };
 }

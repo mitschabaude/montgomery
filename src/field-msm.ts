@@ -216,6 +216,9 @@ async function createFieldFromWasm(
     toMontgomery,
     fromMontgomery,
     sqrt,
+
+    sizeInBits: N,
+
     fromBigint(xPtr: number, x: bigint) {
       helpers.writeBigint(xPtr, x);
       toMontgomery(xPtr);

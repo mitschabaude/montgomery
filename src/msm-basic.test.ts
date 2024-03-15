@@ -6,10 +6,10 @@ import { create, startThreads, stopThreads } from "./module-twisted-edwards.js";
 
 const Curve = await create(curveParams);
 
-const n = 12;
+const n = 10;
 const N = 1 << n;
 
-await startThreads();
+await startThreads(16);
 
 // create random input points & scalars
 tic("random inputs");
@@ -19,11 +19,13 @@ toc();
 
 // run msm
 tic("msm");
-let result = await Curve.Parallel.msm(scalars, points, N);
-let s0 = Curve.Curve.toBigint(result);
+let { result, log } = await Curve.Parallel.msm(scalars, points, N);
 toc();
 
 await stopThreads();
+
+let s0 = Curve.Curve.toBigint(result);
+for (let l of log) console.log(...l);
 
 if (n < 15) {
   // convert points and scalars to bigints

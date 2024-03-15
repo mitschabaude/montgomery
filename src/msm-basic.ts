@@ -5,7 +5,7 @@
  */
 import type { MsmField } from "./field-msm.js";
 import type { MemorySection } from "./wasm/memory-helpers.js";
-import { splitBuckets } from "./msm-common.js";
+import { createLog, splitBuckets, windowSize } from "./msm-common.js";
 import { Scalar } from "./scalar-simple.js";
 import { log2 } from "./util.js";
 import { THREADS, barrier, isMain, thread } from "./threads/threads.js";
@@ -26,8 +26,13 @@ type MsmInputCurve = {
 };
 
 function createMsmBasic(inputs: MsmInputCurve) {
-  return function (scalars: number[], points: number[], N: number) {
-    return msmBasic(inputs, scalars, points, N);
+  return async function (
+    scalars: number[],
+    points: number[],
+    N: number,
+    options?: { c?: number }
+  ) {
+    return await msmBasic(inputs, scalars, points, N, options);
   };
 }
 
@@ -35,15 +40,19 @@ async function msmBasic(
   inputs: MsmInputCurve,
   scalars: number[],
   points: number[],
-  N: number
+  N: number,
+  { c: c_ }: { c?: number } = {}
 ) {
+  let { tic, toc, log, getLog } = createLog(isMain());
+  tic("msm total");
   let { Field, Scalar, Curve } = inputs;
   let b = Scalar.sizeInBits;
   let n = log2(N);
-  let c = Math.max(n - 1, 1); // window size
+  let c = c_ ?? windowSize(Field, n);
   let K = Math.ceil(b / c);
   let L = 1 << c;
   let params = { N, K, L, c, b };
+  log({ n, K, c });
 
   let { addAssign, doubleInPlace, setZero } = Curve;
   let result = Field.global.getPointer(Curve.size);
@@ -51,6 +60,7 @@ async function msmBasic(
   using _l = Field.local.atCurrentOffset;
   let scratch = Field.local.getPointers(40);
 
+  tic("points to bucket map");
   // TODO parallelize points to bucket sorting
   let pointsToBucket = await broadcastFromMain("pointsToBucket", () => {
     // K x N -> l in [0, L-1]
@@ -67,14 +77,19 @@ async function msmBasic(
     }
     return pointsToBucket;
   });
+  toc();
 
+  tic("compute work split");
   let { chunksPerThread, chunkSumsPerPartition } = splitBuckets(
     inputs,
     params,
     THREADS
   );
+  toc();
 
+  tic("accumulate and reduce");
   for (let { j, k, lstart, length } of chunksPerThread[thread]) {
+    tic(`chunk ${j}, length ${length} of partition ${k} - accumulate`);
     using _l = Field.local.atCurrentOffset;
     let buckets = Uint32Array.from(Field.local.getPointers(length, Curve.size));
     for (let l = 0; l < length; l++) setZero(buckets[l]);
@@ -85,16 +100,23 @@ async function msmBasic(
       if (l < 0 || l >= length) continue;
       addAssign(scratch, buckets[l], points[i]);
     }
+    toc();
 
+    tic(`chunk ${j}, length ${length} of partition ${k} - reduce`);
     // reduce into sum
     let sum = chunkSumsPerPartition[k][j];
     reduceBucketsChunk(inputs, sum, buckets, lstart);
+    toc();
   }
+  toc();
 
+  tic("barrier");
   await barrier();
-  if (!isMain()) return 0;
+  toc();
+  if (!isMain()) return { result: 0, log: [] };
 
   // aggregate
+  tic("final summation");
   let partitionSums: number[] = Array(K);
 
   for (let k = 0; k < K; k++) {
@@ -114,8 +136,9 @@ async function msmBasic(
     }
     addAssign(scratch, result, partitionSums[k]);
   }
-
-  return result;
+  toc();
+  toc();
+  return { result, log: getLog() };
 }
 
 /**
