@@ -228,7 +228,7 @@ function createMsm({
     let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
 
-    logMain(bucketCounts);
+    // logMain(bucketCounts);
     // logMain(
     //   bucketCounts.map((counts, i) => [
     //     i,
