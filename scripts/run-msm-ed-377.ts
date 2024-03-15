@@ -1,5 +1,5 @@
 import { curveParams } from "../src/concrete/ed-on-bls12-377.params.js";
-import { benchmarkMsm, runMsm } from "./run-msm-twisted-edwards.js";
+import { benchmarkMsm, runMsm } from "./msm-twisted-edwards.js";
 
 console.log(process.argv.slice(3));
 let n = Number(process.argv[3] ?? 16);
