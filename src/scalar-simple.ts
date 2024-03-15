@@ -91,5 +91,13 @@ async function createScalarFromWasm(
     ...wasm,
     scratch,
     sizeInBits,
+
+    toBigint(s: number) {
+      return helpers.readBigint(s);
+    },
+    fromBigint(s: bigint) {
+      let sPtr = helpers.local.getPointer();
+      return helpers.writeBigint(sPtr, s);
+    },
   };
 }
