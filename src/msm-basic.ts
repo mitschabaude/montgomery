@@ -8,6 +8,8 @@ import type { MemorySection } from "./wasm/memory-helpers.js";
 import { splitBuckets } from "./msm-common.js";
 import { Scalar } from "./scalar-simple.js";
 import { log2 } from "./util.js";
+import { THREADS, barrier, isMain, thread } from "./threads/threads.js";
+import { broadcastFromMain } from "./threads/global-pool.js";
 
 export { createMsmBasic, msmBasic };
 
@@ -29,9 +31,6 @@ function createMsmBasic(inputs: MsmInputCurve) {
   };
 }
 
-// mock
-const THREADS = 16;
-
 async function msmBasic(
   inputs: MsmInputCurve,
   scalars: number[],
@@ -49,22 +48,25 @@ async function msmBasic(
   let { addAssign, doubleInPlace, setZero } = Curve;
   let result = Field.global.getPointer(Curve.size);
 
-  using _g = Field.global.atCurrentOffset;
   using _l = Field.local.atCurrentOffset;
   let scratch = Field.local.getPointers(40);
 
-  // K x N -> l in [0, L-1]
-  let pointsToBucket: Uint32Array[] = Array(K);
-  for (let k = 0; k < K; k++) {
-    pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
-  }
-  // TODO adjust for signed digits
-  for (let i = 0; i < N; i++) {
+  // TODO parallelize points to bucket sorting
+  let pointsToBucket = await broadcastFromMain("pointsToBucket", () => {
+    // K x N -> l in [0, L-1]
+    let pointsToBucket: Uint32Array[] = Array(K);
     for (let k = 0; k < K; k++) {
-      let l = Scalar.extractBitSlice(scalars[i], k * c, c);
-      pointsToBucket[k][i] = l;
+      pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
     }
-  }
+    // TODO adjust for signed digits
+    for (let i = 0; i < N; i++) {
+      for (let k = 0; k < K; k++) {
+        let l = Scalar.extractBitSlice(scalars[i], k * c, c);
+        pointsToBucket[k][i] = l;
+      }
+    }
+    return pointsToBucket;
+  });
 
   let { chunksPerThread, chunkSumsPerPartition } = splitBuckets(
     inputs,
@@ -72,27 +74,25 @@ async function msmBasic(
     THREADS
   );
 
-  // TODO run in parallel
-  for (let thread = 0; thread < THREADS; thread++) {
-    for (let { j, k, lstart, length } of chunksPerThread[thread]) {
-      using _l = Field.local.atCurrentOffset;
-      let buckets = Uint32Array.from(
-        Field.local.getPointers(length, Curve.size)
-      );
-      for (let l = 0; l < length; l++) setZero(buckets[l]);
+  for (let { j, k, lstart, length } of chunksPerThread[thread]) {
+    using _l = Field.local.atCurrentOffset;
+    let buckets = Uint32Array.from(Field.local.getPointers(length, Curve.size));
+    for (let l = 0; l < length; l++) setZero(buckets[l]);
 
-      // accumulation
-      for (let i = 0; i < N; i++) {
-        let l = pointsToBucket[k][i] - lstart;
-        if (l < 0 || l >= length) continue;
-        addAssign(scratch, buckets[l], points[i]);
-      }
-
-      // reduce into sum
-      let sum = chunkSumsPerPartition[k][j];
-      reduceBucketsChunk(inputs, sum, buckets, lstart);
+    // accumulation
+    for (let i = 0; i < N; i++) {
+      let l = pointsToBucket[k][i] - lstart;
+      if (l < 0 || l >= length) continue;
+      addAssign(scratch, buckets[l], points[i]);
     }
+
+    // reduce into sum
+    let sum = chunkSumsPerPartition[k][j];
+    reduceBucketsChunk(inputs, sum, buckets, lstart);
   }
+
+  await barrier();
+  if (!isMain()) return 0;
 
   // aggregate
   let partitionSums: number[] = Array(K);
@@ -133,14 +133,12 @@ async function msmBasic(
  * - (lstart - 1) * row is computed with double-and-add with O(log(lstart)) effort which is usually negligible
  */
 function reduceBucketsChunk(
-  {
-    Field,
-    Curve,
-  }: { Field: { local: MemorySection }; Curve: MsmInputCurve["Curve"] },
+  inputs: { Field: { local: MemorySection }; Curve: MsmInputCurve["Curve"] },
   column: number,
   buckets: Uint32Array,
   lstart: number
 ) {
+  let { Field, Curve } = inputs;
   let L = buckets.length;
   let { addAssign, doubleInPlace, setZero } = Curve;
 
