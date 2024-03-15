@@ -1,83 +1,75 @@
 import type * as _W from "wasmati";
 import { WasmArtifacts } from "./types.js";
 import { createMsmField } from "./field-msm.js";
-import { createCurveProjective } from "./curve-projective.js";
-import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.js";
-import { createCurveAffine } from "./curve-affine.js";
+import { createCurveTwistedEdwards as createBigintCurve } from "./bigint/twisted-edwards.js";
 import { createRandomPointsFast, createRandomScalars } from "./curve-random.js";
-import { GlvScalarParams, createGlvScalar } from "./scalar-glv.js";
-import { createMsm } from "./msm-batched-affine.js";
 import { pool } from "./threads/global-pool.js";
-import { CurveParams } from "./bigint/affine-weierstrass.js";
-import { assert } from "./util.js";
+import { CurveParams } from "./bigint/twisted-edwards.js";
+import { createScalar } from "./scalar-simple.js";
+import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
+import { createMsmBasic } from "./msm-basic.js";
 
-export { create, startThreads, stopThreads, Weierstraß };
+export { create, startThreads, stopThreads, TwistedEdwards };
 
-pool.register("Weierstraß", create);
+pool.register("Twisted Edwards", create);
 
-type Weierstraß = Awaited<ReturnType<typeof create>>;
+type TwistedEdwards = Awaited<ReturnType<typeof create>>;
 
-const curves: Weierstraß[] = [];
+const curves: TwistedEdwards[] = [];
 
 async function create(
   params: CurveParams,
-  wasm?: WasmArtifacts,
-  scalarWasmParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
+  fieldWasm?: WasmArtifacts,
+  scalarWasm?: WasmArtifacts
 ) {
-  let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
-  assert(a === 0n, "only curves with a = 0 are supported");
-  assert(endomorphism !== undefined, "endomorphism required");
-  let { beta, lambda } = endomorphism;
+  let { modulus: p, order: q, label } = params;
 
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
-  const Field = await createMsmField({ p, beta, w: 29 }, wasm);
-  const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasmParams);
-  const Projective = createCurveProjective(Field, h);
-  const Affine = createCurveAffine(Field, Projective, b);
-  const Inputs = { params, Field, Scalar, Affine, Projective };
+  const Field = await createMsmField({ p, beta: 1n, w: 29 }, fieldWasm);
+  const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
+  const Curve = createCurveTwistedEdwards(Field, params);
 
-  const randomPointsFast = createRandomPointsFast(Inputs);
+  const RandomInputs = { Field, Affine: Curve, Projective: Curve };
+  const Inputs = { params, Field, Scalar, Curve };
+
+  const randomPointsFast = createRandomPointsFast(RandomInputs);
   const randomScalars = createRandomScalars(Inputs);
-  const { msm, msmUnsafe } = createMsm(Inputs);
+  const msm = createMsmBasic(Inputs);
 
-  const Parallel = pool.register(`Weierstraß-${label}`, {
+  const Parallel = pool.register(`Twisted Edwards, ${label}`, {
     randomPointsFast,
     randomScalars,
-    msmUnsafe,
     msm,
   });
 
-  const Bigint = {
-    Projective: createBigintCurve(params),
-  };
+  const Bigint = createBigintCurve(params);
 
-  const Curve = {
+  const Module = {
     params,
 
     Field,
     Scalar,
-    Affine,
-    Projective,
+    Curve,
     Parallel,
     Bigint,
   };
 
-  (curves as (typeof Curve)[]).push(Curve);
+  (curves as (typeof Module)[]).push(Module);
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
   if (pool.isRunning) {
     await pool.callWorkers(
       create,
-      Curve.params,
-      Curve.Field.wasmArtifacts,
-      Curve.Scalar.wasmParams
+      Module.params,
+      Module.Field.wasmArtifacts,
+      Module.Scalar.wasmArtifacts
     );
   }
 
-  return Curve;
+  return Module;
 }
 
 async function startThreads(n?: number) {
@@ -100,7 +92,7 @@ async function startThreads(n?: number) {
         create,
         curve.params,
         curve.Field.wasmArtifacts,
-        curve.Scalar.wasmParams
+        curve.Scalar.wasmArtifacts
       )
     )
   );

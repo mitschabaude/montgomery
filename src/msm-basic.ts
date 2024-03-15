@@ -9,7 +9,7 @@ import { splitBuckets } from "./msm-common.js";
 import { Scalar } from "./scalar-simple.js";
 import { log2 } from "./util.js";
 
-export { msmBasic };
+export { createMsmBasic, msmBasic };
 
 type MsmInputCurve = {
   Field: MsmField;
@@ -22,6 +22,12 @@ type MsmInputCurve = {
     copy: (target: number, source: number) => void;
   };
 };
+
+function createMsmBasic(inputs: MsmInputCurve) {
+  return function (scalars: number[], points: number[], N: number) {
+    return msmBasic(inputs, scalars, points, N);
+  };
+}
 
 // mock
 const THREADS = 16;
