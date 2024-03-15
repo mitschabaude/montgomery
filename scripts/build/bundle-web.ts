@@ -5,7 +5,7 @@ import * as esbuild from "esbuild";
 import path from "node:path";
 import fs from "node:fs";
 
-export { buildWeb };
+export { buildWeb as bundleWeb };
 
 // bundle for the web
 async function buildWeb(entrypoint: string, outdir: string) {

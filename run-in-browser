@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
-import { buildWeb } from "./build/scripts/bundle/bundle-web.js";
+import { bundleWeb } from "./build/scripts/build/bundle-web.js";
 
 // get first and only command line argument
 let filename = process.argv[2];
@@ -11,10 +11,10 @@ let filename = process.argv[2];
 const src = filename.replace(/\.ts$/, ".js");
 const entrypoint = path.resolve("build/", src);
 
-let targetDir = "build/web";
-let absPath = await buildWeb(entrypoint, targetDir);
+let targetDir = path.dirname(path.join("build/web/", src));
+let absPath = await bundleWeb(entrypoint, targetDir);
 let fileName = path.basename(absPath);
-let filePath = `${targetDir}/${fileName}`;
+let filePath = path.join(targetDir, fileName);
 
 console.log(`running in the browser: ${filePath}`);
 
