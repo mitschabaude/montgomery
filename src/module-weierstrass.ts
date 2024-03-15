@@ -16,6 +16,7 @@ export { create, startThreads, stopThreads, Weierstraß };
 pool.register("Weierstraß", create);
 
 type Weierstraß = Awaited<ReturnType<typeof create>>;
+const Weierstraß = { create, startThreads, stopThreads };
 
 const curves: Weierstraß[] = [];
 

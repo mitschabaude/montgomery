@@ -14,6 +14,7 @@ export { create, startThreads, stopThreads, TwistedEdwards };
 pool.register("Twisted Edwards", create);
 
 type TwistedEdwards = Awaited<ReturnType<typeof create>>;
+const TwistedEdwards = { create, startThreads, stopThreads };
 
 const curves: TwistedEdwards[] = [];
 
