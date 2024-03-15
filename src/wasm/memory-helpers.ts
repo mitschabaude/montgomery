@@ -5,7 +5,7 @@ import { assert, log2 } from "../util.js";
 export { memoryHelpers, MemoryHelpers, MemorySection };
 
 // how much memory is reserved for thread-local memory as a fraction of total memory
-const localRatio = 0.2;
+const localRatioDefault = 0.2;
 
 type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 
@@ -30,7 +30,8 @@ function memoryHelpers(
     toPackedBytes?: (bytes: number, x: number) => void;
     fromPackedBytes?: (x: number, bytes: number) => void;
     dataOffset?: { valueOf(): number };
-  }
+  },
+  localRatio = localRatioDefault
 ) {
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
@@ -372,6 +373,5 @@ class MemorySection {
 }
 
 function floorToMultipleOf4(x: number) {
-  // ceil would be (Math.ceil(x) + 3) & ~3
-  return Math.floor(x) & ~3;
+  return Math.floor(x / 4) * 4;
 }

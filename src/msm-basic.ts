@@ -138,6 +138,8 @@ async function msmBasic(
   }
   toc();
   toc();
+  log(Field.global.printMaxSizeUsed());
+  log(Field.local.printMaxSizeUsed());
   return { result, log: getLog() };
 }
 

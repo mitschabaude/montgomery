@@ -28,7 +28,10 @@ async function create(
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
-  const Field = await createMsmField({ p, beta: 1n, w: 29 }, fieldWasm);
+  const Field = await createMsmField(
+    { p, beta: 1n, w: 29, localRatio: 0.8 },
+    fieldWasm
+  );
   const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
   const Curve = createCurveTwistedEdwards(Field, params);
 

@@ -18,7 +18,13 @@ export { createMsmField, MsmField };
 export { createConstants };
 
 async function createMsmField(
-  params: { p: bigint; beta: bigint; w: number; minExtraBits?: number },
+  params: {
+    p: bigint;
+    beta: bigint;
+    w: number;
+    minExtraBits?: number;
+    localRatio?: number;
+  },
   wasm?: WasmArtifacts
 ) {
   if (wasm !== undefined) {
@@ -127,7 +133,12 @@ async function createFieldWasm({
 }
 
 async function createFieldFromWasm(
-  { p, w, minExtraBits }: { p: bigint; w: number; minExtraBits?: number },
+  {
+    p,
+    w,
+    minExtraBits,
+    localRatio,
+  }: { p: bigint; w: number; minExtraBits?: number; localRatio?: number },
   wasmArtifacts: WasmArtifacts,
   instance?: MsmFieldWasm
 ) {
@@ -147,7 +158,7 @@ async function createFieldFromWasm(
   let wasm = instance.exports;
 
   let { R, K, n, lengthP: N } = montgomeryParams(p, w, minExtraBits);
-  let helpers = memoryHelpers(p, w, n, wasm);
+  let helpers = memoryHelpers(p, w, n, wasm, localRatio);
 
   // put some constants in wasm memory
 
