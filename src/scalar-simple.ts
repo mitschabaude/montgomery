@@ -14,7 +14,7 @@ type ScalarParams = { q: bigint; w: number };
 /**
  * scalar module for basic MSM
  */
-async function createScalar(params: ScalarParams, wasm: WasmArtifacts) {
+async function createScalar(params: ScalarParams, wasm?: WasmArtifacts) {
   if (wasm !== undefined) {
     return await createScalarFromWasm(params, wasm);
   }
