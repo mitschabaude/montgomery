@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-import fs from "node:fs/promises";
+import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
 import { bundleWeb } from "./build/scripts/build/bundle-web.js";
 
 // get first and only command line argument
-let filename = process.argv[2];
+let src = process.argv[2];
 
 // transform ts file name in the source tree to js file in /build
-const src = filename.replace(/\.ts$/, ".js");
-const entrypoint = path.resolve("build/", src);
+let srcjs = src.replace(/\.ts$/, ".js");
+let entrypoint = path.resolve("build/", srcjs);
 
-let targetDir = path.dirname(path.join("build/web/", src));
+entrypoint = fs.existsSync(entrypoint) ? entrypoint : src;
+
+let targetDir = path.dirname(path.join("build/web/", srcjs));
 let absPath = await bundleWeb(entrypoint, targetDir);
 let fileName = path.basename(absPath);
 let filePath = path.join(targetDir, fileName);
@@ -55,7 +57,10 @@ const server = http.createServer(async (req, res) => {
   if (file === "./index.html") content = indexHtml;
   else {
     try {
-      content = await fs.readFile(path.resolve(targetDir, file), "utf8");
+      content = await fs.promises.readFile(
+        path.resolve(targetDir, file),
+        "utf8"
+      );
     } catch (err) {
       res.writeHead(404, defaultHeaders);
       res.write("<html><body>404</body><html>");

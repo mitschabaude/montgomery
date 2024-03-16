@@ -22,7 +22,10 @@ async function buildWeb(entrypoint: string, outdir: string) {
     allowOverwrite: true,
   });
   // return abs path for convenience
-  return path.resolve(outdir, path.basename(entrypoint));
+  return path.resolve(
+    outdir,
+    path.basename(entrypoint.replace(/\.ts$/, ".js"))
+  );
 }
 
 async function buildBlobUrl(path: string) {

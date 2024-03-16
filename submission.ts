@@ -1,13 +1,13 @@
-import {
-  Ed377,
-  TwistedEdwards,
-} from "./build/web/src/concrete/ed-on-bls12-377.js";
+// import {
+//   Ed377,
+//   TwistedEdwards,
+// } from "./build/web/src/concrete/ed-on-bls12-377.js";
+import { Ed377, TwistedEdwards } from "./src/concrete/ed-on-bls12-377.js";
 
 export { compute_msm };
 
 await TwistedEdwards.startThreads();
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
 async function compute_msm(
   inputPoints: BigIntPoint[] | U32ArrayPoint[] | Buffer,
   inputScalars: bigint[] | Uint32Array[] | Buffer

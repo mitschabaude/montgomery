@@ -21,7 +21,7 @@
   ],
   "scripts": {
     "watch": "tsc -w",
-    "build": "tsc -p tsconfig.node.json",
+    "build": "tsc",
     "build:web": "tsc -p tsconfig.web.json && node build/web/scripts/build/build-web.js src/concrete/ed-on-bls12-377.ts",
     "start": "npm run build && ./run scripts/run-msm-pasta.ts",
     "start-web": "npm run build && ./run-in-browser scripts/run-msm-pasta.ts",
