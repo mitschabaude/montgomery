@@ -13,16 +13,19 @@ async function compute_msm(
   inputScalars: bigint[] | Uint32Array[] | Buffer
 ): Promise<{ x: bigint; y: bigint }> {
   // transfer to wasm memory
-  let scalars = scalarsFromBigint(inputScalars as bigint[]);
-  let points = pointsFromBigint(inputPoints as BigIntPoint[]);
+  let scalars = await scalarsFromBigint(inputScalars as bigint[]);
+  let points = await pointsFromBigint(inputPoints as BigIntPoint[]);
 
+  // compute msm
   let { result } = await Ed377.Parallel.msm(
     scalars,
     points,
     inputScalars.length
   );
 
-  return Ed377.Bigint.toAffine(Ed377.Curve.toBigint(result));
+  // return as affine bigint point
+  let resultBigint = Ed377.Curve.toBigint(result);
+  return Ed377.Bigint.toAffine(resultBigint);
 }
 
 export type BigIntPoint = {
@@ -39,17 +42,17 @@ export type U32ArrayPoint = {
   z: Uint32Array;
 };
 
-function pointsFromBigint(inputPoints: BigIntPoint[]) {
+async function pointsFromBigint(inputPoints: BigIntPoint[]) {
   let { Field, Curve } = Ed377;
   let n = inputPoints.length;
-  let points = Field.global.getPointers(n, Curve.size);
+  let pointPtr = await Ed377.Parallel.getPointer(n * Curve.size);
 
   let { sizeField, writeBigint, toMontgomery } = Field;
 
-  for (let i = 0; i < n; i++) {
+  for (let i = 0, pi = pointPtr; i < n; i++, pi += Curve.size) {
     let inputPoint = inputPoints[i];
 
-    let x = points[i];
+    let x = pi;
     let y = x + sizeField;
     let z = y + sizeField;
     let t = z + sizeField;
@@ -62,13 +65,13 @@ function pointsFromBigint(inputPoints: BigIntPoint[]) {
     Field.copy(z, Field.constants.mg1);
     Field.multiply(t, x, y);
   }
-  return points[0];
+  return pointPtr;
 }
 
-function scalarsFromBigint(inputScalars: bigint[]) {
+async function scalarsFromBigint(inputScalars: bigint[]) {
   let n = inputScalars.length;
   let { writeBigint, sizeField: size } = Ed377.Scalar;
-  let scalarPtr = Ed377.Scalar.global.getPointer(n * size);
+  let scalarPtr = await Ed377.Parallel.getScalarPointer(n * size);
 
   for (let i = 0, si = scalarPtr; i < n; i++, si += size) {
     writeBigint(si, inputScalars[i]);

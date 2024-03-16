@@ -8,4 +8,5 @@ let p = {
   t: 3446088593515175914550487355059397868296219355049460558182099906777968652023n,
 };
 
-await compute_msm([p], [1n]);
+let result = await compute_msm([p], [1n]);
+console.log(result);

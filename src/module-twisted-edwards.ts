@@ -42,10 +42,19 @@ async function create(
   const randomScalars = createRandomScalars(Inputs);
   const msm = createMsmBasic(Inputs);
 
+  function getPointer(size: number) {
+    return Field.global.getPointer(size);
+  }
+  function getScalarPointer(size: number) {
+    return Scalar.global.getPointer(size);
+  }
+
   const Parallel = pool.register(`Twisted Edwards, ${label}`, {
     randomPointsFast,
     randomScalars,
     msm,
+    getPointer,
+    getScalarPointer,
   });
 
   const Bigint = createBigintCurve(params);
