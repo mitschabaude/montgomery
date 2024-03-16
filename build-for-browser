@@ -17,4 +17,4 @@ let absPath = await bundleWeb(entrypoint, targetDir);
 let fileName = path.basename(absPath);
 let filePath = path.join(targetDir, fileName);
 
-console.log(`built fo the browser: ${filePath}`);
+console.log(`built for the browser: ${filePath}`);
