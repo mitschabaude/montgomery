@@ -19,6 +19,7 @@ async function buildWeb(entrypoint: string, outdir: string) {
     target: "es2022",
     sourcemap: true,
     plugins: [replaceNodeWithWeb(), inlineUrl()],
+    allowOverwrite: true,
   });
   // return abs path for convenience
   return path.resolve(outdir, path.basename(entrypoint));

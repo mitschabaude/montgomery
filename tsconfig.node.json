@@ -2,6 +2,6 @@
   "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "build/web"
+    "outDir": "build"
   }
 }

@@ -7,7 +7,7 @@ let filename = process.argv[2];
 
 // transform ts file name in the source tree to js file in /build
 const src = filename.replace(/\.ts$/, ".js");
-const entrypoint = path.resolve("build/", src);
+const entrypoint = path.resolve("build/web/", src);
 
 let targetDir = path.dirname(path.join("build/web/", src));
 let absPath = await bundleWeb(entrypoint, targetDir);
