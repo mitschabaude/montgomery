@@ -6,7 +6,6 @@
 import type { MsmField } from "./field-msm.js";
 import type { MemorySection } from "./wasm/memory-helpers.js";
 import { createLog, splitBuckets, windowSize } from "./msm-common.js";
-import { Scalar } from "./scalar-simple.js";
 import { log2 } from "./util.js";
 import { THREADS, barrier, isMain, thread } from "./threads/threads.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
@@ -15,7 +14,11 @@ export { createMsmBasic, msmBasic };
 
 type MsmInputCurve = {
   Field: MsmField;
-  Scalar: Scalar;
+  Scalar: {
+    sizeInBits: number;
+    sizeField: number;
+    extractBitSlice: (ptr: number, start: number, length: number) => number;
+  };
   Curve: {
     size: number;
     setZero: (P: number) => void;
