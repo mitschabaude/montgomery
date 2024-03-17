@@ -383,6 +383,53 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     return pointBigint;
   }
 
+  /**
+   * The input can either be an array of pointers or a single pointer to a contiguous array.
+   * In the second case, you must provide the length as well.
+   */
+  function toBigints(points: number[] | { ptr: number; length: number }) {
+    using _ = Field.local.atCurrentOffset;
+    let tmp = Field.local.getPointer(size);
+
+    let pointsPtrs: number[];
+    let n = points.length;
+    if (Array.isArray(points)) pointsPtrs = points;
+    else {
+      let { ptr: pi } = points;
+      pointsPtrs = Array(n);
+      for (let i = 0; i < n; i++, pi += size) pointsPtrs[i] = pi;
+    }
+    let pointsBigint: BigintPoint[] = Array(n);
+
+    for (let i = 0; i < n; i++) {
+      let point = pointsPtrs[i];
+      let x = point;
+      let y = x + sizeField;
+      let z = y + sizeField;
+      let t = z + sizeField;
+
+      Field.copy(tmp, x);
+      Field.fromMontgomery(tmp);
+      let X = Field.readBigint(tmp);
+
+      Field.copy(tmp, y);
+      Field.fromMontgomery(tmp);
+      let Y = Field.readBigint(tmp);
+
+      Field.copy(tmp, z);
+      Field.fromMontgomery(tmp);
+      let Z = Field.readBigint(tmp);
+
+      Field.copy(tmp, t);
+      Field.fromMontgomery(tmp);
+      let T = Field.readBigint(tmp);
+
+      pointsBigint[i] = { X, Y, Z, T };
+    }
+
+    return pointsBigint;
+  }
+
   function fromBigint(point: number, P: BigintPoint) {
     let { X, Y, Z, T } = P;
     let [xPtr, yPtr, zPtr, tPtr] = coords(point);
@@ -394,6 +441,65 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Field.toMontgomery(yPtr);
     Field.toMontgomery(zPtr);
     Field.toMontgomery(tPtr);
+  }
+
+  /**
+   * Expects as first argument a pointer which can fit a contiguous array of
+   * affine points of the input size.
+   */
+  function fromBigints(pointPtr: number, inputPoints: BigintPoint[]) {
+    let n = inputPoints.length;
+
+    let { sizeField, writeBigint, toMontgomery } = Field;
+
+    for (let i = 0, pi = pointPtr; i < n; i++, pi += size) {
+      let { X, Y, Z, T } = inputPoints[i];
+
+      let x = pi;
+      let y = x + sizeField;
+      let z = y + sizeField;
+      let t = z + sizeField;
+
+      writeBigint(x, X);
+      writeBigint(y, Y);
+      writeBigint(z, Z);
+      writeBigint(t, T);
+      toMontgomery(x);
+      toMontgomery(y);
+      toMontgomery(z);
+      toMontgomery(t);
+    }
+    return pointPtr;
+  }
+
+  /**
+   * Expects as first argument a pointer which can fit a contiguous array of
+   * affine points of the input size.
+   */
+  function fromAffineBigints(
+    pointPtr: number,
+    inputPoints: { x: bigint; y: bigint }[]
+  ) {
+    let n = inputPoints.length;
+
+    let { sizeField, writeBigint, toMontgomery } = Field;
+
+    for (let i = 0, pi = pointPtr; i < n; i++, pi += size) {
+      let inputPoint = inputPoints[i];
+      let x = pi;
+      let y = x + sizeField;
+      let z = y + sizeField;
+      let t = z + sizeField;
+
+      writeBigint(x, inputPoint.x);
+      writeBigint(y, inputPoint.y);
+
+      toMontgomery(x);
+      toMontgomery(y);
+      Field.copy(z, Field.constants.mg1);
+      Field.multiply(t, x, y);
+    }
+    return pointPtr;
   }
 
   function X(point: number) {
@@ -428,7 +534,10 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     setZero,
     copy: copyPoint,
     toBigint,
+    toBigints,
     fromBigint,
+    fromBigints,
+    fromAffineBigints,
     randomPoints,
 
     X,
@@ -437,9 +546,8 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     T,
 
     // for compatibility with affine / projective
-    fromAffine(point: number, affinePoint: number) {
-      copyPoint(point, affinePoint);
-    },
+    // TODO easy to misunderstand
+    fromAffine: copyPoint,
 
     batchNormalize,
   };

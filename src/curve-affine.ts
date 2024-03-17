@@ -266,6 +266,8 @@ function createCurveAffine(
 
       pointsBigint[i] = { x, y, isZero: false };
     }
+
+    return pointsBigint;
   }
 
   function writeBigint(point: number, { x, y, isZero }: BigintPoint) {

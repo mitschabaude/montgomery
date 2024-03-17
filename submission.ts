@@ -39,28 +39,10 @@ export type U32ArrayPoint = {
 };
 
 async function pointsFromBigint(inputPoints: BigIntPoint[]) {
-  let { Field, Curve } = Ed377;
+  let { Curve } = Ed377;
   let n = inputPoints.length;
   let pointPtr = await Ed377.Parallel.getPointer(n * Curve.size);
-
-  let { sizeField, writeBigint, toMontgomery } = Field;
-
-  for (let i = 0, pi = pointPtr; i < n; i++, pi += Curve.size) {
-    let inputPoint = inputPoints[i];
-
-    let x = pi;
-    let y = x + sizeField;
-    let z = y + sizeField;
-    let t = z + sizeField;
-
-    writeBigint(x, inputPoint.x);
-    writeBigint(y, inputPoint.y);
-
-    toMontgomery(x);
-    toMontgomery(y);
-    Field.copy(z, Field.constants.mg1);
-    Field.multiply(t, x, y);
-  }
+  Ed377.Curve.fromAffineBigints(pointPtr, inputPoints);
   return pointPtr;
 }
 
