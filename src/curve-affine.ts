@@ -232,6 +232,42 @@ function createCurveAffine(
     return pointBigint;
   }
 
+  /**
+   * The input can either be an array of pointers or a single pointer to a contiguous array.
+   * In the second case, you must provide the length as well.
+   */
+  function toBigints(points: number[] | { ptr: number; length: number }) {
+    using _ = Field.local.atCurrentOffset;
+    let tmp = Field.local.getPointer(size);
+
+    let pointsPtrs: number[];
+    let n = points.length;
+    if (Array.isArray(points)) pointsPtrs = points;
+    else {
+      let { ptr: pi } = points;
+      pointsPtrs = Array(n);
+      for (let i = 0; i < n; i++, pi += size) pointsPtrs[i] = pi;
+    }
+    let pointsBigint: BigintPoint[] = Array(n);
+
+    for (let i = 0; i < n; i++) {
+      let point = pointsPtrs[i];
+      if (isZero(point)) {
+        pointsBigint[i] = BigintPoint.zero;
+        continue;
+      }
+      Field.copy(tmp, point);
+      Field.fromMontgomery(tmp);
+      let x = Field.readBigint(tmp);
+
+      Field.copy(tmp, point + sizeField);
+      Field.fromMontgomery(tmp);
+      let y = Field.readBigint(tmp);
+
+      pointsBigint[i] = { x, y, isZero: false };
+    }
+  }
+
   function writeBigint(point: number, { x, y, isZero }: BigintPoint) {
     if (isZero) {
       setIsNonZero(point, false);
@@ -243,6 +279,30 @@ function createCurveAffine(
     Field.toMontgomery(xPtr);
     Field.toMontgomery(yPtr);
     setIsNonZero(point, true);
+  }
+
+  /**
+   * Expects as first argument a pointer which can fit a contiguous array of
+   * affine points of the input size.
+   */
+  function writeBigints(pointPtr: number, inputPoints: BigintPoint[]) {
+    let n = inputPoints.length;
+
+    let { sizeField, writeBigint, toMontgomery, memoryBytes } = Field;
+
+    for (let i = 0, pi = pointPtr; i < n; i++, pi += size) {
+      let inputPoint = inputPoints[i];
+
+      let x = pi;
+      let y = x + sizeField;
+      memoryBytes[pi + 2 * sizeField] = Number(!inputPoint.isZero);
+
+      writeBigint(x, inputPoint.x);
+      writeBigint(y, inputPoint.y);
+      toMontgomery(x);
+      toMontgomery(y);
+    }
+    return pointPtr;
   }
 
   function batchFromProjective(points: number[], pointsProj: number[]) {
@@ -291,34 +351,11 @@ function createCurveAffine(
     coords,
     setIsNonZero,
     toBigint,
+    toBigints,
     writeBigint,
+    writeBigints,
     batchNormalize: batchFromProjective,
     randomPoints,
-    randomPointsBigint(n: number, { montgomery = false } = {}) {
-      let memoryOffset = Field.getOffset();
-      let points = Field.getZeroPointers(n, size);
-      randomPoints(points);
-      let pointsBigint: BigintPoint[] = Array(n);
-      for (let i = 0; i < n; i++) {
-        let point = points[i];
-        let x = point;
-        let y = point + sizeField;
-        if (!montgomery) {
-          Field.fromMontgomery(x);
-          Field.fromMontgomery(y);
-        } else {
-          Field.reduce(x);
-          Field.reduce(y);
-        }
-        pointsBigint[i] = {
-          x: Field.readBigint(x),
-          y: Field.readBigint(y),
-          isZero: false,
-        };
-      }
-      Field.setOffset(memoryOffset);
-      return pointsBigint;
-    },
   };
 }
 

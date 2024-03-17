@@ -33,29 +33,14 @@ async function compute_msm(
   return resultBigint;
 }
 
-export type BigIntPoint = { x: bigint; y: bigint };
+export type BigIntPoint = { x: bigint; y: bigint; isZero: boolean };
 export type U32ArrayPoint = { x: Uint32Array; y: Uint32Array };
 
 async function pointsFromBigint(inputPoints: BigIntPoint[]) {
-  let { Field, Affine } = BLS12377;
+  let { Affine } = BLS12377;
   let n = inputPoints.length;
   let pointPtr = await BLS12377.Parallel.getPointer(n * Affine.size);
-
-  let { sizeField, writeBigint, toMontgomery, memoryBytes } = Field;
-
-  for (let i = 0, pi = pointPtr; i < n; i++, pi += Affine.size) {
-    let inputPoint = inputPoints[i];
-
-    let x = pi;
-    let y = x + sizeField;
-    // set nonzero flag. (input format doesn't allow zero points, so always 1)
-    memoryBytes[pi + 2 * sizeField] = 1;
-
-    writeBigint(x, inputPoint.x);
-    writeBigint(y, inputPoint.y);
-    toMontgomery(x);
-    toMontgomery(y);
-  }
+  Affine.writeBigints(pointPtr, inputPoints);
   return pointPtr;
 }
 
