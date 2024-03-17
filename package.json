@@ -22,7 +22,7 @@
   "scripts": {
     "watch": "tsc -w",
     "build": "tsc",
-    "build:web": "npm run build && ./buid-for-brower submission.ts",
+    "build-submission": "npm run build && tsc -p tsconfig.web.json && ./build-for-browser submission.ts && ./build-for-browser submission-bls377.ts",
     "start": "npm run build && ./run scripts/run-msm-pasta.ts",
     "start-web": "npm run build && ./run-in-browser scripts/run-msm-pasta.ts",
     "evaluate": "npm run build && ./run scripts/run-msm-pasta.ts 16 16 --evaluate",

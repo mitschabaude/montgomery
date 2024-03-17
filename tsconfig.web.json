@@ -1,5 +1,5 @@
 {
-  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "*.ts"],
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "build/web"

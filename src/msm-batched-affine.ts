@@ -640,13 +640,16 @@ function computeBucketsSplit(params: {
   let thread = 0;
   let remainingWork = nt;
 
+  for (let thread = 0; thread < THREADS; thread++) {
+    chunksPerThread[thread] = [];
+  }
+
   for (let k = 0; k < K; k++) {
     let j = 0;
     let remainingL = L;
     let lstart = 1;
     while (remainingL > 0) {
       let length = Math.min(remainingL, remainingWork);
-      chunksPerThread[thread] ??= [];
       chunksPerThread[thread].push({ k, j, lstart, length });
       j++;
       remainingL -= length;

@@ -1,7 +1,3 @@
-// import {
-//   Ed377,
-//   TwistedEdwards,
-// } from "./build/web/src/concrete/ed-on-bls12-377.js";
 import { Ed377, TwistedEdwards } from "./src/concrete/ed-on-bls12-377.js";
 
 export { compute_msm };

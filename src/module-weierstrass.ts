@@ -43,11 +43,20 @@ async function create(
   const randomScalars = createRandomScalars(Inputs);
   const { msm, msmUnsafe } = createMsm(Inputs);
 
+  function getPointer(size: number) {
+    return Field.global.getPointer(size);
+  }
+  function getScalarPointer(size: number) {
+    return Scalar.global.getPointer(size);
+  }
+
   const Parallel = pool.register(`Weierstraß-${label}`, {
     randomPointsFast,
     randomScalars,
     msmUnsafe,
     msm,
+    getPointer,
+    getScalarPointer,
   });
 
   const Bigint = {
