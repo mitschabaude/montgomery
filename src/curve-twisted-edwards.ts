@@ -196,13 +196,15 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   /**
    * subtraction or addition with assignment, depending on the subtract flag
    */
-  function addOrSubAssignMixed(
-    scratch: number[],
-    P: number,
-    Q: number,
-    subtract: boolean
-  ) {
-    addOrSubtract(scratch, P, P, Q, subtract, true);
+  function addMixed(scratch: number[], R: number, P: number, Q: number) {
+    addOrSubtract(scratch, R, P, Q, false, true);
+  }
+
+  /**
+   * subtraction or addition with assignment, depending on the subtract flag
+   */
+  function subMixed(scratch: number[], R: number, P: number, Q: number) {
+    addOrSubtract(scratch, R, P, Q, true, true);
   }
 
   /**
@@ -519,7 +521,8 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Bigint: CurveBigint,
     add,
     addAssign,
-    addOrSubAssignMixed,
+    addMixed,
+    subMixed,
     double,
     doubleInPlace,
     negate,

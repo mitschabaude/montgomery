@@ -58,6 +58,7 @@ async function createWeierstraß(
   const randomPointsFast = createRandomPointsFast(Inputs);
   const randomScalars = createRandomScalars(Inputs);
   const { msm, msmUnsafe } = createMsm(Inputs);
+  // createMsmBasic({ Field, Scalar, Curve: Projective });
 
   function getPointer(size: number) {
     return Field.global.getPointer(size);
@@ -66,7 +67,7 @@ async function createWeierstraß(
     return Scalar.global.getPointer(size);
   }
 
-  const Parallel = pool.register(`Weierstraß-${label}`, {
+  const Parallel = pool.register(`Weierstraß, ${label}`, {
     randomPointsFast,
     randomScalars,
     msmUnsafe,
@@ -75,9 +76,7 @@ async function createWeierstraß(
     getScalarPointer,
   });
 
-  const Bigint = {
-    Projective: createBigintCurve(params),
-  };
+  const Bigint = { Projective: createBigintCurve(params) };
 
   const Curve = {
     params,

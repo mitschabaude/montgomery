@@ -22,14 +22,10 @@ type MsmInputCurve = {
   Curve: {
     size: number;
     setZero: (P: number) => void;
-    addAssign: (scratch: number[], P1: number, P2: number) => void;
-    addOrSubAssignMixed: (
-      scratch: number[],
-      P1: number,
-      P2: number,
-      subtract: boolean
-    ) => void;
-    doubleInPlace: (scratch: number[], P: number) => void;
+    add: (scratch: number[], P3: number, P1: number, P2: number) => void;
+    double: (scratch: number[], R: number, P: number) => void;
+    addMixed: (scratch: number[], P3: number, P1: number, P2: number) => void;
+    subMixed: (scratch: number[], P3: number, P1: number, P2: number) => void;
     copy: (target: number, source: number) => void;
   };
 };
@@ -63,7 +59,7 @@ async function msmBasic(
   let params = { N, K, L, c, b };
   log({ n, K, c });
 
-  let { addAssign, addOrSubAssignMixed, doubleInPlace, setZero, size } = Curve;
+  let { add, addMixed, subMixed, double, setZero, size } = Curve;
   let { sizeField: sizeScalar } = Scalar;
   let result = Field.global.getPointer(Curve.size);
 
@@ -116,7 +112,12 @@ async function msmBasic(
       l &= 0x7f_ff_ff_ff;
       l -= lstart;
       if (l < 0 || l >= length) continue;
-      addOrSubAssignMixed(scratch, buckets[l], pi, carry === 1);
+      let bucket = buckets[l];
+      if (carry === 1) {
+        subMixed(scratch, bucket, bucket, pi);
+      } else {
+        addMixed(scratch, bucket, bucket, pi);
+      }
     }
     toc();
 
@@ -141,7 +142,7 @@ async function msmBasic(
     let chunkSums = chunkSumsPerPartition[k];
     let partitionSum = chunkSums[0];
     for (let j = 1, n = chunkSums.length; j < n; j++) {
-      Curve.addAssign(scratch, partitionSum, chunkSums[j]);
+      Curve.add(scratch, partitionSum, partitionSum, chunkSums[j]);
     }
     partitionSums[k] = partitionSum;
   }
@@ -150,9 +151,9 @@ async function msmBasic(
   Curve.copy(result, partitionSums[K - 1]);
   for (let k = K - 2; k >= 0; k--) {
     for (let i = 0; i < c; i++) {
-      doubleInPlace(scratch, result);
+      double(scratch, result, result);
     }
-    addAssign(scratch, result, partitionSums[k]);
+    add(scratch, result, result, partitionSums[k]);
   }
   toc();
   toc();
@@ -183,7 +184,7 @@ function reduceBucketsChunk(
 ) {
   let { Field, Curve } = inputs;
   let L = buckets.length;
-  let { addAssign, doubleInPlace, setZero } = Curve;
+  let { add, double, setZero } = Curve;
 
   using _ = Field.local.atCurrentOffset;
   let scratch = Field.local.getPointers(20);
@@ -193,16 +194,16 @@ function reduceBucketsChunk(
 
   // compute triangle and row
   for (let l = L - 1; l >= 0; l--) {
-    addAssign(scratch, row, buckets[l]);
-    addAssign(scratch, triangle, row);
+    add(scratch, row, row, buckets[l]);
+    add(scratch, triangle, triangle, row);
   }
 
   // triangle += (lstart - 1) * row
   lstart--;
   while (true) {
-    if (lstart & 1) addAssign(scratch, triangle, row);
+    if (lstart & 1) add(scratch, triangle, triangle, row);
     if ((lstart >>= 1) === 0) break;
-    doubleInPlace(scratch, row);
+    double(scratch, row, row);
   }
 
   Curve.copy(column, triangle);
