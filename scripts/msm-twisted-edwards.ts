@@ -1,15 +1,19 @@
-import { TwistedEdwards } from "../src/module-twisted-edwards.js";
 import { tic, toc } from "../src/testing/tictoc.js";
 import { assert } from "../src/util.js";
 import { median, standardDev } from "./evaluate-util.js";
 import { msm as msmBigint } from "../src/bigint/msm.js";
 import type { CurveParams } from "../src/bigint/twisted-edwards.js";
+import {
+  TwistedEdwards,
+  startThreads,
+  stopThreads,
+} from "../src/module-weierstrass.js";
 
 export { benchmarkMsm, runMsm };
 
 async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   let N = 1 << n;
-  await TwistedEdwards.startThreads(nThreads);
+  await startThreads(nThreads);
 
   const { Parallel } = await TwistedEdwards.create(params);
 
@@ -45,13 +49,13 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   // console.dir({ n, avg, std, times: times.map(Math.round) });
   console.log(`msm (n=${n})... ${avg}ms ± ${std}ms`);
 
-  await TwistedEdwards.stopThreads();
+  await stopThreads();
 }
 
 async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   let N = 1 << n;
   const Curve = await TwistedEdwards.create(params);
-  await TwistedEdwards.startThreads(nThreads);
+  await startThreads(nThreads);
 
   tic("random points");
   let pointsPtrs = await Curve.Parallel.randomPointsFast(N);
@@ -88,7 +92,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
 
   log.forEach((l) => console.log(...l));
   toc();
-  await TwistedEdwards.stopThreads();
+  await stopThreads();
 
   if (n < 14) {
     let points = pointsPtrs.map((g) => Curve.Curve.toBigint(g));

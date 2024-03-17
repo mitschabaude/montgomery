@@ -1,8 +1,9 @@
-import { Ed377, TwistedEdwards } from "./src/concrete/ed-on-bls12-377.js";
+import { Ed377 } from "./src/concrete/ed-on-bls12-377.js";
+import { startThreads } from "./src/module-weierstrass.js";
 
 export { compute_msm };
 
-await TwistedEdwards.startThreads();
+await startThreads();
 
 async function compute_msm(
   inputPoints: BigIntPoint[] | U32ArrayPoint[] | Buffer,

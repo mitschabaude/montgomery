@@ -1,6 +1,6 @@
 import type * as _W from "wasmati";
-import { TwistedEdwards } from "../module-twisted-edwards.js";
 import { curveParams } from "./ed-on-bls12-377.params.js";
+import { TwistedEdwards } from "../module-weierstrass.js";
 
 export { Ed377, TwistedEdwards };
 

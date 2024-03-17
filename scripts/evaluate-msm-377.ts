@@ -1,13 +1,13 @@
 import { curveParams } from "../src/concrete/bls12-377.params.js";
 import {
-  create,
+  Weierstraß,
   startThreads,
   stopThreads,
 } from "../src/module-weierstrass.js";
 import { tic, toc } from "../src/testing/tictoc.js";
 import { median, standardDev } from "./evaluate-util.js";
 
-const { Parallel } = await create(curveParams);
+const { Parallel } = await Weierstraß.create(curveParams);
 
 let n = Number(process.argv[3] ?? 16);
 

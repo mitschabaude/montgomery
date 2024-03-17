@@ -1,8 +1,9 @@
-import { BLS12377, Weierstraß } from "./src/concrete/bls12-377.js";
+import { BLS12377 } from "./src/concrete/bls12-377.js";
+import { startThreads } from "./src/module-weierstrass.js";
 
 export { compute_msm };
 
-await Weierstraß.startThreads();
+await startThreads();
 let scratch = BLS12377.Field.local.getPointers(20);
 
 async function compute_msm(

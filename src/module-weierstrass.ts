@@ -4,26 +4,42 @@ import { createMsmField } from "./field-msm.js";
 import { createCurveProjective } from "./curve-projective.js";
 import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.js";
 import { createCurveAffine } from "./curve-affine.js";
-import { createRandomPointsFast, createRandomScalars } from "./curve-random.js";
+import {
+  createRandomPointsFast,
+  createRandomPointsFastSingleCurve,
+  createRandomScalars,
+} from "./curve-random.js";
 import { GlvScalarParams, createGlvScalar } from "./scalar-glv.js";
 import { createMsm } from "./msm-batched-affine.js";
 import { pool } from "./threads/global-pool.js";
 import { CurveParams } from "./bigint/affine-weierstrass.js";
+import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.js";
 import { assert } from "./util.js";
+import { createScalar } from "./scalar-simple.js";
+import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
+import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
+import { createMsmBasic } from "./msm-basic.js";
 
-export { create, startThreads, stopThreads, Weierstraß };
+export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
-pool.register("Weierstraß", create);
+pool.register("Weierstraß", createWeierstraß);
+pool.register("Twisted Edwards", createTwistedEdwards);
 
-type Weierstraß = Awaited<ReturnType<typeof create>>;
-const Weierstraß = { create, startThreads, stopThreads };
+type Weierstraß = Awaited<ReturnType<typeof createWeierstraß>>;
+const Weierstraß = { create: createWeierstraß };
 
-const curves: Weierstraß[] = [];
+type TwistedEdwards = Awaited<ReturnType<typeof createTwistedEdwards>>;
+const TwistedEdwards = { create: createTwistedEdwards };
 
-async function create(
+const curves: (
+  | { module: Weierstraß; create: typeof createWeierstraß }
+  | { module: TwistedEdwards; create: typeof createTwistedEdwards }
+)[] = [];
+
+async function createWeierstraß(
   params: CurveParams,
-  wasm?: WasmArtifacts,
-  scalarWasmParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
+  fieldWasm?: WasmArtifacts,
+  scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
 ) {
   let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
   assert(a === 0n, "only curves with a = 0 are supported");
@@ -33,8 +49,8 @@ async function create(
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
-  const Field = await createMsmField({ p, beta, w: 29 }, wasm);
-  const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasmParams);
+  const Field = await createMsmField({ p, beta, w: 29 }, fieldWasm);
+  const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
   const Projective = createCurveProjective(Field, h);
   const Affine = createCurveAffine(Field, Projective, b);
   const Inputs = { params, Field, Scalar, Affine, Projective };
@@ -74,20 +90,93 @@ async function create(
     Bigint,
   };
 
-  (curves as (typeof Curve)[]).push(Curve);
+  (curves as { module: typeof Curve; create: typeof createWeierstraß }[]).push({
+    module: Curve,
+    create: createWeierstraß,
+  });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
   if (pool.isRunning) {
     await pool.callWorkers(
-      create,
+      createWeierstraß,
       Curve.params,
       Curve.Field.wasmArtifacts,
-      Curve.Scalar.wasmParams
+      Curve.Scalar.wasmArtifacts
     );
   }
 
   return Curve;
+}
+
+async function createTwistedEdwards(
+  params: TwistedEdwardsParams,
+  fieldWasm?: WasmArtifacts,
+  scalarWasm?: WasmArtifacts
+) {
+  let { modulus: p, order: q, label } = params;
+
+  // create modules
+  // note: if wasm is not provided, it will be created
+  // so workers have to be called with the wasm from the main thread
+  const Field = await createMsmField(
+    { p, beta: 1n, w: 29, localRatio: 0.8 },
+    fieldWasm
+  );
+  const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
+  const Curve = createCurveTwistedEdwards(Field, params);
+  const Inputs = { params, Field, Scalar, Curve };
+
+  const randomPointsFast = createRandomPointsFastSingleCurve(Inputs);
+  const randomScalars = createRandomScalars(Inputs);
+  const msm = createMsmBasic(Inputs);
+
+  function getPointer(size: number) {
+    return Field.global.getPointer(size);
+  }
+  function getScalarPointer(size: number) {
+    return Scalar.global.getPointer(size);
+  }
+
+  const Parallel = pool.register(`Twisted Edwards, ${label}`, {
+    randomPointsFast,
+    randomScalars,
+    msm,
+    getPointer,
+    getScalarPointer,
+  });
+
+  const Bigint = createBigintTE(params);
+
+  const Module = {
+    params,
+
+    Field,
+    Scalar,
+    Curve,
+    Parallel,
+    Bigint,
+  };
+
+  (
+    curves as { module: typeof Module; create: typeof createTwistedEdwards }[]
+  ).push({
+    module: Module,
+    create: createTwistedEdwards,
+  });
+
+  // if the pool is already running, send wasm modules for the new curve to the workers
+  // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
+  if (pool.isRunning) {
+    await pool.callWorkers(
+      createTwistedEdwards,
+      Module.params,
+      Module.Field.wasmArtifacts,
+      Module.Scalar.wasmArtifacts
+    );
+  }
+
+  return Module;
 }
 
 async function startThreads(n?: number) {
@@ -101,16 +190,16 @@ async function startThreads(n?: number) {
 
   // the memory is segmented differently depending on # of threads
   // so there is this method to resegment when the # of threads changed
-  curves.forEach((curve) => curve.Field.updateThreads());
+  curves.forEach(({ module }) => module.Field.updateThreads());
 
   // send wasm modules to newly created workers
   await Promise.all(
-    curves.map((curve) =>
+    curves.map(({ module, create }) =>
       pool.callWorkers(
         create,
-        curve.params,
-        curve.Field.wasmArtifacts,
-        curve.Scalar.wasmParams
+        module.params as any,
+        module.Field.wasmArtifacts,
+        module.Scalar.wasmArtifacts as any
       )
     )
   );
@@ -118,5 +207,5 @@ async function startThreads(n?: number) {
 
 async function stopThreads() {
   await pool.stop();
-  curves.forEach((curve) => curve.Field.updateThreads());
+  curves.forEach(({ module }) => module.Field.updateThreads());
 }
