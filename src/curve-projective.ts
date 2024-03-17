@@ -9,16 +9,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
   // convert the cofactor to bits
   let cofactorBits = bigintToBits(cofactor);
 
-  const {
-    sizeField,
-    square,
-    multiply,
-    add,
-    subtract,
-    isEqual,
-    constants,
-    memoryBytes,
-  } = Field;
+  const { sizeField, constants, memoryBytes } = Field;
 
   let size = 3 * sizeField + 4;
 
@@ -30,6 +21,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
    * @param P2
    */
   function addAssign(scratch: number[], P1: number, P2: number) {
+    let { subtract, multiply, square, isEqual, reduce } = Field;
     if (isZero(P1)) {
       copy(P1, P2);
       return;
@@ -52,11 +44,11 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     // double if the points are equal
     // x1*z2 = x2*z1 and y1*z2 = y2*z1
     // <==>  x1/z1 = x2/z2 and y1/z1 = y2/z2
-    Field.reduce(X1Z2);
-    Field.reduce(X2Z1);
+    reduce(X1Z2);
+    reduce(X2Z1);
     if (isEqual(X1Z2, X2Z1)) {
-      Field.reduce(Y1Z2);
-      Field.reduce(Y2Z1);
+      reduce(Y1Z2);
+      reduce(Y2Z1);
       if (isEqual(Y1Z2, Y2Z1)) {
         doubleInPlace(scratch, P1);
         return;
@@ -103,6 +95,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
    * @param P
    */
   function doubleInPlace(scratch: number[], P: number) {
+    let { add, subtract, multiply, square } = Field;
     if (isZero(P)) return;
     let [X1, Y1, Z1] = coords(P);
     let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
@@ -195,8 +188,8 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     let yAffine = affine + sizeField;
     // return x/z, y/z
     Field.inverse(scratch[1], zinv, z);
-    multiply(xAffine, x, zinv);
-    multiply(yAffine, y, zinv);
+    Field.multiply(xAffine, x, zinv);
+    Field.multiply(yAffine, y, zinv);
     memoryBytes[xAffine + 2 * sizeField] = 1;
   }
 
@@ -236,17 +229,17 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     let tmp = scratch[0];
     let tmp2 = scratch[1];
     // x1/z1 == x2/z2
-    multiply(tmp, x1, z2);
+    Field.multiply(tmp, x1, z2);
     Field.reduce(tmp);
-    multiply(tmp2, x2, z1);
+    Field.multiply(tmp2, x2, z1);
     Field.reduce(tmp2);
-    if (!isEqual(tmp, tmp2)) return false;
+    if (!Field.isEqual(tmp, tmp2)) return false;
     // y1/z1 == y2/z2
-    multiply(tmp, y1, z2);
+    Field.multiply(tmp, y1, z2);
     Field.reduce(tmp);
-    multiply(tmp2, y2, z1);
+    Field.multiply(tmp2, y2, z1);
     Field.reduce(tmp2);
-    return isEqual(tmp, tmp2);
+    return Field.isEqual(tmp, tmp2);
   }
 
   return {
