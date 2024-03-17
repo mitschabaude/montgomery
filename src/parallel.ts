@@ -160,10 +160,7 @@ async function createTwistedEdwards(
 
   (
     curves as { module: typeof Module; create: typeof createTwistedEdwards }[]
-  ).push({
-    module: Module,
-    create: createTwistedEdwards,
-  });
+  ).push({ module: Module, create: createTwistedEdwards });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call

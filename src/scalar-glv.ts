@@ -1,32 +1,15 @@
 import type * as W from "wasmati";
-import { Const, Module, global, memory, importMemory } from "wasmati";
-import { glv, glvGeneral } from "./wasm/glv.js";
-import { assert, bigintFromBytes, log2 } from "./util.js";
+import { Const, Module, global, importMemory } from "wasmati";
+import { glvGeneral } from "./wasm/glv.js";
+import { assert, log2 } from "./util.js";
 import { memoryHelpers } from "./wasm/memory-helpers.js";
-import {
-  extractBitSlice,
-  fromPackedBytes,
-  toPackedBytes,
-} from "./wasm/field-helpers.js";
+import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.js";
 import { mod, montgomeryParams } from "./bigint/field-util.js";
 import { UnwrapPromise, WasmArtifacts } from "./types.js";
 
-export {
-  createGlvScalar,
-  GlvScalar,
-  GlvScalarParams,
-  createSpecialGlvScalar,
-  SpecialGlvScalar,
-  createSimpleScalar,
-  SimpleScalar,
-};
+export { createGlvScalar, GlvScalar, GlvScalarParams };
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
-type SpecialGlvScalar = UnwrapPromise<
-  ReturnType<typeof createSpecialGlvScalar>
->;
-type SimpleScalar = UnwrapPromise<ReturnType<typeof createSimpleScalar>>;
-
 type Params = { q: bigint; lambda: bigint; w: number };
 type GlvScalarParams = Params & { n: number; n0: number; maxBits: number };
 
@@ -35,10 +18,7 @@ type GlvScalarParams = Params & { n: number; n0: number; maxBits: number };
  */
 async function createGlvScalar(
   params: Params,
-  wasmAndFullParams?: {
-    wasm: WasmArtifacts;
-    fullParams: Params & { n: number; n0: number; maxBits: number };
-  }
+  wasmAndFullParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
 ) {
   if (wasmAndFullParams !== undefined) {
     let { wasm, fullParams } = wasmAndFullParams;
@@ -52,15 +32,7 @@ async function createGlvScalar(
 /**
  * scalar module for MSM with GLV
  */
-async function createGlvScalarWasm({
-  q,
-  lambda,
-  w,
-}: {
-  q: bigint;
-  lambda: bigint;
-  w: number;
-}) {
+async function createGlvScalarWasm({ q, lambda, w }: Params) {
   const { n } = montgomeryParams(q, w, 1);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
   let memSize = 1 << 14;
@@ -90,14 +62,7 @@ type GlvScalarWasm = UnwrapPromise<
 >["instance"];
 
 async function createGlvScalarFromWasm(
-  params: {
-    q: bigint;
-    lambda: bigint;
-    w: number;
-    n: number;
-    n0: number;
-    maxBits: number;
-  },
+  params: GlvScalarParams,
   wasmArtifacts: WasmArtifacts,
   instance?: GlvScalarWasm
 ) {
@@ -153,95 +118,4 @@ async function createGlvScalarFromWasm(
     maxBits,
     testDecomposeScalar,
   };
-}
-
-/**
- * scalar module for MSM with GLV
- */
-async function createSpecialGlvScalar(q: bigint, lambda: bigint, w: number) {
-  const { n, nPackedBytes, wn, wordMax } = montgomeryParams(lambda, w, 1);
-  const { decompose, decomposeNoMsb } = glv(q, lambda, w, n);
-
-  let module = Module({
-    exports: {
-      decompose,
-      decomposeNoMsb,
-      fromPackedBytes: fromPackedBytes(w, n),
-      fromPackedBytesDouble: fromPackedBytes(w, 2 * n),
-      toPackedBytes: toPackedBytes(w, n, nPackedBytes),
-      extractBitSlice: extractBitSlice(w, n),
-      memory: memory({ min: 1 << 10 }),
-      dataOffset: global(Const.i32(0)),
-    },
-  });
-
-  let m = await module.instantiate();
-  const glvWasm = m.instance.exports;
-
-  const glvHelpers = memoryHelpers(lambda, w, n, glvWasm);
-
-  let [scratchPtr, , bytesPtr, bytesPtr2] =
-    glvHelpers.local.getStablePointers(5);
-
-  function writeBytesDouble(pointer: number, bytes: Uint8Array) {
-    let arr = new Uint8Array(glvWasm.memory.buffer, bytesPtr, 2 * 4 * n);
-    arr.fill(0);
-    arr.set(bytes);
-    glvWasm.fromPackedBytesDouble(pointer, bytesPtr);
-  }
-
-  function writeBigintDouble(x: number, x0: bigint) {
-    let arr = new Uint32Array(glvWasm.memory.buffer, x, 2 * n);
-    for (let i = 0; i < 2 * n; i++) {
-      arr[i] = Number(x0 & wordMax);
-      x0 >>= wn;
-    }
-  }
-
-  function testDecomposeScalar(scalar: bigint) {
-    writeBigintDouble(scratchPtr, scalar);
-    glvWasm.decompose(scratchPtr);
-
-    let r = glvHelpers.readBytes([bytesPtr], scratchPtr);
-    let l = glvHelpers.readBytes(
-      [bytesPtr2],
-      scratchPtr + glvHelpers.sizeField
-    );
-    let r0 = bigintFromBytes(r);
-    let l0 = bigintFromBytes(l);
-
-    let isCorrect = r0 + l0 * lambda === scalar;
-    return isCorrect;
-  }
-
-  return {
-    ...glvHelpers,
-    ...glvWasm,
-    writeBytesDouble,
-    writeBigintDouble,
-    testDecomposeScalar,
-  };
-}
-
-/**
- * simple scalar utils for MSM without GLV
- */
-async function createSimpleScalar(q: bigint, w: number) {
-  const { n, nPackedBytes } = montgomeryParams(q, w, 1);
-
-  let module = Module({
-    exports: {
-      fromPackedBytes: fromPackedBytes(w, n),
-      toPackedBytes: toPackedBytes(w, n, nPackedBytes),
-      extractBitSlice: extractBitSlice(w, n),
-      memory: memory({ min: 1 << 10 }),
-      dataOffset: global(Const.i32(0)),
-    },
-  });
-
-  let m = await module.instantiate();
-  const wasm = m.instance.exports;
-  const helpers = memoryHelpers(q, w, n, wasm);
-
-  return { ...helpers, ...wasm };
 }
