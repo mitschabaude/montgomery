@@ -5,7 +5,11 @@ import { barrier, range, shareOf } from "./threads/threads.js";
 import { assert, bigintFromBytes32, log2, randomBytes } from "./util.js";
 import { MemoryHelpers } from "./wasm/memory-helpers.js";
 
-export { createRandomPointsFast, createRandomScalars };
+export {
+  createRandomPointsFast,
+  createRandomPointsFastSingleCurve,
+  createRandomScalars,
+};
 
 function createRandomPointsFast(inputs: RandomPointsInputs) {
   /**
@@ -87,6 +91,21 @@ function createRandomPointsFast(inputs: RandomPointsInputs) {
   };
 }
 
+// adapter for e.g. twisted edwards curves
+function createRandomPointsFastSingleCurve({
+  Field,
+  Curve,
+}: {
+  Field: MsmField;
+  Curve: SingleInputCurve;
+}) {
+  return createRandomPointsFast({
+    Field,
+    Affine: Curve,
+    Projective: { ...Curve, fromAffine: Curve.copy },
+  });
+}
+
 type RandomPointsInputs = {
   Field: MsmField;
   Affine: {
@@ -105,6 +124,19 @@ type RandomPointsInputs = {
     copy: (target: number, source: number) => void;
     addAssign: (scratch: number[], P1: number, P2: number) => void;
   };
+};
+
+type SingleInputCurve = {
+  size: number;
+  randomPoints: (pointers: number[]) => void;
+  batchNormalize: (
+    affinePointers: number[],
+    projectivePointers: number[]
+  ) => void;
+  setZero: (pointer: number) => void;
+  doubleInPlace: (scratch: number[], pointer: number) => void;
+  copy: (target: number, source: number) => void;
+  addAssign: (scratch: number[], P1: number, P2: number) => void;
 };
 
 function createRandomScalars(msmCurve: { Scalar: RandomFieldsInputs }) {

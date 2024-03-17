@@ -545,10 +545,6 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     Z,
     T,
 
-    // for compatibility with affine / projective
-    // TODO easy to misunderstand
-    fromAffine: copyPoint,
-
     batchNormalize,
   };
 }
@@ -565,7 +561,6 @@ type MinimalCurve = {
     projectivePointers: number[]
   ) => void;
   setZero: (pointer: number) => void;
-  fromAffine: (pointer: number, affinePointer: number) => void;
   doubleInPlace: (scratch: number[], pointer: number) => void;
   copy: (target: number, source: number) => void;
   addAssign: (scratch: number[], P1: number, P2: number) => void;

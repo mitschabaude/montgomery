@@ -2,7 +2,10 @@ import type * as _W from "wasmati";
 import { WasmArtifacts } from "./types.js";
 import { createMsmField } from "./field-msm.js";
 import { createCurveTwistedEdwards as createBigintCurve } from "./bigint/twisted-edwards.js";
-import { createRandomPointsFast, createRandomScalars } from "./curve-random.js";
+import {
+  createRandomPointsFastSingleCurve,
+  createRandomScalars,
+} from "./curve-random.js";
 import { pool } from "./threads/global-pool.js";
 import { CurveParams } from "./bigint/twisted-edwards.js";
 import { createScalar } from "./scalar-simple.js";
@@ -34,11 +37,9 @@ async function create(
   );
   const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
   const Curve = createCurveTwistedEdwards(Field, params);
-
-  const RandomInputs = { Field, Affine: Curve, Projective: Curve };
   const Inputs = { params, Field, Scalar, Curve };
 
-  const randomPointsFast = createRandomPointsFast(RandomInputs);
+  const randomPointsFast = createRandomPointsFastSingleCurve(Inputs);
   const randomScalars = createRandomScalars(Inputs);
   const msm = createMsmBasic(Inputs);
 

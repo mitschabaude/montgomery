@@ -1,6 +1,6 @@
 import { BigintPoint } from "./bigint/twisted-edwards.js";
 import { curveParams, p } from "./concrete/ed-on-bls12-377.params.js";
-import { createRandomPointsFast } from "./curve-random.js";
+import { createRandomPointsFastSingleCurve } from "./curve-random.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
 import { tic, toc } from "./testing/tictoc.js";
 import { createMsmField } from "./field-msm.js";
@@ -181,11 +181,7 @@ toc();
 
 // fast random points
 
-let randomPointsFast = createRandomPointsFast({
-  Field,
-  Affine: Curve,
-  Projective: Curve,
-});
+let randomPointsFast = createRandomPointsFastSingleCurve({ Field, Curve });
 tic("random points fast");
 let points1 = await randomPointsFast(1 << 11);
 toc();
