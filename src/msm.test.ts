@@ -51,7 +51,7 @@ async function testOneMsm(Curve: Weierstraß, n: number) {
   let scalarPtrs = await Parallel.randomScalars(N);
 
   let points = pointsPtrs.map((g) => {
-    Affine.assertOnCurve(scratch, g);
+    assert(Affine.isOnCurve(scratch, g), "point not on curve");
     return Bigint.Projective.fromAffine(Affine.toBigint(g));
   });
 

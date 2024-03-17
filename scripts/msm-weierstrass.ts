@@ -66,7 +66,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   tic("check points");
   let scratch = Curve.Field.local.getPointers(5);
   pointsPtrs.forEach((g) => {
-    Curve.Affine.assertOnCurve(scratch, g);
+    assert(Curve.Affine.isOnCurve(scratch, g));
   });
   toc();
 

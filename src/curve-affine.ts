@@ -190,7 +190,7 @@ function createCurveAffine(
   }
 
   // note: this fails on zero
-  function assertOnCurve([y2, y2_]: number[], p: number) {
+  function isOnCurve([y2, y2_]: number[], p: number) {
     let [x, y] = coords(p);
     square(y2, x);
     multiply(y2, y2, x);
@@ -198,7 +198,7 @@ function createCurveAffine(
     Field.reduce(y2);
     Field.square(y2_, y);
     Field.reduce(y2_);
-    assert(Field.isEqual(y2_, y2) === 1, "point on curve");
+    return Field.isEqual(y2_, y2) === 1;
   }
 
   function isZero(pointer: number) {
@@ -347,7 +347,7 @@ function createCurveAffine(
     double,
     scale,
     toSubgroupInPlace,
-    assertOnCurve,
+    isOnCurve,
     isZero,
     copy: copyAffine,
     coords,
