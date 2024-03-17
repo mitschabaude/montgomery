@@ -1,5 +1,5 @@
 import { BLS12377 } from "./src/concrete/bls12-377.js";
-import { startThreads } from "./src/module-weierstrass.js";
+import { startThreads } from "./src/parallel.js";
 
 export { compute_msm };
 

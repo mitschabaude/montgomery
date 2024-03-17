@@ -3,11 +3,7 @@ import { assert } from "../src/util.js";
 import { median, standardDev } from "./evaluate-util.js";
 import { msm as msmBigint } from "../src/bigint/msm.js";
 import type { CurveParams } from "../src/bigint/twisted-edwards.js";
-import {
-  TwistedEdwards,
-  startThreads,
-  stopThreads,
-} from "../src/module-weierstrass.js";
+import { TwistedEdwards, startThreads, stopThreads } from "../src/parallel.js";
 
 export { benchmarkMsm, runMsm };
 

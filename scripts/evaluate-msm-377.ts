@@ -1,9 +1,5 @@
 import { curveParams } from "../src/concrete/bls12-377.params.js";
-import {
-  Weierstraß,
-  startThreads,
-  stopThreads,
-} from "../src/module-weierstrass.js";
+import { Weierstraß, startThreads, stopThreads } from "../src/parallel.js";
 import { tic, toc } from "../src/testing/tictoc.js";
 import { median, standardDev } from "./evaluate-util.js";
 

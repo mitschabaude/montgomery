@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import { Weierstraß } from "../module-weierstrass.js";
+import { Weierstraß } from "../parallel.js";
 import { pallasParams } from "./pasta.params.js";
 
 export { Pallas };

@@ -1,8 +1,4 @@
-import {
-  Weierstraß,
-  startThreads,
-  stopThreads,
-} from "../src/module-weierstrass.js";
+import { Weierstraß, startThreads, stopThreads } from "../src/parallel.js";
 import { tic, toc } from "../src/testing/tictoc.js";
 import { assertDeepEqual } from "../src/testing/nested.js";
 import { assert } from "../src/util.js";

@@ -8,7 +8,7 @@ import {
   TwistedEdwards,
   startThreads,
   stopThreads,
-} from "./module-weierstrass.js";
+} from "./parallel.js";
 import { msm as bigintMsm } from "./bigint/msm.js";
 import { pallasParams } from "./concrete/pasta.params.js";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.js";
