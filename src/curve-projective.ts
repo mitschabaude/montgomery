@@ -13,22 +13,34 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
 
   let size = 3 * sizeField + 4;
 
-  /**
-   * projective point addition with assignment, P1 += P2
-   */
-  function addAssign(scratch: number[], P1: number, P2: number) {
-    add(scratch, P1, P1, P2);
+  function negateInPlace(P: number) {
+    let y = P + sizeField;
+    Field.subtract(y, constants.zero, y);
+  }
+
+  function negate(Q: number, P: number) {
+    copy(Q, P);
+    negateInPlace(Q);
   }
 
   /**
-   * projective point addition, P3 = P1 + P2.
-   *
-   * Allows P1 and P3 to be the same memory address, i.e. doing P1 += P2.
+   * Base method for projective point addition which supports mixed addition and subtraction.
+   * Allows P1 and P3 to be the same memory address.
    */
-  function add(scratch: number[], P3: number, P1: number, P2: number) {
+  function addOrSubtract(
+    scratch: number[],
+    P3: number,
+    P1: number,
+    P2: number,
+    // whether P2 should be negated
+    isSubtract: boolean,
+    // whether we can assume Z2 = 1
+    isMixed: boolean
+  ) {
     let { subtract, multiply, square, isEqual, reduce } = Field;
     if (isZero(P1)) {
       copy(P3, P2);
+      if (isSubtract) negateInPlace(P3);
       return;
     }
     if (isZero(P2)) {
@@ -49,11 +61,19 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     let Z3 = Y3 + sizeField;
 
     let [Y2Z1, Y1Z2, X2Z1, X1Z2, Z1Z2, u, uu, v, vv, vvv, R] = scratch;
+    let y2: number;
+    if (isSubtract) {
+      y2 = u;
+      Field.subtract(y2, constants.zero, Y2);
+    } else {
+      y2 = Y2;
+    }
+
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-1998-cmo-2
     // Y1Z2 = Y1*Z2
     multiply(Y1Z2, Y1, Z2);
     // Y2Z1 = Y2*Z1
-    multiply(Y2Z1, Y2, Z1);
+    multiply(Y2Z1, y2, Z1);
     // X1Z2 = X1*Z2
     multiply(X1Z2, X1, Z2);
     // X2Z1 = X2*Z1
@@ -76,7 +96,11 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
       }
     }
     // Z1Z2 = Z1*Z2
-    multiply(Z1Z2, Z1, Z2);
+    if (isMixed) {
+      if (Z1 !== Z3) copy(Z1Z2, Z1);
+    } else {
+      multiply(Z1Z2, Z1, Z2);
+    }
     // u = Y2Z1-Y1Z2
     subtract(u, Y2Z1, Y1Z2);
     // uu = u^2
@@ -104,6 +128,34 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     subtract(Y3, Y3, Y1Z2);
     // Z3 = vvv*Z1Z2
     multiply(Z3, vvv, Z1Z2);
+  }
+
+  /**
+   * projective point addition, P3 = P1 + P2.
+   *
+   * Allows P1 and P3 to be the same memory address, i.e. doing P1 += P2.
+   */
+  function add(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, false, false);
+  }
+
+  function sub(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, true, false);
+  }
+
+  function addMixed(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, false, true);
+  }
+
+  function subMixed(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, true, true);
+  }
+
+  /**
+   * projective point addition with assignment, P1 += P2
+   */
+  function addAssign(scratch: number[], P1: number, P2: number) {
+    addOrSubtract(scratch, P1, P1, P2, false, false);
   }
 
   /**
@@ -281,6 +333,9 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     cofactor,
     cofactorBits,
     add,
+    sub,
+    addMixed,
+    subMixed,
     addAssign,
     double,
     doubleInPlace,
