@@ -15,21 +15,39 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
 
   /**
    * projective point addition with assignment, P1 += P2
-   *
-   * @param scratch
-   * @param P1
-   * @param P2
    */
   function addAssign(scratch: number[], P1: number, P2: number) {
+    add(scratch, P1, P1, P2);
+  }
+
+  /**
+   * projective point addition, P3 = P1 + P2.
+   *
+   * Allows P1 and P3 to be the same memory address, i.e. doing P1 += P2.
+   */
+  function add(scratch: number[], P3: number, P1: number, P2: number) {
     let { subtract, multiply, square, isEqual, reduce } = Field;
     if (isZero(P1)) {
-      copy(P1, P2);
+      copy(P3, P2);
       return;
     }
-    if (isZero(P2)) return;
-    setNonZero(P1);
-    let [X1, Y1, Z1] = coords(P1);
-    let [X2, Y2, Z2] = coords(P2);
+    if (isZero(P2)) {
+      if (P1 !== P3) copy(P3, P1);
+      return;
+    }
+    setNonZero(P3);
+
+    // coordinates
+    let X1 = P1;
+    let Y1 = X1 + sizeField;
+    let Z1 = Y1 + sizeField;
+    let X2 = P2;
+    let Y2 = X2 + sizeField;
+    let Z2 = Y2 + sizeField;
+    let X3 = P3;
+    let Y3 = X3 + sizeField;
+    let Z3 = Y3 + sizeField;
+
     let [Y2Z1, Y1Z2, X2Z1, X1Z2, Z1Z2, u, uu, v, vv, vvv, R] = scratch;
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-1998-cmo-2
     // Y1Z2 = Y1*Z2
@@ -50,10 +68,13 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
       reduce(Y1Z2);
       reduce(Y2Z1);
       if (isEqual(Y1Z2, Y2Z1)) {
+        // TODO
+        if (P1 !== P3)
+          throw Error("P1 !== P3 not implemented for doubling yet");
         doubleInPlace(scratch, P1);
         return;
       } else {
-        setZero(P1);
+        setZero(P3);
         return;
       }
     }
@@ -78,14 +99,14 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     subtract(A, A, R);
     subtract(A, A, R);
     // X3 = v*A
-    multiply(X1, v, A);
+    multiply(X3, v, A);
     // Y3 = u*(R-A)-vvv*Y1Z2
     subtract(R, R, A);
-    multiply(Y1, u, R);
+    multiply(Y3, u, R);
     multiply(Y1Z2, vvv, Y1Z2);
-    subtract(Y1, Y1, Y1Z2);
+    subtract(Y3, Y3, Y1Z2);
     // Z3 = vvv*Z1Z2
-    multiply(Z1, vvv, Z1Z2);
+    multiply(Z3, vvv, Z1Z2);
   }
 
   /**
@@ -245,6 +266,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
   return {
     cofactor,
     cofactorBits,
+    add,
     addAssign,
     doubleInPlace,
     scale,
