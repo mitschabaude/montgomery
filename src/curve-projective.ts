@@ -221,7 +221,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     return pointBigint;
   }
 
-  function isEqualProjective(scratch: number[], p: number, q: number) {
+  function isEqual(scratch: number[], p: number, q: number) {
     if (isZero(p)) return isZero(q);
     if (isZero(q)) return false;
     let [x1, y1, z1] = coords(p);
@@ -252,10 +252,10 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     toBigint,
     size,
     isZero,
-    isEqual: isEqualProjective,
+    isEqual,
     copy,
-    fromAffine: fromAffine,
-    toAffine: toAffine,
+    fromAffine,
+    toAffine,
     coords,
     setNonZero,
     setZero,
