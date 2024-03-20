@@ -68,10 +68,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
       reduce(Y1Z2);
       reduce(Y2Z1);
       if (isEqual(Y1Z2, Y2Z1)) {
-        // TODO
-        if (P1 !== P3)
-          throw Error("P1 !== P3 not implemented for doubling yet");
-        doubleInPlace(scratch, P1);
+        double(scratch, P3, P1);
         return;
       } else {
         setZero(P3);
@@ -111,14 +108,31 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
 
   /**
    * projective point doubling with assignment, P *= 2
-   *
-   * @param scratch
-   * @param P
    */
   function doubleInPlace(scratch: number[], P: number) {
+    double(scratch, P, P);
+  }
+
+  /**
+   * projective point doubling, P3 = 2*P1.
+   *
+   * works with P1 and P3 being the same memory address.
+   */
+  function double(scratch: number[], P3: number, P1: number) {
     let { add, subtract, multiply, square } = Field;
-    if (isZero(P)) return;
-    let [X1, Y1, Z1] = coords(P);
+    if (isZero(P1)) {
+      setZero(P3);
+      return;
+    }
+
+    // coordinates
+    let X1 = P1;
+    let Y1 = X1 + sizeField;
+    let Z1 = Y1 + sizeField;
+    let X3 = P3;
+    let Y3 = X3 + sizeField;
+    let Z3 = Y3 + sizeField;
+
     let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#doubling-dbl-1998-cmo-2
     // w = 3*X1^2
@@ -142,16 +156,16 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     subtract(h, h, Bx4); // TODO efficient doubling
     subtract(h, h, Bx4);
     // X3 = 2*h*s
-    multiply(X1, h, s);
-    add(X1, X1, X1);
+    multiply(X3, h, s);
+    add(X3, X3, X3);
     // Y3 = w*(4*B-h)-8*R^2 = (Bx4 - h)*w - (Rx2^2 + Rx2^2)
-    subtract(Y1, Bx4, h);
-    multiply(Y1, Y1, w);
+    subtract(Y3, Bx4, h);
+    multiply(Y3, Y3, w);
     square(tmp, Rx2);
     add(tmp, tmp, tmp); // TODO efficient doubling
-    subtract(Y1, Y1, tmp);
+    subtract(Y3, Y3, tmp);
     // Z3 = 8*sss
-    multiply(Z1, sss, constants.mg8); // TODO efficient doubling
+    multiply(Z3, sss, constants.mg8); // TODO efficient doubling
   }
 
   function scale(
@@ -268,6 +282,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     cofactorBits,
     add,
     addAssign,
+    double,
     doubleInPlace,
     scale,
     toSubgroupInPlace,
