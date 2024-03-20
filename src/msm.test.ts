@@ -68,6 +68,22 @@ async function testOneMsm(Curve: Weierstraß, n: number) {
   let sBigint = bigintMsm(Bigint.Projective, scalars, points);
 
   assert(Bigint.Projective.isEqual(s, sBigint), `msm 2^${n} failed`);
+
+  // projective msm
+  let pointsProj = await Parallel.getPointer(Projective.size * N);
+  for (let i = 0, pi = pointsProj; i < N; i++, pi += Projective.size) {
+    Projective.fromAffine(pi, pointsPtrs[i]);
+  }
+  let { result: resultProjective } = await Parallel.msmProjective(
+    scalarPtrs[0],
+    pointsProj,
+    N
+  );
+  let sProjective = Projective.toBigint(resultProjective);
+  assert(
+    Bigint.Projective.isEqual(s, sProjective),
+    `msmProjective 2^${n} failed`
+  );
 }
 
 async function testMsmTE(curveParams: TwistedEdwardsParams) {

@@ -58,7 +58,7 @@ async function createWeierstraß(
   const randomPointsFast = createRandomPointsFast(Inputs);
   const randomScalars = createRandomScalars(Inputs);
   const { msm, msmUnsafe } = createMsm(Inputs);
-  // createMsmBasic({ Field, Scalar, Curve: Projective });
+  let msmProjective = createMsmBasic({ Field, Scalar, Curve: Projective });
 
   function getPointer(size: number) {
     return Field.global.getPointer(size);
@@ -72,6 +72,7 @@ async function createWeierstraß(
     randomScalars,
     msmUnsafe,
     msm,
+    msmProjective,
     getPointer,
     getScalarPointer,
   });
