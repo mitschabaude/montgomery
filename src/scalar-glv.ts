@@ -33,7 +33,7 @@ async function createGlvScalar(
  * scalar module for MSM with GLV
  */
 async function createGlvScalarWasm({ q, lambda, w }: Params) {
-  const { n } = montgomeryParams(q, w, 1);
+  const { n, nPackedBytes } = montgomeryParams(q, w, 1);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
   let memSize = 1 << 14;
   let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
@@ -41,8 +41,8 @@ async function createGlvScalarWasm({ q, lambda, w }: Params) {
   let module = Module({
     exports: {
       decompose,
-      fromPackedBytesSmall: fromPackedBytes(w, n0),
-      fromPackedBytes: fromPackedBytes(w, n),
+      fromPackedBytesSmall: fromPackedBytes(w, n0, Math.ceil(maxBits / 8)),
+      fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       extractBitSlice: extractBitSlice(w, n0),
       memory: wasmMemory,
       dataOffset: global(Const.i32(0)),
