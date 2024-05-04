@@ -42,17 +42,19 @@ async function compute_msm(
   }
   using _ = BLS12377.Field.local.atCurrentOffset;
 
+  let samePoints =
+    n > 1 && BLS12377.Field.isEqual(pointPtr, pointPtr + BLS12377.Affine.size);
+  let result: number;
+
   // compute msm
-  // IMPORTANT: we use `msmUnsafe`, which doesn't handle all edge cases of inputs, but is faster.
-  // this is fine in the typical application scenario where the points are guaranteed to have been
-  // created in a pseudo-random way and observe no simple algebraic relationships with each other.
-  // if exhibiting these edge cases in tests, as a fallback we can replace the line below with
-  let { result } = await BLS12377.Parallel.msm(
-    // let { result } = await BLS12377.Parallel.msmUnsafe(
-    scalarPtr,
-    pointPtr,
-    n
-  );
+  if (samePoints) {
+    ({ result } = await BLS12377.Parallel.msm(scalarPtr, pointPtr, n));
+  } else {
+    // if not all points are the same, we use the unsafe version which is faster
+    // this is fine in real applications where the points are created in a pseudo-random way
+    // and won't accidentally cause a degenerate addition case
+    ({ result } = await BLS12377.Parallel.msmUnsafe(scalarPtr, pointPtr, n));
+  }
 
   // return as affine bigint point
   let resultAffine = BLS12377.Field.local.getPointer(BLS12377.Affine.size);
