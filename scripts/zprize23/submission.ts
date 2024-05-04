@@ -1,5 +1,5 @@
-import { Ed377 } from "./src/concrete/ed-on-bls12-377.js";
-import { startThreads } from "./src/parallel.js";
+import { Ed377 } from "../../src/concrete/ed-on-bls12-377.js";
+import { startThreads } from "../../src/parallel.js";
 
 export { compute_msm };
 

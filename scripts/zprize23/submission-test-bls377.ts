@@ -1,6 +1,6 @@
 import { compute_msm } from "./submission-bls377.js";
-import { curveParams } from "./src/concrete/bls12-377.params.js";
-import { BLS12377 } from "./src/concrete/bls12-377.js";
+import { curveParams } from "../../src/concrete/bls12-377.params.js";
+import { BLS12377 } from "../../src/concrete/bls12-377.js";
 // sanity check that the submission code can run and handles a basic test case
 
 let point = {
