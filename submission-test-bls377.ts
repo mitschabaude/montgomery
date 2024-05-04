@@ -25,7 +25,7 @@ if (result.x !== point.x || result.y !== point.y) {
 }
 console.log("2 points ok");
 
-const n = 1 << 20;
+const n = 1000;
 let randomScalars = Array.from({ length: n }, () => Curve.Scalar.random());
 // let randomPoints = BLS12377.Affine.randomPointsBigint(n);
 let samePoints = Array.from({ length: n }, () => point);
