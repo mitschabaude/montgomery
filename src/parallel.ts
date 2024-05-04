@@ -71,6 +71,45 @@ async function createWeierstraß(
     return Scalar.global.getPointer(size);
   }
 
+  // input bytes must be transfered to wasm memory before calling this function
+  function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
+    let { size } = Affine;
+    let { fromPackedBytes, sizeField, toMontgomery, memoryBytes } = Field;
+
+    let [i, iend] = range(n);
+    let pi = pointPtr + i * size;
+    let bi = pointInputPtr + i * 96;
+
+    for (; i < iend; i++, pi += size, bi += 96) {
+      let x = pi;
+      let y = x + sizeField;
+      // set nonzero flag. (input format doesn't allow zero points, so always 1)
+      memoryBytes[pi + 2 * sizeField] = 1;
+
+      fromPackedBytes(x, bi);
+      fromPackedBytes(y, bi + 48);
+      toMontgomery(x);
+      toMontgomery(y);
+    }
+  }
+
+  // input bytes must be transfered to wasm memory before calling this function
+  function scalarsFromBytes(
+    scalarPtr: number,
+    scalarInputPtr: number,
+    n: number
+  ) {
+    let { fromPackedBytes, sizeField: size } = Scalar;
+
+    let [i, iend] = range(n);
+    let si = scalarPtr + i * size;
+    let bi = scalarInputPtr + i * 32;
+
+    for (; i < iend; i++, si += size, bi += 32) {
+      fromPackedBytes(si, bi);
+    }
+  }
+
   const Parallel = pool.register(`Weierstraß, ${label}`, {
     randomPointsFast,
     randomScalars,
@@ -78,6 +117,8 @@ async function createWeierstraß(
     msm,
     getPointer,
     getScalarPointer,
+    scalarsFromBytes,
+    pointsFromBytes,
   });
 
   const Bigint = { Projective: createBigintCurve(params) };
