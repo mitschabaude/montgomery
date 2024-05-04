@@ -19,6 +19,7 @@ import { createScalar } from "./scalar-simple.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
 import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
 import { createMsmBasic } from "./msm-basic.js";
+import { range } from "./threads/threads.js";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
@@ -137,12 +138,57 @@ async function createTwistedEdwards(
     return Scalar.global.getPointer(size);
   }
 
+  // input bytes must be transfered to wasm memory before calling this function
+  function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
+    let { size } = Curve;
+    let { fromPackedBytes, sizeField, toMontgomery, copy, multiply } = Field;
+
+    let [i, iend] = range(n);
+    let pi = pointPtr + i * size;
+    let bi = pointInputPtr + i * 64;
+
+    for (; i < iend; i++, pi += size, bi += 64) {
+      let x = pi;
+      let y = x + sizeField;
+      let z = y + sizeField;
+      let t = z + sizeField;
+
+      fromPackedBytes(x, bi);
+      fromPackedBytes(y, bi + 32);
+
+      toMontgomery(x);
+      toMontgomery(y);
+      copy(z, Field.constants.mg1);
+      multiply(t, x, y);
+    }
+    return pointPtr;
+  }
+
+  // input bytes must be transfered to wasm memory before calling this function
+  function scalarsFromBytes(
+    scalarPtr: number,
+    scalarInputPtr: number,
+    n: number
+  ) {
+    let { fromPackedBytes, sizeField: size } = Scalar;
+
+    let [i, iend] = range(n);
+    let si = scalarPtr + i * size;
+    let bi = scalarInputPtr + i * 32;
+
+    for (; i < iend; i++, si += size, bi += 32) {
+      fromPackedBytes(si, bi);
+    }
+  }
+
   const Parallel = pool.register(`Twisted Edwards, ${label}`, {
     randomPointsFast,
     randomScalars,
     msm,
     getPointer,
     getScalarPointer,
+    pointsFromBytes,
+    scalarsFromBytes,
   });
 
   const Bigint = createBigintTE(params);

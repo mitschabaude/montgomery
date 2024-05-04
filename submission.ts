@@ -23,8 +23,8 @@ async function compute_msm(
   let n = inputScalars.length / 32;
 
   // transfer to wasm memory
-  let scalars = scalarsFromBytes(inputScalars as Uint8Array);
-  let points = pointsFromBytes(inputPoints as Uint8Array);
+  let scalars = await scalarsFromBytes(inputScalars as Uint8Array);
+  let points = await pointsFromBytes(inputPoints as Uint8Array);
 
   // compute msm
   let { result } = await Ed377.Parallel.msm(scalars, points, n);
@@ -34,57 +34,27 @@ async function compute_msm(
   return Ed377.Bigint.toAffine(resultBigint);
 }
 
-function pointsFromBytes(inputPoints: Uint8Array) {
+async function pointsFromBytes(inputPoints: Uint8Array) {
   let n = inputPoints.length / 64;
-  let { Field, Curve } = Ed377;
-  let { size } = Curve;
-  let {
-    fromPackedBytes,
-    sizeField,
-    toMontgomery,
-    copy,
-    multiply,
-    memoryBytes,
-  } = Field;
 
   // transfer input bytes to wasm memory
-  memoryBytes.set(inputPoints, pointInputPtr);
+  Ed377.Field.memoryBytes.set(inputPoints, pointInputPtr);
 
-  for (
-    let i = 0, pi = pointPtr, bi = pointInputPtr;
-    i < n;
-    i++, pi += size, bi += 64
-  ) {
-    let x = pi;
-    let y = x + sizeField;
-    let z = y + sizeField;
-    let t = z + sizeField;
+  // in parallel, convert input bytes to point representation
+  await Ed377.Parallel.pointsFromBytes(pointPtr, pointInputPtr, n);
 
-    fromPackedBytes(x, bi);
-    fromPackedBytes(y, bi + 32);
-
-    toMontgomery(x);
-    toMontgomery(y);
-    copy(z, Field.constants.mg1);
-    multiply(t, x, y);
-  }
   return pointPtr;
 }
 
-function scalarsFromBytes(inputScalars: Uint8Array) {
+async function scalarsFromBytes(inputScalars: Uint8Array) {
   let n = inputScalars.length / 32;
-  let { fromPackedBytes, sizeField: size } = Ed377.Scalar;
 
   // transfer input bytes to wasm memory
   Ed377.Scalar.memoryBytes.set(inputScalars, scalarInputPtr);
 
-  for (
-    let i = 0, si = scalarPtr, bi = scalarInputPtr;
-    i < n;
-    i++, si += size, bi += 32
-  ) {
-    fromPackedBytes(si, bi);
-  }
+  // in parallel, convert input bytes to scalar representation
+  await Ed377.Parallel.scalarsFromBytes(scalarPtr, scalarInputPtr, n);
+
   return scalarPtr;
 }
 
@@ -97,8 +67,6 @@ type U32ArrayPoint = {
 };
 
 function pointsFromBigint(inputPoints: BigIntPoint[]) {
-  let { Curve } = Ed377;
-  let n = inputPoints.length;
   Ed377.Curve.fromAffineBigints(pointPtr, inputPoints);
   return pointPtr;
 }
