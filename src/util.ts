@@ -1,8 +1,8 @@
 export {
   bigintFromBytes,
+  bigintFromBytes32,
   bigintToBytes,
-  bigUint64toUint8Array,
-  uint8ArrayToBigUint64,
+  bigintToBytes32,
   bigintToBits,
   bigintToLimbs,
   bigintFromLimbs,
@@ -18,6 +18,8 @@ export {
   abs,
   sign,
   assert,
+  TODO,
+  chunk,
 };
 
 function bigintFromBytes(bytes: Uint8Array) {
@@ -44,35 +46,23 @@ function bigintToBytes(x: bigint, length: number | undefined): Uint8Array {
   return sizedArray;
 }
 
-function bigUint64toUint8Array(x: BigUint64Array): Uint8Array {
-  let n = x.length * 8;
-  let x8 = new Uint8Array(n);
-  for (let i = 0; i < n; i += 8) {
-    let bigint64 = x[i >> 3];
-    for (let j = 0; j < 8; j++) {
-      x8[i + j] = Number(bigint64 & 0xffn);
-      bigint64 >>= 8n;
-    }
-  }
-  return x8;
+function bigintFromBytes32(bytes: Uint8Array) {
+  let words = new BigUint64Array(bytes.buffer, bytes.byteOffset, 4);
+  return words[0] | (words[1] << 64n) | (words[2] << 128n) | (words[3] << 192n);
 }
 
-function uint8ArrayToBigUint64(x8: Uint8Array): BigUint64Array {
-  let n = x8.length;
-  let x = new BigUint64Array(n >> 3);
-  for (let i = 0; i < n; i += 8) {
-    let bigint64 = 0n;
-    let position = 0n;
-    for (let j = 0; j < 8; j++) {
-      bigint64 += BigInt(x8[i + j]) << position;
-      position += 8n;
-    }
-    x[i >> 3] = bigint64;
-  }
-  return x;
+const mask64 = (1n << 64n) - 1n;
+
+function bigintToBytes32(x: bigint): Uint8Array {
+  let words = new BigUint64Array(4);
+  words[0] = x & mask64;
+  words[1] = (x >> 64n) & mask64;
+  words[2] = (x >> 128n) & mask64;
+  words[3] = x >> 192n;
+  return new Uint8Array(words.buffer);
 }
 
-function bigintToBits(x: bigint, bitLength: number): boolean[] {
+function bigintToBits(x: bigint, bitLength?: number): boolean[] {
   let bits = Array(bitLength || 0);
   for (let i = 0; bitLength ? i < bitLength : x > 0n; i++) {
     bits[i] = !!Number(x & 1n);
@@ -95,6 +85,7 @@ function bigintToLimbs(x0: bigint, w: number, n: number) {
     limbs[i] = x0 & wordMax;
     x0 >>= wn;
   }
+  if (x0 !== 0n) throw Error("input too large");
   return limbs;
 }
 
@@ -222,6 +213,13 @@ function mapRange<T>(n: number, callback: (i: number) => T) {
     .map((_, i) => callback(i));
 }
 
+function chunk<T>(array: T[], size: number): T[][] {
+  assert(array.length % size === 0, "invalid input length");
+  return Array.from({ length: array.length / size }, (_, i) =>
+    array.slice(size * i, size * (i + 1))
+  );
+}
+
 function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
   if (b1.length !== b2.length) return false;
   for (let i = 0; i < b1.length; i++) {
@@ -230,11 +228,15 @@ function bytesEqual(b1: Uint8Array, b2: Uint8Array) {
   return true;
 }
 
-function assert(condition: boolean, message?: string) {
+function assert(condition: boolean, message?: string): asserts condition {
   if (!condition)
     throw Error(
       message === undefined
         ? "Assertion failed"
         : `Assertion failed: ${message}`
     );
+}
+
+function TODO(message?: string, FALSE: false = false): asserts FALSE {
+  throw Error("TODO: " + (message ?? "this function is not implemented yet"));
 }

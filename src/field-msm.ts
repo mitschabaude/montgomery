@@ -1,36 +1,70 @@
 import type * as W from "wasmati"; // for type names
-import { Module, memory } from "wasmati";
+import { Module, importMemory } from "wasmati";
 import { FieldWithArithmetic } from "./wasm/field-arithmetic.js";
 import { fieldInverse } from "./wasm/inverse.js";
 import { multiplyMontgomery } from "./wasm/multiply-montgomery.js";
 import { ImplicitMemory } from "./wasm/wasm-util.js";
-import { mod, montgomeryParams } from "./field-util.js";
+import { mod, montgomeryParams } from "./bigint/field-util.js";
 import { curveOps } from "./wasm/curve.js";
 import { MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.js";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
-import { UnwrapPromise } from "./types.js";
+import { UnwrapPromise, WasmArtifacts } from "./types.js";
 import { fieldExp } from "./wasm/exp.js";
 import { createSqrt } from "./field-sqrt.js";
+import { assert } from "./util.js";
+import { isMain } from "./threads/threads.js";
 
 export { createMsmField, MsmField };
 export { createConstants };
 
+async function createMsmField(
+  params: {
+    p: bigint;
+    beta: bigint;
+    w: number;
+    minExtraBits?: number;
+    localRatio?: number;
+  },
+  wasm?: WasmArtifacts
+) {
+  if (wasm !== undefined) {
+    return await createFieldFromWasm(params, wasm);
+  }
+  let { instance, wasmArtifacts } = await createFieldWasm(params);
+  return await createFieldFromWasm(params, wasmArtifacts, instance);
+}
+
+type MsmFieldWasm = UnwrapPromise<
+  ReturnType<typeof createFieldWasm>
+>["instance"];
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
-async function createMsmField(p: bigint, beta: bigint, w: number) {
-  let { K, R, lengthP: N, n, nPackedBytes } = montgomeryParams(p, w);
+async function createFieldWasm({
+  p,
+  beta,
+  w,
+  minExtraBits,
+}: {
+  p: bigint;
+  beta: bigint;
+  w: number;
+  minExtraBits?: number;
+}) {
+  let { n, nPackedBytes } = montgomeryParams(p, w, minExtraBits);
 
-  let implicitMemory = new ImplicitMemory(memory({ min: 1 << 16 }));
+  let memSize = 1 << 16;
+  let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
+  let implicitMemory = new ImplicitMemory(wasmMemory);
 
-  let Field_ = FieldWithArithmetic(p, w);
-  let { multiply, square, leftShift } = multiplyMontgomery(p, w, {
+  let Field_ = FieldWithArithmetic(p, w, n);
+  let { multiply, square, leftShift } = multiplyMontgomery(p, w, n, {
     countMultiplications: false,
   });
   const Field = Object.assign(Field_, { multiply, square, leftShift });
 
   let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
   let exp = fieldExp(Field);
-  let { addAffine, endomorphism } = curveOps(
+  let { addAffine, addAffinePacked, endomorphism } = curveOps(
     implicitMemory,
     Field,
     inverse,
@@ -42,6 +76,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     isGreater,
     isZero,
     add,
+    addNoReduce,
     subtract,
     subtractPositive,
     reduce,
@@ -53,6 +88,7 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       ...implicitMemory.getExports(),
       // curve ops
       addAffine,
+      addAffinePacked,
       endomorphism,
       // multiplication
       multiply,
@@ -62,9 +98,17 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
       // inverse
       inverse,
       makeOdd,
+      /**
+       * batch inversion, using 4 field elements of scratch space
+       * @param scratch
+       * @param xInvs
+       * @param xs
+       * @param n
+       */
       batchInverse,
       // arithmetic
       add,
+      addNoReduce,
       subtract,
       subtractPositive,
       reduce,
@@ -78,8 +122,43 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
     },
   });
 
-  let wasm = (await module.instantiate()).instance.exports;
-  let helpers = memoryHelpers(p, w, wasm);
+  // TODO: wasmati function which doesn't create the instance
+  // also, this function still needs to carry the type, for example by returning the wasmati module,
+  // and then we need a generic type from wasmati which infers the instance type from the module
+  let { instance, module: wasmModule } = await module.instantiate();
+  return {
+    wasmArtifacts: { module: wasmModule, memory: wasmMemory.value },
+    instance,
+  };
+}
+
+async function createFieldFromWasm(
+  {
+    p,
+    w,
+    minExtraBits,
+    localRatio,
+  }: { p: bigint; w: number; minExtraBits?: number; localRatio?: number },
+  wasmArtifacts: WasmArtifacts,
+  instance?: MsmFieldWasm
+) {
+  if (instance === undefined) {
+    let imports = WebAssembly.Module.imports(wasmArtifacts.module);
+    // TODO abstraction leak - we have to know that there is no other import to do this
+    // should work with any number of other imports, possibly by making memory import lazy and
+    // add a module method to create the import object, with an override for the memory
+    assert(imports.length === 1 && imports[0].kind === "memory");
+    let { module, name } = imports[0];
+    let importObject = { [module]: { [name]: wasmArtifacts.memory } };
+    instance = (await WebAssembly.instantiate(
+      wasmArtifacts.module,
+      importObject
+    )) as MsmFieldWasm;
+  }
+  let wasm = instance.exports;
+
+  let { R, K, n, lengthP: N } = montgomeryParams(p, w, minExtraBits);
+  let helpers = memoryHelpers(p, w, n, wasm, localRatio);
 
   // put some constants in wasm memory
 
@@ -106,12 +185,13 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
   }
 
   let memoryBytes = new Uint8Array(wasm.memory.buffer);
-  let { sqrt, t, roots } = createSqrt(Field, wasm, helpers, constants);
+  let { sqrt, t, roots } = createSqrt({ p }, wasm, helpers, constants);
 
   return {
     p,
     w,
     t,
+    wasmArtifacts,
     ...wasm,
     /**
      * affine EC addition, G3 = G1 + G2
@@ -134,12 +214,26 @@ async function createMsmField(p: bigint, beta: bigint, w: number) {
      */
     inverse: wasm.inverse,
     ...helpers,
+    // TODO this is brittle.. don't spread helpers object here, it has internal state
+    // instead have a `memory` property on the field object, and use that everywhere
+    updateThreads() {
+      helpers.updateThreads();
+      this.global = helpers.global;
+      this.local = helpers.local;
+    },
     constants,
     roots,
     memoryBytes,
     toMontgomery,
     fromMontgomery,
     sqrt,
+
+    sizeInBits: N,
+
+    fromBigint(xPtr: number, x: bigint) {
+      helpers.writeBigint(xPtr, x);
+      toMontgomery(xPtr);
+    },
     toBigint(x: number) {
       fromMontgomery(x);
       let x0 = helpers.readBigint(x);
@@ -154,15 +248,19 @@ function createConstants<const T extends Record<string, bigint>>(
   constantsBigint: T
 ): Record<keyof T, number> {
   let constantsKeys = Object.keys(constantsBigint);
-  let constantsPointers = helpers.getStablePointers(constantsKeys.length);
+  let constantsPointers = helpers.global.getStablePointers(
+    constantsKeys.length
+  );
 
   return Object.fromEntries(
     constantsKeys.map((key, i) => {
       let pointer = constantsPointers[i];
-      helpers.writeBigint(
-        pointer,
-        constantsBigint[key as keyof typeof constantsBigint]
-      );
+      if (isMain()) {
+        helpers.writeBigint(
+          pointer,
+          constantsBigint[key as keyof typeof constantsBigint]
+        );
+      }
       return [key, pointer];
     })
   ) as Record<keyof T, number>;

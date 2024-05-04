@@ -1,25 +1,19 @@
-import { BigintPoint, MsmCurve } from "./msm.js";
+import { BigintPoint, MsmCurve } from "./msm-batched-affine-single-thread.js";
 
 export { createBigintApi };
 
 type BigintPointProjective = {
-  x: bigint;
-  y: bigint;
-  z: bigint;
+  X: bigint;
+  Y: bigint;
+  Z: bigint;
 };
 
-function createBigintApi({
-  Field,
-  Scalar,
-  CurveAffine,
-  CurveProjective,
-}: MsmCurve) {
+function createBigintApi({ Field, Affine }: MsmCurve) {
   function randomPoints(n: number, { montgomery = false } = {}) {
     let sizeField = Field.sizeField;
     let memoryOffset = Field.getOffset();
-    let points = Field.getZeroPointers(n, CurveAffine.sizeAffine);
-    let scratch = Field.getPointers(20);
-    CurveAffine.randomPoints(scratch, points);
+    let points = Field.getZeroPointers(n, Affine.size);
+    Affine.randomPoints(points);
     let pointsBigint: BigintPoint[] = Array(n);
     for (let i = 0; i < n; i++) {
       let point = points[i];
@@ -35,7 +29,7 @@ function createBigintApi({
       pointsBigint[i] = {
         x: Field.readBigint(x),
         y: Field.readBigint(y),
-        isInfinity: false,
+        isZero: false,
       };
     }
     Field.setOffset(memoryOffset);
@@ -50,7 +44,7 @@ function createBigintApi({
     let pointsProjective: BigintPointProjective[] = Array(n);
     for (let i = 0; i < n; i++) {
       let { x, y } = points[i];
-      pointsProjective[i] = { x, y, z: 1n };
+      pointsProjective[i] = { X: x, Y: y, Z: 1n };
     }
     return pointsProjective;
   }

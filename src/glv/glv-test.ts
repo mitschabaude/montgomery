@@ -1,9 +1,13 @@
 import { lambda, q } from "../concrete/pasta.params.js";
-import { mod, montgomeryParams } from "../field-util.js";
+import { mod, montgomeryParams } from "../bigint/field-util.js";
 import { abs, divide, log2, scale, sign } from "../util.js";
 import assert from "node:assert";
 import { egcdStopEarly } from "./glv.js";
-import { Scalar, Random } from "../concrete/pasta.js";
+import { Pallas } from "../concrete/pasta.js";
+import { randomGenerators } from "../bigint/field-random.js";
+
+const Scalar = Pallas.Scalar;
+const { randomField: randomScalar } = randomGenerators(Pallas.params.order);
 
 let [[v00, v01], [v10, v11]] = egcdStopEarly(lambda, q);
 
@@ -87,7 +91,7 @@ let scratch = Scalar.getPointers(20);
 
 for (let i = 0; i < Ntest; i++) {
   // random scalar
-  let s = Random.randomScalar();
+  let s = randomScalar();
 
   let x0 = sign(m0) * dividePower2AndRound(abs(m0) * (s >> k), m);
   let x1 = sign(m0) * dividePower2AndRound(abs(m1) * (s >> k), m);

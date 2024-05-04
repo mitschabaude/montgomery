@@ -1,13 +1,12 @@
 import type * as W from "wasmati";
 import { $, Type, call, func, i32, i64, local } from "wasmati";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
-import { montgomeryParams } from "../field-util.js";
 
 export { multiplySchoolbook };
 
-function multiplySchoolbook(p: bigint, w: number) {
-  let { n, wn, wordMax } = montgomeryParams(p, w);
-
+function multiplySchoolbook(p: bigint, w: number, n: number) {
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
   let nLocals = Array<Type<i64>>(n).fill(i64);
 
   const multiply = func(

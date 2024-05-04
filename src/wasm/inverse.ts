@@ -15,9 +15,10 @@ import {
   return_,
   unreachable,
 } from "wasmati";
-import { mod, montgomeryParams } from "../field-util.js";
+import { mod } from "../bigint/field-util.js";
 import { ImplicitMemory } from "./wasm-util.js";
 import { FieldWithMultiply } from "./multiply-montgomery.js";
+import { log2 } from "../util.js";
 
 export { fieldInverse };
 
@@ -178,8 +179,8 @@ function fieldInverse(
   );
 
   // constants we store as global pointers
-  let { K, lengthP } = montgomeryParams(p, w);
-  let N = lengthP;
+  let K = n * w;
+  let N = log2(p);
   let R2corr = mod(1n << BigInt(4 * K - 2 * N + 1), p);
   let r2corrGlobal = implicitMemory.data(Field.bigintToData(R2corr));
   let pGlobal = implicitMemory.data(Field.bigintToData(p));

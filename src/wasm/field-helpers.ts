@@ -14,11 +14,11 @@ import {
   call,
 } from "wasmati";
 import {
+  assert,
   bigintFromLimbs,
   bigintToBytes,
   bigintToLimbs as bigintToLimbs_,
 } from "../util.js";
-import { montgomeryParams } from "../field-util.js";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
@@ -27,20 +27,26 @@ export { fromPackedBytes, toPackedBytes, extractBitSlice };
 
 type Field = ReturnType<typeof createField>;
 
-function createField(p: bigint, w: number) {
-  const { n, wn, wordMax, R } = montgomeryParams(p, w);
+function createField(p: bigint, w: number, n: number) {
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  let R = 1n << (BigInt(n) * wn);
   const size = 4 * n; // size in bytes
 
   function loadLimb(x: Local<i32>, i: number) {
+    assert(i >= 0, "positive index");
     return i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
   }
   function loadLimb32(x: Local<i32>, i: number) {
+    assert(i >= 0, "positive index");
     return i32.load({ offset: 4 * i }, x);
   }
   function storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
+    assert(i >= 0, "positive index");
     i32.store({ offset: 4 * i }, x, i32.wrap_i64(xi));
   }
   function storeLimb32(x: Local<i32>, i: number, xi: Input<i32>) {
+    assert(i >= 0, "positive index");
     i32.store({ offset: 4 * i }, x, xi);
   }
 

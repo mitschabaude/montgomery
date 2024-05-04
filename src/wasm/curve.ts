@@ -11,7 +11,7 @@ import {
   br_if,
 } from "wasmati";
 import { FieldWithMultiply } from "./multiply-montgomery.js";
-import { mod } from "../field-util.js";
+import { mod } from "../bigint/field-util.js";
 import { ImplicitMemory } from "./wasm-util.js";
 
 export { curveOps };
@@ -53,6 +53,32 @@ function curveOps(
       // y3 = (x2 - x3)*m - y2
       call(Field.subtractPositive, [y3, x2, x3]);
       call(Field.multiply, [y3, y3, m]);
+      call(Field.subtract, [y3, y3, y2]);
+    }
+  );
+
+  // version which receives m stored in y3
+  // when add-assigning, y3 = y1; note that given m, we don't need y1
+  // so we replace y1 AND d with m, which saves 1 stored field
+  const addAffinePacked = func(
+    { in: [i32, i32, i32, i32], locals: [i32, i32, i32], out: [] },
+    ([tmp, x3, x1, x2], [y3, y2]) => {
+      // compute other pointers from inputs
+      local.set(y2, i32.add(x2, Field.size));
+      local.set(y3, i32.add(x3, Field.size));
+      let m = y3;
+
+      // mark output point as non-zero
+      i32.store8({ offset: 2 * Field.size }, x3, 1);
+
+      // x3 = m^2 - x1 - x2
+      call(Field.square, [tmp, m]);
+      call(Field.subtract, [x3, tmp, x1]);
+      call(Field.subtract, [x3, x3, x2]);
+
+      // y3 = (x2 - x3)*m - y2
+      call(Field.subtractPositive, [tmp, x2, x3]);
+      call(Field.multiply, [y3, m, tmp]); // y3 = m is fine here
       call(Field.subtract, [y3, y3, y2]);
     }
   );
@@ -195,5 +221,5 @@ function curveOps(
     }
   );
 
-  return { addAffine, endomorphism, batchAddUnsafe };
+  return { addAffine, addAffinePacked, endomorphism, batchAddUnsafe };
 }

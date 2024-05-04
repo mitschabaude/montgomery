@@ -1,45 +1,79 @@
 import { MsmField } from "./field-msm.js";
+import { bigintToBits } from "./util.js";
 
 export { createCurveProjective, CurveProjective };
 
 type CurveProjective = ReturnType<typeof createCurveProjective>;
 
-function createCurveProjective(Field: MsmField) {
-  const {
-    sizeField,
-    square,
-    multiply,
-    add,
-    subtract,
-    isEqual,
-    constants,
-    memoryBytes,
-  } = Field;
+function createCurveProjective(Field: MsmField, cofactor = 1n) {
+  // convert the cofactor to bits
+  let cofactorBits = bigintToBits(cofactor);
 
-  let sizeProjective = 3 * sizeField + 4;
+  const { sizeField, constants, memoryBytes } = Field;
+
+  let size = 3 * sizeField + 4;
+
+  function negateInPlace(P: number) {
+    let y = P + sizeField;
+    Field.subtract(y, constants.zero, y);
+  }
+
+  function negate(Q: number, P: number) {
+    copy(Q, P);
+    negateInPlace(Q);
+  }
 
   /**
-   * projective point addition with assignement, P1 += P2
-   *
-   * @param scratch
-   * @param P1
-   * @param P2
+   * Base method for projective point addition which supports mixed addition and subtraction.
+   * Allows P1 and P3 to be the same memory address.
    */
-  function addAssignProjective(scratch: number[], P1: number, P2: number) {
-    if (isZeroProjective(P1)) {
-      copyProjective(P1, P2);
+  function addOrSubtract(
+    scratch: number[],
+    P3: number,
+    P1: number,
+    P2: number,
+    // whether P2 should be negated
+    isSubtract: boolean,
+    // whether we can assume Z2 = 1
+    isMixed: boolean
+  ) {
+    let { subtract, multiply, square, isEqual, reduce } = Field;
+    if (isZero(P1)) {
+      copy(P3, P2);
+      if (isSubtract) negateInPlace(P3);
       return;
     }
-    if (isZeroProjective(P2)) return;
-    setNonZeroProjective(P1);
-    let [X1, Y1, Z1] = projectiveCoords(P1);
-    let [X2, Y2, Z2] = projectiveCoords(P2);
+    if (isZero(P2)) {
+      if (P1 !== P3) copy(P3, P1);
+      return;
+    }
+    setNonZero(P3);
+
+    // coordinates
+    let X1 = P1;
+    let Y1 = X1 + sizeField;
+    let Z1 = Y1 + sizeField;
+    let X2 = P2;
+    let Y2 = X2 + sizeField;
+    let Z2 = Y2 + sizeField;
+    let X3 = P3;
+    let Y3 = X3 + sizeField;
+    let Z3 = Y3 + sizeField;
+
     let [Y2Z1, Y1Z2, X2Z1, X1Z2, Z1Z2, u, uu, v, vv, vvv, R] = scratch;
+    let y2: number;
+    if (isSubtract) {
+      y2 = u;
+      Field.subtract(y2, constants.zero, Y2);
+    } else {
+      y2 = Y2;
+    }
+
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-1998-cmo-2
     // Y1Z2 = Y1*Z2
     multiply(Y1Z2, Y1, Z2);
     // Y2Z1 = Y2*Z1
-    multiply(Y2Z1, Y2, Z1);
+    multiply(Y2Z1, y2, Z1);
     // X1Z2 = X1*Z2
     multiply(X1Z2, X1, Z2);
     // X2Z1 = X2*Z1
@@ -48,12 +82,25 @@ function createCurveProjective(Field: MsmField) {
     // double if the points are equal
     // x1*z2 = x2*z1 and y1*z2 = y2*z1
     // <==>  x1/z1 = x2/z2 and y1/z1 = y2/z2
-    if (isEqual(X1Z2, X2Z1) && isEqual(Y1Z2, Y2Z1)) {
-      doubleInPlaceProjective(scratch, P1);
-      return;
+    reduce(X1Z2);
+    reduce(X2Z1);
+    if (isEqual(X1Z2, X2Z1)) {
+      reduce(Y1Z2);
+      reduce(Y2Z1);
+      if (isEqual(Y1Z2, Y2Z1)) {
+        double(scratch, P3, P1);
+        return;
+      } else {
+        setZero(P3);
+        return;
+      }
     }
     // Z1Z2 = Z1*Z2
-    multiply(Z1Z2, Z1, Z2);
+    if (isMixed) {
+      if (Z1 !== Z3) copy(Z1Z2, Z1);
+    } else {
+      multiply(Z1Z2, Z1, Z2);
+    }
     // u = Y2Z1-Y1Z2
     subtract(u, Y2Z1, Y1Z2);
     // uu = u^2
@@ -73,25 +120,71 @@ function createCurveProjective(Field: MsmField) {
     subtract(A, A, R);
     subtract(A, A, R);
     // X3 = v*A
-    multiply(X1, v, A);
+    multiply(X3, v, A);
     // Y3 = u*(R-A)-vvv*Y1Z2
     subtract(R, R, A);
-    multiply(Y1, u, R);
+    multiply(Y3, u, R);
     multiply(Y1Z2, vvv, Y1Z2);
-    subtract(Y1, Y1, Y1Z2);
+    subtract(Y3, Y3, Y1Z2);
     // Z3 = vvv*Z1Z2
-    multiply(Z1, vvv, Z1Z2);
+    multiply(Z3, vvv, Z1Z2);
+  }
+
+  /**
+   * projective point addition, P3 = P1 + P2.
+   *
+   * Allows P1 and P3 to be the same memory address, i.e. doing P1 += P2.
+   */
+  function add(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, false, false);
+  }
+
+  function sub(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, true, false);
+  }
+
+  function addMixed(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, false, true);
+  }
+
+  function subMixed(scratch: number[], P3: number, P1: number, P2: number) {
+    addOrSubtract(scratch, P3, P1, P2, true, true);
+  }
+
+  /**
+   * projective point addition with assignment, P1 += P2
+   */
+  function addAssign(scratch: number[], P1: number, P2: number) {
+    addOrSubtract(scratch, P1, P1, P2, false, false);
   }
 
   /**
    * projective point doubling with assignment, P *= 2
-   *
-   * @param scratch
-   * @param P
    */
-  function doubleInPlaceProjective(scratch: number[], P: number) {
-    if (isZeroProjective(P)) return;
-    let [X1, Y1, Z1] = projectiveCoords(P);
+  function doubleInPlace(scratch: number[], P: number) {
+    double(scratch, P, P);
+  }
+
+  /**
+   * projective point doubling, P3 = 2*P1.
+   *
+   * works with P1 and P3 being the same memory address.
+   */
+  function double(scratch: number[], P3: number, P1: number) {
+    let { add, subtract, multiply, square } = Field;
+    if (isZero(P1)) {
+      setZero(P3);
+      return;
+    }
+
+    // coordinates
+    let X1 = P1;
+    let Y1 = X1 + sizeField;
+    let Z1 = Y1 + sizeField;
+    let X3 = P3;
+    let Y3 = X3 + sizeField;
+    let Z3 = Y3 + sizeField;
+
     let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#doubling-dbl-1998-cmo-2
     // w = 3*X1^2
@@ -115,26 +208,50 @@ function createCurveProjective(Field: MsmField) {
     subtract(h, h, Bx4); // TODO efficient doubling
     subtract(h, h, Bx4);
     // X3 = 2*h*s
-    multiply(X1, h, s);
-    add(X1, X1, X1);
+    multiply(X3, h, s);
+    add(X3, X3, X3);
     // Y3 = w*(4*B-h)-8*R^2 = (Bx4 - h)*w - (Rx2^2 + Rx2^2)
-    subtract(Y1, Bx4, h);
-    multiply(Y1, Y1, w);
+    subtract(Y3, Bx4, h);
+    multiply(Y3, Y3, w);
     square(tmp, Rx2);
     add(tmp, tmp, tmp); // TODO efficient doubling
-    subtract(Y1, Y1, tmp);
+    subtract(Y3, Y3, tmp);
     // Z3 = 8*sss
-    multiply(Z1, sss, constants.mg8); // TODO efficient doubling
+    multiply(Z3, sss, constants.mg8); // TODO efficient doubling
   }
 
-  function isZeroProjective(pointer: number) {
+  function scale(
+    scratch: number[],
+    result: number,
+    point: number,
+    scalar: boolean[]
+  ) {
+    setZero(result);
+    let n = scalar.length;
+    for (let i = n - 1; i >= 0; i--) {
+      if (scalar[i]) addAssign(scratch, result, point);
+      if (i === 0) break;
+      doubleInPlace(scratch, result);
+    }
+  }
+
+  function toSubgroupInPlace(
+    [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
+    point: number
+  ) {
+    if (cofactor === 1n) return;
+    copy(tmp, point);
+    scale(scratch, point, tmp, cofactorBits);
+  }
+
+  function isZero(pointer: number) {
     return !memoryBytes[pointer + 3 * sizeField];
   }
 
-  function copyProjective(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + sizeProjective);
+  function copy(target: number, source: number) {
+    memoryBytes.copyWithin(target, source, source + size);
   }
-  function copyAffineToProjective(P: number, A: number) {
+  function fromAffine(P: number, A: number) {
     // x,y = x,y
     memoryBytes.copyWithin(P, A, A + 2 * sizeField);
     // z = 1
@@ -147,22 +264,97 @@ function createCurveProjective(Field: MsmField) {
     memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
   }
 
-  function projectiveCoords(pointer: number) {
+  function toAffine(scratch: number[], affine: number, point: number) {
+    if (isZero(point)) {
+      memoryBytes[affine + 2 * sizeField] = 0;
+      return;
+    }
+    let zinv = scratch[0];
+    let [x, y, z] = coords(point);
+    let xAffine = affine;
+    let yAffine = affine + sizeField;
+    // return x/z, y/z
+    Field.inverse(scratch[1], zinv, z);
+    Field.multiply(xAffine, x, zinv);
+    Field.multiply(yAffine, y, zinv);
+    memoryBytes[xAffine + 2 * sizeField] = 1;
+  }
+
+  function coords(pointer: number) {
     return [pointer, pointer + sizeField, pointer + 2 * sizeField];
   }
 
-  function setNonZeroProjective(pointer: number) {
+  function setNonZero(pointer: number) {
     memoryBytes[pointer + 3 * sizeField] = 1;
+  }
+  function setZero(pointer: number) {
+    memoryBytes[pointer + 3 * sizeField] = 0;
+  }
+
+  function toBigint(point: number): BigintPointProjective {
+    if (isZero(point)) return BigintPointProjective.zero;
+    let [x, y, z] = coords(point);
+    Field.fromMontgomery(x);
+    Field.fromMontgomery(y);
+    Field.fromMontgomery(z);
+    let pointBigint = {
+      X: Field.readBigint(x),
+      Y: Field.readBigint(y),
+      Z: Field.readBigint(z),
+    };
+    Field.toMontgomery(x);
+    Field.toMontgomery(y);
+    Field.toMontgomery(z);
+    return pointBigint;
+  }
+
+  function isEqual(scratch: number[], p: number, q: number) {
+    if (isZero(p)) return isZero(q);
+    if (isZero(q)) return false;
+    let [x1, y1, z1] = coords(p);
+    let [x2, y2, z2] = coords(q);
+    let tmp = scratch[0];
+    let tmp2 = scratch[1];
+    // x1/z1 == x2/z2
+    Field.multiply(tmp, x1, z2);
+    Field.reduce(tmp);
+    Field.multiply(tmp2, x2, z1);
+    Field.reduce(tmp2);
+    if (!Field.isEqual(tmp, tmp2)) return false;
+    // y1/z1 == y2/z2
+    Field.multiply(tmp, y1, z2);
+    Field.reduce(tmp);
+    Field.multiply(tmp2, y2, z1);
+    Field.reduce(tmp2);
+    return Field.isEqual(tmp, tmp2);
   }
 
   return {
-    addAssignProjective,
-    doubleInPlaceProjective,
-    sizeProjective,
-    isZeroProjective,
-    copyProjective,
-    copyAffineToProjective,
-    projectiveCoords,
-    setNonZeroProjective,
+    cofactor,
+    cofactorBits,
+    add,
+    sub,
+    addMixed,
+    subMixed,
+    addAssign,
+    double,
+    doubleInPlace,
+    scale,
+    toSubgroupInPlace,
+    toBigint,
+    size,
+    isZero,
+    isEqual,
+    copy,
+    fromAffine,
+    toAffine,
+    coords,
+    setNonZero,
+    setZero,
   };
 }
+
+type BigintPointProjective = { X: bigint; Y: bigint; Z: bigint };
+const BigintPointProjective = {
+  zero: { X: 0n, Y: 1n, Z: 0n },
+};

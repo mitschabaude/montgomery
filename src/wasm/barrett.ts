@@ -1,7 +1,6 @@
 import { $, Func, Type, call, func, i32, i64, local } from "wasmati";
-import { bigintFromLimbs, bigintToLimbs } from "../util.js";
+import { bigintFromLimbs, bigintToLimbs, log2 } from "../util.js";
 import { forLoop1 } from "./wasm-util.js";
-import { montgomeryParams } from "../field-util.js";
 
 export { barrettReduction, multiplyBarrett, barrettError, findMsbCutoff };
 
@@ -77,11 +76,12 @@ export { barrettReduction, multiplyBarrett, barrettError, findMsbCutoff };
  * with k = b-1, our previous condition b + 2s + 1 <= N with s=2 implies
  * b + 5 <= N
  */
-function barrettReduction(p: bigint, w: number) {
-  let { n, lengthP, wordMax, wn } = montgomeryParams(p, w);
-  let k = lengthP - 1;
+function barrettReduction(p: bigint, w: number, n: number) {
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  let k = log2(p) - 1;
   let N = n * w;
-  let { n0, e0 } = findMsbCutoff(p, w);
+  let { n0, e0 } = findMsbCutoff(p, w, n);
   let m = 2n ** BigInt(k + N) / p;
   let M = bigintToLimbs(m, w, n);
   let P = bigintToLimbs(p, w, n);
@@ -164,9 +164,10 @@ function barrettReduction(p: bigint, w: number) {
 function multiplyBarrett(
   p: bigint,
   w: number,
+  n: number,
   multiply: Func<[i32, i32, i32], []>
 ) {
-  const barrett = barrettReduction(p, w);
+  const barrett = barrettReduction(p, w, n);
 
   const modularMultiply = func(
     { in: [i32, i32, i32], locals: [], out: [] },
@@ -215,8 +216,8 @@ function barrettError({
   return err;
 }
 
-function findMsbCutoff(p: bigint, w: number) {
-  let { n, lengthP: b } = montgomeryParams(p, w);
+function findMsbCutoff(p: bigint, w: number, n: number) {
+  let b = log2(p);
   let k = b - 1;
   let N = n * w;
   let K = k + N;

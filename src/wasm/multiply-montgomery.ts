@@ -13,8 +13,8 @@ import {
   i64,
   local,
 } from "wasmati";
-import { modInverse, montgomeryParams } from "../field-util.js";
-import { bigintToLimbs } from "../util.js";
+import { inverse } from "../bigint/field.js";
+import { assert, bigintToLimbs } from "../util.js";
 import { forLoop1, forLoop4 } from "./wasm-util.js";
 import { createField } from "./field-helpers.js";
 import { FieldWithArithmetic } from "./field-arithmetic.js";
@@ -31,13 +31,15 @@ type FieldWithMultiply = FieldWithArithmetic & FieldMultiplications;
 function multiplyMontgomery(
   p: bigint,
   w: number,
+  n: number,
   { countMultiplications = false }
 ) {
-  let { n, wn, wordMax } = montgomeryParams(p, w);
-  const Field = createField(p, w);
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  const Field = createField(p, w, n);
 
   // constants
-  let mu = modInverse(-p, 1n << wn);
+  let mu = inverse(-p, 1n << wn);
   let P = bigintToLimbs(p, w, n);
   // how much terms we can add before a carry
   let nSafeTerms = 2 ** (64 - 2 * w);
@@ -105,6 +107,7 @@ function multiplyMontgomery(
         }
 
         j = n - 1;
+        assert(j > 0, "field with n=1 not supported");
         let didCarry = (j - 1) % nSafeSteps === 0;
         let doCarry = j % nSafeSteps === 0;
         if (doCarry) {

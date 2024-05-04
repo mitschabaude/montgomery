@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+import path from "node:path";
+import "source-map-support/register.js";
+
+// get first and only command line argument
+const filename = process.argv[2];
+
+// transform ts file name in the source tree to js file in /build
+const src = filename.replace(/\.ts$/, ".js");
+const build = path.resolve("build/", src);
+
+// run the module
+await import(build);

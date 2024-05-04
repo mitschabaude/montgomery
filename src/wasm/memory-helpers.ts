@@ -1,6 +1,11 @@
-import { montgomeryParams } from "../field-util.js";
+import "./symbol-dispose-polyfill.js";
+import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
+import { assert, log2 } from "../util.js";
 
-export { memoryHelpers, MemoryHelpers };
+export { memoryHelpers, MemoryHelpers, MemorySection };
+
+// how much memory is reserved for thread-local memory as a fraction of total memory
+const localRatioDefault = 0.2;
 
 type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 
@@ -14,6 +19,7 @@ type MemoryHelpers = ReturnType<typeof memoryHelpers>;
 function memoryHelpers(
   p: bigint,
   w: number,
+  n: number,
   {
     memory,
     toPackedBytes,
@@ -24,13 +30,49 @@ function memoryHelpers(
     toPackedBytes?: (bytes: number, x: number) => void;
     fromPackedBytes?: (x: number, bytes: number) => void;
     dataOffset?: { valueOf(): number };
-  }
+  },
+  localRatio = localRatioDefault
 ) {
-  let { n, wn, wordMax, R, lengthP } = montgomeryParams(p, w);
+  let wn = BigInt(w);
+  let wordMax = (1n << wn) - 1n;
+  let lengthP = log2(p);
+  let R = 1n << BigInt(n * w);
   let packedSizeField = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
   let initialOffset = dataOffset?.valueOf() ?? 0;
+
+  let totalLength = memoryBytes.length;
+  let localLength = floorToMultipleOf4(totalLength * localRatio);
+  let [global, local] = MemorySection.createGlobalAndLocal(
+    memory,
+    initialOffset,
+    localLength,
+    totalLength,
+    n
+  );
+
   let obj = {
+    global,
+    local,
+
+    updateThreads() {
+      assert(isMain(), "updateThreads must be called from main thread");
+      let localLength = floorToMultipleOf4(totalLength * localRatio);
+      let [global, local] = MemorySection.createGlobalAndLocal(
+        memory,
+        initialOffset,
+        localLength,
+        totalLength,
+        n
+      );
+      let globalOffset = obj.global.offset;
+      obj.global = global;
+      obj.global.offset = globalOffset;
+      let localOffset = obj.local.offset;
+      obj.local = local;
+      obj.local.offset = localOffset;
+    },
+
     memoryBytes,
     n,
     R,
@@ -58,16 +100,11 @@ function memoryHelpers(
       return x0;
     },
 
-    initial: initialOffset,
-    offset: initialOffset,
-
     /**
      * @param size size of pointer (default: one field element)
      */
     getPointer(size = n * 4) {
-      let pointer = obj.offset;
-      obj.offset += size;
-      return pointer;
+      return obj.global.getPointer(size);
     },
 
     /**
@@ -75,34 +112,14 @@ function memoryHelpers(
      * @param size size per pointer (default: one field element)
      */
     getPointers(N: number, size = n * 4) {
-      let pointers: number[] = Array(N);
-      let offset = obj.offset;
-      for (let i = 0; i < N; i++) {
-        pointers[i] = offset;
-        offset += size;
-      }
-      obj.offset = offset;
-      return pointers;
-    },
-
-    /**
-     * @param N
-     */
-    getStablePointers(N: number) {
-      let pointers = obj.getPointers(N);
-      obj.initial = obj.offset;
-      return pointers;
+      return obj.global.getPointers(N, size);
     },
 
     /**
      * @param size size of pointer (default: one field element)
      */
     getZeroPointer(size = n * 4) {
-      let offset = obj.offset;
-      let pointer = obj.offset;
-      memoryBytes.fill(0, offset, offset + size);
-      obj.offset = offset + size;
-      return pointer;
+      return obj.global.getZeroPointers(1, size)[0];
     },
 
     /**
@@ -110,15 +127,7 @@ function memoryHelpers(
      * @param size size per pointer (default: one field element)
      */
     getZeroPointers(N: number, size = n * 4) {
-      let pointers: number[] = Array(N);
-      let offset = obj.offset;
-      new Uint8Array(memory.buffer, offset, N * size).fill(0);
-      for (let i = 0; i < N; i++) {
-        pointers[i] = offset;
-        offset += size;
-      }
-      obj.offset = offset;
-      return pointers;
+      return obj.global.getZeroPointers(N, size);
     },
 
     /**
@@ -128,7 +137,7 @@ function memoryHelpers(
      * @param size size per pointer (default: one field element)
      */
     getPointersInMemory(N: number, size = n * 4): [Uint32Array, number] {
-      let offset = obj.offset;
+      let offset = obj.global.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
       let pointerPtr = offset;
@@ -138,30 +147,30 @@ function memoryHelpers(
         pointers[i] = offset;
         offset += size;
       }
-      obj.offset = offset;
+      obj.global.offset = offset;
       return [pointers, pointerPtr];
     },
 
     getEmptyPointersInMemory(N: number): [Uint32Array, number] {
-      let offset = obj.offset;
+      let offset = obj.global.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
       let pointerPtr = offset;
       let pointers = new Uint32Array(memory.buffer, pointerPtr, length);
-      obj.offset += length * 4;
+      obj.global.offset += length * 4;
       return [pointers, pointerPtr];
     },
 
     resetPointers() {
-      obj.offset = obj.initial;
+      obj.global.offset = obj.global.initial;
     },
 
     getOffset() {
-      return obj.offset;
+      return obj.global.offset;
     },
 
     setOffset(offset: number) {
-      obj.offset = offset;
+      obj.global.offset = offset;
     },
 
     /**
@@ -192,4 +201,177 @@ function memoryHelpers(
       throw Error("missing toPackedBytes");
     };
   return obj;
+}
+
+class MemorySection {
+  // fixed params
+  initial: number;
+  end: number;
+  length: number;
+  memory: WebAssembly.Memory;
+
+  // default pointer size (= 1 field element) in uint32s
+  n: number;
+
+  // whether we have to take care of multiple threads operating on this memory section
+  isShared: boolean;
+
+  // where to get the next pointer
+  _offset: number;
+  get offset() {
+    return this._offset;
+  }
+  set offset(offset: number) {
+    if (offset > this.end) {
+      throw Error(
+        `memory overflow, local=${!this.isShared}, requested size: ${(
+          (offset - this.initial) /
+          1e6
+        ).toFixed(2)}MB, available size: ${(
+          (this.end - this.initial) /
+          1e6
+        ).toFixed(2)}MB`
+      );
+    }
+    this._offset = offset;
+    if (offset > this.maxOffset) this.maxOffset = offset;
+  }
+
+  maxOffset: number;
+
+  constructor(
+    memory: WebAssembly.Memory,
+    initialOffset: number,
+    length: number,
+    n: number,
+    isShared: boolean
+  ) {
+    this.memory = memory;
+    this.initial = initialOffset;
+    this.end = initialOffset + length;
+    this.length = length;
+    this.n = n;
+    this.isShared = isShared;
+
+    this._offset = initialOffset;
+    this.maxOffset = initialOffset;
+  }
+
+  sizeUsed() {
+    return this.offset - this.initial;
+  }
+  sizeAvailable() {
+    return this.end - this.offset;
+  }
+  printMaxSizeUsed() {
+    if (!isMain()) return;
+    let maxUsedMB = ((this.maxOffset - this.initial) / 1e6).toFixed(0);
+    let maxMb = (this.length / 1e6).toFixed(0);
+    let maxUsedPercent = (
+      ((this.maxOffset - this.initial) / this.length) *
+      100
+    ).toFixed(1);
+    let kind = this.isShared ? "global" : "local";
+    return `max memory used (${kind}):\t ${maxUsedPercent}% = ${maxUsedMB} / ${maxMb} MB`;
+  }
+
+  // this will be called with `using section.atCurrentOffset`
+  get atCurrentOffset() {
+    let current = this.offset;
+    return {
+      [Symbol.dispose]: () => {
+        this.offset = current;
+      },
+    };
+  }
+
+  static createGlobalAndLocal(
+    memory: WebAssembly.Memory,
+    offset: number,
+    localLength: number,
+    totalLength: number,
+    n: number
+  ) {
+    let lengthPerThread = floorToMultipleOf4(localLength / THREADS);
+    let lengthFirstThread = lengthPerThread + (localLength % lengthPerThread);
+    assert(lengthFirstThread + (THREADS - 1) * lengthPerThread === localLength);
+    assert(lengthFirstThread % 4 === 0);
+
+    let globalLength = totalLength - localLength - offset;
+    // log(`global section: ${offset} - ${offset + globalLength}`);
+    let globalSection = new MemorySection(
+      memory,
+      offset,
+      globalLength,
+      n,
+      true
+    );
+
+    let localOffset = offset + globalLength;
+    if (thread > 0) {
+      localOffset += lengthFirstThread + (thread - 1) * lengthPerThread;
+    }
+    let localSectionLength = thread === 0 ? lengthFirstThread : lengthPerThread;
+    // log(`local section: ${localOffset} - ${localOffset + localSectionLength}`);
+    let localSection = new MemorySection(
+      memory,
+      localOffset,
+      localSectionLength,
+      n,
+      false
+    );
+
+    return [globalSection, localSection];
+  }
+
+  /**
+   * @param size size of pointer in bytes (default: one field element)
+   */
+  getPointer(size = this.n * 4) {
+    let pointer = this.offset;
+    this.offset += size;
+    return pointer;
+  }
+
+  /**
+   * @param N
+   * @param size size per pointer (default: one field element)
+   */
+  getPointers(N: number, size = this.n * 4) {
+    let pointers: number[] = Array(N);
+    let offset = this.offset;
+    for (let i = 0; i < N; i++) {
+      pointers[i] = offset;
+      offset += size;
+    }
+    this.offset = offset;
+    return pointers;
+  }
+
+  /**
+   * @param N
+   * @param size size per pointer (default: one field element)
+   */
+  getZeroPointers(N: number, size = this.n * 4) {
+    let offset = this.offset;
+    assert(
+      !this.isShared || !isParallel(),
+      "zero pointers only implemented for local memory"
+    );
+    new Uint8Array(this.memory.buffer, offset, N * size).fill(0);
+    return this.getPointers(N, size);
+  }
+
+  /**
+   * @param N
+   */
+  getStablePointers(N: number, size = this.n * 4) {
+    let pointers = this.getPointers(N, size);
+    this.initial = this.offset;
+    return pointers;
+  }
+}
+
+function floorToMultipleOf4(x: number) {
+  return Math.floor(x / 4) * 4;
 }

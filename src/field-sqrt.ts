@@ -7,7 +7,7 @@ import { Func, i32 } from "wasmati";
 export { createSqrt };
 
 function createSqrt(
-  { p, n }: FieldWithMultiply,
+  { p }: { p: bigint },
   wasm: WasmField,
   helpers: MemoryHelpers,
   constants: {
@@ -35,12 +35,12 @@ function createSqrt(
   }
   let t0 = (p - 1n) >> 1n;
   let t1_ = (t - 1n) / 2n;
-  let [t1] = helpers.getStablePointers(1);
+  let [t1] = helpers.local.getStablePointers(1);
   helpers.writeBigint(t1, t1_);
 
   // find z = non square
   // start with z = 2
-  let [z, tmp, ...scratch] = helpers.getPointers(5);
+  let [z, tmp, ...scratch] = helpers.local.getPointers(5);
   wasm.copy(z, constants.mg2);
 
   while (true) {
@@ -53,8 +53,8 @@ function createSqrt(
     wasm.add(z, z, constants.mg1);
   }
 
-  // roots of unity w = z^t, w^2, ..., w^(2^(S-1)) = -1
-  let roots = helpers.getStablePointers(M);
+  // roots of unity w = z^t, w^2, ..., w^(2^(M-1)) = -1
+  let roots = helpers.local.getStablePointers(M);
   pow(scratch, roots[0], z, t);
   for (let i = 1; i < M; i++) {
     wasm.square(roots[i], roots[i - 1]);
@@ -73,6 +73,7 @@ function createSqrt(
    * probably possible optimize the second part of the algorithm with more caching
    */
   function sqrt([u, s, scratch]: number[], sqrtx: number, x: number) {
+    wasm.reduce(x);
     if (wasm.isZero(x)) {
       wasm.copy(sqrtx, constants.zero);
       return true;
@@ -85,14 +86,18 @@ function createSqrt(
 
     while (true) {
       // if u === 1, we're done
+      wasm.reduce(u);
       if (wasm.isEqual(u, constants.mg1)) return true;
 
       // use repeated squaring to find the least i', 0 < i' < i, such that u^(2^i') = 1
       let i_ = 1;
       wasm.square(s, u);
+      wasm.reduce(s);
       while (!wasm.isEqual(s, constants.mg1)) {
         wasm.square(s, s);
+        wasm.reduce(s);
         i_++;
+        if (i_ > i) throw Error("infinite loop");
       }
       if (i_ === i) return false; // no solution
       assert(i_ < i); // by construction
@@ -102,10 +107,14 @@ function createSqrt(
     }
   }
 
+  // TODO fastSqrt fails tests on Pasta Fq field with w = 26, 29
+  if (M <= 4) return { sqrt, t, roots };
+
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
   // after Daniel Bernstein, http://cr.yp.to/papers/sqroot.pdf
 
-  // parameters for windowed representation of epxonents in roots subgroup
+  // parameters for windowed representation of exponents in roots subgroup
+
   let c = Math.min(4, M); // window/limb size
   let L = 1 << c;
   let N = Math.ceil(M / c); // number of windows/limbs
@@ -113,14 +122,16 @@ function createSqrt(
   // precomputation
 
   // w_ij = w^(-j*2^(ic)) for i=0,...,N-1 and j=0,...,L-1 = 2^c-1
-  let inverseRoots = mapRange(N, () => helpers.getStablePointers(L));
-  // v_j = w^(j*2^((n-1)c)), j=0,...,L-1 = all Lth roots
-  let LthRoots = helpers.getStablePointers(L);
+  let inverseRoots = mapRange(N, () => helpers.local.getStablePointers(L));
+  // v_j = w^(j*2^((N-1)c)), j=0,...,L-1 = all Lth roots
+  // TODO: this assumes tnat window size exactly divides M, i.e. M = Nc. if it doesn't,
+  // LthRoots[j] = w^(2^(j(N-1)c)) will actually be 2^(M-(N-1)c)th roots and won't be L unique values
+  let LthRoots = helpers.local.getStablePointers(L);
 
   // w00 = 1, w_01 = w^(-1)
   wasm.copy(inverseRoots[0][0], constants.mg1);
   wasm.inverse(tmp, inverseRoots[0][1], roots[0]);
-  // v0 = 1, start comuting v1
+  // v0 = 1, start computing v1
   wasm.copy(LthRoots[0], constants.mg1);
   wasm.copy(LthRoots[1], roots[0]);
 
@@ -160,14 +171,17 @@ function createSqrt(
   }
   // assert that all the Lth roots have different low limbs (they should be ~random)
   // console.log(LthRootLookup);
-  assert(Object.keys(LthRootLookup).length === L);
+  if (Object.keys(LthRootLookup).length !== L) {
+    // console.warn("can't use fastSqrt, Lth roots have collisions");
+    return { sqrt, t, roots };
+  }
 
   // lth root v_j --> j
   function lookupLthRoot(ptr: number) {
     return LthRootLookup[view.getInt32(ptr, true)];
   }
   // scratch pointers that we use as RHS
-  let rhs = helpers.getStablePointers(N);
+  let rhs = helpers.local.getStablePointers(N);
   let solutionDigits = Array<number>(N).fill(0);
 
   /**
@@ -182,6 +196,7 @@ function createSqrt(
    * This makes the exponentation x^(t-1)/2 at the beginning by far the dominant part (~80%).
    */
   function fastSqrt([u, scratch]: number[], sqrtx: number, x: number) {
+    wasm.reduce(x);
     if (wasm.isZero(x)) {
       wasm.copy(sqrtx, constants.zero);
       return true;
@@ -246,7 +261,7 @@ function createSqrt(
     return true;
   }
 
-  return { slowSqrt: sqrt, sqrt: M > 4 ? fastSqrt : sqrt, t, roots };
+  return { sqrt: fastSqrt, t, roots };
 }
 
 // wasm API we need
