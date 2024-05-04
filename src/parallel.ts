@@ -50,7 +50,10 @@ async function createWeierstraß(
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
-  const Field = await createMsmField({ p, beta, w: 29 }, fieldWasm);
+  const Field = await createMsmField(
+    { p, beta, w: 29, localRatio: 0.25 },
+    fieldWasm
+  );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
   const Projective = createCurveProjective(Field, h);
   const Affine = createCurveAffine(Field, Projective, b);

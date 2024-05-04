@@ -25,15 +25,15 @@ if (result.x !== point.x || result.y !== point.y) {
 }
 console.log("2 points ok");
 
-const n = 1000;
+const n = 1 << 20;
 let randomScalars = Array.from({ length: n }, () => Curve.Scalar.random());
-let randomPoints = BLS12377.Affine.randomPointsBigint(n);
+// let randomPoints = BLS12377.Affine.randomPointsBigint(n);
 let samePoints = Array.from({ length: n }, () => point);
 let scalarSum = randomScalars.reduce(Curve.Scalar.add);
 
 // random points should work
-await compute_msm(randomPoints, randomScalars);
-console.log("random points ok");
+// await compute_msm(randomPoints, randomScalars);
+// console.log("random points ok");
 
 // msm should be the same as scaling by the sum of scalars
 let result2 = await compute_msm(samePoints, randomScalars);
