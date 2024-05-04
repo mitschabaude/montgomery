@@ -19,6 +19,7 @@ import { createScalar } from "./scalar-simple.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
 import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
 import { createMsmBasic } from "./msm-basic.js";
+import { range } from "./threads/threads.js";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
@@ -49,7 +50,10 @@ async function createWeierstraß(
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
-  const Field = await createMsmField({ p, beta, w: 29 }, fieldWasm);
+  const Field = await createMsmField(
+    { p, beta, w: 29, localRatio: 0.25 },
+    fieldWasm
+  );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
   const Projective = createCurveProjective(Field, h);
   const Affine = createCurveAffine(Field, Projective, b);
@@ -67,6 +71,45 @@ async function createWeierstraß(
     return Scalar.global.getPointer(size);
   }
 
+  // input bytes must be transfered to wasm memory before calling this function
+  function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
+    let { size } = Affine;
+    let { fromPackedBytes, sizeField, toMontgomery, memoryBytes } = Field;
+
+    let [i, iend] = range(n);
+    let pi = pointPtr + i * size;
+    let bi = pointInputPtr + i * 96;
+
+    for (; i < iend; i++, pi += size, bi += 96) {
+      let x = pi;
+      let y = x + sizeField;
+      // set nonzero flag. (input format doesn't allow zero points, so always 1)
+      memoryBytes[pi + 2 * sizeField] = 1;
+
+      fromPackedBytes(x, bi);
+      fromPackedBytes(y, bi + 48);
+      toMontgomery(x);
+      toMontgomery(y);
+    }
+  }
+
+  // input bytes must be transfered to wasm memory before calling this function
+  function scalarsFromBytes(
+    scalarPtr: number,
+    scalarInputPtr: number,
+    n: number
+  ) {
+    let { fromPackedBytes, sizeField: size } = Scalar;
+
+    let [i, iend] = range(n);
+    let si = scalarPtr + i * size;
+    let bi = scalarInputPtr + i * 32;
+
+    for (; i < iend; i++, si += size, bi += 32) {
+      fromPackedBytes(si, bi);
+    }
+  }
+
   const Parallel = pool.register(`Weierstraß, ${label}`, {
     randomPointsFast,
     randomScalars,
@@ -75,6 +118,8 @@ async function createWeierstraß(
     msmProjective,
     getPointer,
     getScalarPointer,
+    scalarsFromBytes,
+    pointsFromBytes,
   });
 
   const Bigint = { Projective: createBigintCurve(params) };
@@ -138,12 +183,57 @@ async function createTwistedEdwards(
     return Scalar.global.getPointer(size);
   }
 
+  // input bytes must be transfered to wasm memory before calling this function
+  function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
+    let { size } = Curve;
+    let { fromPackedBytes, sizeField, toMontgomery, copy, multiply } = Field;
+
+    let [i, iend] = range(n);
+    let pi = pointPtr + i * size;
+    let bi = pointInputPtr + i * 64;
+
+    for (; i < iend; i++, pi += size, bi += 64) {
+      let x = pi;
+      let y = x + sizeField;
+      let z = y + sizeField;
+      let t = z + sizeField;
+
+      fromPackedBytes(x, bi);
+      fromPackedBytes(y, bi + 32);
+
+      toMontgomery(x);
+      toMontgomery(y);
+      copy(z, Field.constants.mg1);
+      multiply(t, x, y);
+    }
+    return pointPtr;
+  }
+
+  // input bytes must be transfered to wasm memory before calling this function
+  function scalarsFromBytes(
+    scalarPtr: number,
+    scalarInputPtr: number,
+    n: number
+  ) {
+    let { fromPackedBytes, sizeField: size } = Scalar;
+
+    let [i, iend] = range(n);
+    let si = scalarPtr + i * size;
+    let bi = scalarInputPtr + i * 32;
+
+    for (; i < iend; i++, si += size, bi += 32) {
+      fromPackedBytes(si, bi);
+    }
+  }
+
   const Parallel = pool.register(`Twisted Edwards, ${label}`, {
     randomPointsFast,
     randomScalars,
     msm,
     getPointer,
     getScalarPointer,
+    pointsFromBytes,
+    scalarsFromBytes,
   });
 
   const Bigint = createBigintTE(params);

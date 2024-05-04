@@ -382,8 +382,15 @@ function batchAddNew(
   H: Uint32Array,
   n: number
 ) {
-  let { sizeField, subtractPositive, batchInverse, addAffine, isEqual, add } =
-    Field;
+  let {
+    sizeField,
+    subtractPositive,
+    batchInverse,
+    addAffine,
+    isEqual,
+    add,
+    reduce,
+  } = Field;
   let {
     double: doubleAffine,
     isZero: isZeroAffine,
@@ -412,21 +419,28 @@ function batchAddNew(
       if (S[i] !== G[i]) copyAffine(S[i], G[i]);
       continue;
     }
-    if (isEqual(G[i], H[i])) {
+    let x1 = G[i];
+    let x2 = H[i];
+    reduce(x1);
+    reduce(x2);
+    if (isEqual(x1, x2)) {
       // here, we handle the x1 === x2 case, in which case (x2 - x1) shouldn't be part of batch inversion
       // => batch-affine doubling G[p] in-place for the y1 === y2 cases, setting G[p] zero for y1 === -y2
-      let y = G[i] + sizeField;
-      if (!isEqual(y, H[i] + sizeField)) {
+      let y1 = x1 + sizeField;
+      let y2 = x2 + sizeField;
+      Field.reduce(y1);
+      Field.reduce(y2);
+      if (!isEqual(y1, y2)) {
         setIsNonZeroAffine(S[i], false);
         continue;
       }
-      add(tmp[nBoth], y, y); // TODO: efficient doubling
+      add(tmp[nBoth], y1, y1); // TODO: efficient doubling
       iDouble[nDouble] = i;
       iBoth[i] = nBoth;
       nDouble++, nBoth++;
     } else {
       // typical case, where x1 !== x2 and we add the points
-      subtractPositive(tmp[nBoth], H[i], G[i]);
+      subtractPositive(tmp[nBoth], x2, x1);
       iAdd[nAdd] = i;
       iBoth[i] = nBoth;
       nAdd++, nBoth++;

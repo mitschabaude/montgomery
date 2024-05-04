@@ -203,13 +203,12 @@ function createField(p: bigint, w: number, n: number) {
   };
 }
 
-// helpers to convert between internal format and I/O-friendly, packed byte format
-// method: just pack all the n*w bits into memory contiguously
+// helpers to convert between internal format and I/O-friendly, packed byte format with `nPackBytes` bytes
 
 /**
  * recover n * w-bit representation (1 int32 per w-bit limb) from packed representation
  */
-function fromPackedBytes(w: number, n: number) {
+function fromPackedBytes(w: number, n: number, nPackedBytes: number) {
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
 
@@ -221,6 +220,7 @@ function fromPackedBytes(w: number, n: number) {
     ([x, bytes], [tmp, chunk]) => {
       let offset = 0; // bytes offset
       let nRes = 0n; // residual bits read in the last iteration
+      let nRead = 0; // bytes read
 
       // read bytes word by word
       for (let i = 0; i < n; i++) {
@@ -228,10 +228,17 @@ function fromPackedBytes(w: number, n: number) {
         // (some of that i64 could be garbage, but we'll only use the parts that aren't)
         if (nRes < w) {
           // tmp = (bytes << nRes) | tmp
+          i64.load({ offset }, bytes);
+          if (nRead + 8 > nPackedBytes) {
+            // if we're past the input length, we need to mask out the remaining bits
+            let mask = (1n << BigInt((nPackedBytes - nRead) * 8)) - 1n;
+            i64.and($, mask);
+          }
+          nRead = Math.min(nRead + 8, nPackedBytes);
           i64.shl(
             // load 8 bytes at current offset
             // due to the left shift, we lose nRes of them
-            local.tee(chunk, i64.load({ offset }, bytes)),
+            local.tee(chunk, $),
             nRes
           );
           local.set(tmp, i64.or($, tmp));

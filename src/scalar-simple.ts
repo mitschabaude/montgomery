@@ -26,13 +26,13 @@ async function createScalar(params: ScalarParams, wasm?: WasmArtifacts) {
  * scalar module for basic MSM
  */
 async function createScalarWasm({ q, w }: { q: bigint; w: number }) {
-  const { n } = montgomeryParams(q, w, 1);
+  const { n, nPackedBytes } = montgomeryParams(q, w, 1);
   let memSize = 1 << 14;
   let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
 
   let module = Module({
     exports: {
-      fromPackedBytes: fromPackedBytes(w, n),
+      fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       extractBitSlice: extractBitSlice(w, n),
       memory: wasmMemory,
       dataOffset: global(Const.i32(0)),

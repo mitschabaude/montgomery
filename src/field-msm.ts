@@ -117,7 +117,7 @@ async function createFieldWasm({
       isEqual,
       isGreater,
       isZero,
-      fromPackedBytes: fromPackedBytes(w, n),
+      fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       toPackedBytes: toPackedBytes(w, n, nPackedBytes),
     },
   });
