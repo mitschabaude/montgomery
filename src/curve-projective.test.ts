@@ -23,11 +23,15 @@ const scalar = spec<bigint, boolean[]>(Random.field(CurveBigint.order), {
   there: bigintToBits,
   back: () => throwError("TODO"),
 });
-const pointStrict = wasmSpec(Field, Random(CurveBigint.random), {
-  size: Curve.size,
-  there: Curve.fromBigint,
-  back: Curve.toBigint,
-});
+const pointStrict = wasmSpec(
+  Field,
+  Random(() => CurveBigint.random(true)),
+  {
+    size: Curve.size,
+    there: Curve.fromBigint,
+    back: Curve.toBigint,
+  }
+);
 const point: WasmSpec<BigintPoint> = {
   ...pointStrict,
   assertEqual(wasm, bigint, message) {
@@ -38,10 +42,15 @@ const point: WasmSpec<BigintPoint> = {
     }
   },
 };
+const pointAffine: WasmSpec<BigintPoint> = {
+  ...point,
+  rng: Random(() => CurveBigint.random(false)),
+};
+
 const field = Random.uniformField(CurveBigint.modulus);
 const notAPoint = wasmSpec(
   Field,
-  Random.record({ X: field, Y: field, Z: field, T: field }),
+  Random.record({ X: field, Y: field, Z: field }),
   { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
 );
 
@@ -67,6 +76,15 @@ equiv(
   "add"
 );
 
+// mixed addition
+
+equiv(
+  { from: [point, pointAffine], to: pointStrict, scratch: 11 },
+  CurveBigint.add,
+  Curve.addMixed,
+  "add mixed"
+);
+
 // adding zero
 
 equiv(
@@ -74,6 +92,24 @@ equiv(
   (P) => CurveBigint.add(P, CurveBigint.zero),
   (scratch, out, P) => Curve.add(scratch, out, P, Curve.zero),
   "add zero"
+);
+
+// subtraction
+
+equiv(
+  { from: [point, point], to: pointStrict, scratch: 11 },
+  (p, q) => CurveBigint.add(p, CurveBigint.negate(q)),
+  Curve.sub,
+  "sub"
+);
+
+// mixed subtraction
+
+equiv(
+  { from: [point, pointAffine], to: pointStrict, scratch: 11 },
+  (p, q) => CurveBigint.add(p, CurveBigint.negate(q)),
+  Curve.subMixed,
+  "sub mixed"
 );
 
 // doubling
@@ -157,23 +193,3 @@ equiv(
   Curve.isInSubgroup,
   "is in subgroup"
 );
-
-// random points
-
-let points = Field.global.getPointers(1 << 11, Curve.size);
-let scratch = Field.global.getPointers(20);
-
-// tic("random points");
-// Curve.randomPoints(points);
-// toc();
-
-// tic("check points");
-// for (let point of points) {
-//   assert(Curve.isOnCurve(scratch, point), "point is on curve");
-//   assert(Curve.isInSubgroup(scratch, point), "point is in subgroup");
-//   assert(
-//     !!Field.isEqual(Curve.Z(point), Field.constants.mg1),
-//     "point is affine"
-//   );
-// }
-// toc();

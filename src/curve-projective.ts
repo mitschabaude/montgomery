@@ -422,6 +422,9 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
 
     zero,
     isZero,
+    setZero,
+    setNonZero,
+
     isEqual,
     isOnCurve,
     copy: copyPoint,
@@ -433,7 +436,15 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
     toAffine,
 
     coords,
-    setNonZero,
-    setZero,
+
+    X(point: number) {
+      return point;
+    },
+    Y(point: number) {
+      return point + sizeField;
+    },
+    Z(point: number) {
+      return point + 2 * sizeField;
+    },
   };
 }
