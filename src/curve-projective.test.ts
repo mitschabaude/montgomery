@@ -61,7 +61,7 @@ equiv(
 // addition
 
 equiv(
-  { from: [point, point], to: pointStrict, scratch: 9 },
+  { from: [point, point], to: pointStrict, scratch: 11 },
   CurveBigint.add,
   Curve.add,
   "add"
@@ -70,7 +70,7 @@ equiv(
 // adding zero
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: pointStrict, scratch: 11 },
   (P) => CurveBigint.add(P, CurveBigint.zero),
   (scratch, out, P) => Curve.add(scratch, out, P, Curve.zero),
   "add zero"
@@ -79,7 +79,7 @@ equiv(
 // doubling
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: pointStrict, scratch: 8 },
   CurveBigint.double,
   Curve.double,
   "double"
@@ -97,7 +97,7 @@ equiv(
 // adding the negation
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: pointStrict, scratch: 11 },
   (P) => CurveBigint.add(P, CurveBigint.negate(P)),
   (scratch, out, P) => {
     Curve.negate(out, P);
@@ -109,7 +109,7 @@ equiv(
 // scalar multiplication
 
 equiv(
-  { from: [scalar, point], to: point, scratch: 13 },
+  { from: [scalar, point], to: point, scratch: 15 },
   CurveBigint.scale,
   Curve.scale,
   "scale"
@@ -136,14 +136,14 @@ equiv(
 // is on curve
 
 equiv(
-  { from: [point], to: Spec.boolean, scratch: 2 },
+  { from: [point], to: Spec.boolean, scratch: 3 },
   CurveBigint.isOnCurve,
   Curve.isOnCurve,
   "is on curve"
 );
 
 equiv(
-  { from: [notAPoint], to: Spec.boolean, scratch: 2 },
+  { from: [notAPoint], to: Spec.boolean, scratch: 3 },
   CurveBigint.isOnCurve,
   Curve.isOnCurve,
   "is on curve (on invalid point)"
@@ -152,7 +152,7 @@ equiv(
 // is in subgroup
 
 equiv(
-  { from: [point], to: Spec.boolean, scratch: 17 },
+  { from: [point], to: Spec.boolean, scratch: 19 },
   () => true,
   Curve.isInSubgroup,
   "is in subgroup"

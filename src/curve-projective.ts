@@ -197,10 +197,13 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
    */
   function double(scratch: number[], P3: number, P1: number) {
     let { add, subtract, multiply, square } = Field;
+
+    // handle zero
     if (isZero(P1)) {
       setZero(P3);
       return;
     }
+    setNonZero(P3);
 
     // coordinates
     let X1 = P1;
@@ -365,6 +368,7 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
   function fromBigint(point: number, P: BigintPoint) {
     let { X, Y, Z } = P;
     if (Z === 0n) setZero(point);
+    else setNonZero(point);
     let [xPtr, yPtr, zPtr] = coords(point);
     Field.writeBigint(xPtr, X);
     Field.writeBigint(yPtr, Y);
