@@ -55,7 +55,7 @@ async function createWeierstraß(
     fieldWasm
   );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
-  const Projective = createCurveProjective(Field, h);
+  const Projective = createCurveProjective(Field, params);
   const Affine = createCurveAffine(Field, Projective, b);
   const Inputs = { params, Field, Scalar, Affine, Projective };
 

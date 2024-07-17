@@ -44,8 +44,8 @@ let testInputs: TestInput<any>[] = [
 
   // affine weierstrass curves (just one test because this is very slow)
   {
-    label: "bls12-381 (affine)",
-    Curve: createCurveAffine(bls12381Params),
+    label: "pallas (affine)",
+    Curve: createCurveAffine(pallasParams),
     randomShape: affineShape,
   } satisfies TestInput<AffinePoint>,
 ];
