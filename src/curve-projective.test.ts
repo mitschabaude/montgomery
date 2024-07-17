@@ -1,7 +1,6 @@
 import { BigintPoint } from "./bigint/projective-weierstrass.js";
-import { pallasParams as curveParams, p } from "./concrete/pasta.params.js";
+import { pallasParams as curveParams } from "./concrete/pasta.params.js";
 import { createCurveProjective } from "./curve-projective.js";
-import { tic, toc } from "./testing/tictoc.js";
 import { createMsmField } from "./field-msm.js";
 import {
   WasmSpec,
@@ -9,10 +8,15 @@ import {
   wasmSpec,
 } from "./testing/equivalent-wasm.js";
 import { Spec, spec, throwError } from "./testing/equivalent.js";
-import { Random } from "./testing/random.js";
-import { assert, bigintToBits } from "./util.js";
+import { Random, sample } from "./testing/random.js";
+import { bigintToBits } from "./util.js";
+import { msm } from "./bigint/msm.js";
+import { msmBasic } from "./msm-basic.js";
+import { createScalar } from "./scalar-simple.js";
+import { assertDeepEqual } from "./testing/nested.js";
 
-const Field = await createMsmField({ p, w: 29, beta: 1n });
+const Field = await createMsmField({ p: curveParams.modulus, w: 29, beta: 1n });
+const Scalar = await createScalar({ q: curveParams.order, w: 29 });
 
 const Curve = createCurveProjective(Field, curveParams);
 const CurveBigint = Curve.Bigint;
@@ -23,6 +27,17 @@ const scalar = spec<bigint, boolean[]>(Random.field(CurveBigint.order), {
   there: bigintToBits,
   back: () => throwError("TODO"),
 });
+
+const msmScalar: WasmSpec<bigint> = wasmSpec(
+  Scalar,
+  Random.field(curveParams.order),
+  {
+    size: Scalar.sizeField,
+    there: Scalar.writeBigint,
+    back: Scalar.toBigint,
+  }
+);
+
 const pointStrict = wasmSpec(
   Field,
   Random(() => CurveBigint.random(true)),
@@ -54,9 +69,56 @@ const notAPoint = wasmSpec(
   { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
 );
 
-const equiv = createEquivalentWasm(Field, { logSuccess: true });
+// test msm
+
+// const n = 0; // works
+const n = 4;
+let N = 1 << n;
+
+let inputs = Spec.record({
+  scalars: Spec.array(msmScalar, N),
+  points: Spec.array(pointAffine, N),
+});
+
+for (let bigintInputs of sample(inputs.rng, 100)) {
+  let bigintResult = msm(
+    CurveBigint,
+    bigintInputs.scalars,
+    bigintInputs.points
+  );
+
+  let wasmInputs = inputs.there(bigintInputs);
+  let scalarPtr = wasmInputs.scalars[0];
+  let pointPtr = wasmInputs.points[0];
+  let { result } = await msmBasic(
+    { Curve, Scalar, Field },
+    scalarPtr,
+    pointPtr,
+    N
+  );
+  let actualResult = point.back(result);
+  assertDeepEqual(actualResult, bigintResult);
+}
+
+// TODO enable async
+
+// equiv(
+//   { from: [inputs], to: point, scratch: 50 },
+//   ({ scalars, points }) => msm(CurveBigint, scalars, points),
+//   (scratch, out, { scalars, points }) => {
+//     let result = await msmBasic(
+//       { Curve, Scalar, Field },
+//       scalars[0],
+//       points[0],
+//       N
+//     );
+//   },
+//   "msm"
+// );
 
 // test equivalence of curve implementations
+
+const equiv = createEquivalentWasm(Field, { logSuccess: true });
 
 // bigint roundtrip
 
