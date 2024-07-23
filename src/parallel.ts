@@ -61,12 +61,32 @@ async function createWeierstraß(
 
   const randomPointsFast = createRandomPointsFast(Inputs);
   const randomScalars = createRandomScalars(Inputs);
+
   const { msm, msmUnsafe } = createMsm(Inputs);
-  let msmProjective = createMsmBasic({
+
+  let msmProjective_ = createMsmBasic({
     Field,
     Scalar: Scalar.Simple,
     Curve: Projective,
   });
+
+  async function msmProjective(
+    scalars: number,
+    points: number,
+    N: number,
+    options?: { c?: number }
+  ) {
+    // expect affine points, convert to projective
+    let pointsProj = Field.global.getPointer(Projective.size * N);
+    for (
+      let i = 0, pi = pointsProj, ai = points;
+      i < N;
+      i++, pi += Projective.size, ai += Affine.size
+    ) {
+      Projective.fromAffine(pi, ai);
+    }
+    return await msmProjective_(scalars, pointsProj, N, options);
+  }
 
   function getPointer(size: number) {
     return Field.global.getPointer(size);

@@ -70,13 +70,9 @@ async function testOneMsm(Curve: Weierstraß, n: number) {
   assert(Bigint.Projective.isEqual(s, sBigint), `msm 2^${n} failed`);
 
   // projective msm
-  let pointsProj = await Parallel.getPointer(Projective.size * N);
-  for (let i = 0, pi = pointsProj; i < N; i++, pi += Projective.size) {
-    Projective.fromAffine(pi, pointsPtrs[i]);
-  }
   let { result: resultProjective } = await Parallel.msmProjective(
     scalarPtrs[0],
-    pointsProj,
+    pointsPtrs[0],
     N
   );
   let sProjective = Projective.toBigint(resultProjective);
