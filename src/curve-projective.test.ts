@@ -9,11 +9,10 @@ import {
 } from "./testing/equivalent-wasm.js";
 import { Spec, spec, throwError } from "./testing/equivalent.js";
 import { Random, sample } from "./testing/random.js";
-import { bigintToBits } from "./util.js";
+import { assert, bigintToBits } from "./util.js";
 import { msm } from "./bigint/msm.js";
 import { msmBasic } from "./msm-basic.js";
 import { createScalar } from "./scalar-simple.js";
-import { assertDeepEqual } from "./testing/nested.js";
 
 const Field = await createMsmField({ p: curveParams.modulus, w: 29, beta: 1n });
 const Scalar = await createScalar({ q: curveParams.order, w: 29 });
@@ -80,14 +79,10 @@ let inputs = Spec.record({
   points: Spec.array(pointAffine, N),
 });
 
-for (let bigintInputs of sample(inputs.rng, 100)) {
-  let bigintResult = msm(
-    CurveBigint,
-    bigintInputs.scalars,
-    bigintInputs.points
-  );
+for (let { scalars, points } of sample(inputs.rng, 100)) {
+  let bigintResult = msm(CurveBigint, scalars, points);
 
-  let wasmInputs = inputs.there(bigintInputs);
+  let wasmInputs = inputs.there({ scalars, points });
   let scalarPtr = wasmInputs.scalars[0];
   let pointPtr = wasmInputs.points[0];
   let { result } = await msmBasic(
@@ -97,7 +92,7 @@ for (let bigintInputs of sample(inputs.rng, 100)) {
     N
   );
   let actualResult = point.back(result);
-  assertDeepEqual(actualResult, bigintResult);
+  assert(CurveBigint.isEqual(actualResult, bigintResult));
 }
 
 // TODO enable async
