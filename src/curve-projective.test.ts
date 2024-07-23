@@ -68,49 +68,6 @@ const notAPoint = wasmSpec(
   { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
 );
 
-// test msm
-
-// const n = 0; // works
-const n = 4;
-let N = 1 << n;
-
-let inputs = Spec.record({
-  scalars: Spec.array(msmScalar, N),
-  points: Spec.array(pointAffine, N),
-});
-
-for (let { scalars, points } of sample(inputs.rng, 100)) {
-  let bigintResult = msm(CurveBigint, scalars, points);
-
-  let wasmInputs = inputs.there({ scalars, points });
-  let scalarPtr = wasmInputs.scalars[0];
-  let pointPtr = wasmInputs.points[0];
-  let { result } = await msmBasic(
-    { Curve, Scalar, Field },
-    scalarPtr,
-    pointPtr,
-    N
-  );
-  let actualResult = point.back(result);
-  assert(CurveBigint.isEqual(actualResult, bigintResult));
-}
-
-// TODO enable async
-
-// equiv(
-//   { from: [inputs], to: point, scratch: 50 },
-//   ({ scalars, points }) => msm(CurveBigint, scalars, points),
-//   (scratch, out, { scalars, points }) => {
-//     let result = await msmBasic(
-//       { Curve, Scalar, Field },
-//       scalars[0],
-//       points[0],
-//       N
-//     );
-//   },
-//   "msm"
-// );
-
 // test equivalence of curve implementations
 
 const equiv = createEquivalentWasm(Field, { logSuccess: true });
@@ -250,3 +207,45 @@ equiv(
   Curve.isInSubgroup,
   "is in subgroup"
 );
+
+// test msm
+
+const n = 5;
+let N = 1 << n;
+
+let inputs = Spec.record({
+  scalars: Spec.array(msmScalar, N),
+  points: Spec.array(pointAffine, N),
+});
+
+for (let { scalars, points } of sample(inputs.rng, 20)) {
+  let bigintResult = msm(CurveBigint, scalars, points);
+
+  let wasmInputs = inputs.there({ scalars, points });
+  let scalarPtr = wasmInputs.scalars[0];
+  let pointPtr = wasmInputs.points[0];
+  let { result } = await msmBasic(
+    { Curve, Scalar, Field },
+    scalarPtr,
+    pointPtr,
+    N
+  );
+  let actualResult = point.back(result);
+  assert(CurveBigint.isEqual(actualResult, bigintResult));
+}
+
+// TODO enable async
+
+// equiv(
+//   { from: [inputs], to: point, scratch: 50 },
+//   ({ scalars, points }) => msm(CurveBigint, scalars, points),
+//   (scratch, out, { scalars, points }) => {
+//     let result = await msmBasic(
+//       { Curve, Scalar, Field },
+//       scalars[0],
+//       points[0],
+//       N
+//     );
+//   },
+//   "msm"
+// );
