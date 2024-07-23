@@ -100,7 +100,11 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
     // Y2Z1 = Y2*Z1
     multiply(Y2Z1, y2, Z1);
     // X1Z2 = X1*Z2
-    multiply(X1Z2, X1, Z2);
+    if (isMixed) {
+      copyPoint(X1Z2, X1);
+    } else {
+      multiply(X1Z2, X1, Z2);
+    }
     // X2Z1 = X2*Z1
     multiply(X2Z1, X2, Z1);
 
