@@ -8,7 +8,7 @@ import type { MsmField } from "./field-msm.js";
 import type { MemorySection } from "./wasm/memory-helpers.js";
 import { createLog, splitBuckets, windowSize } from "./msm-common.js";
 import { log2 } from "./util.js";
-import { THREADS, barrier, isMain, thread } from "./threads/threads.js";
+import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
 
 export { createMsmBasic, msmBasic };
@@ -75,20 +75,24 @@ async function msmBasic(
     for (let k = 0; k < K; k++) {
       pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
     }
-    for (let i = 0, si = scalarPtr; i < N; i++, si += sizeScalar) {
-      for (let k = 0, carry = 0; k < K; k++) {
-        let l = Scalar.extractBitSlice(si, k * c, c) + carry;
-        if (l > L) {
-          l = 2 * L - l;
-          carry = 1;
-        } else {
-          carry = 0;
-        }
-        pointsToBucket[k][i] = l | (carry << 31);
-      }
-    }
     return pointsToBucket;
   });
+
+  let [i, iend] = range(N);
+
+  for (let si = scalarPtr + i * sizeScalar; i < iend; i++, si += sizeScalar) {
+    for (let k = 0, carry = 0; k < K; k++) {
+      let l = Scalar.extractBitSlice(si, k * c, c) + carry;
+      if (l > L) {
+        l = 2 * L - l;
+        carry = 1;
+      } else {
+        carry = 0;
+      }
+      pointsToBucket[k][i] = l | (carry << 31);
+    }
+  }
+  await barrier();
   toc();
 
   tic("compute work split");
