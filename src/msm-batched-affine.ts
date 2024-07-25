@@ -559,7 +559,7 @@ function createMsm({
     lstart: number
   ) {
     let L = buckets.length;
-    let { addAssign, doubleInPlace } = Projective;
+    let { addMixed, addAssign, doubleInPlace } = Projective;
 
     using _ = Field.local.atCurrentOffset;
     let scratch = Field.local.getPointers(20);
@@ -567,7 +567,7 @@ function createMsm({
 
     // compute triangle and row
     for (let l = L - 1; l >= 0; l--) {
-      addAssign(scratch, row, buckets[l]);
+      addMixed(scratch, row, row, buckets[l]);
       addAssign(scratch, triangle, row);
     }
 
