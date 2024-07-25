@@ -201,14 +201,6 @@ function createMsm({
     let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
 
-    // logMain(bucketCounts);
-    // logMain(
-    //   bucketCounts.map((counts, i) => [
-    //     i,
-    //     [...counts].reduce((a, b) => a + b, 0),
-    //   ])
-    // );
-
     tic("integrate bucket counts");
     // this takes < 1ms, so we just do it on the main thread
     if (isMain()) {
