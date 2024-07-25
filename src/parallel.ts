@@ -19,7 +19,7 @@ import { createScalar } from "./scalar-simple.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
 import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
 import { createMsmBasic } from "./msm-basic.js";
-import { range } from "./threads/threads.js";
+import { barrier, range } from "./threads/threads.js";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
@@ -78,13 +78,15 @@ async function createWeierstraß(
   ) {
     // expect affine points, convert to projective
     let pointsProj = Field.global.getPointer(Projective.size * N);
+    let [i, iend] = range(N);
     for (
-      let i = 0, pi = pointsProj, ai = points;
-      i < N;
+      let pi = pointsProj + i * Projective.size, ai = points + i * Affine.size;
+      i < iend;
       i++, pi += Projective.size, ai += Affine.size
     ) {
       Projective.fromAffine(pi, ai);
     }
+    await barrier();
     return await msmProjective_(scalars, pointsProj, N, options);
   }
 
