@@ -18,7 +18,7 @@ import { assert } from "./util.js";
 import { createScalar } from "./scalar-simple.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
 import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
-import { createMsmBasic } from "./msm-basic.js";
+import { createMsmBasic, msmBasic } from "./msm-basic.js";
 import { barrier, range } from "./threads/threads.js";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
@@ -64,11 +64,7 @@ async function createWeierstraß(
 
   const { msm, msmUnsafe } = createMsm(Inputs);
 
-  let msmProjective_ = createMsmBasic({
-    Field,
-    Scalar: Scalar.Simple,
-    Curve: Projective,
-  });
+  const InputsProjective = { Field, Scalar: Scalar.Simple, Curve: Projective };
 
   async function msmProjective(
     scalars: number,
@@ -87,7 +83,7 @@ async function createWeierstraß(
       Projective.fromAffine(pi, ai);
     }
     await barrier();
-    return await msmProjective_(scalars, pointsProj, N, options);
+    return await msmBasic(InputsProjective, scalars, pointsProj, N, options);
   }
 
   function getPointer(size: number) {

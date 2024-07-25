@@ -2,6 +2,7 @@
  * MSM implementation that only relies on the most basic curve interface: add, double, zero.
  *
  * We use this for Twisted Edwards curves which have neither endomorphisms nor a cheap batched addition algorithm.
+ * Also works well for Weierstrass curves in projective coordinates.
  */
 import type { MsmField } from "./field-msm.js";
 import type { MemorySection } from "./wasm/memory-helpers.js";
