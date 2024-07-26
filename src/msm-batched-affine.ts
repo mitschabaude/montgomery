@@ -11,7 +11,7 @@ import { GlvScalar } from "./scalar-glv.js";
 import { broadcastFromMain } from "./threads/global-pool.js";
 import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
 import { log2 } from "./util.js";
-import { createLog, windowSize } from "./msm-common.js";
+import { Chunk, createLog, splitBuckets, windowSize } from "./msm-common.js";
 
 export { createMsm, MsmInputCurve };
 
@@ -123,19 +123,11 @@ function createMsm({
     }
 
     // compute chunks of buckets that each thread will work on
-    let { chunksPerThread, nChunksPerPartition } = computeBucketsSplit(params);
-
-    // allocate space for different threads' contribution to each partitions
-    let columnss: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      let nChunks = nChunksPerPartition[k];
-      columnss[k] = new Uint32Array(nChunks);
-      let chunkPtrs = Field.global.getPointers(nChunks, sizeProjective);
-      for (let j = 0; j < nChunks; j++) {
-        columnss[k][j] = chunkPtrs[j];
-        if (isMain()) Projective.setZero(columnss[k][j]);
-      }
-    }
+    let { chunksPerThread, chunkSumsPerPartition: columnss } = splitBuckets(
+      { Field, Curve: Projective },
+      params,
+      THREADS
+    );
     toc();
 
     /**
@@ -209,14 +201,6 @@ function createMsm({
     let maxBucketSize = Math.max(...maxBucketSizes);
     toc();
 
-    // logMain(bucketCounts);
-    // logMain(
-    //   bucketCounts.map((counts, i) => [
-    //     i,
-    //     [...counts].reduce((a, b) => a + b, 0),
-    //   ])
-    // );
-
     tic("integrate bucket counts");
     // this takes < 1ms, so we just do it on the main thread
     if (isMain()) {
@@ -246,21 +230,20 @@ function createMsm({
       let sizeAffine2M = 2 * m * sizeAffine;
 
       // walk over this thread's buckets to identify point-pairs to add
-      // TODO don't duplicate the computation of this thread's buckets here, use `chunksPerThread`
-      for (
-        let [i, iend] = range(K * L), k = Math.floor(i / L), l = (i % L) + 1;
-        i < iend;
-        i++, l === L ? (k++, (l = 1)) : l++
-      ) {
-        let bucketsK = buckets[k];
-        let bucket = bucketsK[l - 1];
-        let nextBucket = bucketsK[l];
-        for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
-          G[p] = bucket;
-          H[p] = bucket + sizeAffineM;
-          p++;
+      for (let { k, lstart, length } of chunksPerThread[thread]) {
+        for (let l = lstart; l < lstart + length; l++) {
+          let bucketsK = buckets[k];
+          let bucket = bucketsK[l - 1];
+          let nextBucket = bucketsK[l];
+
+          for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
+            G[p] = bucket;
+            H[p] = bucket + sizeAffineM;
+            p++;
+          }
         }
       }
+
       let nPairs = p;
       if (nPairs === 0) continue;
 
@@ -559,7 +542,7 @@ function createMsm({
     lstart: number
   ) {
     let L = buckets.length;
-    let { addAssign, doubleInPlace } = Projective;
+    let { addMixed, addAssign, doubleInPlace } = Projective;
 
     using _ = Field.local.atCurrentOffset;
     let scratch = Field.local.getPointers(20);
@@ -567,7 +550,7 @@ function createMsm({
 
     // compute triangle and row
     for (let l = L - 1; l >= 0; l--) {
-      addAssign(scratch, row, buckets[l]);
+      addMixed(scratch, row, row, buckets[l]);
       addAssign(scratch, triangle, row);
     }
 
@@ -597,71 +580,4 @@ function createMsm({
       });
     },
   };
-}
-
-/**
- * Represents a chunk of buckets, to be processed by a single thread.
- */
-type Chunk = {
-  /**
-   * partition index
-   */
-  k: number;
-  /**
-   * index of this chunk within the partition
-   */
-  j: number;
-  /**
-   * index of the first bucket in this chunk, among all buckets of this partition
-   */
-  lstart: number;
-  /**
-   * number of buckets in this chunk
-   */
-  length: number;
-};
-
-// TODO this should be changed to the smarter algorithm in msm-common,
-// but the accumulation loop has to be changed as well
-function computeBucketsSplit(params: {
-  b: number;
-  c: number;
-  K: number;
-  L: number;
-}) {
-  let { K, L } = params;
-
-  let totalWork = K * L;
-  let nt = Math.ceil(totalWork / THREADS);
-
-  let chunksPerThread: Chunk[][] = [];
-  let nChunksPerPartition: number[] = Array(K);
-
-  let thread = 0;
-  let remainingWork = nt;
-
-  for (let thread = 0; thread < THREADS; thread++) {
-    chunksPerThread[thread] = [];
-  }
-
-  for (let k = 0; k < K; k++) {
-    let j = 0;
-    let remainingL = L;
-    let lstart = 1;
-    while (remainingL > 0) {
-      let length = Math.min(remainingL, remainingWork);
-      chunksPerThread[thread].push({ k, j, lstart, length });
-      j++;
-      remainingL -= length;
-      lstart += length;
-      remainingWork -= length;
-      if (remainingWork === 0) {
-        thread++;
-        remainingWork = nt;
-      }
-    }
-    nChunksPerPartition[k] = j;
-  }
-
-  return { chunksPerThread, nChunksPerPartition };
 }
