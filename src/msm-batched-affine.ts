@@ -223,60 +223,44 @@ function createMsm({
     let G = new Uint32Array(nPairsMax); // holds first summands
     let H = new Uint32Array(nPairsMax); // holds second summands
 
-    for (let m = 1; m < maxBucketSize && m < 2; m *= 2) {
+    if (1 < maxBucketSize) {
       let p = 0;
-      let sizeAffineM = m * sizeAffine;
-      let sizeAffine2M = 2 * m * sizeAffine;
+      let sizeAffine2 = 2 * sizeAffine;
 
       // walk over this thread's buckets to identify point-pairs to add
       for (let { k, lstart, length } of chunksPerThread[thread]) {
         let bucketsK = buckets[k];
 
-        // walk over all points and add the ones in our buckets
-        for (let i = 0, pi = pointPtr; i < N; i++, pi += sizeAffine) {
-          let l = scalarSlices[k][i];
-          let carry = l >>> 31;
-          l &= 0x7f_ff_ff_ff;
-          if (l < lstart || l >= lstart + length) continue;
-          let bucket = bucketsK[l];
-          if (carry === 1) {
-            // subMixed(scratch, bucket, bucket, pi);
-          } else {
-            // addMixed(scratch, bucket, bucket, pi);
-          }
-        }
-
         for (let l = lstart; l < lstart + length; l++) {
-          let bucketsK = buckets[k];
           let bucket = bucketsK[l - 1];
           let nextBucket = bucketsK[l];
 
-          for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
+          for (; bucket + sizeAffine < nextBucket; bucket += sizeAffine2) {
             G[p] = bucket;
-            H[p] = bucket + sizeAffineM;
+            H[p] = bucket + sizeAffine;
             p++;
           }
         }
       }
 
       let nPairs = p;
-      if (nPairs === 0) continue;
-
-      // now (G,H) represents a big array of independent additions, which we batch-add
-      tic();
-      if (useSafeAdditions) {
-        batchAddNew(Field, Affine, scratch, G, G, H, nPairs);
-      } else {
-        batchAddUnsafeNew(Field, G, G, H, nPairs);
+      if (nPairs !== 0) {
+        // now (G,H) represents a big array of independent additions, which we batch-add
+        tic();
+        if (useSafeAdditions) {
+          batchAddNew(Field, Affine, scratch, G, G, H, nPairs);
+        } else {
+          batchAddUnsafeNew(Field, G, G, H, nPairs);
+        }
+        let t = toc();
+        if (t > 0)
+          log(
+            `batch add: ${t.toFixed(0)}ms, ${nPairs} pairs, ${(
+              (t / nPairs) *
+              1e6
+            ).toFixed(1)}ns / pair`
+          );
       }
-      let t = toc();
-      if (t > 0)
-        log(
-          `batch add: ${t.toFixed(0)}ms, ${nPairs} pairs, ${(
-            (t / nPairs) *
-            1e6
-          ).toFixed(1)}ns / pair`
-        );
     }
 
     // batch-add buckets into their first point, in `maxBucketSize` iterations
