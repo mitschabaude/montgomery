@@ -176,7 +176,7 @@ function createCurveProjective(params: CurveParams) {
     return isZero(scale(q, P));
   }
 
-  function random(): BigintPoint {
+  function random(randomZ?: boolean): BigintPoint {
     // random x
     let X = Fp.random();
     let Y: bigint | undefined;
@@ -189,6 +189,12 @@ function createCurveProjective(params: CurveParams) {
     }
 
     let P = { X, Y, Z: 1n };
+
+    if (randomZ) {
+      let Z = Fp.random();
+      P = { X: Fp.multiply(P.X, Z), Y: Fp.multiply(P.Y, Z), Z };
+    }
+
     return toSubgroup(P);
   }
 

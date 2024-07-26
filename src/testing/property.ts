@@ -104,11 +104,8 @@ function testN<T extends readonly (() => any)[]>(
   run: (...args: ArrayRunArgs<T>) => void,
   { negative = false, logFailures = true } = {}
 ) {
-  let errorMessages: string[] = [];
   let fail = false;
-  let count = 0;
   for (let i = 0; i < N; i++) {
-    count = 0;
     fail = false;
     let error: Error | undefined;
     let values = nexts.map((next) => next());

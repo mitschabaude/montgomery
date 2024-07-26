@@ -44,6 +44,7 @@ async function createGlvScalarWasm({ q, lambda, w }: Params) {
       fromPackedBytesSmall: fromPackedBytes(w, n0, Math.ceil(maxBits / 8)),
       fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       extractBitSlice: extractBitSlice(w, n0),
+      extractBitSliceNoGlv: extractBitSlice(w, n),
       memory: wasmMemory,
       dataOffset: global(Const.i32(0)),
     },
@@ -117,5 +118,12 @@ async function createGlvScalarFromWasm(
     sizeInBits,
     maxBits,
     testDecomposeScalar,
+
+    // "simple" scalar intf for basic MSM
+    Simple: {
+      sizeInBits,
+      sizeField: glvHelpers.sizeField,
+      extractBitSlice: glvWasm.extractBitSliceNoGlv,
+    },
   };
 }

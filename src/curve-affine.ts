@@ -125,7 +125,7 @@ function createCurveAffine(
     scalar: boolean[]
   ) {
     CurveProjective.fromAffine(pointProj, point);
-    CurveProjective.scale(scratch, resultProj, pointProj, scalar);
+    CurveProjective.scale(scratch, resultProj, scalar, pointProj);
     CurveProjective.toAffine(scratch, result, resultProj);
   }
 

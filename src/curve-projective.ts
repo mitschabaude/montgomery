@@ -1,26 +1,47 @@
 import { MsmField } from "./field-msm.js";
 import { bigintToBits } from "./util.js";
+import { CurveParams } from "./bigint/affine-weierstrass.js";
+import {
+  BigintPoint,
+  createCurveProjective as createBigint,
+} from "./bigint/projective-weierstrass.js";
 
 export { createCurveProjective, CurveProjective };
 
 type CurveProjective = ReturnType<typeof createCurveProjective>;
 
-function createCurveProjective(Field: MsmField, cofactor = 1n) {
-  // convert the cofactor to bits
-  let cofactorBits = bigintToBits(cofactor);
-
+function createCurveProjective(Field: MsmField, params: CurveParams) {
+  const CurveBigint = createBigint(params);
+  let { cofactor, b } = params;
   const { sizeField, constants, memoryBytes } = Field;
 
   let size = 3 * sizeField + 4;
 
-  function negateInPlace(P: number) {
-    let y = P + sizeField;
-    Field.subtract(y, constants.zero, y);
+  // write b to memory
+  // write d to memory
+  let [bPtr] = Field.local.getStablePointers(1);
+  Field.fromBigint(bPtr, b);
+
+  // write the zero point to memory
+  let [zero] = Field.local.getStablePointers(1, size);
+  fromBigint(zero, CurveBigint.zero);
+
+  // convert the cofactor to bits
+  let cofactorBits = bigintToBits(cofactor);
+  let orderBits = bigintToBits(CurveBigint.order);
+
+  function copyPoint(target: number, source: number) {
+    memoryBytes.copyWithin(target, source, source + size);
   }
 
-  function negate(Q: number, P: number) {
-    copy(Q, P);
-    negateInPlace(Q);
+  function isZero(pointer: number) {
+    return !memoryBytes[pointer + 3 * sizeField];
+  }
+  function setNonZero(pointer: number) {
+    memoryBytes[pointer + 3 * sizeField] = 1;
+  }
+  function setZero(pointer: number) {
+    memoryBytes[pointer + 3 * sizeField] = 0;
   }
 
   /**
@@ -39,12 +60,12 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
   ) {
     let { subtract, multiply, square, isEqual, reduce } = Field;
     if (isZero(P1)) {
-      copy(P3, P2);
+      copyPoint(P3, P2);
       if (isSubtract) negateInPlace(P3);
       return;
     }
     if (isZero(P2)) {
-      if (P1 !== P3) copy(P3, P1);
+      if (P1 !== P3) copyPoint(P3, P1);
       return;
     }
     setNonZero(P3);
@@ -71,11 +92,19 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
 
     // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-1998-cmo-2
     // Y1Z2 = Y1*Z2
-    multiply(Y1Z2, Y1, Z2);
+    if (isMixed) {
+      copyPoint(Y1Z2, Y1);
+    } else {
+      multiply(Y1Z2, Y1, Z2);
+    }
     // Y2Z1 = Y2*Z1
     multiply(Y2Z1, y2, Z1);
     // X1Z2 = X1*Z2
-    multiply(X1Z2, X1, Z2);
+    if (isMixed) {
+      copyPoint(X1Z2, X1);
+    } else {
+      multiply(X1Z2, X1, Z2);
+    }
     // X2Z1 = X2*Z1
     multiply(X2Z1, X2, Z1);
 
@@ -97,7 +126,7 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     }
     // Z1Z2 = Z1*Z2
     if (isMixed) {
-      if (Z1 !== Z3) copy(Z1Z2, Z1);
+      copyPoint(Z1Z2, Z1);
     } else {
       multiply(Z1Z2, Z1, Z2);
     }
@@ -172,10 +201,13 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
    */
   function double(scratch: number[], P3: number, P1: number) {
     let { add, subtract, multiply, square } = Field;
+
+    // handle zero
     if (isZero(P1)) {
       setZero(P3);
       return;
     }
+    setNonZero(P3);
 
     // coordinates
     let X1 = P1;
@@ -220,37 +252,73 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     multiply(Z3, sss, constants.mg8); // TODO efficient doubling
   }
 
+  function negateInPlace(P: number) {
+    let y = P + sizeField;
+    Field.subtract(y, constants.zero, y);
+  }
+
+  function negate(Q: number, P: number) {
+    copyPoint(Q, P);
+    negateInPlace(Q);
+  }
+
+  /**
+   * Scalar multiplication
+   */
   function scale(
-    scratch: number[],
+    [P, _py, _pz, _pInf, ...scratch]: number[],
     result: number,
-    point: number,
-    scalar: boolean[]
+    scalar: boolean[],
+    point: number
   ) {
-    setZero(result);
     let n = scalar.length;
-    for (let i = n - 1; i >= 0; i--) {
-      if (scalar[i]) addAssign(scratch, result, point);
-      if (i === 0) break;
+    copyPoint(P, point);
+
+    if (scalar[n - 1]) copyPoint(result, P);
+    else copyPoint(result, zero);
+
+    for (let i = n - 2; i >= 0; i--) {
       doubleInPlace(scratch, result);
+      if (scalar[i]) addAssign(scratch, result, P);
     }
   }
 
-  function toSubgroupInPlace(
-    [tmp, _tmpy, _tmpz, _tmpInf, ...scratch]: number[],
+  function toSubgroupInPlace(scratch: number[], point: number) {
+    if (cofactor === 1n) return;
+    scale(scratch, point, cofactorBits, point);
+  }
+
+  function isInSubgroup(
+    [zero, _y, _z, _t, ...scratch]: number[],
     point: number
   ) {
-    if (cofactor === 1n) return;
-    copy(tmp, point);
-    scale(scratch, point, tmp, cofactorBits);
+    if (cofactor === 1n) return true;
+    scale(scratch, zero, orderBits, point);
+    return isZero(zero);
   }
 
-  function isZero(pointer: number) {
-    return !memoryBytes[pointer + 3 * sizeField];
+  /**
+   * Check if a point is on the curve
+   */
+  function isOnCurve([lhs, rhs, x3]: number[], P: number) {
+    let [X, Y, Z] = coords(P);
+
+    // Y^2 Z = X^3 + b Z^3
+    Field.square(lhs, Y);
+    Field.multiply(lhs, lhs, Z);
+
+    Field.square(x3, X);
+    Field.multiply(x3, x3, X);
+    Field.square(rhs, Z);
+    Field.multiply(rhs, rhs, Z);
+    Field.multiply(rhs, rhs, bPtr);
+    Field.add(rhs, rhs, x3);
+
+    Field.reduce(lhs);
+    Field.reduce(rhs);
+    return !!Field.isEqual(lhs, rhs);
   }
 
-  function copy(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + size);
-  }
   function fromAffine(P: number, A: number) {
     // x,y = x,y
     memoryBytes.copyWithin(P, A, A + 2 * sizeField);
@@ -284,15 +352,8 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     return [pointer, pointer + sizeField, pointer + 2 * sizeField];
   }
 
-  function setNonZero(pointer: number) {
-    memoryBytes[pointer + 3 * sizeField] = 1;
-  }
-  function setZero(pointer: number) {
-    memoryBytes[pointer + 3 * sizeField] = 0;
-  }
-
-  function toBigint(point: number): BigintPointProjective {
-    if (isZero(point)) return BigintPointProjective.zero;
+  function toBigint(point: number): BigintPoint {
+    if (isZero(point)) return CurveBigint.zero;
     let [x, y, z] = coords(point);
     Field.fromMontgomery(x);
     Field.fromMontgomery(y);
@@ -306,6 +367,19 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     Field.toMontgomery(y);
     Field.toMontgomery(z);
     return pointBigint;
+  }
+
+  function fromBigint(point: number, P: BigintPoint) {
+    let { X, Y, Z } = P;
+    if (Z === 0n) setZero(point);
+    else setNonZero(point);
+    let [xPtr, yPtr, zPtr] = coords(point);
+    Field.writeBigint(xPtr, X);
+    Field.writeBigint(yPtr, Y);
+    Field.writeBigint(zPtr, Z);
+    Field.toMontgomery(xPtr);
+    Field.toMontgomery(yPtr);
+    Field.toMontgomery(zPtr);
   }
 
   function isEqual(scratch: number[], p: number, q: number) {
@@ -330,8 +404,12 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
   }
 
   return {
+    Bigint: CurveBigint,
+
     cofactor,
     cofactorBits,
+    size,
+
     add,
     sub,
     addMixed,
@@ -339,22 +417,38 @@ function createCurveProjective(Field: MsmField, cofactor = 1n) {
     addAssign,
     double,
     doubleInPlace,
+    negate,
+    negateInPlace,
+
     scale,
     toSubgroupInPlace,
-    toBigint,
-    size,
+    isInSubgroup,
+
+    zero,
     isZero,
+    setZero,
+    setNonZero,
+
     isEqual,
-    copy,
+    isOnCurve,
+    copy: copyPoint,
+
+    toBigint,
+    fromBigint,
+
     fromAffine,
     toAffine,
+
     coords,
-    setNonZero,
-    setZero,
+
+    X(point: number) {
+      return point;
+    },
+    Y(point: number) {
+      return point + sizeField;
+    },
+    Z(point: number) {
+      return point + 2 * sizeField;
+    },
   };
 }
-
-type BigintPointProjective = { X: bigint; Y: bigint; Z: bigint };
-const BigintPointProjective = {
-  zero: { X: 0n, Y: 1n, Z: 0n },
-};

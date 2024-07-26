@@ -18,8 +18,8 @@ import { assert } from "./util.js";
 import { createScalar } from "./scalar-simple.js";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
 import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
-import { createMsmBasic } from "./msm-basic.js";
-import { range } from "./threads/threads.js";
+import { createMsmBasic, msmBasic } from "./msm-basic.js";
+import { barrier, range } from "./threads/threads.js";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
@@ -55,14 +55,36 @@ async function createWeierstraß(
     fieldWasm
   );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
-  const Projective = createCurveProjective(Field, h);
+  const Projective = createCurveProjective(Field, params);
   const Affine = createCurveAffine(Field, Projective, b);
   const Inputs = { params, Field, Scalar, Affine, Projective };
 
   const randomPointsFast = createRandomPointsFast(Inputs);
   const randomScalars = createRandomScalars(Inputs);
+
   const { msm, msmUnsafe } = createMsm(Inputs);
-  // createMsmBasic({ Field, Scalar, Curve: Projective });
+
+  const InputsProjective = { Field, Scalar: Scalar.Simple, Curve: Projective };
+
+  async function msmProjective(
+    scalars: number,
+    points: number,
+    N: number,
+    options?: { c?: number }
+  ) {
+    // expect affine points, convert to projective
+    let pointsProj = Field.global.getPointer(Projective.size * N);
+    let [i, iend] = range(N);
+    for (
+      let pi = pointsProj + i * Projective.size, ai = points + i * Affine.size;
+      i < iend;
+      i++, pi += Projective.size, ai += Affine.size
+    ) {
+      Projective.fromAffine(pi, ai);
+    }
+    await barrier();
+    return await msmBasic(InputsProjective, scalars, pointsProj, N, options);
+  }
 
   function getPointer(size: number) {
     return Field.global.getPointer(size);
@@ -115,6 +137,7 @@ async function createWeierstraß(
     randomScalars,
     msmUnsafe,
     msm,
+    msmProjective,
     getPointer,
     getScalarPointer,
     scalarsFromBytes,
