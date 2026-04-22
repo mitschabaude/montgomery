@@ -9,15 +9,12 @@ import {
   local,
   return_,
   Local,
+  StackVar,
   type Func,
   type Input,
-  StackVar,
-  drop,
-  call,
 } from "wasmati";
 import { FieldBase } from "./field-base.js";
 import { mask51 } from "./common.js";
-import { log64 } from "./debug.js";
 
 export { fieldWithMethods, fieldMethods };
 

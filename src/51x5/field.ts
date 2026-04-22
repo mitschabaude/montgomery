@@ -20,6 +20,7 @@ function validateAssumptions(modulus: bigint) {
 
 type binop = (z: number, x: number, y: number) => void;
 type unop = (z: number, x: number) => void;
+type inPlace = (x: number) => void;
 type relop = (x: number, y: number) => number;
 type testop = (x: number) => number;
 
@@ -35,7 +36,8 @@ type WasmIntf = {
   sub: binop;
   subRaw: binop;
   subCarry: binop;
-  fullyReduce: unop;
+  reduce: inPlace;
+  fullyReduce: inPlace;
   isEqual: relop;
   isZero: testop;
   isGreater: relop;
@@ -254,6 +256,18 @@ class Field<Wasm> {
     for (let offset = sizeField - 8; offset >= 0; offset -= 8) {
       let x0I = view.getBigInt64(offset, true);
       x0 = (x0 << 51n) | x0I;
+    }
+    return x0;
+  }
+
+  // like readSingle but sums signed 51-bit limbs instead of OR-ing them,
+  // so it handles pre-carry representations where limbs may be negative or >= 2^51
+  readSingleRaw(x: number) {
+    let view = new DataView(this.memory.buffer, x, sizeField);
+    let x0 = 0n;
+    for (let offset = sizeField - 8; offset >= 0; offset -= 8) {
+      let x0I = view.getBigInt64(offset, true);
+      x0 = (x0 << 51n) + x0I;
     }
     return x0;
   }
