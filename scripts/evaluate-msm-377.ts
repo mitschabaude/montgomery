@@ -1,9 +1,13 @@
-import { curveParams } from "../src/concrete/bls12-377.params.ts";
-import { Weierstraß, startThreads, stopThreads } from "../src/parallel.ts";
+import {
+  Weierstraß,
+  startThreads,
+  stopThreads,
+  CurveParams,
+} from "../src/index.ts";
 import { tic, toc } from "../src/testing/tictoc.ts";
 import { median, standardDev } from "./evaluate-util.ts";
 
-const { Parallel } = await Weierstraß.create(curveParams);
+const { Parallel } = await Weierstraß.create(CurveParams.bls12377);
 
 let n = Number(process.argv[2] ?? 16);
 

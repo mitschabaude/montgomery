@@ -1,11 +1,15 @@
-import { Weierstraß, startThreads, stopThreads } from "../src/parallel.ts";
+import {
+  Weierstraß,
+  startThreads,
+  stopThreads,
+  type CurveParams,
+} from "../src/index.ts";
 import { tic, toc } from "../src/testing/tictoc.ts";
 import { assertDeepEqual } from "../src/testing/nested.ts";
 import { assert } from "../src/util.ts";
 import { median, standardDev } from "./evaluate-util.ts";
-import { createCurveProjective } from "../src/bigint/projective-weierstrass.ts";
+import { createCurveProjective as createBigintCurve } from "../src/bigint/projective-weierstrass.ts";
 import { msm as bigintMsm } from "../src/bigint/msm.ts";
-import type { CurveParams } from "../src/bigint/affine-weierstrass.ts";
 
 export { benchmarkMsm, runMsm };
 
@@ -94,7 +98,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   toc();
 
   if (n < 14) {
-    const CurveBigint = createCurveProjective(params);
+    const CurveBigint = createBigintCurve(params);
     let points = pointsPtrs.map((g) =>
       CurveBigint.fromAffine(Curve.Affine.toBigint(g))
     );

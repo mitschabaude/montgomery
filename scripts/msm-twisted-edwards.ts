@@ -1,9 +1,13 @@
+import {
+  TwistedEdwards,
+  startThreads,
+  stopThreads,
+  type TwistedEdwardsParams as CurveParams,
+} from "../src/index.ts";
 import { tic, toc } from "../src/testing/tictoc.ts";
 import { assert } from "../src/util.ts";
 import { median, standardDev } from "./evaluate-util.ts";
 import { msm as msmBigint } from "../src/bigint/msm.ts";
-import type { CurveParams } from "../src/bigint/twisted-edwards.ts";
-import { TwistedEdwards, startThreads, stopThreads } from "../src/parallel.ts";
 
 export { benchmarkMsm, runMsm };
 

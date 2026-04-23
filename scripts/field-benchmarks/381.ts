@@ -1,4 +1,4 @@
 import { benchmark } from "./field-benchmark.ts";
-import { BLS12381 } from "../../src/concrete/bls12-381.ts";
+import { BLS12381 } from "../../src/index.ts";
 
-await benchmark(BLS12381.Field);
+await benchmark((await BLS12381()).Field);

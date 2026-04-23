@@ -1,4 +1,4 @@
 import { benchmark } from "./field-benchmark.ts";
-import { Pallas } from "../../src/concrete/pasta.ts";
+import { Pallas } from "../../src/index.ts";
 
-await benchmark(Pallas.Field, { onlyQuick: false });
+await benchmark((await Pallas()).Field, { onlyQuick: false });

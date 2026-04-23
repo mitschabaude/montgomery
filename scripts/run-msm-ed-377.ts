@@ -1,4 +1,4 @@
-import { curveParams } from "../src/concrete/ed-on-bls12-377.params.ts";
+import { TwistedEdwardsParams } from "../src/index.ts";
 import { benchmarkMsm, runMsm } from "./msm-twisted-edwards.ts";
 
 console.log(process.argv.slice(2));
@@ -6,5 +6,5 @@ let n = Number(process.argv[2] ?? 16);
 let nThreads = Number(process.argv[3] ?? 16);
 let doEvaluate = process.argv[4] === "--evaluate";
 
-if (doEvaluate) await benchmarkMsm(curveParams, n, nThreads);
-else await runMsm(curveParams, n, nThreads);
+if (doEvaluate) await benchmarkMsm(TwistedEdwardsParams.ed377, n, nThreads);
+else await runMsm(TwistedEdwardsParams.ed377, n, nThreads);
