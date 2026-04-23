@@ -151,6 +151,7 @@ async function createWeierstraß(
     for (; i < iend; i++, pi += size, bi += bytesPerPoint) {
       let x = pi;
       let y = x + sizeField;
+      // set nonzero flag. (input format doesn't allow zero points, so always 1)
       memoryBytes[pi + 2 * sizeField] = 1;
 
       fromPackedBytes(x, bi);
