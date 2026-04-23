@@ -1,6 +1,2 @@
 node_modules
 /build
-*.wasm.js
-*.gen.wat
-resources
-inputs.json
