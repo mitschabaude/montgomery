@@ -6,7 +6,10 @@ import {
   createCurveProjective as createBigintCurve,
   type BigintPoint as ProjectivePoint,
 } from "./bigint/projective-weierstrass.ts";
-import { createCurveAffine as createBigintAffine } from "./bigint/affine-weierstrass.ts";
+import {
+  createCurveAffine as createBigintAffine,
+  type BigintPoint as AffinePoint,
+} from "./bigint/affine-weierstrass.ts";
 import { createCurveAffine } from "./curve-affine.ts";
 import { msm as bigintMsm } from "./bigint/msm.ts";
 import {
@@ -168,17 +171,37 @@ async function createWeierstraß(
     }
   }
 
-  const Parallel = pool.register(`Weierstraß, ${label}`, {
-    randomPointsFast,
-    randomScalars,
-    msmUnsafe,
-    msm,
-    msmProjective,
-    getPointer,
-    getScalarPointer,
-    scalarsFromBytes,
-    pointsFromBytes,
-  });
+  // main-thread-only helpers: bigints don't survive the worker boundary, so
+  // these are attached to `Parallel` after `pool.register` rather than being
+  // part of the broadcast interface
+  function scalarsFromBigint(scalars: bigint[]): number {
+    let n = scalars.length;
+    let ptr = Scalar.global.getPointer(n * Scalar.sizeField);
+    for (let i = 0, si = ptr; i < n; i++, si += Scalar.sizeField) {
+      Scalar.writeBigint(si, scalars[i]);
+    }
+    return ptr;
+  }
+  function pointsFromBigint(points: AffinePoint[]): number {
+    let ptr = Field.global.getPointer(points.length * Affine.size);
+    Affine.writeBigints(ptr, points);
+    return ptr;
+  }
+
+  const Parallel = Object.assign(
+    pool.register(`Weierstraß, ${label}`, {
+      randomPointsFast,
+      randomScalars,
+      msmUnsafe,
+      msm,
+      msmProjective,
+      getPointer,
+      getScalarPointer,
+      scalarsFromBytes,
+      pointsFromBytes,
+    }),
+    { scalarsFromBigint, pointsFromBigint }
+  );
 
   const bigintProjective = createBigintCurve(params);
   const Bigint = {
@@ -310,15 +333,35 @@ async function createTwistedEdwards(
     }
   }
 
-  const Parallel = pool.register(`Twisted Edwards, ${label}`, {
-    randomPointsFast,
-    randomScalars,
-    msm,
-    getPointer,
-    getScalarPointer,
-    pointsFromBytes,
-    scalarsFromBytes,
-  });
+  // main-thread-only helpers: bigints don't survive the worker boundary, so
+  // these are attached to `Parallel` after `pool.register` rather than being
+  // part of the broadcast interface
+  function scalarsFromBigint(scalars: bigint[]): number {
+    let n = scalars.length;
+    let ptr = Scalar.global.getPointer(n * Scalar.sizeField);
+    for (let i = 0, si = ptr; i < n; i++, si += Scalar.sizeField) {
+      Scalar.writeBigint(si, scalars[i]);
+    }
+    return ptr;
+  }
+  function pointsFromBigint(points: { x: bigint; y: bigint }[]): number {
+    let ptr = Field.global.getPointer(points.length * Curve.size);
+    Curve.fromAffineBigints(ptr, points);
+    return ptr;
+  }
+
+  const Parallel = Object.assign(
+    pool.register(`Twisted Edwards, ${label}`, {
+      randomPointsFast,
+      randomScalars,
+      msm,
+      getPointer,
+      getScalarPointer,
+      pointsFromBytes,
+      scalarsFromBytes,
+    }),
+    { scalarsFromBigint, pointsFromBigint }
+  );
 
   const bigintTE = createBigintTE(params);
   const Bigint = Object.assign(bigintTE, {
