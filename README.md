@@ -72,7 +72,7 @@ Lazy factories, all in `montgomery`:
 | `Vesta`     | Pallas' sister curve, base/scalar fields swapped                                                                                     |
 | `BLS12377`  | BLS12-377 (short Weierstrass, used in Aleo)                                                                                          |
 | `BLS12381`  | BLS12-381 (short Weierstrass, used in Ethereum / Zcash Sapling)                                                                      |
-| `BN254`     | BN254 / alt_bn128 G1 (short Weierstrass, used in Ethereum EIP-196/197 precompiles)                                                   |
+| `BN254`     | BN254 / alt_bn128 G1 (short Weierstrass, used in Ethereum EIP-196/197 precompiles, Circom, Aztec)                                    |
 | `Secp256k1` | secp256k1 (short Weierstrass, used in Bitcoin / Ethereum signatures)                                                                 |
 | `Ed377`     | Edwards-on-BLS12-377 (twisted Edwards, used in Aleo)                                                                                 |
 
