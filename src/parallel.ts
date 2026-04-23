@@ -2,8 +2,13 @@ import type * as _W from "wasmati";
 import { type WasmArtifacts } from "./types.ts";
 import { createMsmField } from "./field-msm.ts";
 import { createCurveProjective } from "./curve-projective.ts";
-import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.ts";
+import {
+  createCurveProjective as createBigintCurve,
+  type BigintPoint as ProjectivePoint,
+} from "./bigint/projective-weierstrass.ts";
+import { createCurveAffine as createBigintAffine } from "./bigint/affine-weierstrass.ts";
 import { createCurveAffine } from "./curve-affine.ts";
+import { msm as bigintMsm } from "./bigint/msm.ts";
 import {
   createRandomPointsFast,
   createRandomPointsFastSingleCurve,
@@ -17,7 +22,10 @@ import { type CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwar
 import { assert } from "./util.ts";
 import { createScalar } from "./scalar-simple.ts";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";
-import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.ts";
+import {
+  createCurveTwistedEdwards as createBigintTE,
+  type BigintPoint as TwistedEdwardsPoint,
+} from "./bigint/twisted-edwards.ts";
 import { createMsmBasic, msmBasic } from "./msm-basic.ts";
 import { barrier, range } from "./threads/threads.ts";
 
@@ -172,7 +180,15 @@ async function createWeierstraß(
     pointsFromBytes,
   });
 
-  const Bigint = { Projective: createBigintCurve(params) };
+  const bigintProjective = createBigintCurve(params);
+  const Bigint = {
+    Affine: createBigintAffine(params),
+    Projective: Object.assign(bigintProjective, {
+      msm(scalars: bigint[], points: ProjectivePoint[]) {
+        return bigintMsm(bigintProjective, scalars, points);
+      },
+    }),
+  };
 
   const Curve = {
     params,
@@ -304,7 +320,12 @@ async function createTwistedEdwards(
     scalarsFromBytes,
   });
 
-  const Bigint = createBigintTE(params);
+  const bigintTE = createBigintTE(params);
+  const Bigint = Object.assign(bigintTE, {
+    msm(scalars: bigint[], points: TwistedEdwardsPoint[]) {
+      return bigintMsm(bigintTE, scalars, points);
+    },
+  });
 
   const Module = {
     params,

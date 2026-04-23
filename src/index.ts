@@ -21,8 +21,15 @@ import { pallasParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";
 import { curveParams as ed377Params } from "./concrete/ed-on-bls12-377.params.ts";
-import type { CurveParams as _CurveParams } from "./bigint/affine-weierstrass.ts";
-import type { CurveParams as _TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
+import type {
+  CurveParams as _CurveParams,
+  BigintPoint as AffinePoint,
+} from "./bigint/affine-weierstrass.ts";
+import type {
+  CurveParams as _TwistedEdwardsParams,
+  BigintPoint as TwistedEdwardsPoint,
+} from "./bigint/twisted-edwards.ts";
+import type { BigintPoint as ProjectivePoint } from "./bigint/projective-weierstrass.ts";
 
 export {
   Weierstraß,
@@ -35,6 +42,9 @@ export {
   stopThreads,
   CurveParams,
   TwistedEdwardsParams,
+  type AffinePoint,
+  type ProjectivePoint,
+  type TwistedEdwardsPoint,
 };
 
 /**

@@ -9,7 +9,6 @@ import {
   startThreads,
   stopThreads,
 } from "./parallel.ts";
-import { msm as bigintMsm } from "./bigint/msm.ts";
 import { pallasParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";
@@ -65,7 +64,7 @@ async function testOneMsm(Curve: Weierstraß, n: number) {
   let { result } = await Parallel.msmUnsafe(scalarPtrs[0], pointsPtrs[0], N);
   let s = Projective.toBigint(result);
 
-  let sBigint = bigintMsm(Bigint.Projective, scalars, points);
+  let sBigint = Bigint.Projective.msm(scalars, points);
 
   assert(Bigint.Projective.isEqual(s, sBigint), `msm 2^${n} failed`);
 
@@ -114,6 +113,6 @@ async function testOneMsmTE(C: TwistedEdwards, n: number) {
 
   let { result } = await Parallel.msm(scalarPtrs[0], pointsPtrs[0], N);
   let s = Bigint.toAffine(Curve.toBigint(result));
-  let sBigint = Bigint.toAffine(bigintMsm(Bigint, scalars, points));
+  let sBigint = Bigint.toAffine(Bigint.msm(scalars, points));
   assertDeepEqual(s, sBigint, `msm 2^${n} failed`);
 }

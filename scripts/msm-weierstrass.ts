@@ -8,7 +8,6 @@ import { tic, toc } from "../src/testing/tictoc.ts";
 import { assertDeepEqual } from "../src/testing/nested.ts";
 import { assert } from "../src/util.ts";
 import { median, standardDev } from "./evaluate-util.ts";
-import { msm as bigintMsm } from "../src/bigint/msm.ts";
 
 export { benchmarkMsm, runMsm };
 
@@ -103,7 +102,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
       CurveBigint.fromAffine(Curve.Affine.toBigint(g)),
     );
     tic("msm (bigint impl)");
-    let sBigint = CurveBigint.toAffine(bigintMsm(CurveBigint, scalars, points));
+    let sBigint = CurveBigint.toAffine(CurveBigint.msm(scalars, points));
     toc();
     assertDeepEqual(s, sBigint, "consistent results");
     console.log("results are consistent!");

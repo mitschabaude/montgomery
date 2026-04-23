@@ -7,7 +7,6 @@ import {
 import { tic, toc } from "../src/testing/tictoc.ts";
 import { assert } from "../src/util.ts";
 import { median, standardDev } from "./evaluate-util.ts";
-import { msm as msmBigint } from "../src/bigint/msm.ts";
 
 export { benchmarkMsm, runMsm };
 
@@ -97,7 +96,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   if (n < 14) {
     let points = pointsPtrs.map((g) => Curve.Curve.toBigint(g));
     tic("msm (bigint impl)");
-    let sBigint = msmBigint(Curve.Bigint, scalars, points);
+    let sBigint = Curve.Bigint.msm(scalars, points);
     toc();
     assert(Curve.Bigint.isEqual(s, sBigint), "consistent results");
     console.log("results are consistent!");
