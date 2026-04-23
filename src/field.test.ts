@@ -9,9 +9,6 @@ import { batchInverse } from "./curve-affine.js";
 
 Error.stackTraceLimit = 1000;
 
-// TODO a few cases always fail:
-// - pastaFq, w=26 and w=29 (only fast sqrt fails)
-
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];
   if (BigintField.sizeInBits < 33) continue; // parts of our code assume at least 2 limbs
@@ -131,27 +128,22 @@ async function testField(label: string, w: number, BigintField: BigintField) {
   );
 
   // sqrt
-  // Known failing: fast sqrt has a correctness bug on pastaFq at w=26 and w=29.
-  // See TODO in src/field-sqrt.ts. All other ops still pass at these widths.
-  let fastSqrtBroken = label === "pastaFq w=26" || label === "pastaFq w=29";
-  if (!fastSqrtBroken) {
-    equiv(
-      { from: [fieldReduced], to: fieldReduced, scratch: 10 },
-      (x) => {
-        let exists =
-          x === 0n || BigintField.exp(x, (BigintField.p - 1n) >> 1n) === 1n;
-        if (!exists) throwError("no sqrt (bigint)");
-        return x;
-      },
-      (scratch, out, x) => {
-        Field.reduce(x);
-        let exists = Field.sqrt(scratch, out, x);
-        if (!exists) throwError("no sqrt (wasm)");
-        Field.square(out, out);
-      },
-      `${label} sqrt`
-    );
-  }
+  equiv(
+    { from: [fieldReduced], to: fieldReduced, scratch: 10 },
+    (x) => {
+      let exists =
+        x === 0n || BigintField.exp(x, (BigintField.p - 1n) >> 1n) === 1n;
+      if (!exists) throwError("no sqrt (bigint)");
+      return x;
+    },
+    (scratch, out, x) => {
+      Field.reduce(x);
+      let exists = Field.sqrt(scratch, out, x);
+      if (!exists) throwError("no sqrt (wasm)");
+      Field.square(out, out);
+    },
+    `${label} sqrt`
+  );
 
   // batch inverse
   for (let n of sample(Random.nat(100), 20)) {
