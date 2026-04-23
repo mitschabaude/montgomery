@@ -79,7 +79,7 @@ Lazy factories, all in `montgomery`:
 
 Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
 
-Under the hood, these constructors build a dedicated Wasm module on-the-fly based on the provided parameters, and makes sure to distribute that model to Workers when parallelism is enabled.
+Under the hood, these constructors build a dedicated Wasm module on-the-fly based on the provided parameters, and distribute the module to Workers with memory sharing when parallelism is enabled.
 
 ## Threads
 
@@ -115,7 +115,7 @@ pallas.Affine.randomPoints(ptrs);
 // ptrs[0] is the pointer to the contiguous batch of n affine points
 ```
 
-## Bigint / reference library
+## Bigint reference library
 
 Every curve module ships with a pure-TS bigint reference implementation alongside the fast wasm one, exposed via `curve.Bigint`:
 
@@ -133,7 +133,7 @@ pallas.Bigint.Affine.scale(k, P);
 const s = pallas.Bigint.Projective.msm(scalars, points);
 ```
 
-For Weierstrass curves `curve.Bigint` has both `Affine` and `Projective` layers (each with `add`, `double`, `negate`, `scale`, `isEqual`, `isOnCurve`, `toSubgroup`, `random`, …). Twisted edwards has its single extended-projective layer at `curve.Bigint` directly. The bigint implementation is comparatively slow but small, simple, and matches the wasm one in behavior — used internally as the test oracle and handy for small-scale crypto (like signatures), tutorials, or building custom protocols in plain TS.
+For Weierstrass curves `curve.Bigint` has both `Affine` and `Projective` layers (each with `add`, `double`, `negate`, `scale`, `isEqual`, `isOnCurve`, `toSubgroup`, `random`, ...). Twisted edwards has its single extended-projective layer at `curve.Bigint` directly. The bigint implementation is comparatively slow but small, simple, and matches the wasm one in behavior — used internally as the test oracle and handy for small-scale crypto (like signatures), tutorials, or building custom protocols in plain TS.
 
 ## Low-level arithmetic on Wasm pointers
 
@@ -165,4 +165,5 @@ If your threat model does include timing side channels (server-side key operatio
 ## More
 
 - Scripts in `scripts/` illustrate end-to-end use of each curve: `run-msm-pallas.ts`, `run-msm-377.ts`, `run-msm-ed-377.ts`, plus field-level benchmarks under `scripts/field-benchmarks/`.
-- `doc/zprize23/` — the original ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
+- `doc/zprize23/` - ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
+- `doc/zprize22.md` - ZPrize 2022 write-up explaining some of the algorithms underlying the MSM.
