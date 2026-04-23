@@ -115,37 +115,37 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
       // addition is commutative
       assert(
         Curve.isEqual(Curve.add(P, Q), Curve.add(Q, P)),
-        "addition is commutative"
+        "addition is commutative",
       );
 
       // addition is associative
       assert(
         Curve.isEqual(
           Curve.add(P, Curve.add(Q, R)),
-          Curve.add(Curve.add(P, Q), R)
+          Curve.add(Curve.add(P, Q), R),
         ),
-        "addition is associative"
+        "addition is associative",
       );
 
       // addition is distributive
       assert(
         Curve.isEqual(
           Curve.scale(s, Curve.add(P, Q)),
-          Curve.add(Curve.scale(s, P), Curve.scale(s, Q))
+          Curve.add(Curve.scale(s, P), Curve.scale(s, Q)),
         ),
-        "addition is distributive"
+        "addition is distributive",
       );
 
       // doubling is scaling by 2
       assert(
         Curve.isEqual(Curve.double(P), Curve.scale(2n, P)),
-        "double = scale 2"
+        "double = scale 2",
       );
 
       // adding the negation is zero
       assert(
         Curve.isEqual(Curve.add(P, Curve.negate(P)), Curve.zero),
-        "P + -P = 0"
+        "P + -P = 0",
       );
 
       // negating twice is the identity
@@ -154,7 +154,7 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
       // scaling by order-1 is negation
       assert(
         Curve.isEqual(Curve.scale(Curve.order - 1n, P), Curve.negate(P)),
-        "scaling by order-1 is negation"
+        "scaling by order-1 is negation",
       );
 
       // zero is the identity
@@ -167,21 +167,21 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
       // scaling by a non-zero scalar yields a non-zero point
       assert(
         s === 0n || !Curve.isZero(Curve.scale(s, P)),
-        "scaling is injective"
+        "scaling is injective",
       );
 
       // scaling by two scalars is scaling by the product
       assert(
         Curve.isEqual(
           Curve.scale(s, Curve.scale(t, P)),
-          Curve.scale(Curve.Scalar.multiply(s, t), P)
+          Curve.scale(Curve.Scalar.multiply(s, t), P),
         ),
-        "scaling twice"
+        "scaling twice",
       );
 
       // the generator is on the curve
       assert(Curve.isOnCurve(Curve.one), "generator is on the curve");
-    }
+    },
   );
 }
 

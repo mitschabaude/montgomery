@@ -6,6 +6,7 @@ import {
   p as pEdBls12377,
   q as qEdBls12377,
 } from "./ed-on-bls12-377.params.ts";
+import { bn254Params } from "./bn254.params.ts";
 
 export { exampleFields };
 
@@ -17,6 +18,10 @@ let p25519 = (1n << 255n) - 19n;
 let pSecp256k1 = (1n << 256n) - (1n << 32n) - 0b1111010001n;
 let pSecq256k1 = (1n << 256n) - 0x14551231950b75fc4402da1732fc9bebfn;
 
+// ed25519 scalar field order (for completeness; base field is f25519 above)
+let qEd25519 =
+  (1n << 252n) + 0x14def9dea2f79cd65812631a5cf5d3edn;
+
 let exampleFields = {
   pastaFp: createField(pPasta),
   pastaFq: createField(qPasta),
@@ -25,8 +30,11 @@ let exampleFields = {
   babybear: createField(pBabybear),
   goldilocks: createField(pGoldilocks),
   f25519: createField(p25519),
+  ed25519Scalar: createField(qEd25519),
   secp256k1: createField(pSecp256k1),
   secq256k1: createField(pSecq256k1),
+  bn254: createField(bn254Params.modulus),
+  bn254Scalar: createField(bn254Params.order),
   bls12381: createField(pBls12381),
   bls12381Scalar: createField(qBls12381),
   bls12377: createField(pBls12377),
