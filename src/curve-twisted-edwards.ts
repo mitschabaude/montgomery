@@ -475,10 +475,22 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
   }
 
   /**
+   * Allocate a fresh pointer for the input points and write them to it.
+   * Thin wrapper around {@link writeAffineBigints}.
+   */
+  function fromAffineBigints(
+    inputPoints: { x: bigint; y: bigint }[]
+  ): number {
+    let ptr = Field.global.getPointer(inputPoints.length * size);
+    writeAffineBigints(ptr, inputPoints);
+    return ptr;
+  }
+
+  /**
    * Expects as first argument a pointer which can fit a contiguous array of
    * affine points of the input size.
    */
-  function fromAffineBigints(
+  function writeAffineBigints(
     pointPtr: number,
     inputPoints: { x: bigint; y: bigint }[]
   ) {
@@ -541,6 +553,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     fromBigint,
     fromBigints,
     fromAffineBigints,
+    writeAffineBigints,
     randomPoints,
 
     X,

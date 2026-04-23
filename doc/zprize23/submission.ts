@@ -83,7 +83,7 @@ type U32ArrayPoint = {
 };
 
 function pointsFromBigint(inputPoints: BigIntPoint[]) {
-  Ed377.Curve.fromAffineBigints(pointPtr, inputPoints);
+  Ed377.Curve.writeAffineBigints(pointPtr, inputPoints);
   return pointPtr;
 }
 

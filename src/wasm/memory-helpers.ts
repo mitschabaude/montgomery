@@ -89,6 +89,20 @@ function memoryHelpers(
       }
     },
 
+    /**
+     * Allocate a fresh pointer for the input values and write them to it.
+     * Thin wrapper around {@link writeBigint}; does NOT convert to Montgomery
+     * form, so suitable for scalars but not for Montgomery-encoded field
+     * elements.
+     */
+    fromBigints(values: bigint[]): number {
+      let ptr = obj.global.getPointer(values.length * 4 * n);
+      for (let i = 0, pi = ptr; i < values.length; i++, pi += 4 * n) {
+        this.writeBigint(pi, values[i]);
+      }
+      return ptr;
+    },
+
     readBigint(x: number, length = n) {
       let arr = new Uint32Array(memory.buffer.slice(x, x + 4 * length));
       let x0 = 0n;

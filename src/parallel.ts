@@ -6,10 +6,7 @@ import {
   createCurveProjective as createBigintCurve,
   type BigintPoint as ProjectivePoint,
 } from "./bigint/projective-weierstrass.ts";
-import {
-  createCurveAffine as createBigintAffine,
-  type BigintPoint as AffinePoint,
-} from "./bigint/affine-weierstrass.ts";
+import { createCurveAffine as createBigintAffine } from "./bigint/affine-weierstrass.ts";
 import { createCurveAffine } from "./curve-affine.ts";
 import { msm as bigintMsm } from "./bigint/msm.ts";
 import {
@@ -171,20 +168,6 @@ async function createWeierstraß(
     }
   }
 
-  function scalarsFromBigint(scalars: bigint[]): number {
-    let n = scalars.length;
-    let ptr = Scalar.global.getPointer(n * Scalar.sizeField);
-    for (let i = 0, si = ptr; i < n; i++, si += Scalar.sizeField) {
-      Scalar.writeBigint(si, scalars[i]);
-    }
-    return ptr;
-  }
-  function pointsFromBigint(points: AffinePoint[]): number {
-    let ptr = Field.global.getPointer(points.length * Affine.size);
-    Affine.writeBigints(ptr, points);
-    return ptr;
-  }
-
   const Parallel = pool.register(`Weierstraß, ${label}`, {
     randomPointsFast,
     randomScalars,
@@ -216,8 +199,6 @@ async function createWeierstraß(
     Projective,
     Parallel,
     Bigint,
-    scalarsFromBigint,
-    pointsFromBigint,
   };
 
   (curves as { module: typeof Curve; create: typeof createWeierstraß }[]).push({
@@ -329,20 +310,6 @@ async function createTwistedEdwards(
     }
   }
 
-  function scalarsFromBigint(scalars: bigint[]): number {
-    let n = scalars.length;
-    let ptr = Scalar.global.getPointer(n * Scalar.sizeField);
-    for (let i = 0, si = ptr; i < n; i++, si += Scalar.sizeField) {
-      Scalar.writeBigint(si, scalars[i]);
-    }
-    return ptr;
-  }
-  function pointsFromBigint(points: { x: bigint; y: bigint }[]): number {
-    let ptr = Field.global.getPointer(points.length * Curve.size);
-    Curve.fromAffineBigints(ptr, points);
-    return ptr;
-  }
-
   const Parallel = pool.register(`Twisted Edwards, ${label}`, {
     randomPointsFast,
     randomScalars,
@@ -368,8 +335,6 @@ async function createTwistedEdwards(
     Curve,
     Parallel,
     Bigint,
-    scalarsFromBigint,
-    pointsFromBigint,
   };
 
   (

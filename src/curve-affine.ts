@@ -284,6 +284,16 @@ function createCurveAffine(
   }
 
   /**
+   * Allocate a fresh pointer for the input points and write them to it.
+   * Thin wrapper around {@link writeBigints}.
+   */
+  function fromBigints(inputPoints: BigintPoint[]): number {
+    let ptr = Field.global.getPointer(inputPoints.length * size);
+    writeBigints(ptr, inputPoints);
+    return ptr;
+  }
+
+  /**
    * Expects as first argument a pointer which can fit a contiguous array of
    * affine points of the input size.
    */
@@ -356,6 +366,7 @@ function createCurveAffine(
     toBigints,
     writeBigint,
     writeBigints,
+    fromBigints,
     batchNormalize: batchFromProjective,
     randomPoints,
   };
