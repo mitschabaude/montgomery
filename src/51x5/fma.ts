@@ -27,7 +27,7 @@ import {
   Type,
   Input,
 } from "wasmati";
-import { inverse } from "../bigint/field.js";
+import { inverse } from "../bigint/field.ts";
 import {
   c103,
   c2,
@@ -39,10 +39,10 @@ import {
   mask64,
   bigintToFloat51Limbs,
   bigintToInt51Limbs,
-} from "./common.js";
-import { constF64x2, constI64x2, FieldLayout } from "./field-base.js";
-import { arithmetic, carryLocals, carryLocalsSingle } from "./arith.js";
-import { assert } from "../util.js";
+} from "./common.ts";
+import { constF64x2, constI64x2, FieldLayout } from "./field-base.ts";
+import { arithmetic, carryLocals, carryLocalsSingle } from "./arith.ts";
+import { assert } from "../util.ts";
 
 export { Multiply, multiplySingle };
 

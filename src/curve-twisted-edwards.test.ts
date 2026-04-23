@@ -1,17 +1,17 @@
-import { BigintPoint } from "./bigint/twisted-edwards.js";
-import { curveParams, p } from "./concrete/ed-on-bls12-377.params.js";
-import { createRandomPointsFastSingleCurve } from "./curve-random.js";
-import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
-import { tic, toc } from "./testing/tictoc.js";
-import { createMsmField } from "./field-msm.js";
+import { BigintPoint } from "./bigint/twisted-edwards.ts";
+import { curveParams, p } from "./concrete/ed-on-bls12-377.params.ts";
+import { createRandomPointsFastSingleCurve } from "./curve-random.ts";
+import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";
+import { tic, toc } from "./testing/tictoc.ts";
+import { createMsmField } from "./field-msm.ts";
 import {
   WasmSpec,
   createEquivalentWasm,
   wasmSpec,
-} from "./testing/equivalent-wasm.js";
-import { Spec, spec, throwError } from "./testing/equivalent.js";
-import { Random } from "./testing/random.js";
-import { assert, bigintToBits } from "./util.js";
+} from "./testing/equivalent-wasm.ts";
+import { Spec, spec, throwError } from "./testing/equivalent.ts";
+import { Random } from "./testing/random.ts";
+import { assert, bigintToBits } from "./util.ts";
 
 const Field = await createMsmField({ p, w: 29, beta: 1n });
 

@@ -1,6 +1,6 @@
 import "./symbol-dispose-polyfill.js";
-import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
-import { assert, log2 } from "../util.js";
+import { THREADS, isMain, isParallel, thread } from "../threads/threads.ts";
+import { assert, log2 } from "../util.ts";
 
 export { memoryHelpers, MemoryHelpers, MemorySection };
 

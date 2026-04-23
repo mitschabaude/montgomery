@@ -1,5 +1,5 @@
-import { assert, bigintToBits } from "../util.js";
-import { createField } from "./field.js";
+import { assert, bigintToBits } from "../util.ts";
+import { createField } from "./field.ts";
 
 export { createCurveAffine, BigintPoint, CurveParams };
 

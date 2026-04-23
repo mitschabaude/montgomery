@@ -8,16 +8,16 @@ import {
   TwistedEdwards,
   startThreads,
   stopThreads,
-} from "./parallel.js";
-import { msm as bigintMsm } from "./bigint/msm.js";
-import { pallasParams } from "./concrete/pasta.params.js";
-import { curveParams as bls12377Params } from "./concrete/bls12-377.params.js";
-import { curveParams as bls12381Params } from "./concrete/bls12-381.params.js";
-import { curveParams as edBls12Params } from "./concrete/ed-on-bls12-377.params.js";
-import { assert } from "./util.js";
-import { CurveParams } from "./bigint/affine-weierstrass.js";
-import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.js";
-import { assertDeepEqual } from "./testing/nested.js";
+} from "./parallel.ts";
+import { msm as bigintMsm } from "./bigint/msm.ts";
+import { pallasParams } from "./concrete/pasta.params.ts";
+import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
+import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";
+import { curveParams as edBls12Params } from "./concrete/ed-on-bls12-377.params.ts";
+import { assert } from "./util.ts";
+import { CurveParams } from "./bigint/affine-weierstrass.ts";
+import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
+import { assertDeepEqual } from "./testing/nested.ts";
 
 let nThreads = 16;
 await startThreads(nThreads);

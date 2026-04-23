@@ -1,4 +1,4 @@
-import { Field, createField } from "./field-helpers.js";
+import { Field, createField } from "./field-helpers.ts";
 import type * as W from "wasmati";
 import {
   $,

@@ -1,6 +1,6 @@
-import type { CurveParams } from "../bigint/affine-weierstrass.js";
-import { mod } from "../bigint/field-util.js";
-import { exp } from "../bigint/field.js";
+import type { CurveParams } from "../bigint/affine-weierstrass.ts";
+import { mod } from "../bigint/field-util.ts";
+import { exp } from "../bigint/field.ts";
 
 export { p, q, b, lambda, beta, nBits, nBytes, pallasParams };
 

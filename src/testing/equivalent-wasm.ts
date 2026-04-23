@@ -1,6 +1,6 @@
-import { MsmField } from "../field-msm.js";
-import { MemorySection } from "../wasm/memory-helpers.js";
-import { Get, Tuple } from "../types.js";
+import { MsmField } from "../field-msm.ts";
+import { MemorySection } from "../wasm/memory-helpers.ts";
+import { Get, Tuple } from "../types.ts";
 import {
   First,
   FromSpec,
@@ -10,10 +10,10 @@ import {
   ToSpec,
   handleErrors,
   spec,
-} from "./equivalent.js";
-import { TestParams, test } from "./property.js";
-import { Random } from "./random.js";
-import { assertDeepEqual } from "./nested.js";
+} from "./equivalent.ts";
+import { TestParams, test } from "./property.ts";
+import { Random } from "./random.ts";
+import { assertDeepEqual } from "./nested.ts";
 
 export { createEquivalentWasm, wasmSpec, WasmSpec };
 

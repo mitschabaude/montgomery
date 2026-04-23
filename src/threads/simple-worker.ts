@@ -2,7 +2,7 @@
  * Simple Worker interface to normalize browser and Node.js APIs.
  */
 import type { Worker as NodeWorker, MessagePort } from "node:worker_threads";
-import { assert } from "../util.js";
+import { assert } from "../util.ts";
 
 export {
   SimpleWorker,

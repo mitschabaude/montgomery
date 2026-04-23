@@ -20,8 +20,8 @@ import {
   type Input,
   i32x4,
 } from "wasmati";
-import { Constants, FieldPair, constI64x2 } from "./field-base.js";
-import { mask51 } from "./common.js";
+import { Constants, FieldPair, constI64x2 } from "./field-base.ts";
+import { mask51 } from "./common.ts";
 
 export { arithmetic, carryLocals, carryLocalsSingle };
 

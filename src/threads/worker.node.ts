@@ -7,7 +7,7 @@ import {
   WorkerConstructor,
   fromNodeTarget,
   fromNodeWorker,
-} from "./simple-worker.js";
+} from "./simple-worker.ts";
 
 export { Worker, getParentPort, availableParallelism };
 

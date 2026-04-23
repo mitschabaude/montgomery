@@ -10,9 +10,9 @@ import {
   loop,
   br_if,
 } from "wasmati";
-import { FieldWithMultiply } from "./multiply-montgomery.js";
-import { mod } from "../bigint/field-util.js";
-import { ImplicitMemory } from "./wasm-util.js";
+import { FieldWithMultiply } from "./multiply-montgomery.ts";
+import { mod } from "../bigint/field-util.ts";
+import { ImplicitMemory } from "./wasm-util.ts";
 
 export { curveOps };
 

@@ -1,7 +1,7 @@
 /**
  * some basic ff algorithms in js, to use in wasm builders and tests
  */
-import { log2 } from "../util.js";
+import { log2 } from "../util.ts";
 
 export { mod, montgomeryParams };
 

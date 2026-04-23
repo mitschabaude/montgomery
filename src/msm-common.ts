@@ -1,5 +1,5 @@
-import { assert } from "./util.js";
-import type { MemorySection } from "./wasm/memory-helpers.js";
+import { assert } from "./util.ts";
+import type { MemorySection } from "./wasm/memory-helpers.ts";
 
 export { windowSize, windowSizeAffine, splitBuckets, Chunk, createLog };
 

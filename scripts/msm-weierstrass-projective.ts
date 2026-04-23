@@ -1,11 +1,11 @@
-import { Weierstraß, startThreads, stopThreads } from "../src/parallel.js";
-import { tic, toc } from "../src/testing/tictoc.js";
-import { assertDeepEqual } from "../src/testing/nested.js";
-import { assert } from "../src/util.js";
-import { median, standardDev } from "./evaluate-util.js";
-import { createCurveProjective } from "../src/bigint/projective-weierstrass.js";
-import { msm as bigintMsm } from "../src/bigint/msm.js";
-import type { CurveParams } from "../src/bigint/affine-weierstrass.js";
+import { Weierstraß, startThreads, stopThreads } from "../src/parallel.ts";
+import { tic, toc } from "../src/testing/tictoc.ts";
+import { assertDeepEqual } from "../src/testing/nested.ts";
+import { assert } from "../src/util.ts";
+import { median, standardDev } from "./evaluate-util.ts";
+import { createCurveProjective } from "../src/bigint/projective-weierstrass.ts";
+import { msm as bigintMsm } from "../src/bigint/msm.ts";
+import type { CurveParams } from "../src/bigint/affine-weierstrass.ts";
 
 export { benchmarkMsm, runMsm };
 

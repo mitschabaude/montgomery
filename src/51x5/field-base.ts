@@ -11,8 +11,8 @@ import {
   func,
   type Func,
 } from "wasmati";
-import { assert } from "../util.js";
-import { bigintToInt51Limbs, mask51 } from "./common.js";
+import { assert } from "../util.ts";
+import { bigintToInt51Limbs, mask51 } from "./common.ts";
 
 export {
   Constants,

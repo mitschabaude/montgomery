@@ -1,10 +1,10 @@
-import { MsmField } from "./field-msm.js";
-import { bigintToBits } from "./util.js";
-import { CurveParams } from "./bigint/affine-weierstrass.js";
+import { MsmField } from "./field-msm.ts";
+import { bigintToBits } from "./util.ts";
+import { CurveParams } from "./bigint/affine-weierstrass.ts";
 import {
   BigintPoint,
   createCurveProjective as createBigint,
-} from "./bigint/projective-weierstrass.js";
+} from "./bigint/projective-weierstrass.ts";
 
 export { createCurveProjective, CurveProjective };
 

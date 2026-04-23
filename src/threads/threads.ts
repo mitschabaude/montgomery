@@ -1,7 +1,7 @@
-import { Worker, getParentPort, availableParallelism } from "./worker.node.js";
-import { assert } from "../util.js";
-import { AnyFunction } from "../types.js";
-import { SimpleWorker, awaitMessage } from "./simple-worker.js";
+import { Worker, getParentPort, availableParallelism } from "./worker.node.ts";
+import { assert } from "../util.ts";
+import { AnyFunction } from "../types.ts";
+import { SimpleWorker, awaitMessage } from "./simple-worker.ts";
 
 export {
   thread as t,

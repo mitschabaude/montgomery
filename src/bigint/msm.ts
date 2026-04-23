@@ -1,7 +1,7 @@
 /**
  * Simple bigint pippenger MSM, generic over the curve.
  */
-import { assert, log2 } from "../util.js";
+import { assert, log2 } from "../util.ts";
 
 export { msm };
 

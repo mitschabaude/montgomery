@@ -1,7 +1,7 @@
 /**
  * Experiments with IEEE 754 floating point representation in JS
  */
-import { assertDeepEqual } from "../testing/nested.js";
+import { assertDeepEqual } from "../testing/nested.ts";
 
 function numberToBytes(x: number): Uint8Array {
   let xBytes = new Uint8Array(8);

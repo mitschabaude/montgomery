@@ -18,7 +18,7 @@ import {
   bigintFromLimbs,
   bigintToBytes,
   bigintToLimbs as bigintToLimbs_,
-} from "../util.js";
+} from "../util.ts";
 
 export { createField, Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };

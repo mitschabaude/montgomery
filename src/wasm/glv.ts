@@ -25,10 +25,10 @@ import {
   log2,
   max,
   scale,
-} from "../util.js";
-import { barrettError, barrettReduction } from "./barrett.js";
-import { egcdStopEarly } from "../glv/glv.js";
-import { createField } from "./field-helpers.js";
+} from "../util.ts";
+import { barrettError, barrettReduction } from "./barrett.ts";
+import { egcdStopEarly } from "../glv/glv.ts";
+import { createField } from "./field-helpers.ts";
 
 export { glvSpecial as glv, glvGeneral };
 

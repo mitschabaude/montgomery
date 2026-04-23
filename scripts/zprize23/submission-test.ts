@@ -1,5 +1,5 @@
-import { compute_msm } from "./submission.js";
-import { curveParams } from "../../src/concrete/ed-on-bls12-377.params.js";
+import { compute_msm } from "./submission.ts";
+import { curveParams } from "../../src/concrete/ed-on-bls12-377.params.ts";
 // sanity check that the submission code can run and handles a basic test case
 
 let point = {

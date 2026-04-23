@@ -2,7 +2,7 @@ import {
   WorkerConstructor,
   fromWebTarget,
   fromWebWorker,
-} from "./simple-worker.js";
+} from "./simple-worker.ts";
 
 export { Worker_ as Worker, getParentPort, availableParallelism };
 

@@ -1,11 +1,11 @@
-import { MsmField } from "./field-msm.js";
-import { assert, bigintToBits } from "./util.js";
-import { randomGenerators } from "./bigint/field-random.js";
+import { MsmField } from "./field-msm.ts";
+import { assert, bigintToBits } from "./util.ts";
+import { randomGenerators } from "./bigint/field-random.ts";
 import {
   BigintPoint,
   CurveParams,
   createCurveTwistedEdwards as createBigint,
-} from "./bigint/twisted-edwards.js";
+} from "./bigint/twisted-edwards.ts";
 
 export { createCurveTwistedEdwards, CurveTwistedEdwards };
 

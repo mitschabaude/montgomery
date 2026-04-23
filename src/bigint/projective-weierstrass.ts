@@ -1,9 +1,9 @@
-import { assert, bigintToBits } from "../util.js";
+import { assert, bigintToBits } from "../util.ts";
 import type {
   CurveParams,
   BigintPoint as AffinePoint,
-} from "./affine-weierstrass.js";
-import { createField } from "./field.js";
+} from "./affine-weierstrass.ts";
+import { createField } from "./field.ts";
 
 export { createCurveProjective, BigintPoint };
 

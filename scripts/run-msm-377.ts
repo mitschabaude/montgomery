@@ -1,5 +1,5 @@
-import { curveParams } from "../src/concrete/bls12-377.params.js";
-import { benchmarkMsm, runMsm } from "./msm-weierstrass.js";
+import { curveParams } from "../src/concrete/bls12-377.params.ts";
+import { benchmarkMsm, runMsm } from "./msm-weierstrass.ts";
 
 console.log(process.argv.slice(3));
 let n = Number(process.argv[3] ?? 16);

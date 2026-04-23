@@ -1,11 +1,11 @@
-import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.js";
-import { BigintField } from "./bigint/field.js";
-import { createMsmField, MsmField } from "./field-msm.js";
-import { exampleFields } from "./concrete/example-fields.js";
-import { Spec, throwError } from "./testing/equivalent.js";
+import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.ts";
+import { BigintField } from "./bigint/field.ts";
+import { createMsmField, MsmField } from "./field-msm.ts";
+import { exampleFields } from "./concrete/example-fields.ts";
+import { Spec, throwError } from "./testing/equivalent.ts";
 import { test } from "node:test";
-import { Random, sample, sampleOne } from "./testing/random.js";
-import { batchInverse } from "./curve-affine.js";
+import { Random, sample, sampleOne } from "./testing/random.ts";
+import { batchInverse } from "./curve-affine.ts";
 
 Error.stackTraceLimit = 1000;
 

@@ -7,11 +7,11 @@ import {
   batchAddUnsafe,
   batchDoubleInPlace,
   getSizeAffine,
-} from "./curve-affine.js";
-import { CurveProjective } from "./curve-projective.js";
-import { MsmField } from "./field-msm.js";
-import { GlvScalar } from "./scalar-glv.js";
-import { log2 } from "./util.js";
+} from "./curve-affine.ts";
+import { CurveProjective } from "./curve-projective.ts";
+import { MsmField } from "./field-msm.ts";
+import { GlvScalar } from "./scalar-glv.ts";
+import { log2 } from "./util.ts";
 
 export { createMsm, MsmCurve, BigintPoint, BytesPoint };
 

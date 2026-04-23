@@ -1,25 +1,25 @@
 import type * as _W from "wasmati";
-import { WasmArtifacts } from "./types.js";
-import { createMsmField } from "./field-msm.js";
-import { createCurveProjective } from "./curve-projective.js";
-import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.js";
-import { createCurveAffine } from "./curve-affine.js";
+import { WasmArtifacts } from "./types.ts";
+import { createMsmField } from "./field-msm.ts";
+import { createCurveProjective } from "./curve-projective.ts";
+import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.ts";
+import { createCurveAffine } from "./curve-affine.ts";
 import {
   createRandomPointsFast,
   createRandomPointsFastSingleCurve,
   createRandomScalars,
-} from "./curve-random.js";
-import { GlvScalarParams, createGlvScalar } from "./scalar-glv.js";
-import { createMsm } from "./msm-batched-affine.js";
-import { pool } from "./threads/global-pool.js";
-import { CurveParams } from "./bigint/affine-weierstrass.js";
-import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.js";
-import { assert } from "./util.js";
-import { createScalar } from "./scalar-simple.js";
-import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
-import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
-import { createMsmBasic, msmBasic } from "./msm-basic.js";
-import { barrier, range } from "./threads/threads.js";
+} from "./curve-random.ts";
+import { GlvScalarParams, createGlvScalar } from "./scalar-glv.ts";
+import { createMsm } from "./msm-batched-affine.ts";
+import { pool } from "./threads/global-pool.ts";
+import { CurveParams } from "./bigint/affine-weierstrass.ts";
+import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
+import { assert } from "./util.ts";
+import { createScalar } from "./scalar-simple.ts";
+import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";
+import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.ts";
+import { createMsmBasic, msmBasic } from "./msm-basic.ts";
+import { barrier, range } from "./threads/threads.ts";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 

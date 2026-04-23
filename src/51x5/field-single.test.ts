@@ -1,12 +1,12 @@
-import { pallasParams } from "../concrete/pasta.params.js";
-import { Random } from "../testing/random.js";
+import { pallasParams } from "../concrete/pasta.params.ts";
+import { Random } from "../testing/random.ts";
 import {
   createEquivalentWasm,
   wasmSpec,
   WasmSpec,
-} from "../testing/equivalent-wasm.js";
-import { Field } from "./field.js";
-import { createField as createFieldBigint } from "../bigint/field.js";
+} from "../testing/equivalent-wasm.ts";
+import { Field } from "./field.ts";
+import { createField as createFieldBigint } from "../bigint/field.ts";
 
 let p = pallasParams.modulus;
 

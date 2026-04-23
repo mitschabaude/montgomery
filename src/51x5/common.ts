@@ -1,4 +1,4 @@
-import { bigintFromLimbs, bigintToLimbsRelaxed } from "../util.js";
+import { bigintFromLimbs, bigintToLimbsRelaxed } from "../util.ts";
 
 export {
   mask25,

@@ -5,11 +5,11 @@
  *
  * contains helpers for testing equivalence of two implementations
  */
-import { test, Random } from "../testing/property.js";
+import { test, Random } from "../testing/property.ts";
 import { deepEqual } from "node:assert/strict";
-import { Tuple } from "../types.js";
-import { assertDeepEqual } from "./nested.js";
-import { mod } from "../bigint/field-util.js";
+import { Tuple } from "../types.ts";
+import { assertDeepEqual } from "./nested.ts";
+import { mod } from "../bigint/field-util.ts";
 
 export {
   equivalent,

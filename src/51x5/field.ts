@@ -1,12 +1,12 @@
 import { call, func, i32, importMemory, Module } from "wasmati";
-import { MemoryHelpers, memoryHelpers } from "../wasm/memory-helpers.js";
-import { Tuple } from "../types.js";
-import { c52, c52n, float51ToInt64, mask51 } from "./common.js";
-import { Multiply } from "./fma.js";
-import { assert } from "../util.js";
-import { forLoop1, ImplicitMemory } from "../wasm/wasm-util.js";
-import { bigintPairToData, createField } from "./field-base.js";
-import { fieldMethods } from "./field-single.js";
+import { MemoryHelpers, memoryHelpers } from "../wasm/memory-helpers.ts";
+import { Tuple } from "../types.ts";
+import { c52, c52n, float51ToInt64, mask51 } from "./common.ts";
+import { Multiply } from "./fma.ts";
+import { assert } from "../util.ts";
+import { forLoop1, ImplicitMemory } from "../wasm/wasm-util.ts";
+import { bigintPairToData, createField } from "./field-base.ts";
+import { fieldMethods } from "./field-single.ts";
 
 export { createWasm, createWasmWithBenches, Field };
 

@@ -19,10 +19,10 @@ import {
   v128,
   i64x2,
 } from "wasmati";
-import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.js";
-import { FieldWithMultiply } from "../wasm/multiply-montgomery.js";
-import { extractBitSlice } from "../wasm/field-helpers.js";
-import { assert } from "../util.js";
+import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
+import { FieldWithMultiply } from "../wasm/multiply-montgomery.ts";
+import { extractBitSlice } from "../wasm/field-helpers.ts";
+import { assert } from "../util.ts";
 
 export { fastInverse };
 

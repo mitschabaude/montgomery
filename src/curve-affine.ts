@@ -1,8 +1,8 @@
 import type * as W from "wasmati"; // for type names
-import { MsmField } from "./field-msm.js";
-import { randomGenerators } from "./bigint/field-random.js";
-import type { CurveProjective } from "./curve-projective.js";
-import { assert } from "./util.js";
+import { MsmField } from "./field-msm.ts";
+import { randomGenerators } from "./bigint/field-random.ts";
+import type { CurveProjective } from "./curve-projective.ts";
+import { assert } from "./util.ts";
 
 export {
   createCurveAffine,

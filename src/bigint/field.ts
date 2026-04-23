@@ -1,9 +1,9 @@
 /**
  * some basic ff algorithms in js, to use in wasm builders and tests
  */
-import { assert, log2 } from "../util.js";
-import { randomField } from "./field-random.js";
-import { mod } from "./field-util.js";
+import { assert, log2 } from "../util.ts";
+import { randomField } from "./field-random.ts";
+import { mod } from "./field-util.ts";
 
 export { createField, BigintField, inverse, exp };
 

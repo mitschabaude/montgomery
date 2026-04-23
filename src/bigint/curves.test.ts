@@ -1,21 +1,21 @@
-import { Random, test } from "../testing/property.js";
+import { Random, test } from "../testing/property.ts";
 import {
   createCurveTwistedEdwards,
   BigintPoint as TwistedEdwardsExtendedPoint,
-} from "./twisted-edwards.js";
+} from "./twisted-edwards.ts";
 import {
   createCurveAffine,
   BigintPoint as AffinePoint,
-} from "./affine-weierstrass.js";
+} from "./affine-weierstrass.ts";
 import {
   createCurveProjective,
   BigintPoint as ProjectivePoint,
-} from "./projective-weierstrass.js";
-import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
-import { pallasParams } from "../concrete/pasta.params.js";
-import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
-import { curveParams as bls12377Params } from "../concrete/bls12-377.params.js";
-import { assert } from "../util.js";
+} from "./projective-weierstrass.ts";
+import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.ts";
+import { pallasParams } from "../concrete/pasta.params.ts";
+import { curveParams as bls12381Params } from "../concrete/bls12-381.params.ts";
+import { curveParams as bls12377Params } from "../concrete/bls12-377.params.ts";
+import { assert } from "../util.ts";
 
 let testInputs: TestInput<any>[] = [
   // twisted edwards curve

@@ -10,9 +10,9 @@
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
 import { f64, f64x2, func, Module } from "wasmati";
-import { pallasParams } from "../concrete/pasta.params.js";
-import { createField, inverse } from "../bigint/field.js";
-import { assert } from "../util.js";
+import { pallasParams } from "../concrete/pasta.params.ts";
+import { createField, inverse } from "../bigint/field.ts";
+import { assert } from "../util.ts";
 import {
   bigint64ToNumber,
   bigintFromFloat51Limbs,
@@ -29,7 +29,7 @@ import {
   mask51,
   mask64,
   numberToBigint64,
-} from "./common.js";
+} from "./common.ts";
 
 export {
   madd,

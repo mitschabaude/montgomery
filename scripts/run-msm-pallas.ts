@@ -1,5 +1,5 @@
-import { pallasParams } from "../src/concrete/pasta.params.js";
-import { benchmarkMsm, runMsm } from "./msm-weierstrass.js";
+import { pallasParams } from "../src/concrete/pasta.params.ts";
+import { benchmarkMsm, runMsm } from "./msm-weierstrass.ts";
 
 console.log(process.argv.slice(3));
 let n = Number(process.argv[3] ?? 16);

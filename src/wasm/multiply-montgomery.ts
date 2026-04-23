@@ -13,11 +13,11 @@ import {
   i64,
   local,
 } from "wasmati";
-import { inverse } from "../bigint/field.js";
-import { assert, bigintToLimbs } from "../util.js";
-import { forLoop1, forLoop4 } from "./wasm-util.js";
-import { createField } from "./field-helpers.js";
-import { FieldWithArithmetic } from "./field-arithmetic.js";
+import { inverse } from "../bigint/field.ts";
+import { assert, bigintToLimbs } from "../util.ts";
+import { forLoop1, forLoop4 } from "./wasm-util.ts";
+import { createField } from "./field-helpers.ts";
+import { FieldWithArithmetic } from "./field-arithmetic.ts";
 
 export { multiplyMontgomery, FieldWithMultiply };
 

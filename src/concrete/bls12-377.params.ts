@@ -1,10 +1,10 @@
-import { mod } from "../bigint/field-util.js";
-import { exp, inverse } from "../bigint/field.js";
-import { assert } from "../util.js";
+import { mod } from "../bigint/field-util.ts";
+import { exp, inverse } from "../bigint/field.ts";
+import { assert } from "../util.ts";
 import {
   CurveParams,
   createCurveAffine,
-} from "../bigint/affine-weierstrass.js";
+} from "../bigint/affine-weierstrass.ts";
 
 export { p, q, h, b, lambda, beta, nBits, nBytes, G, curveParams };
 

@@ -1,7 +1,7 @@
-import { curveParams } from "../src/concrete/bls12-377.params.js";
-import { Weierstraß, startThreads, stopThreads } from "../src/parallel.js";
-import { tic, toc } from "../src/testing/tictoc.js";
-import { median, standardDev } from "./evaluate-util.js";
+import { curveParams } from "../src/concrete/bls12-377.params.ts";
+import { Weierstraß, startThreads, stopThreads } from "../src/parallel.ts";
+import { tic, toc } from "../src/testing/tictoc.ts";
+import { median, standardDev } from "./evaluate-util.ts";
 
 const { Parallel } = await Weierstraß.create(curveParams);
 

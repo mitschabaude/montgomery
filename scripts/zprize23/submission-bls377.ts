@@ -1,5 +1,5 @@
-import { BLS12377 } from "../../src/concrete/bls12-377.js";
-import { startThreads } from "../../src/parallel.js";
+import { BLS12377 } from "../../src/concrete/bls12-377.ts";
+import { startThreads } from "../../src/parallel.ts";
 
 export { compute_msm };
 

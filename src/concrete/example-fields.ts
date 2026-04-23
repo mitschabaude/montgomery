@@ -1,11 +1,11 @@
-import { createField } from "../bigint/field.js";
-import { p as pPasta, q as qPasta } from "./pasta.params.js";
-import { p as pBls12381, q as qBls12381 } from "./bls12-381.params.js";
-import { p as pBls12377 } from "./bls12-377.params.js";
+import { createField } from "../bigint/field.ts";
+import { p as pPasta, q as qPasta } from "./pasta.params.ts";
+import { p as pBls12381, q as qBls12381 } from "./bls12-381.params.ts";
+import { p as pBls12377 } from "./bls12-377.params.ts";
 import {
   p as pEdBls12377,
   q as qEdBls12377,
-} from "./ed-on-bls12-377.params.js";
+} from "./ed-on-bls12-377.params.ts";
 
 export { exampleFields };
 
