@@ -12,9 +12,11 @@ import {
   type BigintPoint as ProjectivePoint,
 } from "./projective-weierstrass.ts";
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.ts";
-import { pallasParams } from "../concrete/pasta.params.ts";
+import { pallasParams, vestaParams } from "../concrete/pasta.params.ts";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.ts";
 import { curveParams as bls12377Params } from "../concrete/bls12-377.params.ts";
+import { bn254Params } from "../concrete/bn254.params.ts";
+import { secp256k1Params } from "../concrete/secp256k1.params.ts";
 import { assert } from "../util.ts";
 
 let testInputs: TestInput<any>[] = [
@@ -32,6 +34,11 @@ let testInputs: TestInput<any>[] = [
     randomShape: projectiveShape,
   } satisfies TestInput<ProjectivePoint>,
   {
+    label: "vesta",
+    Curve: createCurveProjective(vestaParams),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+  {
     label: "bls12-381",
     Curve: createCurveProjective(bls12381Params),
     randomShape: projectiveShape,
@@ -39,6 +46,16 @@ let testInputs: TestInput<any>[] = [
   {
     label: "bls12-377",
     Curve: createCurveProjective(bls12377Params),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+  {
+    label: "bn254",
+    Curve: createCurveProjective(bn254Params),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+  {
+    label: "secp256k1",
+    Curve: createCurveProjective(secp256k1Params),
     randomShape: projectiveShape,
   } satisfies TestInput<ProjectivePoint>,
 

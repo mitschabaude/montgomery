@@ -66,15 +66,15 @@ For best throughput on very large MSMs, `Curve.Parallel.msmUnsafe` skips the deg
 
 Lazy factories, all in `montgomery`:
 
-| Export      | Curve                                                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `Pallas`    | [Pallas](https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/) (short Weierstrass, used in Halo 2 / Mina) |
-| `Vesta`     | Vesta — Pallas' sister curve, base/scalar fields swapped                                                                  |
-| `BLS12377`  | BLS12-377 (short Weierstrass, used in Aleo)                                                                               |
-| `BLS12381`  | BLS12-381 (short Weierstrass, used in Ethereum / Zcash Sapling)                                                           |
-| `BN254`     | BN254 / alt_bn128 G1 (short Weierstrass, used in Ethereum EIP-196/197 precompiles)                                        |
-| `Secp256k1` | secp256k1 (short Weierstrass, used in Bitcoin / Ethereum signatures)                                                      |
-| `Ed377`     | Edwards-on-BLS12-377 (twisted Edwards, used in Aleo)                                                                      |
+| Export      | Curve                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Pallas`    | First [Pasta curve](https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/) (short Weierstrass, used in Halo 2 / Mina) |
+| `Vesta`     | Pallas' sister curve, base/scalar fields swapped                                                                                     |
+| `BLS12377`  | BLS12-377 (short Weierstrass, used in Aleo)                                                                                          |
+| `BLS12381`  | BLS12-381 (short Weierstrass, used in Ethereum / Zcash Sapling)                                                                      |
+| `BN254`     | BN254 / alt_bn128 G1 (short Weierstrass, used in Ethereum EIP-196/197 precompiles)                                                   |
+| `Secp256k1` | secp256k1 (short Weierstrass, used in Bitcoin / Ethereum signatures)                                                                 |
+| `Ed377`     | Edwards-on-BLS12-377 (twisted Edwards, used in Aleo)                                                                                 |
 
 Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
 
