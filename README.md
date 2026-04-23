@@ -34,7 +34,7 @@ import { Pallas, startThreads, stopThreads, type AffinePoint } from "montgomery"
 
 // lazy factory: instantiates the Pallas curve on first call
 const pallas = await Pallas();
-
+b
 // optional: spin up worker threads to parallelize large MSMs
 await startThreads(4);
 
@@ -62,6 +62,25 @@ For performance-sensitive workloads, stream the inputs as raw bytes straight int
 
 For best throughput on very large MSMs, `Curve.Parallel.msmUnsafe` skips the degenerate-addition check and is ~25% faster, but assumes the input points don't collide (the main application of the library is with pseudo-randomly generated points for prover-side computation, where the check is wasteful).
 
+## Curves
+
+Lazy factories, all in `montgomery`:
+
+| Export     | Curve                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Pallas`   | [Pallas](https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/) (short Weierstrass, used in Halo 2 / Mina) |
+| `BLS12377` | BLS12-377 (short Weierstrass, used in Aleo)                                                                               |
+| `BLS12381` | BLS12-381 (short Weierstrass, used in Ethereum / Zcash Sapling)                                                           |
+| `Ed377`    | Edwards-on-BLS12-377 (twisted Edwards, used in Aleo)                                                                      |
+
+Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
+
+## Threads
+
+`startThreads(n)` spins up a pool of `n` workers (defaults to `availableParallelism()`); `stopThreads()` terminates it. Safe to call before or after curve creation: the library tracks which curves exist and resegments their memory when the thread count changes.
+
+If you skip `startThreads`, the MSM transparently falls back to single-threaded execution on the main thread, without any overhead compared to a dedicated single-threaded implementation.
+
 ## Random points
 
 `montgomery` has efficient random point and field element generation, suitable for testing:
@@ -87,25 +106,6 @@ const ptrs = pallas.Field.global.getPointers(n, pallas.Affine.size);
 pallas.Affine.randomPoints(ptrs);
 // ptrs[0] is the pointer to the contiguous batch of n affine points
 ```
-
-## Curves
-
-Lazy factories, all in `montgomery`:
-
-| Export     | Curve                                                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `Pallas`   | [Pallas](https://electriccoin.co/blog/the-pasta-curves-for-halo-2-and-beyond/) (short Weierstrass, used in Halo 2 / Mina) |
-| `BLS12377` | BLS12-377 (short Weierstrass, used in Aleo)                                                                               |
-| `BLS12381` | BLS12-381 (short Weierstrass, used in Ethereum / Zcash Sapling)                                                           |
-| `Ed377`    | Edwards-on-BLS12-377 (twisted Edwards, used in Aleo)                                                                      |
-
-Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
-
-## Threads
-
-`startThreads(n)` spins up a pool of `n` workers (defaults to `availableParallelism()`); `stopThreads()` terminates it. Safe to call before or after curve creation: the library tracks which curves exist and resegments their memory when the thread count changes.
-
-If you skip `startThreads`, the parallel MSM transparently falls back to single-threaded execution on the main thread.
 
 ## More
 
