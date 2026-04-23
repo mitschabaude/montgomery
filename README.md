@@ -75,7 +75,11 @@ Lazy factories, all in `montgomery`:
 
 Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
 
+Under the hood, these constructors build a dedicated Wasm module on-the-fly based on the provided parameters, and makes sure to distribute that model to Workers when parallelism is enabled.
+
 ## Threads
+
+Parallelism in both Node.js and browsers is supported by exposing methods to start and stop a global pool of workers. Performance-critical library methods like the MSM _automatically_ shard their work across the currently available pool.
 
 `startThreads(n)` spins up a pool of `n` workers (defaults to `availableParallelism()`); `stopThreads()` terminates it. Safe to call before or after curve creation: the library tracks which curves exist and resegments their memory when the thread count changes.
 

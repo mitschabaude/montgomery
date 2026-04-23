@@ -1,8 +1,8 @@
 import type { CurveParams } from "../bigint/affine-weierstrass.ts";
 import { mod } from "../bigint/field-util.ts";
-import { exp } from "../bigint/field.ts";
+import { createField, exp } from "../bigint/field.ts";
 
-export { p, q, b, lambda, beta, nBits, nBytes, pallasParams };
+export { p, q, b, lambda, beta, nBits, nBytes, pallasParams, vestaParams };
 
 // base / scalar field moduli
 // Fp is the base field of Pallas, scalar field of Vesta
@@ -43,4 +43,27 @@ const pallasParams: CurveParams = {
     y: 0x1b74b5a30a12937c53dfa9f06378ee548f655bd4333d477119cf7a23caed2abbn,
   },
   endomorphism: { beta, lambda },
+};
+
+// Vesta is Pallas' sister: same curve equation y^2 = x^3 + 5, base/scalar
+// fields swapped.
+const lambdaV = exp(5n, (p - 1n) / 3n, p);
+if (mod(lambdaV * lambdaV * lambdaV, p) !== 1n) throw Error("lambdaV broken");
+const betaV2 = exp(5n, (q - 1n) / 3n, q);
+const betaV = mod(betaV2 * betaV2, q);
+if (mod(betaV2 * betaV, q) !== 1n) throw Error("betaV broken");
+
+// Vesta generator: (1, y) with y = sqrt(6) mod q
+const vestaGeneratorY = createField(q).sqrt(6n);
+if (vestaGeneratorY === undefined) throw Error("vesta generator y not found");
+
+const vestaParams: CurveParams = {
+  label: "vesta",
+  modulus: q,
+  order: p,
+  cofactor: 1n,
+  a: 0n,
+  b,
+  generator: { x: 1n, y: vestaGeneratorY },
+  endomorphism: { beta: betaV, lambda: lambdaV },
 };
