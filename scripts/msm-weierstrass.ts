@@ -8,7 +8,6 @@ import { tic, toc } from "../src/testing/tictoc.ts";
 import { assertDeepEqual } from "../src/testing/nested.ts";
 import { assert } from "../src/util.ts";
 import { median, standardDev } from "./evaluate-util.ts";
-import { createCurveProjective as createBigintCurve } from "../src/bigint/projective-weierstrass.ts";
 import { msm as bigintMsm } from "../src/bigint/msm.ts";
 
 export { benchmarkMsm, runMsm };
@@ -89,7 +88,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
     scalarPtrs[0],
     pointsPtrs[0],
     N,
-    true
+    true,
   );
   let sAffinePtr = Curve.Field.getPointer(Curve.Affine.size);
   Curve.Projective.toAffine(scratch, sAffinePtr, result);
@@ -99,9 +98,9 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   toc();
 
   if (n < 14) {
-    const CurveBigint = createBigintCurve(params);
+    const CurveBigint = Curve.Bigint.Projective;
     let points = pointsPtrs.map((g) =>
-      CurveBigint.fromAffine(Curve.Affine.toBigint(g))
+      CurveBigint.fromAffine(Curve.Affine.toBigint(g)),
     );
     tic("msm (bigint impl)");
     let sBigint = CurveBigint.toAffine(bigintMsm(CurveBigint, scalars, points));
