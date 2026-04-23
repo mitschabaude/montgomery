@@ -28,24 +28,23 @@ Example: On my laptop, a 2^16-sized twisted edwards MSM takes 80ms.
 
 ## Using the submission
 
-To run the following commands, first switch into the `src/submission` directory (same directory as this README). Install npm dependencies.
+To run the following commands, first install npm dependencies at the repo root.
 
 ```sh
-cd src/submission
 npm i
 ```
 
 A single command builds both submissions, such that they can be included into the main test harness:
 
 ```sh
-npm run build-submission
+npm --prefix doc/zprize23 run build
 ```
 
 On success, this should print:
 
 ```
-built for the browser: build/web/submission.js
-built for the browser: build/web/submission-bls377.js
+built for the browser: build/web/doc/zprize23/submission.js
+built for the browser: build/web/doc/zprize23/submission-bls377.js
 ```
 
 These two JS files contain everything needed by the submissions (including wasm and web worker code) in a single file, bundled for the web.
@@ -53,7 +52,7 @@ These two JS files contain everything needed by the submissions (including wasm 
 In the test harness, we import these build output files instead of the TS source code:
 
 ```ts
-import { compute_msm } from "../submission/build/web/submission.js";
+import { compute_msm } from "../submission/build/web/doc/zprize23/submission.js";
 ```
 
 We also build matching TS type definitions so `compute_msm` has proper intellisense.
@@ -82,18 +81,18 @@ Two simple tests test the submission's `compute_msm()` interface directly:
 - `submission-test.ts` for the twisted edwards curve
 - `submission-test-bls377.ts` for the BLS curve
 
-After having done `npm run build`, the `./run` script can be pointed at either of these to run it in Node.js:
+Either can be run in Node.js directly:
 
 ```sh
-> ./run submission-test-bls377.ts
+> node doc/zprize23/submission-test-bls377.ts
 ok
 ```
 
 They can also be run in Chrome by calling the `./run-in-browser` script:
 
 ```sh
-> ./run-in-browser submission-test-bls377.ts
-running in the browser: build/web/submission-test-bls377.js
+> ./run-in-browser doc/zprize23/submission-test-bls377.ts
+running in the browser: build/web/doc/zprize23/submission-test-bls377.js
 Server is running on: http://localhost:8000
 ```
 
@@ -101,7 +100,7 @@ This just serves a web build of the script locally, so upon navigating to http:/
 
 ## Internal tests and scripts
 
-There are plenty of scripts (in `/scripts`) and unit/integration tests (`.test.ts` files) to test or benchmark various aspects of this library on various curves and finite fields. All of them can be run with `./run`, and most will also work in the browser with `./run-in-browser`.
+There are plenty of scripts (in `/scripts`) and unit/integration tests (`.test.ts` files) to test or benchmark various aspects of this library on various curves and finite fields. All of them can be run with `node`, and most will also work in the browser with `./run-in-browser`.
 
 To run all `.test.ts` tests, you can also use `npm test`. (Note: at the time of writing, there are two known failing test cases unrelated to this submission.) Check out other scripts in `package.json` - they are all expected to work.
 
@@ -109,7 +108,7 @@ To benchmark the submitted MSMs on a given number of points and using a given nu
 
 ```sh
 # twisted edwards MSM on 2^18 random points with 16 threads
-> ./run scripts/run-msm-ed-377.ts 18 16 --evaluate
+> node scripts/run-msm-ed-377.ts 18 16 --evaluate
 
 ...
 msm (n=18)... 322ms ± 8ms
@@ -117,7 +116,7 @@ msm (n=18)... 322ms ± 8ms
 
 ```sh
 # bls12-377 MSM on 2^16 random points with 16 threads
-> ./run scripts/run-msm-377.ts 16 8 --evaluate
+> node scripts/run-msm-377.ts 16 8 --evaluate
 
 ...
 msm (n=16)... 122ms ± 3ms

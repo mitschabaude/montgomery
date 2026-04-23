@@ -20,11 +20,27 @@ async function compute_msm(
   inputPoints: BigIntPoint[] | U32ArrayPoint[] | Buffer,
   inputScalars: bigint[] | Uint32Array[] | Buffer
 ): Promise<{ x: bigint; y: bigint }> {
-  let n = inputScalars.length / 32;
+  let n: number;
+  let scalars: number;
+  let points: number;
 
-  // transfer to wasm memory
-  let scalars = await scalarsFromBytes(inputScalars as Uint8Array);
-  let points = await pointsFromBytes(inputPoints as Uint8Array);
+  // transfer to wasm memory, dispatching on input representation
+  if (typeof inputScalars[0] === "bigint") {
+    n = inputScalars.length;
+    scalars = scalarsFromBigint(inputScalars as bigint[]);
+  } else {
+    n = inputScalars.length / 32;
+    scalars = await scalarsFromBytes(inputScalars as Uint8Array);
+  }
+  if (
+    typeof inputPoints[0] === "object" &&
+    "x" in inputPoints[0] &&
+    typeof inputPoints[0].x === "bigint"
+  ) {
+    points = pointsFromBigint(inputPoints as BigIntPoint[]);
+  } else {
+    points = await pointsFromBytes(inputPoints as Uint8Array);
+  }
 
   // compute msm
   let { result } = await Ed377.Parallel.msm(scalars, points, n);
