@@ -6,16 +6,23 @@
   "type": "module",
   "types": "./build/src/index.d.ts",
   "exports": {
-    "types": "./build/src/index.d.ts",
-    "default": "./build/src/index.js"
+    ".": {
+      "types": "./build/src/index.d.ts",
+      "browser": "./build/web/index.js",
+      "default": "./build/src/index.js"
+    }
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/mitschabaude/montgomery"
   },
   "files": [
+    "build/src",
+    "!build/src/**/*.test.*",
+    "build/web/index.js",
+    "build/web/index.js.map",
     "src",
-    "build",
+    "!src/**/*.test.ts",
     "README.md",
     "NOTICE"
   ],
@@ -30,7 +37,7 @@
     "benchmark": "node scripts/field-benchmarks/pallas.ts",
     "benchmark-377": "node scripts/field-benchmarks/377.ts",
     "benchmark-381": "node scripts/field-benchmarks/381.ts",
-    "prepublishOnly": "npm run clean && npm run build",
+    "prepublishOnly": "npm run clean && npm run build && node scripts/build/bundle-dist-web.ts",
     "clean": "rm -rf build"
   },
   "keywords": [],
