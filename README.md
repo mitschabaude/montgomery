@@ -107,6 +107,53 @@ pallas.Affine.randomPoints(ptrs);
 // ptrs[0] is the pointer to the contiguous batch of n affine points
 ```
 
+## Bigint / reference library
+
+Every curve module ships with a pure-TS bigint reference implementation alongside the fast wasm one, exposed via `curve.Bigint`:
+
+```ts
+const pallas = await Pallas();
+
+// bigint prime fields, with add/sub/mul/square/inverse/exp/sqrt/isSquare/random
+const { Field, Scalar } = pallas.Bigint.Projective;
+
+// bigint curve ops
+pallas.Bigint.Affine.add(P, Q);
+pallas.Bigint.Affine.scale(k, P);
+
+// and a pippenger MSM for cross-checking the wasm one
+const s = pallas.Bigint.Projective.msm(scalars, points);
+```
+
+For Weierstrass curves `curve.Bigint` has both `Affine` and `Projective` layers (each with `add`, `double`, `negate`, `scale`, `isEqual`, `isOnCurve`, `toSubgroup`, `random`, …). Twisted edwards has its single extended-projective layer at `curve.Bigint` directly. The bigint implementation is comparatively slow but small, simple, and matches the wasm one in behavior — used internally as the test oracle and handy for small-scale crypto (like signatures), tutorials, or building custom protocols in plain TS.
+
+## Low-level arithmetic on Wasm pointers
+
+Underneath the MSM, every curve exposes its full wasm field/scalar/curve arithmetic on raw pointers:
+
+- `curve.Field` / `curve.Scalar` — `add`, `subtract`, `multiply`, `square`, `inverse`, `exp`, `sqrt`, `isEqual`, `isZero`, `reduce`, `toMontgomery`/`fromMontgomery`, `fromPackedBytes`/`toPackedBytes`, `writeBigint`/`readBigint`, …
+- `curve.Affine` / `curve.Projective` (Weierstrass) or `curve.Curve` (twisted edwards) — `add`, `double`, `negate`, `scale`, `isOnCurve`, `batchNormalize`, `toBigint`/`writeBigint`, …
+
+These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~590 lines of pure TS) and `msm-basic.ts` (~220 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
+
+A few highlights:
+
+- **29×9 limb layout** for 256-bit fields. 29-bit limbs packed into 9 i64 lanes let the Montgomery multiplication use i64 multiplies with enough headroom in the upper bits to accumulate partial products before carrying — a sweet spot for wasm, which has no native 64×64→128 multiply. Bain Capital Crypto's [_Optimizing Montgomery Multiplication in WebAssembly_](https://baincapitalcrypto.com/optimizing-montgomery-multiplication-in-webassembly/) benchmarks several wasm multiplication variants against each other and finds this one (which they call "Mitscha-Baude's method", referencing this repo) the fastest.
+- **Fast modular inverse** at **< 30 × MUL** cost, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). Much faster than the usual `exp(x, p-2)` Fermat trick.
+- **Fast square root** via Tonelli–Shanks optimized after Daniel Bernstein's ["Faster square roots in annoying finite fields"](http://cr.yp.to/papers/sqroot.pdf): the discrete-log phase caches roots-of-unity windows so it drops to a handful of multiplications, leaving the `x^((t−1)/2)` exponentiation as the dominant cost.
+
+## Constant-time: not a design goal
+
+`montgomery` targets high-volume client-side computation (e.g. local SNARK provers) where the threat model does not include timing side channels: an adversary doesn't share the machine or observe wall-clock times of individual operations. Under that assumption we trade constant-time execution for raw throughput, and many core operations branch on their operands:
+
+- `Field.inverse` — Pornin binary GCD with data-dependent branches
+- `Field.sqrt` — Tonelli-Shanks with retry and lookup-driven digit extraction
+- `Field.exp` — standard square-and-multiply, branches per exponent bit
+- `Field.reduce` (and `Field.add` / `Field.subtract` through it) — conditional subtraction
+- `Curve.scale`, `Curve.isOnCurve`, all MSM paths — inherit variable timing from the above
+
+If your threat model does include timing side channels (server-side key operations, co-tenant environments, remote attackers), use a library built for constant-time execution instead.
+
 ## More
 
 - Scripts in `scripts/` illustrate end-to-end use of each curve: `run-msm-pallas.ts`, `run-msm-377.ts`, `run-msm-ed-377.ts`, plus field-level benchmarks under `scripts/field-benchmarks/`.
