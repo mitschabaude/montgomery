@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { Random, test } from "../testing/property.js";
-import { exampleFields } from "../concrete/example-fields.js";
-import type { BigintField } from "./field.js";
+import { Random, test } from "../testing/property.ts";
+import { exampleFields } from "../concrete/example-fields.ts";
+import type { BigintField } from "./field.ts";
 
 for (let fieldName in exampleFields) {
   testField(fieldName, exampleFields[fieldName as keyof typeof exampleFields]);

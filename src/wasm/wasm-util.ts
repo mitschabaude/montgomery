@@ -1,7 +1,7 @@
 import {
   Const,
   Dependency,
-  Local,
+  type Local,
   br_if,
   data,
   global,

@@ -1,3 +1,13 @@
+// Ambient typings so `Symbol.dispose` / `Symbol.asyncDispose` resolve in
+// consumers' type-checking even when their tsconfig target/lib doesn't
+// include esnext.disposable or es2024+. Matches the runtime polyfill below.
+declare global {
+  interface SymbolConstructor {
+    readonly dispose: unique symbol;
+    readonly asyncDispose: unique symbol;
+  }
+}
+
 if (typeof Symbol.dispose !== "symbol")
   Object.defineProperty(Symbol, "dispose", {
     configurable: false,
@@ -13,3 +23,5 @@ if (typeof Symbol.asyncDispose !== "symbol")
     writable: false,
     value: Symbol.for("asyncDispose"),
   });
+
+export {};

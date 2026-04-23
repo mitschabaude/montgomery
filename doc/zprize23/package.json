@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "ZPrize 2023 MSM submission (2nd place). Kept evergreen, not actively developed.",
+  "scripts": {
+    "build": "cd ../.. && npm run build && ./build-for-browser doc/zprize23/submission.ts && ./build-for-browser doc/zprize23/submission-bls377.ts"
+  }
+}

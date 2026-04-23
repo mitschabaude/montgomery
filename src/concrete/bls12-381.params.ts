@@ -1,5 +1,5 @@
-import type { CurveParams } from "../bigint/affine-weierstrass.js";
-import { bigintToBits } from "../util.js";
+import type { CurveParams } from "../bigint/affine-weierstrass.ts";
+import { bigintToBits } from "../util.ts";
 
 export { p, q, beta, lambda, curveParams, asBits };
 

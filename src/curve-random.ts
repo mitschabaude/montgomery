@@ -1,9 +1,9 @@
 // fast random point generation
 
-import type { MsmField } from "./field-msm.js";
-import { barrier, range, shareOf } from "./threads/threads.js";
-import { assert, bigintFromBytes32, log2, randomBytes } from "./util.js";
-import { MemoryHelpers } from "./wasm/memory-helpers.js";
+import type { MsmField } from "./field-msm.ts";
+import { barrier, range, shareOf } from "./threads/threads.ts";
+import { assert, bigintFromBytes32, log2, randomBytes } from "./util.ts";
+import { type MemoryHelpers } from "./wasm/memory-helpers.ts";
 
 export {
   createRandomPointsFast,

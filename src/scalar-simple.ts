@@ -1,12 +1,12 @@
 import type * as W from "wasmati";
 import { Const, Module, global, importMemory } from "wasmati";
-import { assert, log2 } from "./util.js";
-import { memoryHelpers } from "./wasm/memory-helpers.js";
-import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.js";
-import { montgomeryParams } from "./bigint/field-util.js";
-import { UnwrapPromise, WasmArtifacts } from "./types.js";
+import { assert, log2 } from "./util.ts";
+import { memoryHelpers } from "./wasm/memory-helpers.ts";
+import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.ts";
+import { montgomeryParams } from "./bigint/field-util.ts";
+import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 
-export { createScalar, Scalar, ScalarParams };
+export { createScalar, type Scalar, type ScalarParams };
 
 type Scalar = UnwrapPromise<ReturnType<typeof createScalar>>;
 type ScalarParams = { q: bigint; w: number };

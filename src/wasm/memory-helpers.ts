@@ -1,8 +1,8 @@
-import "./symbol-dispose-polyfill.js";
-import { THREADS, isMain, isParallel, thread } from "../threads/threads.js";
-import { assert, log2 } from "../util.js";
+import "./symbol-dispose-polyfill.ts";
+import { THREADS, isMain, isParallel, thread } from "../threads/threads.ts";
+import { assert, log2 } from "../util.ts";
 
-export { memoryHelpers, MemoryHelpers, MemorySection };
+export { memoryHelpers, type MemoryHelpers, MemorySection };
 
 // how much memory is reserved for thread-local memory as a fraction of total memory
 const localRatioDefault = 0.2;
@@ -87,6 +87,20 @@ function memoryHelpers(
         arr[i] = Number(x0 & wordMax);
         x0 >>= wn;
       }
+    },
+
+    /**
+     * Allocate a fresh pointer for the input values and write them to it.
+     * Thin wrapper around {@link writeBigint}; does NOT convert to Montgomery
+     * form, so suitable for scalars but not for Montgomery-encoded field
+     * elements.
+     */
+    fromBigints(values: bigint[]): number {
+      let ptr = obj.global.getPointer(values.length * 4 * n);
+      for (let i = 0, pi = ptr; i < values.length; i++, pi += 4 * n) {
+        this.writeBigint(pi, values[i]);
+      }
+      return ptr;
     },
 
     readBigint(x: number, length = n) {

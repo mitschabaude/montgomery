@@ -1,4 +1,4 @@
-import { bigintFromBytes, log2, randomBytes } from "../util.js";
+import { bigintFromBytes, log2, randomBytes } from "../util.ts";
 
 export { randomField, randomFields, randomGenerators };
 

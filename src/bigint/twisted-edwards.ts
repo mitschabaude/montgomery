@@ -1,10 +1,14 @@
-import { assert, bigintToBits } from "../util.js";
-import { createField } from "./field.js";
+import { assert, bigintToBits } from "../util.ts";
+import { createField } from "./field.ts";
 
-export { createCurveTwistedEdwards, BigintPoint, CurveParams };
+export { createCurveTwistedEdwards, type BigintPoint, type CurveParams };
 
 type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
 
+/**
+ * Parameters defining a twisted edwards curve `-x^2 + y^2 = 1 + d*x^2*y^2`
+ * over a prime field of size `modulus`.
+ */
 type CurveParams = {
   label: string;
   modulus: bigint;

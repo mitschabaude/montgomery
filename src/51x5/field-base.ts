@@ -2,8 +2,8 @@ import {
   i32,
   i64,
   local,
-  Local,
-  Input,
+  type Local,
+  type Input,
   v128,
   f64,
   StackVar,
@@ -11,14 +11,14 @@ import {
   func,
   type Func,
 } from "wasmati";
-import { assert } from "../util.js";
-import { bigintToInt51Limbs, mask51 } from "./common.js";
+import { assert } from "../util.ts";
+import { bigintToInt51Limbs, mask51 } from "./common.ts";
 
 export {
   Constants,
   FieldPair,
   createField,
-  FieldBase,
+  type FieldBase,
   FieldLayout,
   constF64x2,
   constI64x2,

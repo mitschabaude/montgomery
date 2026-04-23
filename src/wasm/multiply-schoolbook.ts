@@ -1,6 +1,6 @@
 import type * as W from "wasmati";
-import { $, Type, call, func, i32, i64, local } from "wasmati";
-import { forLoop1, forLoop4 } from "./wasm-util.js";
+import { $, type Type, call, func, i32, i64, local } from "wasmati";
+import { forLoop1, forLoop4 } from "./wasm-util.ts";
 
 export { multiplySchoolbook };
 

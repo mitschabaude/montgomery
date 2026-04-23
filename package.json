@@ -1,37 +1,43 @@
 {
   "name": "montgomery",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Fast implementation of multi-scalar multiplication in WebAssembly",
   "main": "./build/src/index.js",
   "type": "module",
   "types": "./build/src/index.d.ts",
   "exports": {
-    "types": "./build/src/index.d.ts",
-    "default": "./build/src/index.js"
+    ".": {
+      "types": "./build/src/index.d.ts",
+      "browser": "./build/web/index.js",
+      "default": "./build/src/index.js"
+    }
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/mitschabaude/montgomery"
   },
   "files": [
+    "build/src",
+    "!build/src/**/*.test.*",
+    "build/web/index.js",
+    "build/web/index.js.map",
     "src",
-    "build",
+    "!src/**/*.test.ts",
     "README.md",
     "NOTICE"
   ],
   "scripts": {
     "watch": "tsc -w",
     "build": "tsc",
-    "build-submission": "npm run build && tsc -p tsconfig.web.json && ./build-for-browser submission.ts && ./build-for-browser submission-bls377.ts",
-    "start": "npm run build && ./run scripts/run-msm-pallas.ts",
-    "start-web": "npm run build && ./run-in-browser scripts/run-msm-pallas.ts",
-    "evaluate": "npm run build && ./run scripts/run-msm-pallas.ts 16 16 --evaluate",
-    "test": "npm run build && node --test build/src/**/*.test.js build/src/*.test.js",
-    "test-msm": "npm run build && ./run src/msm.test.ts",
-    "benchmark": "node --loader=ts-node/esm scripts/field-benchmarks/pallas.ts",
-    "benchmark-377": "node --loader=ts-node/esm scripts/field-benchmarks/377.ts",
-    "benchmark-381": "node --loader=ts-node/esm scripts/field-benchmarks/381.ts",
-    "prepublishOnly": "npm run clean && npm run build",
+    "start": "node scripts/run-msm-pallas.ts",
+    "start-web": "./run-in-browser scripts/run-msm-pallas.ts",
+    "evaluate": "node scripts/run-msm-pallas.ts 16 16 --evaluate",
+    "test": "node --test 'src/**/*.test.ts'",
+    "test-msm": "node --test src/msm.test.ts",
+    "benchmark": "node scripts/field-benchmarks/pallas.ts",
+    "benchmark-377": "node scripts/field-benchmarks/377.ts",
+    "benchmark-381": "node scripts/field-benchmarks/381.ts",
+    "prepublishOnly": "npm run clean && npm run build && node scripts/build/bundle-dist-web.ts",
     "clean": "rm -rf build"
   },
   "keywords": [],
@@ -41,11 +47,10 @@
     "wasmati": "^0.2.2"
   },
   "devDependencies": {
-    "esbuild": "^0.20.1",
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.28.0",
     "prettier": "^3.1.1",
-    "source-map-support": "^0.5.21",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.3.3",
+    "typescript": "^6.0.3",
     "wabt": "^1.0.29"
   }
 }

@@ -1,27 +1,35 @@
-import { Random, test } from "../testing/property.js";
+import { Random, test } from "../testing/property.ts";
 import {
   createCurveTwistedEdwards,
-  BigintPoint as TwistedEdwardsExtendedPoint,
-} from "./twisted-edwards.js";
+  type BigintPoint as TwistedEdwardsExtendedPoint,
+} from "./twisted-edwards.ts";
 import {
   createCurveAffine,
-  BigintPoint as AffinePoint,
-} from "./affine-weierstrass.js";
+  type BigintPoint as AffinePoint,
+} from "./affine-weierstrass.ts";
 import {
   createCurveProjective,
-  BigintPoint as ProjectivePoint,
-} from "./projective-weierstrass.js";
-import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
-import { pallasParams } from "../concrete/pasta.params.js";
-import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
-import { curveParams as bls12377Params } from "../concrete/bls12-377.params.js";
-import { assert } from "../util.js";
+  type BigintPoint as ProjectivePoint,
+} from "./projective-weierstrass.ts";
+import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.ts";
+import { ed25519Params } from "../concrete/ed25519.params.ts";
+import { pallasParams, vestaParams } from "../concrete/pasta.params.ts";
+import { curveParams as bls12381Params } from "../concrete/bls12-381.params.ts";
+import { curveParams as bls12377Params } from "../concrete/bls12-377.params.ts";
+import { bn254Params } from "../concrete/bn254.params.ts";
+import { secp256k1Params } from "../concrete/secp256k1.params.ts";
+import { assert } from "../util.ts";
 
 let testInputs: TestInput<any>[] = [
-  // twisted edwards curve
+  // twisted edwards curves
   {
     label: "ed-on-bls12-377",
     Curve: createCurveTwistedEdwards(edBls12377Params),
+    randomShape: twistedEdwardsShape,
+  } satisfies TestInput<TwistedEdwardsExtendedPoint>,
+  {
+    label: "ed25519",
+    Curve: createCurveTwistedEdwards(ed25519Params),
     randomShape: twistedEdwardsShape,
   } satisfies TestInput<TwistedEdwardsExtendedPoint>,
 
@@ -32,6 +40,11 @@ let testInputs: TestInput<any>[] = [
     randomShape: projectiveShape,
   } satisfies TestInput<ProjectivePoint>,
   {
+    label: "vesta",
+    Curve: createCurveProjective(vestaParams),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+  {
     label: "bls12-381",
     Curve: createCurveProjective(bls12381Params),
     randomShape: projectiveShape,
@@ -39,6 +52,16 @@ let testInputs: TestInput<any>[] = [
   {
     label: "bls12-377",
     Curve: createCurveProjective(bls12377Params),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+  {
+    label: "bn254",
+    Curve: createCurveProjective(bn254Params),
+    randomShape: projectiveShape,
+  } satisfies TestInput<ProjectivePoint>,
+  {
+    label: "secp256k1",
+    Curve: createCurveProjective(secp256k1Params),
     randomShape: projectiveShape,
   } satisfies TestInput<ProjectivePoint>,
 
@@ -98,37 +121,37 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
       // addition is commutative
       assert(
         Curve.isEqual(Curve.add(P, Q), Curve.add(Q, P)),
-        "addition is commutative"
+        "addition is commutative",
       );
 
       // addition is associative
       assert(
         Curve.isEqual(
           Curve.add(P, Curve.add(Q, R)),
-          Curve.add(Curve.add(P, Q), R)
+          Curve.add(Curve.add(P, Q), R),
         ),
-        "addition is associative"
+        "addition is associative",
       );
 
       // addition is distributive
       assert(
         Curve.isEqual(
           Curve.scale(s, Curve.add(P, Q)),
-          Curve.add(Curve.scale(s, P), Curve.scale(s, Q))
+          Curve.add(Curve.scale(s, P), Curve.scale(s, Q)),
         ),
-        "addition is distributive"
+        "addition is distributive",
       );
 
       // doubling is scaling by 2
       assert(
         Curve.isEqual(Curve.double(P), Curve.scale(2n, P)),
-        "double = scale 2"
+        "double = scale 2",
       );
 
       // adding the negation is zero
       assert(
         Curve.isEqual(Curve.add(P, Curve.negate(P)), Curve.zero),
-        "P + -P = 0"
+        "P + -P = 0",
       );
 
       // negating twice is the identity
@@ -137,7 +160,7 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
       // scaling by order-1 is negation
       assert(
         Curve.isEqual(Curve.scale(Curve.order - 1n, P), Curve.negate(P)),
-        "scaling by order-1 is negation"
+        "scaling by order-1 is negation",
       );
 
       // zero is the identity
@@ -150,21 +173,21 @@ function testCurve<Point>({ label, Curve, randomShape }: TestInput<Point>) {
       // scaling by a non-zero scalar yields a non-zero point
       assert(
         s === 0n || !Curve.isZero(Curve.scale(s, P)),
-        "scaling is injective"
+        "scaling is injective",
       );
 
       // scaling by two scalars is scaling by the product
       assert(
         Curve.isEqual(
           Curve.scale(s, Curve.scale(t, P)),
-          Curve.scale(Curve.Scalar.multiply(s, t), P)
+          Curve.scale(Curve.Scalar.multiply(s, t), P),
         ),
-        "scaling twice"
+        "scaling twice",
       );
 
       // the generator is on the curve
       assert(Curve.isOnCurve(Curve.one), "generator is on the curve");
-    }
+    },
   );
 }
 

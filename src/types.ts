@@ -1,13 +1,13 @@
-import { Dependency, JSFunction } from "wasmati";
+import { Dependency, type JSFunction } from "wasmati";
 
 export {
-  AnyFunction,
-  UnwrapPromise,
-  WasmArtifacts,
-  WasmFunctions,
-  Tuple,
-  AnyTuple,
-  Get,
+  type AnyFunction,
+  type UnwrapPromise,
+  type WasmArtifacts,
+  type WasmFunctions,
+  type Tuple,
+  type AnyTuple,
+  type Get,
 };
 
 type AnyFunction = (...args: any) => any;

@@ -1,4 +1,4 @@
-import { CurveParams } from "../bigint/twisted-edwards.js";
+import { type CurveParams } from "../bigint/twisted-edwards.ts";
 
 export { p, q, h, d, nBits, nBytes, G, curveParams };
 

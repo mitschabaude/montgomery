@@ -2,11 +2,11 @@
  * Simple Worker interface to normalize browser and Node.js APIs.
  */
 import type { Worker as NodeWorker, MessagePort } from "node:worker_threads";
-import { assert } from "../util.js";
+import { assert } from "../util.ts";
 
 export {
-  SimpleWorker,
-  WorkerConstructor,
+  type SimpleWorker,
+  type WorkerConstructor,
   fromWebWorker,
   fromWebTarget,
   fromNodeWorker,
@@ -86,7 +86,7 @@ function fromWebTarget<M>(target: Window | Worker): MessageTarget<M> {
 function fromNodeTarget<M>(target: NodeWorker | MessagePort): MessageTarget<M> {
   return {
     postMessage(message) {
-      target.postMessage(message);
+      target.postMessage(message, []);
     },
     onMessage(listener) {
       target.on("message", listener);
@@ -118,7 +118,7 @@ function fromNodeWorker<M>(nodeWorker: NodeWorker): SimpleWorker<M> {
  */
 function awaitMessage<M>(
   target: MessageTarget<M>,
-  filter?: (message: M) => boolean
+  filter?: (message: M) => boolean,
 ): Promise<M> {
   return new Promise((resolve) => {
     target.onMessage(function listener(message: M) {

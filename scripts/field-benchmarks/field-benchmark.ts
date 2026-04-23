@@ -1,18 +1,18 @@
 import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
-import { tic, toc } from "../../src/testing/tictoc.js";
-import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.js";
-import { memoryHelpers } from "../../src/wasm/memory-helpers.js";
-import { writeWat } from "../../src/wasm/wat-helpers.js";
-import { multiplySchoolbook } from "../../src/wasm/multiply-schoolbook.js";
-import { multiplyBarrett } from "../../src/wasm/barrett.js";
-import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.js";
-import { ImplicitMemory, forLoop1 } from "../../src/wasm/wasm-util.js";
-import { fieldInverse } from "../../src/wasm/inverse.js";
-import { fieldExp } from "../../src/wasm/exp.js";
-import { createSqrt } from "../../src/field-sqrt.js";
-import { createConstants } from "../../src/field-msm.js";
-import { mod, montgomeryParams } from "../../src/bigint/field-util.js";
-import { fastInverse } from "../../src/inverse/faster-inverse-wasm.js";
+import { tic, toc } from "../../src/testing/tictoc.ts";
+import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
+import { memoryHelpers } from "../../src/wasm/memory-helpers.ts";
+import { writeWat } from "../../src/wasm/wat-helpers.ts";
+import { multiplySchoolbook } from "../../src/wasm/multiply-schoolbook.ts";
+import { multiplyBarrett } from "../../src/wasm/barrett.ts";
+import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.ts";
+import { ImplicitMemory, forLoop1 } from "../../src/wasm/wasm-util.ts";
+import { fieldInverse } from "../../src/wasm/inverse.ts";
+import { fieldExp } from "../../src/wasm/exp.ts";
+import { createSqrt } from "../../src/field-sqrt.ts";
+import { createConstants } from "../../src/field-msm.ts";
+import { mod, montgomeryParams } from "../../src/bigint/field-util.ts";
+import { fastInverse } from "../../src/inverse/faster-inverse-wasm.ts";
 import {
   bigintFromBytes,
   bigintFromBytes32,
@@ -20,9 +20,9 @@ import {
   bigintToBytes32,
   log2,
   randomBytes,
-} from "../../src/util.js";
-import { randomGenerators } from "../../src/bigint/field-random.js";
-import { createWasmWithBenches } from "../../src/51x5/field.js";
+} from "../../src/util.ts";
+import { randomGenerators } from "../../src/bigint/field-random.ts";
+import { createWasmWithBenches } from "../../src/51x5/field.ts";
 
 export { benchmark };
 

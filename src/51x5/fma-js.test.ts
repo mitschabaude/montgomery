@@ -9,11 +9,11 @@
  * Reference code:
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
-import { randomGenerators } from "../bigint/field-random.js";
-import { assertDeepEqual } from "../testing/nested.js";
-import { pallasParams } from "../concrete/pasta.params.js";
-import { equivalent, spec, Spec } from "../testing/equivalent.js";
-import { Random } from "../testing/random.js";
+import { randomGenerators } from "../bigint/field-random.ts";
+import { assertDeepEqual } from "../testing/nested.ts";
+import { pallasParams } from "../concrete/pasta.params.ts";
+import { equivalent, spec, Spec } from "../testing/equivalent.ts";
+import { Random } from "../testing/random.ts";
 import {
   madd,
   montmulWrapped,
@@ -25,7 +25,7 @@ import {
   montmul,
   montmulFma,
   montmulFma2,
-} from "./fma-js.js";
+} from "./fma-js.ts";
 import {
   bigint64ToNumber,
   bigintToFloat51Limbs,
@@ -33,7 +33,7 @@ import {
   float51ToInt64,
   int64ToFloat52,
   numberToBigint64,
-} from "./common.js";
+} from "./common.ts";
 
 // bigint mul using float madd instruction
 

@@ -1,6 +1,6 @@
 import type * as W from "wasmati";
-import { Weierstraß } from "../parallel.js";
-import { pallasParams } from "./pasta.params.js";
+import { Weierstraß } from "../parallel.ts";
+import { pallasParams } from "./pasta.params.ts";
 
 export { Pallas };
 

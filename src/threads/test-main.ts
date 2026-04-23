@@ -1,5 +1,5 @@
-import { createTest, startThreads, stopThreads } from "./test.js";
-import { p, beta } from "../concrete/pasta.params.js";
+import { createTest, startThreads, stopThreads } from "./test.ts";
+import { p, beta } from "../concrete/pasta.params.ts";
 const params = { p, beta, w: 29 };
 
 let Test = await createTest(100, params);

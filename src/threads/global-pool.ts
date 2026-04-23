@@ -1,4 +1,4 @@
-import { ThreadPool, barrier, expose, isMain } from "./threads.js";
+import { ThreadPool, barrier, expose, isMain } from "./threads.ts";
 
 export { pool, setWorkerSource, broadcastFromMain };
 

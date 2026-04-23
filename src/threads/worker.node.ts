@@ -4,10 +4,10 @@ import {
 } from "node:worker_threads";
 import { availableParallelism } from "node:os";
 import {
-  WorkerConstructor,
+  type WorkerConstructor,
   fromNodeTarget,
   fromNodeWorker,
-} from "./simple-worker.js";
+} from "./simple-worker.ts";
 
 export { Worker, getParentPort, availableParallelism };
 

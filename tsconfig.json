@@ -1,20 +1,25 @@
 {
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts", "doc/**/*.ts", "*.ts"],
   "compilerOptions": {
     /* Projects */
     "incremental": true /* Save .tsbuildinfo files to allow for incremental compilation of projects. */,
 
     /* Language and Environment */
-    "target": "es2022" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
+    "target": "es2024" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
     "lib": [
-      "es2022",
+      "es2024",
       "esnext.disposable",
       "dom"
     ] /* Specify a set of bundled library declaration files that describe the target runtime environment. */,
+    "types": ["node"],
 
     /* Modules */
     "module": "nodenext" /* Specify what module code is generated. */,
     "moduleResolution": "nodenext" /* Specify how TypeScript looks up a file from a given module specifier. */,
+    "allowImportingTsExtensions": true /* Allow imports to include TypeScript file extensions (so source can match on-disk .ts files, for native `node path/to/file.ts`). */,
+    "rewriteRelativeImportExtensions": true /* Rewrite `.ts` relative imports to `.js` in emitted output. */,
+    "verbatimModuleSyntax": true /* Require explicit `import type` / `export type` so Node's type stripper can reliably erase them. */,
+    "erasableSyntaxOnly": true /* Flag TS constructs that type stripping can't erase (enums, parameter properties, value namespaces, import=). */,
 
     /* JavaScript Support */
     "allowJs": true /* Allow JavaScript files to be a part of your program. Use the 'checkJS' option to get errors from these files. */,

@@ -1,34 +1,54 @@
 import type * as _W from "wasmati";
-import { WasmArtifacts } from "./types.js";
-import { createMsmField } from "./field-msm.js";
-import { createCurveProjective } from "./curve-projective.js";
-import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.js";
-import { createCurveAffine } from "./curve-affine.js";
+import { type WasmArtifacts } from "./types.ts";
+import { createMsmField } from "./field-msm.ts";
+import { createCurveProjective } from "./curve-projective.ts";
+import {
+  createCurveProjective as createBigintCurve,
+  type BigintPoint as ProjectivePoint,
+} from "./bigint/projective-weierstrass.ts";
+import { createCurveAffine as createBigintAffine } from "./bigint/affine-weierstrass.ts";
+import { createCurveAffine } from "./curve-affine.ts";
+import { msm as bigintMsm } from "./bigint/msm.ts";
 import {
   createRandomPointsFast,
   createRandomPointsFastSingleCurve,
   createRandomScalars,
-} from "./curve-random.js";
-import { GlvScalarParams, createGlvScalar } from "./scalar-glv.js";
-import { createMsm } from "./msm-batched-affine.js";
-import { pool } from "./threads/global-pool.js";
-import { CurveParams } from "./bigint/affine-weierstrass.js";
-import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.js";
-import { assert } from "./util.js";
-import { createScalar } from "./scalar-simple.js";
-import { createCurveTwistedEdwards } from "./curve-twisted-edwards.js";
-import { createCurveTwistedEdwards as createBigintTE } from "./bigint/twisted-edwards.js";
-import { createMsmBasic, msmBasic } from "./msm-basic.js";
-import { barrier, range } from "./threads/threads.js";
+} from "./curve-random.ts";
+import { type GlvScalarParams, createGlvScalar } from "./scalar-glv.ts";
+import { createMsm } from "./msm-batched-affine.ts";
+import { pool } from "./threads/global-pool.ts";
+import { type CurveParams } from "./bigint/affine-weierstrass.ts";
+import { type CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
+import { assert } from "./util.ts";
+import { createScalar } from "./scalar-simple.ts";
+import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";
+import {
+  createCurveTwistedEdwards as createBigintTE,
+  type BigintPoint as TwistedEdwardsPoint,
+} from "./bigint/twisted-edwards.ts";
+import { createMsmBasic, msmBasic } from "./msm-basic.ts";
+import { barrier, range } from "./threads/threads.ts";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
-pool.register("Weierstraß", createWeierstraß);
-pool.register("Twisted Edwards", createTwistedEdwards);
+// pool.register calls are at the bottom of this file — not here. They rely on
+// `createWeierstraß.name` / `createTwistedEdwards.name`, which under esbuild's
+// `keepNames` minification get patched by a helper inserted right after each
+// function body. Registering before the function declarations runs before
+// that patch, leaving us with the mangled name. Registering at the bottom
+// (after the declarations) avoids the issue.
 
+/**
+ * Short Weierstrass curve with batched-affine additions and GLV-endomorphism
+ * accelerated scalar multiplication. Instantiate with `Weierstraß.create(params)`.
+ */
 type Weierstraß = Awaited<ReturnType<typeof createWeierstraß>>;
 const Weierstraß = { create: createWeierstraß };
 
+/**
+ * Twisted Edwards curve with projective additions. Instantiate with
+ * `TwistedEdwards.create(params)`.
+ */
 type TwistedEdwards = Awaited<ReturnType<typeof createTwistedEdwards>>;
 const TwistedEdwards = { create: createTwistedEdwards };
 
@@ -37,10 +57,30 @@ const curves: (
   | { module: TwistedEdwards; create: typeof createTwistedEdwards }
 )[] = [];
 
+/**
+ * Create a short Weierstrass curve from its parameters.
+ *
+ * Under the hood, this:
+ * - generates wasm modules for the field and scalar arithmetic (via
+ *   {@link https://github.com/zksecurity/wasmati | wasmati}) and instantiates
+ *   them;
+ * - sets up affine, projective, and bigint-level curve operations, plus the
+ *   batched-affine MSM;
+ * - registers the curve with the thread pool. If the pool is already running,
+ *   the curve is broadcast to existing workers immediately; otherwise, a
+ *   later `startThreads` call will pick it up and segment its memory for the
+ *   new thread count.
+ *
+ * Only curves with `a = 0` and a GLV endomorphism are supported.
+ *
+ * @param fieldWasm / @param scalarWasm are used internally when the main
+ * thread broadcasts a curve to workers, so workers reuse the main thread's
+ * compiled wasm instead of recompiling.
+ */
 async function createWeierstraß(
   params: CurveParams,
   fieldWasm?: WasmArtifacts,
-  scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
+  scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams },
 ) {
   let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
   assert(a === 0n, "only curves with a = 0 are supported");
@@ -52,7 +92,7 @@ async function createWeierstraß(
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
     { p, beta, w: 29, localRatio: 0.25 },
-    fieldWasm
+    fieldWasm,
   );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
   const Projective = createCurveProjective(Field, params);
@@ -70,7 +110,7 @@ async function createWeierstraß(
     scalars: number,
     points: number,
     N: number,
-    options?: { c?: number }
+    options?: { c?: number },
   ) {
     // expect affine points, convert to projective
     let pointsProj = Field.global.getPointer(Projective.size * N);
@@ -93,41 +133,57 @@ async function createWeierstraß(
     return Scalar.global.getPointer(size);
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to affine points.
+   *
+   * Byte layout per point: `packedX || packedY`, where each coordinate is
+   * `Field.packedSizeField = ceil(bitLength / 8)` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}). No encoding for the point at
+   * infinity — `isNonZero` is set unconditionally, so callers must filter
+   * infinity points out before passing them in.
+   */
   function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
     let { size } = Affine;
     let { fromPackedBytes, sizeField, toMontgomery, memoryBytes } = Field;
+    let packedSize = Field.packedSizeField;
+    let bytesPerPoint = 2 * packedSize;
 
     let [i, iend] = range(n);
     let pi = pointPtr + i * size;
-    let bi = pointInputPtr + i * 96;
+    let bi = pointInputPtr + i * bytesPerPoint;
 
-    for (; i < iend; i++, pi += size, bi += 96) {
+    for (; i < iend; i++, pi += size, bi += bytesPerPoint) {
       let x = pi;
       let y = x + sizeField;
       // set nonzero flag. (input format doesn't allow zero points, so always 1)
       memoryBytes[pi + 2 * sizeField] = 1;
 
       fromPackedBytes(x, bi);
-      fromPackedBytes(y, bi + 48);
+      fromPackedBytes(y, bi + packedSize);
       toMontgomery(x);
       toMontgomery(y);
     }
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to scalars.
+   *
+   * Byte layout per scalar: `Scalar.packedSizeField` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}).
+   */
   function scalarsFromBytes(
     scalarPtr: number,
     scalarInputPtr: number,
-    n: number
+    n: number,
   ) {
     let { fromPackedBytes, sizeField: size } = Scalar;
+    let packedSize = Scalar.packedSizeField;
 
     let [i, iend] = range(n);
     let si = scalarPtr + i * size;
-    let bi = scalarInputPtr + i * 32;
+    let bi = scalarInputPtr + i * packedSize;
 
-    for (; i < iend; i++, si += size, bi += 32) {
+    for (; i < iend; i++, si += size, bi += packedSize) {
       fromPackedBytes(si, bi);
     }
   }
@@ -144,7 +200,15 @@ async function createWeierstraß(
     pointsFromBytes,
   });
 
-  const Bigint = { Projective: createBigintCurve(params) };
+  const bigintProjective = createBigintCurve(params);
+  const Bigint = {
+    Affine: createBigintAffine(params),
+    Projective: Object.assign(bigintProjective, {
+      msm(scalars: bigint[], points: ProjectivePoint[]) {
+        return bigintMsm(bigintProjective, scalars, points);
+      },
+    }),
+  };
 
   const Curve = {
     params,
@@ -157,10 +221,7 @@ async function createWeierstraß(
     Bigint,
   };
 
-  (curves as { module: typeof Curve; create: typeof createWeierstraß }[]).push({
-    module: Curve,
-    create: createWeierstraß,
-  });
+  curves.push({ module: Curve, create: createWeierstraß });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
@@ -169,17 +230,35 @@ async function createWeierstraß(
       createWeierstraß,
       Curve.params,
       Curve.Field.wasmArtifacts,
-      Curve.Scalar.wasmArtifacts
+      Curve.Scalar.wasmArtifacts,
     );
   }
 
   return Curve;
 }
 
+/**
+ * Create a twisted edwards curve (`-x^2 + y^2 = 1 + d*x^2*y^2`) from its
+ * parameters.
+ *
+ * Under the hood, this:
+ * - generates wasm modules for the field and scalar arithmetic (via
+ *   {@link https://github.com/zksecurity/wasmati | wasmati}) and instantiates
+ *   them;
+ * - sets up projective-extended curve ops and the generic (non-batched) MSM;
+ * - registers the curve with the thread pool. If the pool is already running,
+ *   the curve is broadcast to existing workers immediately; otherwise, a
+ *   later `startThreads` call will pick it up and segment its memory for the
+ *   new thread count.
+ *
+ * @param fieldWasm / @param scalarWasm are used internally when the main
+ * thread broadcasts a curve to workers, so workers reuse the main thread's
+ * compiled wasm instead of recompiling.
+ */
 async function createTwistedEdwards(
   params: TwistedEdwardsParams,
   fieldWasm?: WasmArtifacts,
-  scalarWasm?: WasmArtifacts
+  scalarWasm?: WasmArtifacts,
 ) {
   let { modulus: p, order: q, label } = params;
 
@@ -188,7 +267,7 @@ async function createTwistedEdwards(
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
     { p, beta: 1n, w: 29, localRatio: 0.8 },
-    fieldWasm
+    fieldWasm,
   );
   const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
   const Curve = createCurveTwistedEdwards(Field, params);
@@ -205,23 +284,32 @@ async function createTwistedEdwards(
     return Scalar.global.getPointer(size);
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to extended-projective
+   * points.
+   *
+   * Byte layout per point: `packedX || packedY`, where each coordinate is
+   * `Field.packedSizeField = ceil(bitLength / 8)` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}). Z and T are derived from x, y.
+   */
   function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
     let { size } = Curve;
     let { fromPackedBytes, sizeField, toMontgomery, copy, multiply } = Field;
+    let packedSize = Field.packedSizeField;
+    let bytesPerPoint = 2 * packedSize;
 
     let [i, iend] = range(n);
     let pi = pointPtr + i * size;
-    let bi = pointInputPtr + i * 64;
+    let bi = pointInputPtr + i * bytesPerPoint;
 
-    for (; i < iend; i++, pi += size, bi += 64) {
+    for (; i < iend; i++, pi += size, bi += bytesPerPoint) {
       let x = pi;
       let y = x + sizeField;
       let z = y + sizeField;
       let t = z + sizeField;
 
       fromPackedBytes(x, bi);
-      fromPackedBytes(y, bi + 32);
+      fromPackedBytes(y, bi + packedSize);
 
       toMontgomery(x);
       toMontgomery(y);
@@ -231,19 +319,25 @@ async function createTwistedEdwards(
     return pointPtr;
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to scalars.
+   *
+   * Byte layout per scalar: `Scalar.packedSizeField` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}).
+   */
   function scalarsFromBytes(
     scalarPtr: number,
     scalarInputPtr: number,
-    n: number
+    n: number,
   ) {
     let { fromPackedBytes, sizeField: size } = Scalar;
+    let packedSize = Scalar.packedSizeField;
 
     let [i, iend] = range(n);
     let si = scalarPtr + i * size;
-    let bi = scalarInputPtr + i * 32;
+    let bi = scalarInputPtr + i * packedSize;
 
-    for (; i < iend; i++, si += size, bi += 32) {
+    for (; i < iend; i++, si += size, bi += packedSize) {
       fromPackedBytes(si, bi);
     }
   }
@@ -258,7 +352,12 @@ async function createTwistedEdwards(
     scalarsFromBytes,
   });
 
-  const Bigint = createBigintTE(params);
+  const bigintTE = createBigintTE(params);
+  const Bigint = Object.assign(bigintTE, {
+    msm(scalars: bigint[], points: TwistedEdwardsPoint[]) {
+      return bigintMsm(bigintTE, scalars, points);
+    },
+  });
 
   const Module = {
     params,
@@ -270,9 +369,7 @@ async function createTwistedEdwards(
     Bigint,
   };
 
-  (
-    curves as { module: typeof Module; create: typeof createTwistedEdwards }[]
-  ).push({ module: Module, create: createTwistedEdwards });
+  curves.push({ module: Module, create: createTwistedEdwards });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
@@ -281,13 +378,19 @@ async function createTwistedEdwards(
       createTwistedEdwards,
       Module.params,
       Module.Field.wasmArtifacts,
-      Module.Scalar.wasmArtifacts
+      Module.Scalar.wasmArtifacts,
     );
   }
 
   return Module;
 }
 
+/**
+ * Start a worker thread pool with `n` workers (defaults to available cores).
+ * Safe to call before or after curves are created: curves created earlier
+ * get broadcast to the new workers, and their memory is resegmented for the
+ * new thread count.
+ */
 async function startThreads(n?: number) {
   // in the web build, we inline a bundle of this file, to become the worker source code
   // import.meta.url is replaced with a blob url created on-the-fly from the inlined source code
@@ -308,13 +411,23 @@ async function startThreads(n?: number) {
         create,
         module.params as any,
         module.Field.wasmArtifacts,
-        module.Scalar.wasmArtifacts as any
-      )
-    )
+        module.Scalar.wasmArtifacts as any,
+      ),
+    ),
   );
 }
 
+/**
+ * Terminate the worker thread pool and resegment existing curves' memory
+ * for single-threaded use.
+ */
 async function stopThreads() {
   await pool.stop();
   curves.forEach(({ module }) => module.Field.updateThreads());
 }
+
+// registered after the function declarations above so that keepNames-inserted
+// `.name` patches have run and `createWeierstraß.name === "createWeierstraß"`
+// (see comment at the top of this file)
+pool.register("Weierstraß", createWeierstraß);
+pool.register("Twisted Edwards", createTwistedEdwards);

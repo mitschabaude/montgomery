@@ -1,19 +1,19 @@
-import { MsmField } from "../field-msm.js";
-import { MemorySection } from "../wasm/memory-helpers.js";
-import { Get, Tuple } from "../types.js";
+import { type MsmField } from "../field-msm.ts";
+import { MemorySection } from "../wasm/memory-helpers.ts";
+import { type Get, type Tuple } from "../types.ts";
 import {
-  First,
-  FromSpec,
-  Params1,
-  Params2,
-  Second,
-  ToSpec,
+  type First,
+  type FromSpec,
+  type Params1,
+  type Params2,
+  type Second,
+  type ToSpec,
   handleErrors,
   spec,
-} from "./equivalent.js";
-import { TestParams, test } from "./property.js";
-import { Random } from "./random.js";
-import { assertDeepEqual } from "./nested.js";
+} from "./equivalent.ts";
+import { type TestParams, test } from "./property.ts";
+import { Random } from "./random.ts";
+import { assertDeepEqual } from "./nested.ts";
 
 export { createEquivalentWasm, wasmSpec, WasmSpec };
 

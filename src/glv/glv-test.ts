@@ -1,10 +1,10 @@
-import { lambda, q } from "../concrete/pasta.params.js";
-import { mod, montgomeryParams } from "../bigint/field-util.js";
-import { abs, divide, log2, scale, sign } from "../util.js";
+import { lambda, q } from "../concrete/pasta.params.ts";
+import { mod, montgomeryParams } from "../bigint/field-util.ts";
+import { abs, divide, log2, scale, sign } from "../util.ts";
 import assert from "node:assert";
-import { egcdStopEarly } from "./glv.js";
-import { Pallas } from "../concrete/pasta.js";
-import { randomGenerators } from "../bigint/field-random.js";
+import { egcdStopEarly } from "./glv.ts";
+import { Pallas } from "../concrete/pasta.ts";
+import { randomGenerators } from "../bigint/field-random.ts";
 
 const Scalar = Pallas.Scalar;
 const { randomField: randomScalar } = randomGenerators(Pallas.params.order);

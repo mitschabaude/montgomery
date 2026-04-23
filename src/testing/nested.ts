@@ -3,7 +3,7 @@
  *
  * This code is taken from o1js: https://github.com/o1-labs/o1js
  */
-export { assertDeepEqual, deepEqual, stringify, Nested };
+export { assertDeepEqual, deepEqual, stringify, type Nested };
 
 type Nested =
   | number

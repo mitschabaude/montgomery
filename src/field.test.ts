@@ -1,16 +1,13 @@
-import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.js";
-import { BigintField } from "./bigint/field.js";
-import { createMsmField, MsmField } from "./field-msm.js";
-import { exampleFields } from "./concrete/example-fields.js";
-import { Spec, throwError } from "./testing/equivalent.js";
+import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.ts";
+import { type BigintField } from "./bigint/field.ts";
+import { createMsmField, type MsmField } from "./field-msm.ts";
+import { exampleFields } from "./concrete/example-fields.ts";
+import { Spec, throwError } from "./testing/equivalent.ts";
 import { test } from "node:test";
-import { Random, sample, sampleOne } from "./testing/random.js";
-import { batchInverse } from "./curve-affine.js";
+import { Random, sample, sampleOne } from "./testing/random.ts";
+import { batchInverse } from "./curve-affine.ts";
 
 Error.stackTraceLimit = 1000;
-
-// TODO a few cases always fail:
-// - pastaFq, w=26 and w=29 (only fast sqrt fails)
 
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];

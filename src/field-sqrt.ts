@@ -1,8 +1,8 @@
-import { assert, mapRange } from "./util.js";
-import type { WasmFunctions } from "./types.js";
-import type { FieldWithMultiply } from "./wasm/multiply-montgomery.js";
-import type { MemoryHelpers } from "./wasm/memory-helpers.js";
-import { Func, i32 } from "wasmati";
+import { assert, mapRange } from "./util.ts";
+import type { WasmFunctions } from "./types.ts";
+import type { FieldWithMultiply } from "./wasm/multiply-montgomery.ts";
+import type { MemoryHelpers } from "./wasm/memory-helpers.ts";
+import { type Func, i32 } from "wasmati";
 
 export { createSqrt };
 
@@ -14,13 +14,13 @@ function createSqrt(
     zero: number;
     mg1: number;
     mg2: number;
-  }
+  },
 ) {
   function pow(
     [scratch, n0]: number[],
     z: number,
     x: number,
-    n: bigint | number
+    n: bigint | number,
   ) {
     helpers.writeBigint(n0, BigInt(n));
     wasm.exp(scratch, z, x, n0);
@@ -107,7 +107,6 @@ function createSqrt(
     }
   }
 
-  // TODO fastSqrt fails tests on Pasta Fq field with w = 26, 29
   if (M <= 4) return { sqrt, t, roots };
 
   // sqrt implementation that speeds up the discrete log part by caching more roots of unity
@@ -147,19 +146,21 @@ function createSqrt(
       wasm.square(LthRoots[1], LthRoots[1]);
     }
   }
+  wasm.reduce(LthRoots[1]);
   // compute w_ij, j>2, with w_ij = w_i1 * w_i(j-1)
   for (let i = 0; i < N; i++) {
     for (let j = 2; j < L; j++) {
       wasm.multiply(
         inverseRoots[i][j],
         inverseRoots[i][1],
-        inverseRoots[i][j - 1]
+        inverseRoots[i][j - 1],
       );
     }
   }
   // vj, j>2
   for (let j = 2; j < L; j++) {
     wasm.multiply(LthRoots[j], LthRoots[1], LthRoots[j - 1]);
+    wasm.reduce(LthRoots[j]);
   }
   // build a lookup table mapping the lowest limb of v_j to j
   let LthRootLookup: Record<number, number> = {};
@@ -178,6 +179,9 @@ function createSqrt(
 
   // lth root v_j --> j
   function lookupLthRoot(ptr: number) {
+    // we reduce first, because multiply outputs live in [0, 2p), so the same field element
+    // can have two limb representations. we must compare against canonical values.
+    wasm.reduce(ptr);
     return LthRootLookup[view.getInt32(ptr, true)];
   }
   // scratch pointers that we use as RHS

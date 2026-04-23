@@ -1,4 +1,4 @@
-import { abs, max } from "../util.js";
+import { abs, max } from "../util.ts";
 
 export { egcdStopEarly };
 

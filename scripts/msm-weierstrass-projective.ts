@@ -1,11 +1,13 @@
-import { Weierstraß, startThreads, stopThreads } from "../src/parallel.js";
-import { tic, toc } from "../src/testing/tictoc.js";
-import { assertDeepEqual } from "../src/testing/nested.js";
-import { assert } from "../src/util.js";
-import { median, standardDev } from "./evaluate-util.js";
-import { createCurveProjective } from "../src/bigint/projective-weierstrass.js";
-import { msm as bigintMsm } from "../src/bigint/msm.js";
-import type { CurveParams } from "../src/bigint/affine-weierstrass.js";
+import {
+  Weierstraß,
+  startThreads,
+  stopThreads,
+  type CurveParams,
+} from "../src/index.ts";
+import { tic, toc } from "../src/testing/tictoc.ts";
+import { assertDeepEqual } from "../src/testing/nested.ts";
+import { assert } from "../src/util.ts";
+import { median, standardDev } from "./evaluate-util.ts";
 
 export { benchmarkMsm, runMsm };
 
@@ -84,7 +86,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   let { result, log } = await Curve.Parallel.msmProjective(
     scalarPtrs[0],
     pointsPtrs[0],
-    N
+    N,
   );
   let sAffinePtr = Curve.Field.getPointer(Curve.Affine.size);
   Curve.Projective.toAffine(scratch, sAffinePtr, result);
@@ -94,12 +96,12 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   toc();
 
   if (n < 14) {
-    const CurveBigint = createCurveProjective(params);
+    const CurveBigint = Curve.Bigint.Projective;
     let points = pointsPtrs.map((g) =>
-      CurveBigint.fromAffine(Curve.Affine.toBigint(g))
+      CurveBigint.fromAffine(Curve.Affine.toBigint(g)),
     );
     tic("msm (bigint impl)");
-    let sBigint = CurveBigint.toAffine(bigintMsm(CurveBigint, scalars, points));
+    let sBigint = CurveBigint.toAffine(CurveBigint.msm(scalars, points));
     toc();
     assertDeepEqual(s, sBigint, "consistent results");
     console.log("results are consistent!");

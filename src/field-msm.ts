@@ -1,20 +1,20 @@
 import type * as W from "wasmati"; // for type names
 import { Module, importMemory } from "wasmati";
-import { FieldWithArithmetic } from "./wasm/field-arithmetic.js";
-import { fieldInverse } from "./wasm/inverse.js";
-import { multiplyMontgomery } from "./wasm/multiply-montgomery.js";
-import { ImplicitMemory } from "./wasm/wasm-util.js";
-import { mod, montgomeryParams } from "./bigint/field-util.js";
-import { curveOps } from "./wasm/curve.js";
-import { MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.js";
-import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.js";
-import { UnwrapPromise, WasmArtifacts } from "./types.js";
-import { fieldExp } from "./wasm/exp.js";
-import { createSqrt } from "./field-sqrt.js";
-import { assert } from "./util.js";
-import { isMain } from "./threads/threads.js";
+import { FieldWithArithmetic } from "./wasm/field-arithmetic.ts";
+import { fieldInverse } from "./wasm/inverse.ts";
+import { multiplyMontgomery } from "./wasm/multiply-montgomery.ts";
+import { ImplicitMemory } from "./wasm/wasm-util.ts";
+import { mod, montgomeryParams } from "./bigint/field-util.ts";
+import { curveOps } from "./wasm/curve.ts";
+import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
+import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.ts";
+import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
+import { fieldExp } from "./wasm/exp.ts";
+import { createSqrt } from "./field-sqrt.ts";
+import { assert } from "./util.ts";
+import { isMain } from "./threads/threads.ts";
 
-export { createMsmField, MsmField };
+export { createMsmField, type MsmField };
 export { createConstants };
 
 async function createMsmField(

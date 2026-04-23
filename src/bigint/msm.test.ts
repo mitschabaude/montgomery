@@ -1,12 +1,12 @@
-import { Random, test } from "../testing/property.js";
-import { createCurveTwistedEdwards } from "./twisted-edwards.js";
-import { createCurveAffine, CurveParams } from "./affine-weierstrass.js";
-import { createCurveProjective } from "./projective-weierstrass.js";
-import { pallasParams } from "../concrete/pasta.params.js";
-import { curveParams as bls12381Params } from "../concrete/bls12-381.params.js";
-import { curveParams as edOnBls12377Params } from "../concrete/ed-on-bls12-377.params.js";
-import { assert } from "../util.js";
-import { msm } from "./msm.js";
+import { Random, test } from "../testing/property.ts";
+import { createCurveTwistedEdwards } from "./twisted-edwards.ts";
+import { createCurveAffine, type CurveParams } from "./affine-weierstrass.ts";
+import { createCurveProjective } from "./projective-weierstrass.ts";
+import { pallasParams } from "../concrete/pasta.params.ts";
+import { curveParams as bls12381Params } from "../concrete/bls12-381.params.ts";
+import { curveParams as edOnBls12377Params } from "../concrete/ed-on-bls12-377.params.ts";
+import { assert } from "../util.ts";
+import { msm } from "./msm.ts";
 
 testValid(createCurveProjective(pallasParams));
 testValid(createCurveTwistedEdwards(edOnBls12377Params));

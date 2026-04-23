@@ -9,12 +9,12 @@
  * Reference code:
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
-import { assertDeepEqual } from "../testing/nested.js";
-import { pallasParams } from "../concrete/pasta.params.js";
-import { Random } from "../testing/random.js";
-import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.js";
-import { montmulWrapped, montMulFmaWrapped } from "./fma-js.js";
-import { Field } from "./field.js";
+import { assertDeepEqual } from "../testing/nested.ts";
+import { pallasParams } from "../concrete/pasta.params.ts";
+import { Random } from "../testing/random.ts";
+import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.ts";
+import { montmulWrapped, montMulFmaWrapped } from "./fma-js.ts";
+import { Field } from "./field.ts";
 
 let p = pallasParams.modulus;
 let R = (1n << 255n) % p;

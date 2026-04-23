@@ -1,13 +1,13 @@
 import { Module, memory } from "wasmati";
-import { Pallas } from "../concrete/pasta.js";
-import { mod } from "../bigint/field-util.js";
-import { assert, log2 } from "../util.js";
-import { ImplicitMemory } from "../wasm/wasm-util.js";
-import { fastInverse } from "./faster-inverse-wasm.js";
-import { FieldWithArithmetic } from "../wasm/field-arithmetic.js";
-import { multiplyMontgomery } from "../wasm/multiply-montgomery.js";
-import { memoryHelpers } from "../wasm/memory-helpers.js";
-import { randomGenerators } from "../bigint/field-random.js";
+import { Pallas } from "../concrete/pasta.ts";
+import { mod } from "../bigint/field-util.ts";
+import { assert, log2 } from "../util.ts";
+import { ImplicitMemory } from "../wasm/wasm-util.ts";
+import { fastInverse } from "./faster-inverse-wasm.ts";
+import { FieldWithArithmetic } from "../wasm/field-arithmetic.ts";
+import { multiplyMontgomery } from "../wasm/multiply-montgomery.ts";
+import { memoryHelpers } from "../wasm/memory-helpers.ts";
+import { randomGenerators } from "../bigint/field-random.ts";
 
 const { p, w } = Pallas.Field;
 let b = Pallas.Field.bitLength;

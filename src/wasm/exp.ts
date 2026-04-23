@@ -1,8 +1,8 @@
 import type { Func } from "wasmati";
 import { call, func, i32, if_, local } from "wasmati";
-import { mod } from "../bigint/field-util.js";
-import { forLoop1 } from "./wasm-util.js";
-import { FieldWithMultiply } from "./multiply-montgomery.js";
+import { mod } from "../bigint/field-util.ts";
+import { forLoop1 } from "./wasm-util.ts";
+import { type FieldWithMultiply } from "./multiply-montgomery.ts";
 
 export { fieldExp };
 

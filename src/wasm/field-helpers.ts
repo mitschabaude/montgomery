@@ -6,11 +6,11 @@ import {
   i32,
   i64,
   local,
-  Local,
+  type Local,
   StackVar,
-  Input,
+  type Input,
   importFunc,
-  Type,
+  type Type,
   call,
 } from "wasmati";
 import {
@@ -18,9 +18,9 @@ import {
   bigintFromLimbs,
   bigintToBytes,
   bigintToLimbs as bigintToLimbs_,
-} from "../util.js";
+} from "../util.ts";
 
-export { createField, Field };
+export { createField, type Field };
 export { fromPackedBytes, toPackedBytes, extractBitSlice };
 
 // inline methods to operate on a field element stored as n * w-bit limbs

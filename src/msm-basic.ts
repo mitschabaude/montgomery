@@ -4,12 +4,12 @@
  * We use this for Twisted Edwards curves which have neither endomorphisms nor a cheap batched addition algorithm.
  * Also works well for Weierstrass curves in projective coordinates.
  */
-import type { MsmField } from "./field-msm.js";
-import type { MemorySection } from "./wasm/memory-helpers.js";
-import { createLog, splitBuckets, windowSize } from "./msm-common.js";
-import { log2 } from "./util.js";
-import { THREADS, barrier, isMain, range, thread } from "./threads/threads.js";
-import { broadcastFromMain } from "./threads/global-pool.js";
+import type { MsmField } from "./field-msm.ts";
+import type { MemorySection } from "./wasm/memory-helpers.ts";
+import { createLog, splitBuckets, windowSize } from "./msm-common.ts";
+import { log2 } from "./util.ts";
+import { THREADS, barrier, isMain, range, thread } from "./threads/threads.ts";
+import { broadcastFromMain } from "./threads/global-pool.ts";
 
 export { createMsmBasic, msmBasic };
 

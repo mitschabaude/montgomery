@@ -1,18 +1,18 @@
-import { BigintPoint } from "./bigint/projective-weierstrass.js";
-import { pallasParams as curveParams } from "./concrete/pasta.params.js";
-import { createCurveProjective } from "./curve-projective.js";
-import { createMsmField } from "./field-msm.js";
+import { type BigintPoint } from "./bigint/projective-weierstrass.ts";
+import { pallasParams as curveParams } from "./concrete/pasta.params.ts";
+import { createCurveProjective } from "./curve-projective.ts";
+import { createMsmField } from "./field-msm.ts";
 import {
   WasmSpec,
   createEquivalentWasm,
   wasmSpec,
-} from "./testing/equivalent-wasm.js";
-import { Spec, spec, throwError } from "./testing/equivalent.js";
-import { Random, sample } from "./testing/random.js";
-import { assert, bigintToBits } from "./util.js";
-import { msm } from "./bigint/msm.js";
-import { msmBasic } from "./msm-basic.js";
-import { createScalar } from "./scalar-simple.js";
+} from "./testing/equivalent-wasm.ts";
+import { Spec, spec, throwError } from "./testing/equivalent.ts";
+import { Random, sample } from "./testing/random.ts";
+import { assert, bigintToBits } from "./util.ts";
+import { msm } from "./bigint/msm.ts";
+import { msmBasic } from "./msm-basic.ts";
+import { createScalar } from "./scalar-simple.ts";
 
 const Field = await createMsmField({ p: curveParams.modulus, w: 29, beta: 1n });
 const Scalar = await createScalar({ q: curveParams.order, w: 29 });

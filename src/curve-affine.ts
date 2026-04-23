@@ -1,8 +1,8 @@
 import type * as W from "wasmati"; // for type names
-import { MsmField } from "./field-msm.js";
-import { randomGenerators } from "./bigint/field-random.js";
-import type { CurveProjective } from "./curve-projective.js";
-import { assert } from "./util.js";
+import { type MsmField } from "./field-msm.ts";
+import { randomGenerators } from "./bigint/field-random.ts";
+import type { CurveProjective } from "./curve-projective.ts";
+import { assert } from "./util.ts";
 
 export {
   createCurveAffine,
@@ -11,7 +11,7 @@ export {
   batchAdd,
   batchAddUnsafe,
   batchDoubleInPlace,
-  CurveAffine,
+  type CurveAffine,
   batchInverse,
 };
 
@@ -284,6 +284,16 @@ function createCurveAffine(
   }
 
   /**
+   * Allocate a fresh pointer for the input points and write them to it.
+   * Thin wrapper around {@link writeBigints}.
+   */
+  function fromBigints(inputPoints: BigintPoint[]): number {
+    let ptr = Field.global.getPointer(inputPoints.length * size);
+    writeBigints(ptr, inputPoints);
+    return ptr;
+  }
+
+  /**
    * Expects as first argument a pointer which can fit a contiguous array of
    * affine points of the input size.
    */
@@ -356,6 +366,7 @@ function createCurveAffine(
     toBigints,
     writeBigint,
     writeBigints,
+    fromBigints,
     batchNormalize: batchFromProjective,
     randomPoints,
   };

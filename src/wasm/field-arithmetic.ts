@@ -1,4 +1,4 @@
-import { Field, createField } from "./field-helpers.js";
+import { type Field, createField } from "./field-helpers.ts";
 import type * as W from "wasmati";
 import {
   $,
@@ -12,7 +12,7 @@ import {
   local,
   memory,
   return_,
-  Local,
+  type Local,
 } from "wasmati";
 
 export { arithmetic, fieldHelpers, FieldWithArithmetic };
