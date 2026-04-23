@@ -171,9 +171,6 @@ async function createWeierstraß(
     }
   }
 
-  // main-thread-only helpers: bigints don't survive the worker boundary, so
-  // these are attached to `Parallel` after `pool.register` rather than being
-  // part of the broadcast interface
   function scalarsFromBigint(scalars: bigint[]): number {
     let n = scalars.length;
     let ptr = Scalar.global.getPointer(n * Scalar.sizeField);
@@ -188,20 +185,17 @@ async function createWeierstraß(
     return ptr;
   }
 
-  const Parallel = Object.assign(
-    pool.register(`Weierstraß, ${label}`, {
-      randomPointsFast,
-      randomScalars,
-      msmUnsafe,
-      msm,
-      msmProjective,
-      getPointer,
-      getScalarPointer,
-      scalarsFromBytes,
-      pointsFromBytes,
-    }),
-    { scalarsFromBigint, pointsFromBigint }
-  );
+  const Parallel = pool.register(`Weierstraß, ${label}`, {
+    randomPointsFast,
+    randomScalars,
+    msmUnsafe,
+    msm,
+    msmProjective,
+    getPointer,
+    getScalarPointer,
+    scalarsFromBytes,
+    pointsFromBytes,
+  });
 
   const bigintProjective = createBigintCurve(params);
   const Bigint = {
@@ -222,6 +216,8 @@ async function createWeierstraß(
     Projective,
     Parallel,
     Bigint,
+    scalarsFromBigint,
+    pointsFromBigint,
   };
 
   (curves as { module: typeof Curve; create: typeof createWeierstraß }[]).push({
@@ -333,9 +329,6 @@ async function createTwistedEdwards(
     }
   }
 
-  // main-thread-only helpers: bigints don't survive the worker boundary, so
-  // these are attached to `Parallel` after `pool.register` rather than being
-  // part of the broadcast interface
   function scalarsFromBigint(scalars: bigint[]): number {
     let n = scalars.length;
     let ptr = Scalar.global.getPointer(n * Scalar.sizeField);
@@ -350,18 +343,15 @@ async function createTwistedEdwards(
     return ptr;
   }
 
-  const Parallel = Object.assign(
-    pool.register(`Twisted Edwards, ${label}`, {
-      randomPointsFast,
-      randomScalars,
-      msm,
-      getPointer,
-      getScalarPointer,
-      pointsFromBytes,
-      scalarsFromBytes,
-    }),
-    { scalarsFromBigint, pointsFromBigint }
-  );
+  const Parallel = pool.register(`Twisted Edwards, ${label}`, {
+    randomPointsFast,
+    randomScalars,
+    msm,
+    getPointer,
+    getScalarPointer,
+    pointsFromBytes,
+    scalarsFromBytes,
+  });
 
   const bigintTE = createBigintTE(params);
   const Bigint = Object.assign(bigintTE, {
@@ -378,6 +368,8 @@ async function createTwistedEdwards(
     Curve,
     Parallel,
     Bigint,
+    scalarsFromBigint,
+    pointsFromBigint,
   };
 
   (
