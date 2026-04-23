@@ -28,8 +28,12 @@ const indexHtml = `
     <link rel="icon" href="data:," />
     <title>${fileName}</title>
     <script>
-      // pass command line arguments
-      window.process = { argv: ${JSON.stringify(process.argv)} };
+      // pass command line arguments; drop run-in-browser's own path (argv[1])
+      // so browser argv has the same shape as native node execution
+      window.process = { argv: ${JSON.stringify([
+        process.argv[0],
+        ...process.argv.slice(2),
+      ])} };
     </script>
     <script type="module" src="./${fileName}">
     </script>

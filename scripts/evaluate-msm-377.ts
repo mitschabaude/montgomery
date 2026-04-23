@@ -5,7 +5,7 @@ import { median, standardDev } from "./evaluate-util.ts";
 
 const { Parallel } = await Weierstraß.create(curveParams);
 
-let n = Number(process.argv[3] ?? 16);
+let n = Number(process.argv[2] ?? 16);
 
 let warmup = 2;
 let repeat = 5;
