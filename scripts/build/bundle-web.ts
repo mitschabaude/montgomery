@@ -17,7 +17,10 @@ async function buildWeb(
   await esbuild.build({
     entryPoints: [entrypoint],
     bundle: true,
-    keepNames: !minify,
+    // `keepNames` must stay on even when minifying: the worker pool routes
+    // calls by `func.name`, and the main bundle + inline worker bundle are
+    // minified independently, so mangled names would diverge.
+    keepNames: true,
     outdir,
     format: "esm",
     platform: "browser",
@@ -38,7 +41,7 @@ async function buildBlobUrl(path: string, { minify = false } = {}) {
   let { outputFiles } = await esbuild.build({
     entryPoints: [path],
     bundle: true,
-    keepNames: !minify,
+    keepNames: true,
     write: false,
     format: "esm",
     platform: "browser",

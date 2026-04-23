@@ -31,8 +31,12 @@ import { barrier, range } from "./threads/threads.ts";
 
 export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 
-pool.register("Weierstraß", createWeierstraß);
-pool.register("Twisted Edwards", createTwistedEdwards);
+// pool.register calls are at the bottom of this file — not here. They rely on
+// `createWeierstraß.name` / `createTwistedEdwards.name`, which under esbuild's
+// `keepNames` minification get patched by a helper inserted right after each
+// function body. Registering before the function declarations runs before
+// that patch, leaving us with the mangled name. Registering at the bottom
+// (after the declarations) avoids the issue.
 
 /**
  * Short Weierstrass curve with batched-affine additions and GLV-endomorphism
@@ -76,7 +80,7 @@ const curves: (
 async function createWeierstraß(
   params: CurveParams,
   fieldWasm?: WasmArtifacts,
-  scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
+  scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams },
 ) {
   let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
   assert(a === 0n, "only curves with a = 0 are supported");
@@ -88,7 +92,7 @@ async function createWeierstraß(
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
     { p, beta, w: 29, localRatio: 0.25 },
-    fieldWasm
+    fieldWasm,
   );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
   const Projective = createCurveProjective(Field, params);
@@ -106,7 +110,7 @@ async function createWeierstraß(
     scalars: number,
     points: number,
     N: number,
-    options?: { c?: number }
+    options?: { c?: number },
   ) {
     // expect affine points, convert to projective
     let pointsProj = Field.global.getPointer(Projective.size * N);
@@ -170,7 +174,7 @@ async function createWeierstraß(
   function scalarsFromBytes(
     scalarPtr: number,
     scalarInputPtr: number,
-    n: number
+    n: number,
   ) {
     let { fromPackedBytes, sizeField: size } = Scalar;
     let packedSize = Scalar.packedSizeField;
@@ -217,10 +221,7 @@ async function createWeierstraß(
     Bigint,
   };
 
-  (curves as { module: typeof Curve; create: typeof createWeierstraß }[]).push({
-    module: Curve,
-    create: createWeierstraß,
-  });
+  curves.push({ module: Curve, create: createWeierstraß });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
@@ -229,7 +230,7 @@ async function createWeierstraß(
       createWeierstraß,
       Curve.params,
       Curve.Field.wasmArtifacts,
-      Curve.Scalar.wasmArtifacts
+      Curve.Scalar.wasmArtifacts,
     );
   }
 
@@ -257,7 +258,7 @@ async function createWeierstraß(
 async function createTwistedEdwards(
   params: TwistedEdwardsParams,
   fieldWasm?: WasmArtifacts,
-  scalarWasm?: WasmArtifacts
+  scalarWasm?: WasmArtifacts,
 ) {
   let { modulus: p, order: q, label } = params;
 
@@ -266,7 +267,7 @@ async function createTwistedEdwards(
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
     { p, beta: 1n, w: 29, localRatio: 0.8 },
-    fieldWasm
+    fieldWasm,
   );
   const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
   const Curve = createCurveTwistedEdwards(Field, params);
@@ -327,7 +328,7 @@ async function createTwistedEdwards(
   function scalarsFromBytes(
     scalarPtr: number,
     scalarInputPtr: number,
-    n: number
+    n: number,
   ) {
     let { fromPackedBytes, sizeField: size } = Scalar;
     let packedSize = Scalar.packedSizeField;
@@ -368,9 +369,7 @@ async function createTwistedEdwards(
     Bigint,
   };
 
-  (
-    curves as { module: typeof Module; create: typeof createTwistedEdwards }[]
-  ).push({ module: Module, create: createTwistedEdwards });
+  curves.push({ module: Module, create: createTwistedEdwards });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
@@ -379,7 +378,7 @@ async function createTwistedEdwards(
       createTwistedEdwards,
       Module.params,
       Module.Field.wasmArtifacts,
-      Module.Scalar.wasmArtifacts
+      Module.Scalar.wasmArtifacts,
     );
   }
 
@@ -412,9 +411,9 @@ async function startThreads(n?: number) {
         create,
         module.params as any,
         module.Field.wasmArtifacts,
-        module.Scalar.wasmArtifacts as any
-      )
-    )
+        module.Scalar.wasmArtifacts as any,
+      ),
+    ),
   );
 }
 
@@ -426,3 +425,9 @@ async function stopThreads() {
   await pool.stop();
   curves.forEach(({ module }) => module.Field.updateThreads());
 }
+
+// registered after the function declarations above so that keepNames-inserted
+// `.name` patches have run and `createWeierstraß.name === "createWeierstraß"`
+// (see comment at the top of this file)
+pool.register("Weierstraß", createWeierstraß);
+pool.register("Twisted Edwards", createTwistedEdwards);

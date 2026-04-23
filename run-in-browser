@@ -4,13 +4,17 @@ import path from "node:path";
 import http from "node:http";
 import { bundleWeb } from "./scripts/build/bundle-web.ts";
 
-// get first and only command line argument
-let src = process.argv[2];
+// first arg is the entry script; `--minify` optional flag builds the same
+// bundle the published package ships, so we can reproduce minifier-related
+// issues locally without repacking
+let args = process.argv.slice(2).filter((a) => a !== "--minify");
+let minify = process.argv.includes("--minify");
+let src = args[0];
 
 // esbuild handles .ts natively; bundle the source directly
 let srcjs = src.replace(/\.ts$/, ".js");
 let targetDir = path.dirname(path.join("build/web/", srcjs));
-let absPath = await bundleWeb(src, targetDir);
+let absPath = await bundleWeb(src, targetDir, { minify });
 let fileName = path.basename(absPath);
 let filePath = path.join(targetDir, fileName);
 
@@ -25,11 +29,9 @@ const indexHtml = `
     <title>${fileName}</title>
     <script>
       // pass command line arguments; drop run-in-browser's own path (argv[1])
-      // so browser argv has the same shape as native node execution
-      window.process = { argv: ${JSON.stringify([
-        process.argv[0],
-        ...process.argv.slice(2),
-      ])} };
+      // and any run-in-browser flags, so browser argv has the same shape
+      // as native node execution of the target script
+      window.process = { argv: ${JSON.stringify([process.argv[0], ...args])} };
     </script>
     <script type="module" src="./${fileName}">
     </script>
