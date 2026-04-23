@@ -26,9 +26,17 @@ export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
 pool.register("Weierstraß", createWeierstraß);
 pool.register("Twisted Edwards", createTwistedEdwards);
 
+/**
+ * Short Weierstrass curve with batched-affine additions and GLV-endomorphism
+ * accelerated scalar multiplication. Instantiate with `Weierstraß.create(params)`.
+ */
 type Weierstraß = Awaited<ReturnType<typeof createWeierstraß>>;
 const Weierstraß = { create: createWeierstraß };
 
+/**
+ * Twisted Edwards curve with projective additions. Instantiate with
+ * `TwistedEdwards.create(params)`.
+ */
 type TwistedEdwards = Awaited<ReturnType<typeof createTwistedEdwards>>;
 const TwistedEdwards = { create: createTwistedEdwards };
 
@@ -37,6 +45,26 @@ const curves: (
   | { module: TwistedEdwards; create: typeof createTwistedEdwards }
 )[] = [];
 
+/**
+ * Create a short Weierstrass curve from its parameters.
+ *
+ * Under the hood, this:
+ * - generates wasm modules for the field and scalar arithmetic (via
+ *   {@link https://github.com/zksecurity/wasmati | wasmati}) and instantiates
+ *   them;
+ * - sets up affine, projective, and bigint-level curve operations, plus the
+ *   batched-affine MSM;
+ * - registers the curve with the thread pool. If the pool is already running,
+ *   the curve is broadcast to existing workers immediately; otherwise, a
+ *   later `startThreads` call will pick it up and segment its memory for the
+ *   new thread count.
+ *
+ * Only curves with `a = 0` and a GLV endomorphism are supported.
+ *
+ * @param fieldWasm / @param scalarWasm are used internally when the main
+ * thread broadcasts a curve to workers, so workers reuse the main thread's
+ * compiled wasm instead of recompiling.
+ */
 async function createWeierstraß(
   params: CurveParams,
   fieldWasm?: WasmArtifacts,
@@ -176,6 +204,24 @@ async function createWeierstraß(
   return Curve;
 }
 
+/**
+ * Create a twisted edwards curve (`-x^2 + y^2 = 1 + d*x^2*y^2`) from its
+ * parameters.
+ *
+ * Under the hood, this:
+ * - generates wasm modules for the field and scalar arithmetic (via
+ *   {@link https://github.com/zksecurity/wasmati | wasmati}) and instantiates
+ *   them;
+ * - sets up projective-extended curve ops and the generic (non-batched) MSM;
+ * - registers the curve with the thread pool. If the pool is already running,
+ *   the curve is broadcast to existing workers immediately; otherwise, a
+ *   later `startThreads` call will pick it up and segment its memory for the
+ *   new thread count.
+ *
+ * @param fieldWasm / @param scalarWasm are used internally when the main
+ * thread broadcasts a curve to workers, so workers reuse the main thread's
+ * compiled wasm instead of recompiling.
+ */
 async function createTwistedEdwards(
   params: TwistedEdwardsParams,
   fieldWasm?: WasmArtifacts,
@@ -288,6 +334,12 @@ async function createTwistedEdwards(
   return Module;
 }
 
+/**
+ * Start a worker thread pool with `n` workers (defaults to available cores).
+ * Safe to call before or after curves are created: curves created earlier
+ * get broadcast to the new workers, and their memory is resegmented for the
+ * new thread count.
+ */
 async function startThreads(n?: number) {
   // in the web build, we inline a bundle of this file, to become the worker source code
   // import.meta.url is replaced with a blob url created on-the-fly from the inlined source code
@@ -314,6 +366,10 @@ async function startThreads(n?: number) {
   );
 }
 
+/**
+ * Terminate the worker thread pool and resegment existing curves' memory
+ * for single-threaded use.
+ */
 async function stopThreads() {
   await pool.stop();
   curves.forEach(({ module }) => module.Field.updateThreads());

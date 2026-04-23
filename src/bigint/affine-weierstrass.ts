@@ -5,6 +5,11 @@ export { createCurveAffine, type BigintPoint, type CurveParams };
 
 type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 
+/**
+ * Parameters defining a short Weierstrass curve `y^2 = x^3 + a*x + b` over
+ * a prime field of size `modulus`. An optional GLV endomorphism (`beta`,
+ * `lambda`) enables faster scalar multiplication.
+ */
 type CurveParams = {
   label: string;
   modulus: bigint;
