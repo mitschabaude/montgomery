@@ -17,7 +17,7 @@ import {
 } from "wasmati";
 import { mod } from "../bigint/field-util.ts";
 import { ImplicitMemory } from "./wasm-util.ts";
-import { FieldWithMultiply } from "./multiply-montgomery.ts";
+import { type FieldWithMultiply } from "./multiply-montgomery.ts";
 import { log2 } from "../util.ts";
 
 export { fieldInverse };

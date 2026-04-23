@@ -1,7 +1,7 @@
 import { assert, bigintToBits } from "../util.ts";
 import { createField } from "./field.ts";
 
-export { createCurveTwistedEdwards, BigintPoint, CurveParams };
+export { createCurveTwistedEdwards, type BigintPoint, type CurveParams };
 
 type BigintPoint = { X: bigint; Y: bigint; Z: bigint; T: bigint };
 

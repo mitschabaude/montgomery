@@ -8,12 +8,12 @@ import {
   if_,
   local,
   return_,
-  Local,
+  type Local,
   StackVar,
   type Func,
   type Input,
 } from "wasmati";
-import { FieldBase } from "./field-base.ts";
+import { type FieldBase } from "./field-base.ts";
 import { mask51 } from "./common.ts";
 
 export { fieldWithMethods, fieldMethods };

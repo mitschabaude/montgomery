@@ -3,7 +3,7 @@
 import type { MsmField } from "./field-msm.ts";
 import { barrier, range, shareOf } from "./threads/threads.ts";
 import { assert, bigintFromBytes32, log2, randomBytes } from "./util.ts";
-import { MemoryHelpers } from "./wasm/memory-helpers.ts";
+import { type MemoryHelpers } from "./wasm/memory-helpers.ts";
 
 export {
   createRandomPointsFast,

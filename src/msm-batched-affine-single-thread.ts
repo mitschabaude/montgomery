@@ -2,18 +2,18 @@
  * DEPRECATED. The current implementation, which supports multi-threading, is in `msm-batched-affine.ts`
  */
 import {
-  CurveAffine,
+  type CurveAffine,
   batchAdd,
   batchAddUnsafe,
   batchDoubleInPlace,
   getSizeAffine,
 } from "./curve-affine.ts";
-import { CurveProjective } from "./curve-projective.ts";
-import { MsmField } from "./field-msm.ts";
-import { GlvScalar } from "./scalar-glv.ts";
+import { type CurveProjective } from "./curve-projective.ts";
+import { type MsmField } from "./field-msm.ts";
+import { type GlvScalar } from "./scalar-glv.ts";
 import { log2 } from "./util.ts";
 
-export { createMsm, MsmCurve, BigintPoint, BytesPoint };
+export { createMsm, type MsmCurve, type BigintPoint, type BytesPoint };
 
 export { bigintPointsToMemory, bigintScalarsToMemory };
 

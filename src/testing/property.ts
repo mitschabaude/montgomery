@@ -4,7 +4,7 @@
  * This code is taken from o1js: https://github.com/o1-labs/o1js
  */
 import { Random } from "./random.ts";
-export { test, TestParams };
+export { test, type TestParams };
 export { Random, sample } from "./random.ts";
 
 const defaultTimeBudget = 100; // ms

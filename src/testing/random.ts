@@ -4,7 +4,7 @@
  * This code is taken from o1js: https://github.com/o1-labs/o1js
  */
 import { randomGenerators } from "../bigint/field-random.ts";
-import { Tuple } from "../types.ts";
+import { type Tuple } from "../types.ts";
 import { bigintFromBytes, log2, randomBytes } from "../util.ts";
 
 export { Random, sample, sampleOne };

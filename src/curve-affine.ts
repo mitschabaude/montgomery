@@ -1,5 +1,5 @@
 import type * as W from "wasmati"; // for type names
-import { MsmField } from "./field-msm.ts";
+import { type MsmField } from "./field-msm.ts";
 import { randomGenerators } from "./bigint/field-random.ts";
 import type { CurveProjective } from "./curve-projective.ts";
 import { assert } from "./util.ts";
@@ -11,7 +11,7 @@ export {
   batchAdd,
   batchAddUnsafe,
   batchDoubleInPlace,
-  CurveAffine,
+  type CurveAffine,
   batchInverse,
 };
 

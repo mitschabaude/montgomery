@@ -3,22 +3,22 @@
  *
  * Assumes a=0 and that the curve has an endomorphism based on cube roots of 1.
  */
-import { CurveParams } from "./bigint/affine-weierstrass.ts";
-import { CurveAffine, batchAddNew, batchAddUnsafeNew } from "./curve-affine.ts";
-import { CurveProjective } from "./curve-projective.ts";
-import { MsmField } from "./field-msm.ts";
-import { GlvScalar } from "./scalar-glv.ts";
+import { type CurveParams } from "./bigint/affine-weierstrass.ts";
+import { type CurveAffine, batchAddNew, batchAddUnsafeNew } from "./curve-affine.ts";
+import { type CurveProjective } from "./curve-projective.ts";
+import { type MsmField } from "./field-msm.ts";
+import { type GlvScalar } from "./scalar-glv.ts";
 import { broadcastFromMain } from "./threads/global-pool.ts";
 import { THREADS, barrier, isMain, range, thread } from "./threads/threads.ts";
 import { log2 } from "./util.ts";
 import {
-  Chunk,
+  type Chunk,
   createLog,
   splitBuckets,
   windowSizeAffine,
 } from "./msm-common.ts";
 
-export { createMsm, MsmInputCurve };
+export { createMsm, type MsmInputCurve };
 
 type MsmInputCurve = {
   params: CurveParams;

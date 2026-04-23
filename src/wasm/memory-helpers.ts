@@ -1,8 +1,8 @@
-import "./symbol-dispose-polyfill.js";
+import "./symbol-dispose-polyfill.ts";
 import { THREADS, isMain, isParallel, thread } from "../threads/threads.ts";
 import { assert, log2 } from "../util.ts";
 
-export { memoryHelpers, MemoryHelpers, MemorySection };
+export { memoryHelpers, type MemoryHelpers, MemorySection };
 
 // how much memory is reserved for thread-local memory as a fraction of total memory
 const localRatioDefault = 0.2;

@@ -2,10 +2,10 @@ import type * as W from "wasmati";
 import {
   $,
   Const,
-  Input,
-  Local,
-  Func,
-  Type,
+  type Input,
+  type Local,
+  type Func,
+  type Type,
   call,
   func,
   global,
@@ -19,7 +19,7 @@ import { forLoop1, forLoop4 } from "./wasm-util.ts";
 import { createField } from "./field-helpers.ts";
 import { FieldWithArithmetic } from "./field-arithmetic.ts";
 
-export { multiplyMontgomery, FieldWithMultiply };
+export { multiplyMontgomery, type FieldWithMultiply };
 
 type FieldMultiplications = {
   multiply: Func<[i32, i32, i32], []>;

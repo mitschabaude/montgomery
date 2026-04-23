@@ -1,6 +1,6 @@
 import { call, func, i32, importMemory, Module } from "wasmati";
-import { MemoryHelpers, memoryHelpers } from "../wasm/memory-helpers.ts";
-import { Tuple } from "../types.ts";
+import { type MemoryHelpers, memoryHelpers } from "../wasm/memory-helpers.ts";
+import { type Tuple } from "../types.ts";
 import { c52, c52n, float51ToInt64, mask51 } from "./common.ts";
 import { Multiply } from "./fma.ts";
 import { assert } from "../util.ts";
@@ -100,13 +100,24 @@ class Field<Wasm> {
   sizeSingle = sizeField;
   static size = sizeFieldPair;
 
+  modulus: bigint;
+  memory: Uint8Array;
+  Wasm: Wasm;
+  Memory: MemoryHelpers;
+  moduleBytes?: Uint8Array;
+
   constructor(
-    public modulus: bigint,
-    public memory: Uint8Array,
-    public Wasm: Wasm,
-    public Memory: MemoryHelpers,
-    public moduleBytes?: Uint8Array
+    modulus: bigint,
+    memory: Uint8Array,
+    Wasm: Wasm,
+    Memory: MemoryHelpers,
+    moduleBytes?: Uint8Array
   ) {
+    this.modulus = modulus;
+    this.memory = memory;
+    this.Wasm = Wasm;
+    this.Memory = Memory;
+    this.moduleBytes = moduleBytes;
     validateAssumptions(modulus);
   }
 

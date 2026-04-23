@@ -1,5 +1,5 @@
 import { createMsmField } from "../field-msm.ts";
-import { UnwrapPromise, WasmArtifacts } from "../types.ts";
+import { type UnwrapPromise, type WasmArtifacts } from "../types.ts";
 import { t, T, ThreadPool } from "./threads.ts";
 
 export { createTest, startThreads, stopThreads };

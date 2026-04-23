@@ -18,6 +18,8 @@
     "moduleResolution": "nodenext" /* Specify how TypeScript looks up a file from a given module specifier. */,
     "allowImportingTsExtensions": true /* Allow imports to include TypeScript file extensions (so source can match on-disk .ts files, for native `node path/to/file.ts`). */,
     "rewriteRelativeImportExtensions": true /* Rewrite `.ts` relative imports to `.js` in emitted output. */,
+    "verbatimModuleSyntax": true /* Require explicit `import type` / `export type` so Node's type stripper can reliably erase them. */,
+    "erasableSyntaxOnly": true /* Flag TS constructs that type stripping can't erase (enums, parameter properties, value namespaces, import=). */,
 
     /* JavaScript Support */
     "allowJs": true /* Allow JavaScript files to be a part of your program. Use the 'checkJS' option to get errors from these files. */,

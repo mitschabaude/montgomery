@@ -6,15 +6,15 @@ import { multiplyMontgomery } from "./wasm/multiply-montgomery.ts";
 import { ImplicitMemory } from "./wasm/wasm-util.ts";
 import { mod, montgomeryParams } from "./bigint/field-util.ts";
 import { curveOps } from "./wasm/curve.ts";
-import { MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
+import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.ts";
-import { UnwrapPromise, WasmArtifacts } from "./types.ts";
+import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 import { fieldExp } from "./wasm/exp.ts";
 import { createSqrt } from "./field-sqrt.ts";
 import { assert } from "./util.ts";
 import { isMain } from "./threads/threads.ts";
 
-export { createMsmField, MsmField };
+export { createMsmField, type MsmField };
 export { createConstants };
 
 async function createMsmField(

@@ -1,7 +1,7 @@
 import { Worker, getParentPort, availableParallelism } from "./worker.node.ts";
 import { assert } from "../util.ts";
-import { AnyFunction } from "../types.ts";
-import { SimpleWorker, awaitMessage } from "./simple-worker.ts";
+import { type AnyFunction } from "../types.ts";
+import { type SimpleWorker, awaitMessage } from "./simple-worker.ts";
 
 export {
   thread as t,
@@ -55,17 +55,11 @@ function setDebug(debug: boolean) {
   DEBUG = debug;
 }
 
-enum MessageType {
-  CALL = "call",
-  ANSWER = "answer",
-  INIT = "init",
-}
-
 type Message =
-  | { type: MessageType.CALL; func: string; args: any[]; callId: number }
-  | { type: MessageType.ANSWER; callId: number }
+  | { type: "call"; func: string; args: any[]; callId: number }
+  | { type: "answer"; callId: number }
   | {
-      type: MessageType.INIT;
+      type: "init";
       thread: number;
       THREADS: number;
       sharedArray: SharedArrayBuffer;
@@ -79,7 +73,7 @@ const parentPort = getParentPort<Message>();
 parentPort?.onMessage(async (message: Message) => {
   if (DEBUG) console.log(`worker ${thread}/${THREADS} got message`, message);
 
-  if (message.type === MessageType.CALL) {
+  if (message.type === "call") {
     let { func: funcName, args, callId } = message;
 
     let func = functions.get(funcName);
@@ -88,12 +82,12 @@ parentPort?.onMessage(async (message: Message) => {
     }
 
     await func(...args);
-    parentPort.postMessage({ type: MessageType.ANSWER, callId });
-  } else if (message.type === MessageType.INIT) {
+    parentPort.postMessage({ type: "answer", callId });
+  } else if (message.type === "init") {
     thread = message.thread;
     THREADS = message.THREADS;
     sharedArray = new Int32Array(message.sharedArray);
-    parentPort.postMessage({ type: MessageType.ANSWER, callId: 0 });
+    parentPort.postMessage({ type: "answer", callId: 0 });
   }
 });
 
@@ -170,7 +164,7 @@ class ThreadPool {
       // TODO: do we want this?
       worker.unref?.();
       worker.postMessage({
-        type: MessageType.INIT,
+        type: "init",
         thread: t,
         THREADS: T,
         sharedArray: sharedArray.buffer,
@@ -178,7 +172,7 @@ class ThreadPool {
 
       let initPromise = awaitMessage(
         worker,
-        (m) => m.type === MessageType.ANSWER && m.callId === 0
+        (m) => m.type === "answer" && m.callId === 0
       );
       promises.push(initPromise);
       workers.push(worker);
@@ -204,7 +198,7 @@ class ThreadPool {
     let promises = this.workers.map((worker) => {
       let callId = Math.random();
       worker.postMessage({
-        type: MessageType.CALL,
+        type: "call",
         func: funcName,
         args,
         callId,
@@ -212,7 +206,7 @@ class ThreadPool {
 
       return awaitMessage(
         worker,
-        (m) => m.type === MessageType.ANSWER && m.callId === callId
+        (m) => m.type === "answer" && m.callId === callId
       );
     });
     return Promise.all(promises);

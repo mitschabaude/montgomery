@@ -21,11 +21,11 @@ import {
   importFunc,
   local,
   v128,
-  Global,
+  type Global,
   type Func,
-  Local,
-  Type,
-  Input,
+  type Local,
+  type Type,
+  type Input,
 } from "wasmati";
 import { inverse } from "../bigint/field.ts";
 import {

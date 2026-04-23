@@ -1,4 +1,4 @@
-import { BigintPoint } from "./bigint/projective-weierstrass.ts";
+import { type BigintPoint } from "./bigint/projective-weierstrass.ts";
 import { pallasParams as curveParams } from "./concrete/pasta.params.ts";
 import { createCurveProjective } from "./curve-projective.ts";
 import { createMsmField } from "./field-msm.ts";

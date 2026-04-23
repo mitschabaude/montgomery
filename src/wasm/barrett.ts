@@ -1,4 +1,4 @@
-import { $, Func, Type, call, func, i32, i64, local } from "wasmati";
+import { $, type Func, type Type, call, func, i32, i64, local } from "wasmati";
 import { bigintFromLimbs, bigintToLimbs, log2 } from "../util.ts";
 import { forLoop1 } from "./wasm-util.ts";
 

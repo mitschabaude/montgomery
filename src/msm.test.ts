@@ -15,8 +15,8 @@ import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";
 import { curveParams as edBls12Params } from "./concrete/ed-on-bls12-377.params.ts";
 import { assert } from "./util.ts";
-import { CurveParams } from "./bigint/affine-weierstrass.ts";
-import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
+import { type CurveParams } from "./bigint/affine-weierstrass.ts";
+import { type CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
 import { assertDeepEqual } from "./testing/nested.ts";
 
 let nThreads = 16;

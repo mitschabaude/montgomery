@@ -1,4 +1,4 @@
-import { BigintPoint } from "./bigint/twisted-edwards.ts";
+import { type BigintPoint } from "./bigint/twisted-edwards.ts";
 import { curveParams, p } from "./concrete/ed-on-bls12-377.params.ts";
 import { createRandomPointsFastSingleCurve } from "./curve-random.ts";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";

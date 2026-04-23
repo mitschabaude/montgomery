@@ -5,8 +5,8 @@ import type { Worker as NodeWorker, MessagePort } from "node:worker_threads";
 import { assert } from "../util.ts";
 
 export {
-  SimpleWorker,
-  WorkerConstructor,
+  type SimpleWorker,
+  type WorkerConstructor,
   fromWebWorker,
   fromWebTarget,
   fromNodeWorker,

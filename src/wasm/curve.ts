@@ -6,11 +6,11 @@ import {
   local,
   if_,
   return_,
-  Func,
+  type Func,
   loop,
   br_if,
 } from "wasmati";
-import { FieldWithMultiply } from "./multiply-montgomery.ts";
+import { type FieldWithMultiply } from "./multiply-montgomery.ts";
 import { mod } from "../bigint/field-util.ts";
 import { ImplicitMemory } from "./wasm-util.ts";
 

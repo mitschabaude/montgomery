@@ -2,7 +2,7 @@ import type { Func } from "wasmati";
 import { call, func, i32, if_, local } from "wasmati";
 import { mod } from "../bigint/field-util.ts";
 import { forLoop1 } from "./wasm-util.ts";
-import { FieldWithMultiply } from "./multiply-montgomery.ts";
+import { type FieldWithMultiply } from "./multiply-montgomery.ts";
 
 export { fieldExp };
 

@@ -5,7 +5,7 @@ import type {
 } from "./affine-weierstrass.ts";
 import { createField } from "./field.ts";
 
-export { createCurveProjective, BigintPoint };
+export { createCurveProjective, type BigintPoint };
 
 type BigintPoint = { X: bigint; Y: bigint; Z: bigint };
 

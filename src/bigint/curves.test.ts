@@ -1,15 +1,15 @@
 import { Random, test } from "../testing/property.ts";
 import {
   createCurveTwistedEdwards,
-  BigintPoint as TwistedEdwardsExtendedPoint,
+  type BigintPoint as TwistedEdwardsExtendedPoint,
 } from "./twisted-edwards.ts";
 import {
   createCurveAffine,
-  BigintPoint as AffinePoint,
+  type BigintPoint as AffinePoint,
 } from "./affine-weierstrass.ts";
 import {
   createCurveProjective,
-  BigintPoint as ProjectivePoint,
+  type BigintPoint as ProjectivePoint,
 } from "./projective-weierstrass.ts";
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.ts";
 import { pallasParams } from "../concrete/pasta.params.ts";

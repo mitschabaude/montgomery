@@ -1,5 +1,5 @@
 import type * as _W from "wasmati";
-import { WasmArtifacts } from "./types.ts";
+import { type WasmArtifacts } from "./types.ts";
 import { createMsmField } from "./field-msm.ts";
 import { createCurveProjective } from "./curve-projective.ts";
 import { createCurveProjective as createBigintCurve } from "./bigint/projective-weierstrass.ts";
@@ -9,11 +9,11 @@ import {
   createRandomPointsFastSingleCurve,
   createRandomScalars,
 } from "./curve-random.ts";
-import { GlvScalarParams, createGlvScalar } from "./scalar-glv.ts";
+import { type GlvScalarParams, createGlvScalar } from "./scalar-glv.ts";
 import { createMsm } from "./msm-batched-affine.ts";
 import { pool } from "./threads/global-pool.ts";
-import { CurveParams } from "./bigint/affine-weierstrass.ts";
-import { CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
+import { type CurveParams } from "./bigint/affine-weierstrass.ts";
+import { type CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
 import { assert } from "./util.ts";
 import { createScalar } from "./scalar-simple.ts";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";

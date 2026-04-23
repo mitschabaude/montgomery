@@ -1,6 +1,6 @@
 import { createEquivalentWasm, WasmSpec } from "./testing/equivalent-wasm.ts";
-import { BigintField } from "./bigint/field.ts";
-import { createMsmField, MsmField } from "./field-msm.ts";
+import { type BigintField } from "./bigint/field.ts";
+import { createMsmField, type MsmField } from "./field-msm.ts";
 import { exampleFields } from "./concrete/example-fields.ts";
 import { Spec, throwError } from "./testing/equivalent.ts";
 import { test } from "node:test";

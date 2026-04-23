@@ -1,13 +1,13 @@
-import { MsmField } from "./field-msm.ts";
+import { type MsmField } from "./field-msm.ts";
 import { assert, bigintToBits } from "./util.ts";
 import { randomGenerators } from "./bigint/field-random.ts";
 import {
-  BigintPoint,
-  CurveParams,
+  type BigintPoint,
+  type CurveParams,
   createCurveTwistedEdwards as createBigint,
 } from "./bigint/twisted-edwards.ts";
 
-export { createCurveTwistedEdwards, CurveTwistedEdwards };
+export { createCurveTwistedEdwards, type CurveTwistedEdwards };
 
 type CurveTwistedEdwards = ReturnType<typeof createCurveTwistedEdwards>;
 

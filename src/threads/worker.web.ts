@@ -1,5 +1,5 @@
 import {
-  WorkerConstructor,
+  type WorkerConstructor,
   fromWebTarget,
   fromWebWorker,
 } from "./simple-worker.ts";

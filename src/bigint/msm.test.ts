@@ -1,6 +1,6 @@
 import { Random, test } from "../testing/property.ts";
 import { createCurveTwistedEdwards } from "./twisted-edwards.ts";
-import { createCurveAffine, CurveParams } from "./affine-weierstrass.ts";
+import { createCurveAffine, type CurveParams } from "./affine-weierstrass.ts";
 import { createCurveProjective } from "./projective-weierstrass.ts";
 import { pallasParams } from "../concrete/pasta.params.ts";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.ts";

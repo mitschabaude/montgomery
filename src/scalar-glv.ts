@@ -5,9 +5,9 @@ import { assert, log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
 import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.ts";
 import { mod, montgomeryParams } from "./bigint/field-util.ts";
-import { UnwrapPromise, WasmArtifacts } from "./types.ts";
+import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 
-export { createGlvScalar, GlvScalar, GlvScalarParams };
+export { createGlvScalar, type GlvScalar, type GlvScalarParams };
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
 type Params = { q: bigint; lambda: bigint; w: number };

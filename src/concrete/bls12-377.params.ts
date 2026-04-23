@@ -2,7 +2,7 @@ import { mod } from "../bigint/field-util.ts";
 import { exp, inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
 import {
-  CurveParams,
+  type CurveParams,
   createCurveAffine,
 } from "../bigint/affine-weierstrass.ts";
 
