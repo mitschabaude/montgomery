@@ -24,7 +24,7 @@ async function buildWeb(entrypoint: string, outdir: string) {
   // return abs path for convenience
   return path.resolve(
     outdir,
-    path.basename(entrypoint.replace(/\.ts$/, ".js"))
+    path.basename(entrypoint.replace(/\.ts$/, ".js")),
   );
 }
 
@@ -48,28 +48,28 @@ function replaceNodeWithWeb() {
     name: "replace-node-with-web",
     setup(build: esbuild.PluginBuild) {
       build.onResolve(
-        { filter: /\.node.js$/ },
+        { filter: /\.node\.(ts|js)$/ },
         ({ path: importPath, resolveDir }) => {
-          // replace .node.js with .web.js
-          importPath = importPath.replace(/\.node\.js$/, ".web.js");
+          // replace .node.{ts,js} with .web.{ts,js}
+          importPath = importPath.replace(/\.node\.(ts|js)$/, ".web.$1");
 
-          // expect .web.js to be in the same directory
+          // expect .web.{ts,js} to be in the same directory
           return { path: path.resolve(resolveDir, importPath) };
-        }
+        },
       );
     },
   };
 }
 
-// plugin to detect any `ESBUILD_INLINE_URL` labels and replace urls with blob urls generated from inlined source code
+// plugin to detect any `INLINE_META_URL` labels and replace urls with blob urls generated from inlined source code
 function inlineUrl() {
   return {
     name: "inline-url",
     setup(build: esbuild.PluginBuild) {
-      build.onLoad({ filter: /\.js$/ }, async (args) => {
+      build.onLoad({ filter: /\.(js|ts)$/ }, async (args) => {
         let contents = await fs.promises.readFile(args.path, "utf8");
 
-        // check for `ESBUILD_INLINE_URL` labels
+        // check for `INLINE_META_URL` labels
         let inlineUrlMatch = contents.match(/INLINE_META_URL: (.+);/);
         if (inlineUrlMatch === null) return undefined;
 
@@ -78,19 +78,19 @@ function inlineUrl() {
 
         // source code that creates a blob url
         let newUrlSourceCode = `URL.createObjectURL(new Blob([${JSON.stringify(
-          bundleSourceCode
+          bundleSourceCode,
         )}], { type: 'application/javascript' }))`;
 
-        // replace any `import.meta.url` with `createsBlobUrl`, but only in lines with the `ESBUILD_INLINE_URL` label
+        // replace any `import.meta.url` with `createsBlobUrl`, but only in lines with the `INLINE_META_URL` label
         let replacementValue = inlineUrlMatch[0].replace(
           /import.meta.url/g,
-          newUrlSourceCode
+          newUrlSourceCode,
         );
         contents =
           contents.slice(0, inlineUrlMatch.index) +
           replacementValue +
           contents.slice(inlineUrlMatch.index! + inlineUrlMatch[0].length);
-        return { contents };
+        return { contents, loader: args.path.endsWith(".ts") ? "ts" : "js" };
       });
     },
   };

@@ -2,19 +2,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
-import { bundleWeb } from "./build/scripts/build/bundle-web.js";
+import { bundleWeb } from "./scripts/build/bundle-web.ts";
 
 // get first and only command line argument
 let src = process.argv[2];
 
-// transform ts file name in the source tree to js file in /build
+// esbuild handles .ts natively; bundle the source directly
 let srcjs = src.replace(/\.ts$/, ".js");
-let entrypoint = path.resolve("build/", srcjs);
-
-entrypoint = fs.existsSync(entrypoint) ? entrypoint : src;
-
 let targetDir = path.dirname(path.join("build/web/", srcjs));
-let absPath = await bundleWeb(entrypoint, targetDir);
+let absPath = await bundleWeb(src, targetDir);
 let fileName = path.basename(absPath);
 let filePath = path.join(targetDir, fileName);
 

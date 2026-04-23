@@ -23,7 +23,7 @@
     "watch": "tsc -w",
     "build": "tsc",
     "start": "node scripts/run-msm-pallas.ts",
-    "start-web": "npm run build && ./run-in-browser scripts/run-msm-pallas.ts",
+    "start-web": "./run-in-browser scripts/run-msm-pallas.ts",
     "evaluate": "node scripts/run-msm-pallas.ts 16 16 --evaluate",
     "test": "node --test 'src/**/*.test.ts'",
     "test-msm": "node --test src/msm.test.ts",
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "esbuild": "^0.20.1",
+    "esbuild": "^0.28.0",
     "prettier": "^3.1.1",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
