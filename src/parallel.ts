@@ -129,41 +129,56 @@ async function createWeierstraß(
     return Scalar.global.getPointer(size);
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to affine points.
+   *
+   * Byte layout per point: `packedX || packedY`, where each coordinate is
+   * `Field.packedSizeField = ceil(bitLength / 8)` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}). No encoding for the point at
+   * infinity — `isNonZero` is set unconditionally, so callers must filter
+   * infinity points out before passing them in.
+   */
   function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
     let { size } = Affine;
     let { fromPackedBytes, sizeField, toMontgomery, memoryBytes } = Field;
+    let packedSize = Field.packedSizeField;
+    let bytesPerPoint = 2 * packedSize;
 
     let [i, iend] = range(n);
     let pi = pointPtr + i * size;
-    let bi = pointInputPtr + i * 96;
+    let bi = pointInputPtr + i * bytesPerPoint;
 
-    for (; i < iend; i++, pi += size, bi += 96) {
+    for (; i < iend; i++, pi += size, bi += bytesPerPoint) {
       let x = pi;
       let y = x + sizeField;
-      // set nonzero flag. (input format doesn't allow zero points, so always 1)
       memoryBytes[pi + 2 * sizeField] = 1;
 
       fromPackedBytes(x, bi);
-      fromPackedBytes(y, bi + 48);
+      fromPackedBytes(y, bi + packedSize);
       toMontgomery(x);
       toMontgomery(y);
     }
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to scalars.
+   *
+   * Byte layout per scalar: `Scalar.packedSizeField` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}).
+   */
   function scalarsFromBytes(
     scalarPtr: number,
     scalarInputPtr: number,
     n: number
   ) {
     let { fromPackedBytes, sizeField: size } = Scalar;
+    let packedSize = Scalar.packedSizeField;
 
     let [i, iend] = range(n);
     let si = scalarPtr + i * size;
-    let bi = scalarInputPtr + i * 32;
+    let bi = scalarInputPtr + i * packedSize;
 
-    for (; i < iend; i++, si += size, bi += 32) {
+    for (; i < iend; i++, si += size, bi += packedSize) {
       fromPackedBytes(si, bi);
     }
   }
@@ -267,23 +282,32 @@ async function createTwistedEdwards(
     return Scalar.global.getPointer(size);
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to extended-projective
+   * points.
+   *
+   * Byte layout per point: `packedX || packedY`, where each coordinate is
+   * `Field.packedSizeField = ceil(bitLength / 8)` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}). Z and T are derived from x, y.
+   */
   function pointsFromBytes(pointPtr: number, pointInputPtr: number, n: number) {
     let { size } = Curve;
     let { fromPackedBytes, sizeField, toMontgomery, copy, multiply } = Field;
+    let packedSize = Field.packedSizeField;
+    let bytesPerPoint = 2 * packedSize;
 
     let [i, iend] = range(n);
     let pi = pointPtr + i * size;
-    let bi = pointInputPtr + i * 64;
+    let bi = pointInputPtr + i * bytesPerPoint;
 
-    for (; i < iend; i++, pi += size, bi += 64) {
+    for (; i < iend; i++, pi += size, bi += bytesPerPoint) {
       let x = pi;
       let y = x + sizeField;
       let z = y + sizeField;
       let t = z + sizeField;
 
       fromPackedBytes(x, bi);
-      fromPackedBytes(y, bi + 32);
+      fromPackedBytes(y, bi + packedSize);
 
       toMontgomery(x);
       toMontgomery(y);
@@ -293,19 +317,25 @@ async function createTwistedEdwards(
     return pointPtr;
   }
 
-  // input bytes must be transfered to wasm memory before calling this function
+  /**
+   * Convert input bytes already present in wasm memory to scalars.
+   *
+   * Byte layout per scalar: `Scalar.packedSizeField` bytes in little-endian
+   * packed form (see {@link fromPackedBytes}).
+   */
   function scalarsFromBytes(
     scalarPtr: number,
     scalarInputPtr: number,
     n: number
   ) {
     let { fromPackedBytes, sizeField: size } = Scalar;
+    let packedSize = Scalar.packedSizeField;
 
     let [i, iend] = range(n);
     let si = scalarPtr + i * size;
-    let bi = scalarInputPtr + i * 32;
+    let bi = scalarInputPtr + i * packedSize;
 
-    for (; i < iend; i++, si += size, bi += 32) {
+    for (; i < iend; i++, si += size, bi += packedSize) {
       fromPackedBytes(si, bi);
     }
   }
