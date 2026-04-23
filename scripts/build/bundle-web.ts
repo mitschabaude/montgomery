@@ -7,18 +7,24 @@ import fs from "node:fs";
 
 export { buildWeb as bundleWeb };
 
-// bundle for the web
-async function buildWeb(entrypoint: string, outdir: string) {
+// bundle for the web; when `minify` is set, both the outer bundle and
+// the inlined worker source are minified
+async function buildWeb(
+  entrypoint: string,
+  outdir: string,
+  { minify = false }: { minify?: boolean } = {},
+) {
   await esbuild.build({
     entryPoints: [entrypoint],
     bundle: true,
-    keepNames: true,
+    keepNames: !minify,
     outdir,
     format: "esm",
     platform: "browser",
     target: "es2022",
     sourcemap: true,
-    plugins: [replaceNodeWithWeb(), inlineUrl()],
+    minify,
+    plugins: [replaceNodeWithWeb(), inlineUrl({ minify })],
     allowOverwrite: true,
   });
   // return abs path for convenience
@@ -28,15 +34,16 @@ async function buildWeb(entrypoint: string, outdir: string) {
   );
 }
 
-async function buildBlobUrl(path: string) {
+async function buildBlobUrl(path: string, { minify = false } = {}) {
   let { outputFiles } = await esbuild.build({
     entryPoints: [path],
     bundle: true,
-    keepNames: true,
+    keepNames: !minify,
     write: false,
     format: "esm",
     platform: "browser",
     target: "es2022",
+    minify,
     plugins: [replaceNodeWithWeb()],
   });
   return outputFiles[0].text;
@@ -62,7 +69,7 @@ function replaceNodeWithWeb() {
 }
 
 // plugin to detect any `INLINE_META_URL` labels and replace urls with blob urls generated from inlined source code
-function inlineUrl() {
+function inlineUrl({ minify = false }: { minify?: boolean } = {}) {
   return {
     name: "inline-url",
     setup(build: esbuild.PluginBuild) {
@@ -74,7 +81,7 @@ function inlineUrl() {
         if (inlineUrlMatch === null) return undefined;
 
         // bundle source code which will be inlined
-        let bundleSourceCode = await buildBlobUrl(args.path);
+        let bundleSourceCode = await buildBlobUrl(args.path, { minify });
 
         // source code that creates a blob url
         let newUrlSourceCode = `URL.createObjectURL(new Blob([${JSON.stringify(
