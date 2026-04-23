@@ -5,12 +5,13 @@
     "incremental": true /* Save .tsbuildinfo files to allow for incremental compilation of projects. */,
 
     /* Language and Environment */
-    "target": "es2022" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
+    "target": "es2024" /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */,
     "lib": [
-      "es2022",
+      "es2024",
       "esnext.disposable",
       "dom"
     ] /* Specify a set of bundled library declaration files that describe the target runtime environment. */,
+    "types": ["node"],
 
     /* Modules */
     "module": "nodenext" /* Specify what module code is generated. */,

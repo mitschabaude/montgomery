@@ -68,7 +68,7 @@ type Message =
       type: MessageType.INIT;
       thread: number;
       THREADS: number;
-      sharedArray: ArrayBuffer;
+      sharedArray: SharedArrayBuffer;
     };
 
 type PoolWorker = SimpleWorker<Message>;

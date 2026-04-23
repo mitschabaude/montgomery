@@ -86,7 +86,7 @@ function fromWebTarget<M>(target: Window | Worker): MessageTarget<M> {
 function fromNodeTarget<M>(target: NodeWorker | MessagePort): MessageTarget<M> {
   return {
     postMessage(message) {
-      target.postMessage(message);
+      target.postMessage(message, []);
     },
     onMessage(listener) {
       target.on("message", listener);
@@ -118,7 +118,7 @@ function fromNodeWorker<M>(nodeWorker: NodeWorker): SimpleWorker<M> {
  */
 function awaitMessage<M>(
   target: MessageTarget<M>,
-  filter?: (message: M) => boolean
+  filter?: (message: M) => boolean,
 ): Promise<M> {
   return new Promise((resolve) => {
     target.onMessage(function listener(message: M) {
