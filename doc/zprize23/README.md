@@ -2,6 +2,8 @@
 
 _submitted to Zprize '23, by Gregor Mitscha-Baude_
 
+> **Historical note.** This folder holds the original ZPrize '23 submission sources and its README. The submission code is kept evergreen (it still builds and runs), but is not actively developed. Everything below describes the submission as it existed at the time of the prize; commands have been updated to match the current repo layout.
+
 This repo contains 2 submissions:
 
 - `submission.ts` for the main prize as originally intended: MSM over [Aleo's twisted edwards curve](https://docs.rs/ark-ed-on-bls12-377/latest/ark_ed_on_bls12_377) over the scalar field of BLS12-377.
