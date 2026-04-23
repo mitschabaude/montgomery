@@ -12,6 +12,7 @@ import {
   type BigintPoint as ProjectivePoint,
 } from "./projective-weierstrass.ts";
 import { curveParams as edBls12377Params } from "../concrete/ed-on-bls12-377.params.ts";
+import { ed25519Params } from "../concrete/ed25519.params.ts";
 import { pallasParams, vestaParams } from "../concrete/pasta.params.ts";
 import { curveParams as bls12381Params } from "../concrete/bls12-381.params.ts";
 import { curveParams as bls12377Params } from "../concrete/bls12-377.params.ts";
@@ -20,10 +21,15 @@ import { secp256k1Params } from "../concrete/secp256k1.params.ts";
 import { assert } from "../util.ts";
 
 let testInputs: TestInput<any>[] = [
-  // twisted edwards curve
+  // twisted edwards curves
   {
     label: "ed-on-bls12-377",
     Curve: createCurveTwistedEdwards(edBls12377Params),
+    randomShape: twistedEdwardsShape,
+  } satisfies TestInput<TwistedEdwardsExtendedPoint>,
+  {
+    label: "ed25519",
+    Curve: createCurveTwistedEdwards(ed25519Params),
     randomShape: twistedEdwardsShape,
   } satisfies TestInput<TwistedEdwardsExtendedPoint>,
 

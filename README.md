@@ -75,6 +75,7 @@ Lazy factories, all in `montgomery`:
 | `BN254`     | BN254 / alt_bn128 G1 (short Weierstrass, used in Ethereum EIP-196/197 precompiles, Circom, Aztec)                                    |
 | `Secp256k1` | secp256k1 (short Weierstrass, used in Bitcoin / Ethereum signatures)                                                                 |
 | `Ed377`     | Edwards-on-BLS12-377 (twisted Edwards, used in Aleo)                                                                                 |
+| `Ed25519`   | Ed25519 (twisted Edwards, birational twin of Curve25519; signatures)                                                                 |
 
 Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
 

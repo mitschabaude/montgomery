@@ -13,6 +13,7 @@ import { pallasParams, vestaParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";
 import { curveParams as edBls12Params } from "./concrete/ed-on-bls12-377.params.ts";
+import { ed25519Params } from "./concrete/ed25519.params.ts";
 import { bn254Params } from "./concrete/bn254.params.ts";
 import { secp256k1Params } from "./concrete/secp256k1.params.ts";
 import { assert } from "./util.ts";
@@ -25,6 +26,7 @@ await startThreads(nThreads);
 
 // twisted edwards curves
 await testMsmTE(edBls12Params);
+await testMsmTE(ed25519Params);
 
 // weierstrass curves with a=0 and endomorphism
 await testMsm(pallasParams);

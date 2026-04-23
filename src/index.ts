@@ -21,6 +21,7 @@ import { pallasParams, vestaParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";
 import { curveParams as ed377Params } from "./concrete/ed-on-bls12-377.params.ts";
+import { ed25519Params } from "./concrete/ed25519.params.ts";
 import { secp256k1Params } from "./concrete/secp256k1.params.ts";
 import { bn254Params } from "./concrete/bn254.params.ts";
 import type {
@@ -43,6 +44,7 @@ export {
   BN254,
   Secp256k1,
   Ed377,
+  Ed25519,
   startThreads,
   stopThreads,
   CurveParams,
@@ -80,6 +82,7 @@ type TwistedEdwardsParams = _TwistedEdwardsParams;
  */
 const TwistedEdwardsParams = {
   ed377: ed377Params,
+  ed25519: ed25519Params,
 };
 
 /** Factory for the Pallas curve (Halo 2 / Mina). */
@@ -109,4 +112,8 @@ function Secp256k1() {
 /** Factory for the Edwards-on-BLS12-377 twisted edwards curve (Aleo). */
 function Ed377() {
   return TwistedEdwards.create(ed377Params);
+}
+/** Factory for the Ed25519 twisted edwards curve (signatures, Curve25519 birational twin). */
+function Ed25519() {
+  return TwistedEdwards.create(ed25519Params);
 }
