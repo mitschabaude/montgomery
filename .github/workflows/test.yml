@@ -16,3 +16,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: node doc/zprize23/submission-test.ts
+      - run: node doc/zprize23/submission-test-bls377.ts
