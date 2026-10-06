@@ -59,19 +59,19 @@ async function benchmark(
     let x = Fp.Memory.local.getPointer(Fp.size);
     let z = Fp.Memory.local.getPointer(Fp.size);
 
-    Fp.writePair(x, initial, initial);
+    Fp.writePair(x, randomField(), randomField());
     bench("multiply 51x5", Fp.Wasm.benchMultiply, { x, N }, 2);
 
-    Fp.writeSingle(x, initial);
+    Fp.writeSingle(x, randomField());
     bench("multiply 51x5 single", Fp.Wasm.benchMultiplySingle, { x, N });
 
-    Fp.writePair(x, initial, initial);
+    Fp.writePair(x, randomField(), randomField());
     bench("multiply 51x5 no fma", Fp.Wasm.benchMultiplyNoFma, { x, N }, 2);
 
-    Fp.writeSingle(x, initial);
+    Fp.writeSingle(x, randomField());
     bench("add 51x5", Fp.Wasm.benchAddx3, { x, N }, 3);
 
-    Fp.writeSingle(x, initial);
+    Fp.writeSingle(x, randomField());
     Fp.writeSingle(z, 0n);
     bench("sub 51x5", Fp.Wasm.benchSubx3, { x, z, N }, 3);
   }
@@ -332,22 +332,19 @@ function bench(
     | ((x: number, N: number) => void)
     | ((x: number, z: number, N: number) => void),
   { x, z, N }: { x: number; z?: number; N: number },
+  /**
+   * parameter to use if the operation is performed multiple times
+   */
   scale = 1
 ) {
   let Nscaled = Math.round(N / scale);
-  N = Nscaled * scale;
-  console.log(
-    `${name}: ${scale} op(s)/iteration, 10,000 warmup iterations, then one timed run of ${Nscaled} iterations.`
-  );
-  if (z === undefined) (compute as (x: number, N: number) => void)(x, 10_000);
-  else compute(x, z, 10_000);
   name = name.padEnd(20, " ");
   tic();
   if (z === undefined) (compute as (x: number, N: number) => void)(x, Nscaled);
   else compute(x, z, Nscaled);
   let time = toc();
   console.log(`${name} \t ${(N / time / 1e3).toFixed(1).padStart(4)}M ops/s`);
-  console.log(`${name} \t ${((time / N) * 1e6).toFixed(1)}ns`);
+  console.log(`${name} \t ${((time / N) * 1e6).toFixed(0)}ns`);
   console.log();
   return time / N;
 }
