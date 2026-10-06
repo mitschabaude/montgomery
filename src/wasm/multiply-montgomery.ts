@@ -1,6 +1,5 @@
 import type * as W from "wasmati";
 import {
-  params,
   localArray,
   $,
   Const,
@@ -50,13 +49,13 @@ function multiplyMontgomery(
 
   const multiplyCount = global(Const.i32(0), { mutable: true });
 
-  const resetMultiplyCount = func({ in: params(), locals: {}, out: [] }, () => {
+  const resetMultiplyCount = func({ in: [], locals: {}, out: [] }, () => {
     global.set(multiplyCount, 0);
   });
 
   const multiply = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
       locals: {
         tmp: i64,
         qi: i64,
@@ -140,7 +139,7 @@ function multiplyMontgomery(
 
   const square = func(
     {
-      in: params({ xy: i32 }, { x: i32 }),
+      in: [{ xy: i32 }, { x: i32 }],
       locals: {
         tmp: i64,
         qi: i64,
@@ -232,7 +231,7 @@ function multiplyMontgomery(
   // of flexible reduction by 2^(w*n-k % n))
   const leftShift = func(
     {
-      in: params({ xy: i32 }, { y: i32 }, { k: i32 }),
+      in: [{ xy: i32 }, { y: i32 }, { k: i32 }],
       locals: {
         tmp: i64,
         qi: i64,
@@ -311,7 +310,7 @@ function multiplyMontgomery(
   );
 
   const benchMultiply = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(multiply, { xy: x, x, y: x });
@@ -319,7 +318,7 @@ function multiplyMontgomery(
     }
   );
   const benchSquare = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(square, { xy: x, x });

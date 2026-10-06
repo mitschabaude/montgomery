@@ -1,6 +1,5 @@
 import type * as W from "wasmati";
 import {
-  params,
   $,
   control,
   func,
@@ -109,11 +108,9 @@ function createField(p: bigint, w: number, n: number) {
   }
 
   const limbNames = Array.from({ length: n }, (_, i) => `limb${i}`);
-  const limbsType: W.Parameters<{ [name: string]: "i64" }[]> = {
-    names: limbNames,
-    types: Array<i64>(n).fill("i64"),
-    values: Object.fromEntries(limbNames.map((name) => [name, "i64" as const])),
-  };
+  const limbsType: Record<string, typeof i64>[] = limbNames.map((name) => ({
+    [name]: i64,
+  }));
 
   let logLocalsImport = importFunc(
     { in: limbsType, out: [] },
@@ -225,7 +222,7 @@ function fromPackedBytes(w: number, n: number, nPackedBytes: number) {
   // recover n*w-bit representation (1 int32 per w-bit limb) from packed byte representation
   return func(
     {
-      in: params({ x: i32 }, { bytes: i32 }),
+      in: [{ x: i32 }, { bytes: i32 }],
       locals: { tmp: i64, chunk: i64 },
       out: [],
     },
@@ -284,7 +281,7 @@ function toPackedBytes(w: number, n: number, nPackedBytes: number) {
   if (w > 32) throw Error(`toPackedBytes assumes that w <= 32, got w = ${w}`);
 
   return func(
-    { in: params({ bytes: i32 }, { x: i32 }), locals: { tmp: i64 }, out: [] },
+    { in: [{ bytes: i32 }, { x: i32 }], locals: { tmp: i64 }, out: [] },
     ({ bytes, x }, { tmp }) => {
       let offset = 0; // memory offset
       let nRes = 0; // residual bits to write from last iteration
@@ -326,7 +323,7 @@ function extractBitSlice(w: number, n: number) {
   // startBit + bitLength <= w-1 + w+1 <= 2w < 64
   return func(
     {
-      in: params({ x: i32 }, { startBit: i32 }, { bitLength: i32 }),
+      in: [{ x: i32 }, { startBit: i32 }, { bitLength: i32 }],
       locals: { endBit: i32, startLimb: i32, endLimb: i32 },
       out: [i32],
     },

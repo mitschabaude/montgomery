@@ -1,5 +1,4 @@
 import {
-  params,
   localArray,
   $,
   type AnyFunc,
@@ -65,7 +64,7 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
 
   const decompose = func(
     {
-      in: params({ s0: i32 }, { s1: i32 }, { s: i32 }),
+      in: [{ s0: i32 }, { s1: i32 }, { s: i32 }],
       // TODO X0, X1 should be n0 limbs
       locals: {
         tmp: i64,
@@ -268,7 +267,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
 
   const reduceByOne = func(
     {
-      in: params({ r: i32 }),
+      in: [{ r: i32 }],
       locals: { tmp: i64, carry: i64, l: i32 },
       out: [],
     },
@@ -312,19 +311,16 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
     }
   );
 
-  const decompose = func(
-    { in: params({ x: i32 }), locals: {}, out: [] },
-    ({ x }) => {
-      call(barrett, { x });
-      for (let i = 0; i < e; i++) {
-        call(reduceByOne, { r: x });
-      }
+  const decompose = func({ in: [{ x: i32 }], locals: {}, out: [] }, ({ x }) => {
+    call(barrett, { x });
+    for (let i = 0; i < e; i++) {
+      call(reduceByOne, { r: x });
     }
-  );
+  });
 
   // negates the scalar in the original scalar field, x = q - x; assuming x < q
   const negateNoReduceDouble = func(
-    { in: params({ x: i32 }), locals: { tmp: i64, carry: i64 }, out: [] },
+    { in: [{ x: i32 }], locals: { tmp: i64, carry: i64 }, out: [] },
     ({ x }, { tmp, carry }) => {
       // x = q - x
       for (let i = 0; i < 2 * n; i++) {
@@ -342,7 +338,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
   // increments half scalar x without reduction modulo lambda
   const negateFirstHalfNoReduce = func(
     {
-      in: params({ s0: i32 }),
+      in: [{ s0: i32 }],
       locals: { tmp: i64, carry: i64, s1: i32 },
       out: [],
     },
@@ -378,7 +374,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
 
   const decomposeNoMsb = func(
     {
-      in: params({ s: i32 }),
+      in: [{ s: i32 }],
       locals: { flagNegateBoth: i32, flagNegateFirst: i32 },
       out: [i32],
     },

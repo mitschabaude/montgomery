@@ -1,6 +1,5 @@
 import type * as W from "wasmati";
 import {
-  params,
   localArray,
   $,
   call,
@@ -35,7 +34,7 @@ function multiplySchoolbook(p: bigint, w: number, n: number) {
 
   const multiply = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
       locals: {
         tmp: i64,
         vtmp: v128,
@@ -134,7 +133,7 @@ function multiplySchoolbook(p: bigint, w: number, n: number) {
   );
 
   const benchMultiply = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         local.get(x);

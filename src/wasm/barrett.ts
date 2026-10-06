@@ -1,14 +1,4 @@
-import {
-  params,
-  localArray,
-  $,
-  type Func,
-  call,
-  func,
-  i32,
-  i64,
-  local,
-} from "wasmati";
+import { localArray, $, type Func, call, func, i32, i64, local } from "wasmati";
 import { bigintFromLimbs, bigintToLimbs, log2 } from "../util.ts";
 import { forLoop1 } from "./wasm-util.ts";
 
@@ -98,7 +88,7 @@ function barrettReduction(p: bigint, w: number, n: number) {
 
   return func(
     {
-      in: params({ x: i32 }),
+      in: [{ x: i32 }],
       locals: { tmp: i64, L: localArray(i64, n), LP: localArray(i64, n) },
       out: [],
     },
@@ -179,14 +169,14 @@ function multiplyBarrett(
   const barrett = barrettReduction(p, w, n);
 
   const modularMultiply = func(
-    { in: params({ xy: i32 }, { x: i32 }, { y: i32 }), locals: {}, out: [] },
+    { in: [{ xy: i32 }, { x: i32 }, { y: i32 }], locals: {}, out: [] },
     ({ xy, x, y }) => {
       call(multiply, { xy, x, y });
       call(barrett, { x: xy });
     }
   );
   const benchMultiply = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(modularMultiply, { xy: x, x, y: x });

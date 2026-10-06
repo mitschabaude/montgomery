@@ -1,6 +1,5 @@
 // import type * as W from "wasmati"; // for type names
 import {
-  params,
   call,
   func,
   i32,
@@ -32,7 +31,7 @@ function curveOps(
 ) {
   const addAffine = func(
     {
-      in: params({ m: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }, { d: i32 }),
+      in: [{ m: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }, { d: i32 }],
       locals: { y3: i32, y1: i32, y2: i32, tmp: i32 },
       out: [],
     },
@@ -67,7 +66,7 @@ function curveOps(
   // so we replace y1 AND d with m, which saves 1 stored field
   const addAffinePacked = func(
     {
-      in: params({ tmp: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }),
+      in: [{ tmp: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }],
       locals: { y3: i32, y2: i32, unused2: i32 },
       out: [],
     },
@@ -98,7 +97,7 @@ function curveOps(
 
   const endomorphism = func(
     {
-      in: params({ xOut: i32 }, { x: i32 }),
+      in: [{ xOut: i32 }, { x: i32 }],
       locals: { yOut: i32, y: i32 },
       out: [],
     },
@@ -117,15 +116,15 @@ function curveOps(
 
   const batchAddUnsafe = func(
     {
-      in: params(
+      in: [
         { scratch: i32 },
         { d: i32 },
         { x: i32 },
         { S: i32 },
         { G: i32 },
         { H: i32 },
-        { $n: i32 }
-      ),
+        { $n: i32 },
+      ],
       locals: { $i: i32, $j: i32, I: i32, $N: i32 },
       out: [],
     },

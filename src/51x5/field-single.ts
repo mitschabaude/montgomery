@@ -1,5 +1,4 @@
 import {
-  params,
   $,
   block,
   br_if,
@@ -31,7 +30,7 @@ function fieldWithMethods(Field: FieldBase) {
 function fieldMethods(Field: FieldBase) {
   // x === y
   const isEqual = func(
-    { in: params({ x: i32 }, { y: i32 }), out: [i32] },
+    { in: [{ x: i32 }, { y: i32 }], out: [i32] },
     ({ x, y }) => {
       Field.forEach((i) => {
         // if (x[i] !== y[i]) return false;
@@ -48,7 +47,7 @@ function fieldMethods(Field: FieldBase) {
   );
 
   // x === 0
-  const isZero = func({ in: params({ x: i32 }), out: [i32] }, ({ x }) => {
+  const isZero = func({ in: [{ x: i32 }], out: [i32] }, ({ x }) => {
     Field.forEach((i) => {
       // if (x[i] !== 0) return false;
       Field.loadLimb(x, i);
@@ -64,7 +63,7 @@ function fieldMethods(Field: FieldBase) {
   // x > y
   const isGreater = func(
     {
-      in: params({ x: i32 }, { y: i32 }),
+      in: [{ x: i32 }, { y: i32 }],
       locals: { xi: i64, yi: i64 },
       out: [i32],
     },
@@ -144,14 +143,14 @@ function fieldMethods(Field: FieldBase) {
   }
 
   const reduce = func(
-    { in: params({ x: i32 }), locals: { carry: i64 }, out: [] },
+    { in: [{ x: i32 }], locals: { carry: i64 }, out: [] },
     ({ x }, { carry }) => {
       reduceInline(x, carry);
     }
   );
 
   const addRaw = func(
-    { in: params({ z: i32 }, { x: i32 }, { y: i32 }), out: [] },
+    { in: [{ z: i32 }, { x: i32 }, { y: i32 }], out: [] },
     ({ z, x, y }) => {
       for (let i = 0; i < 5; i++) {
         Field.loadLimb(x, i);
@@ -162,7 +161,7 @@ function fieldMethods(Field: FieldBase) {
   );
   const addCarry = func(
     {
-      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
       locals: { tmp: i64 },
       out: [],
     },
@@ -180,7 +179,7 @@ function fieldMethods(Field: FieldBase) {
   );
   const add = func(
     {
-      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
       locals: { tmp: i64 },
       out: [],
     },
@@ -202,7 +201,7 @@ function fieldMethods(Field: FieldBase) {
   );
 
   const subRaw = func(
-    { in: params({ z: i32 }, { x: i32 }, { y: i32 }), out: [] },
+    { in: [{ z: i32 }, { x: i32 }, { y: i32 }], out: [] },
     ({ z, x, y }) => {
       for (let i = 0; i < 5; i++) {
         Field.loadLimb(x, i);
@@ -214,7 +213,7 @@ function fieldMethods(Field: FieldBase) {
   );
   const subCarry = func(
     {
-      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
       locals: { tmp: i64 },
       out: [],
     },
@@ -237,7 +236,7 @@ function fieldMethods(Field: FieldBase) {
    */
   const sub = func(
     {
-      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
       locals: { tmp: i64 },
       out: [],
     },
@@ -283,7 +282,7 @@ function fieldMethods(Field: FieldBase) {
    * if (x >= p) x -= p
    */
   const fullyReduce = func(
-    { in: params({ x: i32 }), locals: { tmp: i64 }, out: [] },
+    { in: [{ x: i32 }], locals: { tmp: i64 }, out: [] },
     ({ x }, { tmp }) => {
       // check if x < p
       block(null, () => {
@@ -310,12 +309,9 @@ function fieldMethods(Field: FieldBase) {
     }
   );
 
-  let copy = func(
-    { in: params({ x: i32 }, { y: i32 }), out: [] },
-    ({ x, y }) => {
-      Field.copyInline(x, y);
-    }
-  );
+  let copy = func({ in: [{ x: i32 }, { y: i32 }], out: [] }, ({ x, y }) => {
+    Field.copyInline(x, y);
+  });
 
   return {
     add,

@@ -1,7 +1,6 @@
 import { type Field, createField } from "./field-helpers.ts";
 import type * as W from "wasmati";
 import {
-  params,
   $,
   block,
   br_if,
@@ -33,7 +32,7 @@ function arithmetic(Field: Field) {
   const addition = (doReduce: boolean) =>
     func(
       {
-        in: params({ out: i32 }, { x: i32 }, { y: i32 }),
+        in: [{ out: i32 }, { x: i32 }, { y: i32 }],
         locals: { tmp: i64 },
         out: [],
       },
@@ -81,7 +80,7 @@ function arithmetic(Field: Field) {
   const subtraction = (doReduce: boolean) =>
     func(
       {
-        in: params({ out: i32 }, { x: i32 }, { y: i32 }),
+        in: [{ out: i32 }, { x: i32 }, { y: i32 }],
         locals: { tmp: i64 },
         out: [],
       },
@@ -125,7 +124,7 @@ function arithmetic(Field: Field) {
   // this is often fine for inputs to multiplications, which e.g. contract <8p inputs to <2p outputs
   const subtractPositive = func(
     {
-      in: params({ out: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ out: i32 }, { x: i32 }, { y: i32 }],
       locals: { tmp: i64 },
       out: [],
     },
@@ -153,7 +152,7 @@ function arithmetic(Field: Field) {
    * once we try supporting less reductions in add/sub)
    */
   const reduce = func(
-    { in: params({ x: i32 }), locals: { tmp: i64 }, out: [] },
+    { in: [{ x: i32 }], locals: { tmp: i64 }, out: [] },
     ({ x }, { tmp }) => {
       // check if x < p
       block(null, () => {
@@ -198,7 +197,7 @@ function arithmetic(Field: Field) {
 function fieldHelpers(Field: Field) {
   // x === y
   const isEqual = func(
-    { in: params({ x: i32 }, { y: i32 }), out: [i32] },
+    { in: [{ x: i32 }, { y: i32 }], out: [i32] },
     ({ x, y }) => {
       Field.forEach((i) => {
         // if (x[i] !== y[i]) return false;
@@ -216,7 +215,7 @@ function fieldHelpers(Field: Field) {
   );
 
   // x === 0
-  const isZero = func({ in: params({ x: i32 }), out: [i32] }, ({ x }) => {
+  const isZero = func({ in: [{ x: i32 }], out: [i32] }, ({ x }) => {
     Field.forEach((i) => {
       // if (x[i] !== 0) return false;
       let xi = Field.loadLimb(x, i);
@@ -233,7 +232,7 @@ function fieldHelpers(Field: Field) {
   // x > y
   const isGreater = func(
     {
-      in: params({ x: i32 }, { y: i32 }),
+      in: [{ x: i32 }, { y: i32 }],
       locals: { xi: i64, yi: i64 },
       out: [i32],
     },
@@ -268,12 +267,9 @@ function fieldHelpers(Field: Field) {
     i32.const(Field.size);
     memory.copy();
   }
-  const copy = func(
-    { in: params({ x: i32 }, { y: i32 }), out: [] },
-    ({ x, y }) => {
-      copyInline(x, y);
-    }
-  );
+  const copy = func({ in: [{ x: i32 }, { y: i32 }], out: [] }, ({ x, y }) => {
+    copyInline(x, y);
+  });
 
   return { isEqual, isZero, isGreater, copy, copyInline };
 }

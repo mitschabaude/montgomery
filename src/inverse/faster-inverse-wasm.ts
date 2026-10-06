@@ -1,5 +1,4 @@
 import {
-  params,
   func,
   type Func,
   type JSFunction,
@@ -31,7 +30,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   let { w, n } = Field;
 
   const getBitLength = func(
-    { in: params({ x: i32 }), locals: { xi: i32 }, out: [i32] },
+    { in: [{ x: i32 }], locals: { xi: i32 }, out: [i32] },
     ({ x }, { xi }) => {
       Field.forEachReversed((i) => {
         local.set(xi, Field.i32.loadLimb(x, i));
@@ -50,7 +49,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   // also assumes that shifted result + additional hi limb again fits in n limbs
   const makeOdd = func(
     {
-      in: params({ u: i32 }, { uhi: i64 }),
+      in: [{ u: i32 }, { uhi: i64 }],
       locals: { k: i64, l: i64, tmp: i64 },
       out: [i32],
     },
@@ -118,48 +117,30 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const logHex = (...args: bigint[]) => console.log(...args.map(hex));
   const logBin = (...args: bigint[]) => console.log(...args.map(bin));
 
-  const log64 = importFunc(
-    { in: params({ value: i64 }), out: [] },
-    console.log
-  );
-  const log64Hex = importFunc({ in: params({ value: i64 }), out: [] }, logHex);
-  const log64Bin = importFunc({ in: params({ value: i64 }), out: [] }, logBin);
+  const log64 = importFunc({ in: [{ value: i64 }], out: [] }, console.log);
+  const log64Hex = importFunc({ in: [{ value: i64 }], out: [] }, logHex);
+  const log64Bin = importFunc({ in: [{ value: i64 }], out: [] }, logBin);
   const log64x2 = importFunc(
-    { in: params({ value0: i64 }, { value1: i64 }), out: [] },
+    { in: [{ value0: i64 }, { value1: i64 }], out: [] },
     console.log
   );
   const log64x4 = importFunc(
     {
-      in: params(
-        { value0: i64 },
-        { value1: i64 },
-        { value2: i64 },
-        { value3: i64 }
-      ),
+      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
       out: [],
     },
     console.log
   );
   const log64x4Hex = importFunc(
     {
-      in: params(
-        { value0: i64 },
-        { value1: i64 },
-        { value2: i64 },
-        { value3: i64 }
-      ),
+      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
       out: [],
     },
     logHex
   );
   const log64x4Bin = importFunc(
     {
-      in: params(
-        { value0: i64 },
-        { value1: i64 },
-        { value2: i64 },
-        { value3: i64 }
-      ),
+      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
       out: [],
     },
     logBin
@@ -173,7 +154,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
    */
   const almostInverse = func(
     {
-      in: params({ v: i32 }, { s: i32 }, { a: i32 }),
+      in: [{ v: i32 }, { s: i32 }, { a: i32 }],
       locals: {
         u: i32,
         r: i32,

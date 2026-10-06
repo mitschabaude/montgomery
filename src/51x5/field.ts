@@ -1,4 +1,4 @@
-import { params, call, func, i32, importMemory, Module } from "wasmati";
+import { call, func, i32, importMemory, Module } from "wasmati";
 import { type MemoryHelpers, memoryHelpers } from "../wasm/memory-helpers.ts";
 import { type Tuple } from "../types.ts";
 import { c52, c52n, float51ToInt64, mask51 } from "./common.ts";
@@ -308,7 +308,7 @@ async function createWasmWithBenches(p: bigint) {
   });
 
   const benchMultiply = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(multiply, { xy: x, x, y: x });
@@ -316,7 +316,7 @@ async function createWasmWithBenches(p: bigint) {
     }
   );
   const benchMultiplyNoFma = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(multiplyNoFma, { xy: x, x, y: x });
@@ -325,7 +325,7 @@ async function createWasmWithBenches(p: bigint) {
   );
 
   const benchMultiplySingle = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(multiplySingle, { xy: x, x, y: x });
@@ -334,7 +334,7 @@ async function createWasmWithBenches(p: bigint) {
   );
 
   const benchAddx3 = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         for (let i = 0; i < 3; i++) {
@@ -346,7 +346,7 @@ async function createWasmWithBenches(p: bigint) {
 
   const benchSubx3 = func(
     {
-      in: params({ x: i32 }, { z: i32 }, { N: i32 }),
+      in: [{ x: i32 }, { z: i32 }, { N: i32 }],
       locals: { i: i32 },
       out: [],
     },

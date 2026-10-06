@@ -1,6 +1,5 @@
 import type * as W from "wasmati";
 import {
-  params,
   $,
   block,
   br,
@@ -42,7 +41,7 @@ function fieldInverse(
    */
   const makeOdd = func(
     {
-      in: params({ u: i32 }, { s: i32 }),
+      in: [{ u: i32 }, { s: i32 }],
       locals: { k: i64, k0: i32, l: i64, tmp: i64 },
       out: [i32],
     },
@@ -140,7 +139,7 @@ function fieldInverse(
   // * allows to batch left- / right-shifts
   const almostInverse = func(
     {
-      in: params({ u: i32 }, { r: i32 }, { a: i32 }),
+      in: [{ u: i32 }, { r: i32 }, { a: i32 }],
       locals: { v: i32, s: i32, k: i32 },
       out: [i32],
     },
@@ -199,7 +198,7 @@ function fieldInverse(
    */
   const inverse = func(
     {
-      in: params({ scratch: i32 }, { r: i32 }, { a: i32 }),
+      in: [{ scratch: i32 }, { r: i32 }, { a: i32 }],
       locals: { k: i32 },
       out: [],
     },
@@ -232,7 +231,7 @@ function fieldInverse(
 
   const batchInverse = func(
     {
-      in: params({ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }),
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
       locals: { $i: i32, I: i32, $N: i32 },
       out: [],
     },
