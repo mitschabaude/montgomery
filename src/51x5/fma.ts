@@ -10,7 +10,6 @@
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
 import {
-  type Parameters,
   params,
   localArray,
   $,
@@ -49,18 +48,9 @@ import { assert } from "../util.ts";
 export { Multiply, multiplySingle };
 
 type Multiply = {
-  multiply: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
-  multiplyNoFma: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
-  multiplySingle: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
+  multiply: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+  multiplyNoFma: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+  multiplySingle: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
 };
 
 let zInitial = new BigInt64Array(11);
@@ -861,10 +851,7 @@ function Multiply(
 function multiplySingle(
   p: bigint,
   layout: FieldLayout
-): Func<
-  Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-  []
-> {
+): Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []> {
   let { limbGap, limbOffset } = FieldLayout(layout);
 
   let PI = bigintToInt51Limbs(p);

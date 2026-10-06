@@ -109,7 +109,7 @@ function createField(p: bigint, w: number, n: number) {
   }
 
   const limbNames = Array.from({ length: n }, (_, i) => `limb${i}`);
-  const limbsType: W.Parameters<{ [name: string]: W.Type<i64> }[]> = {
+  const limbsType: W.Parameters<{ [name: string]: "i64" }[]> = {
     names: limbNames,
     types: Array<i64>(n).fill("i64"),
     values: Object.fromEntries(limbNames.map((name) => [name, "i64" as const])),

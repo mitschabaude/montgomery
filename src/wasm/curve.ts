@@ -1,6 +1,5 @@
 // import type * as W from "wasmati"; // for type names
 import {
-  type Parameters,
   params,
   call,
   func,
@@ -28,10 +27,7 @@ export { curveOps };
 function curveOps(
   implicitMemory: ImplicitMemory,
   Field: FieldWithMultiply,
-  inverse: Func<
-    Parameters<[{ scratch: typeof i32 }, { r: typeof i32 }, { a: typeof i32 }]>,
-    []
-  >,
+  inverse: Func<[{ scratch: "i32" }, { r: "i32" }, { a: "i32" }], []>,
   beta: bigint
 ) {
   const addAffine = func(

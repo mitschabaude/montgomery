@@ -1,5 +1,4 @@
 import {
-  type Parameters,
   params,
   localArray,
   $,
@@ -175,10 +174,7 @@ function multiplyBarrett(
   p: bigint,
   w: number,
   n: number,
-  multiply: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >
+  multiply: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>
 ) {
   const barrett = barrettReduction(p, w, n);
 

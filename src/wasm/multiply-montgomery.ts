@@ -1,6 +1,5 @@
 import type * as W from "wasmati";
 import {
-  type Parameters,
   params,
   localArray,
   $,
@@ -24,15 +23,9 @@ import { FieldWithArithmetic } from "./field-arithmetic.ts";
 export { multiplyMontgomery, type FieldWithMultiply };
 
 type FieldMultiplications = {
-  multiply: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
-  square: Func<Parameters<[{ xy: typeof i32 }, { x: typeof i32 }]>, []>;
-  leftShift: Func<
-    Parameters<[{ xy: typeof i32 }, { y: typeof i32 }, { k: typeof i32 }]>,
-    []
-  >;
+  multiply: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+  square: Func<[{ xy: "i32" }, { x: "i32" }], []>;
+  leftShift: Func<[{ xy: "i32" }, { y: "i32" }, { k: "i32" }], []>;
 };
 type FieldWithMultiply = FieldWithArithmetic & FieldMultiplications;
 
