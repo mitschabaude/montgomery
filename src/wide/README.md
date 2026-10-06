@@ -7,6 +7,8 @@ Full-width 64-bit Montgomery limbs using Wasm `i64.mul_wide_u`, `i64.add128`, an
 npm install --no-save --package-lock=false ../wasmati
 npm run test-wide
 npm run benchmark-wide
+# Optionally select individual fields:
+npm run benchmark-wide -- bn254-scalar
 ```
 
 The scripts require a Node build supporting `--wasm-wide-arithmetic`; measurements below use Node `v27.0.0-nightly20261006fcfb7ecc0b`. The sibling wasmati checkout must have been built with `npm run build`.
@@ -19,12 +21,15 @@ For `n = ceil(bitLength(p) / 64)` and `R = 2^(64n)`, inputs and outputs are in `
 
 Benchmarks use dependent chains inside Wasm, a warmup, and the median of three samples of approximately ten million operations. The Pallas comparison also includes the paired and single 51x5 experiments; paired timings are per field operation. These are arithmetic microbenchmarks, not MSM measurements.
 
-Measured on 2026-10-06 on an AMD Ryzen 7 3700X, pinned to CPU 2 (`taskset -c 2 npm run benchmark-wide`). Results below are nanoseconds per operation, shown as existing 29-bit Montgomery arithmetic → wide arithmetic, from the second isolated run:
+Measured on 2026-10-06 on an AMD Ryzen 7 3700X, pinned to CPU 2 (`taskset -c 2 npm run benchmark-wide`). Results below are nanoseconds per operation, shown as existing 29-bit Montgomery arithmetic → wide arithmetic, from isolated runs:
 
 | Field | Multiply | Square | Add | Subtract |
 | --- | ---: | ---: | ---: | ---: |
 | Pallas | 37 → 19 | 28 → 18 | 6 → 9 | 8 → 5 |
 | BLS12-377 | 101 → 40 | 78 → 39 | 9 → 10 | 11 → 6 |
 | BLS12-381 | 115 → 41 | 93 → 40 | 9 → 10 | 14 → 6 |
+| BN254 scalar | 50 → 20 | 42 → 19 | 6 → 9 | 8 → 4 |
 
-Multiplication improves by about 1.9×, 2.5×, and 2.8× respectively. Pallas 51x5 multiply measured 47 ns per element (paired), 45 ns (single), and 45 ns (paired without FMA), versus 19 ns for wide. Wide beats the schoolbook multiplication benchmark too (27/58/57 ns respectively). Addition is currently slower than production; subtraction is faster. Timings vary across runs, especially branch-heavy add/subtract and the production Pallas multiplication (37–48 ns in the two isolated runs). No end-to-end MSM speedup has been measured yet.
+Multiplication improves by about 1.9×, 2.5×, 2.8×, and 2.5× respectively. Pallas 51x5 multiply measured 47 ns per element (paired), 45 ns (single), and 45 ns (paired without FMA), versus 19 ns for wide. Wide beats the schoolbook multiplication benchmark too (27/58/57 ns respectively). Addition is currently slower than production; subtraction is faster. Timings vary across runs, especially branch-heavy add/subtract and the production Pallas multiplication (37–48 ns in the two isolated runs). No end-to-end MSM speedup has been measured yet.
+
+BN254 scalar uses the curve order, not its base-field modulus. Its four 64-bit limbs satisfy `4p <= R`, so multiplication omits the final reduction. Its 51x5 multiply measured 49 ns per element (paired), 57 ns (single), and 57 ns (paired without FMA).
