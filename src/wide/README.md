@@ -46,16 +46,16 @@ Inversion coefficients are divided by `2^62` modulo p after each batch. Adding a
 
 Main's experimental `fastInverse` previously exported only an almost-inverse core, with a sign-handling TODO. Its legacy benchmark discards the returned correction exponent. The core also gives incorrect results on some boundary inputs, including Pallas `p - 1`. It now has an experimental complete `inverse(scratch, out, input)` entry point that applies the Montgomery correction, verifies the inverse, and falls back to the existing Kaliski implementation if verification fails. It uses three scratch elements and supports output/input aliasing. `fallbackCount` records correctness fallbacks for tests and benchmark reporting. The production field factory currently uses Kaliski.
 
-Inversion comparisons now use `scripts/field-benchmarks/wide-inverse.ts`, called by `benchmark-wide`. Both layouts receive the same array of 256 nonzero raw integers. Every complete implementation is checked against bigint on every fixture before timing, and the runner reports that validation explicitly. Each timed row performs 500,000 inversions by cycling over that immutable array in Wasm. Outputs never become subsequent inputs. There is no addition, benchmark-loop warmup, repeated timing, or median. The existing timing helper APIs are unchanged. The main almost-inverse core is reported separately, with correction/verification omitted.
+Inversion comparisons now use `scripts/field-benchmarks/wide-inverse.ts`, called by `benchmark-wide`. Both layouts receive the same array of 256 nonzero raw integers. Every complete implementation is checked against bigint on every fixture before timing, and the runner reports that validation explicitly. Each timed row performs 500,000 inversions by cycling over that immutable array in Wasm. Outputs never become subsequent inputs. There is no addition, benchmark-loop warmup, repeated timing, or median. The existing timing helper APIs are unchanged. The main almost-inverse core is reported separately, with correction/verification omitted. The runner also checks that the fixture array remains unchanged after each timed complete-inverse loop, outside the timed region.
 
-Measured on the same AMD Ryzen 7 3700X and Node build, pinned to CPU 2:
+Measured together in one run on the same AMD Ryzen 7 3700X and Node build, pinned to CPU 2:
 
 | Field | Complete main fast | Complete wide fast | Main Kaliski | Wide Kaliski | Main core only |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Pallas | 3.50 µs | 2.57 µs | 8.38 µs | 4.55 µs | 2.98 µs |
-| BLS12-377 | 4.27 µs | 3.25 µs | 11.01 µs | 6.22 µs | 3.97 µs |
-| BN254 scalar | 2.57 µs | 2.02 µs | 6.84 µs | 3.20 µs | 2.41 µs |
+| Pallas | 2.523 µs | 1.980 µs | 5.470 µs | 3.168 µs | 2.384 µs |
+| BLS12-377 | 4.201 µs | 3.173 µs | 10.857 µs | 6.182 µs | 3.947 µs |
+| BN254 scalar | 2.550 µs | 2.022 µs | 5.485 µs | 3.185 µs | 2.405 µs |
 
-Main used zero correctness fallbacks on all 256 fixtures and all 500,000 timed calls for each field. Complete wide inversion was approximately 1.36×, 1.31×, and 1.27× faster than the completed main fast implementation in this run. These fixed-input timings replace the earlier comparisons of evolving add-plus-inverse chains. Other CPU-intensive jobs were active on the server; absolute timings remain sensitive to system load. No MSM speedup has been measured.
+Main used zero correctness fallbacks on all 256 fixtures and all 500,000 timed calls for each field. Complete wide inversion was approximately 1.27×, 1.32×, and 1.26× faster than the completed main fast implementation in this run. These fixed-input timings replace the earlier comparisons of evolving add-plus-inverse chains. Other CPU-intensive jobs were active on the server; absolute timings remain sensitive to system load. No MSM speedup has been measured.
 
 Property tests use the existing framework to check both complete fast implementations across all 17 example fields, lazy inputs, aliases, nearly equal remainders, and the main fallback boundary case. Tests also cover a composite modulus, inversion at six wide carry thresholds, explicit wide sign-correction regressions, and 10,000 additional uniform wide cases.

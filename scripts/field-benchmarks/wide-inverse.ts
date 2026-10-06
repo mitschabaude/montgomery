@@ -62,7 +62,7 @@ async function benchmarkInverses(p: bigint) {
   }
   const fixtureFallbacks = main.fallbackCount.value as number;
   console.log(
-    `inverse: ${sampleCount} shared nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
+    `complete main/wide inverses: ${sampleCount} shared immutable nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
   );
   console.log(
     `main fast fixture fallbacks: ${fixtureFallbacks}/${sampleCount}`
@@ -77,6 +77,14 @@ async function benchmarkInverses(p: bigint) {
     tic();
     run(F.scratch, F.output, F.inputs, N);
     const elapsed = toc();
+    // Detect the original scratch/input overlap bug outside the timed region.
+    samples.forEach((a, j) => {
+      assert.equal(
+        F.read(F.inputs + j * F.size),
+        a,
+        `${name}: input ${j} changed during timing`
+      );
+    });
     console.log(`${name.padEnd(23)} ${((elapsed * 1e6) / N).toFixed(0)} ns`);
     if (F === main && name === "inverse main fast")
       console.log(
