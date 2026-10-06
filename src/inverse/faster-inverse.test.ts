@@ -19,7 +19,7 @@ for (const [label, B] of [
     { p: 15n, inverse: (a: bigint) => bigintInverse(a, 15n) },
   ] as const,
 ]) {
-  test(`main fast inverse: ${label}`, async () => {
+  test(`29-bit fast inverse: ${label}`, async () => {
     const w = 29;
     const n = Math.max(2, montgomeryParams(B.p, w).n);
     const mem = new ImplicitMemory(memory({ min: 100 }));

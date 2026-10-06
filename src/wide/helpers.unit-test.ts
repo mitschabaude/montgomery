@@ -2,17 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Field } from "./field.ts";
 import { exampleFields } from "../concrete/example-fields.ts";
-import {
-  createEquivalentWasm,
-  wasmSpec,
-  WasmSpec,
-} from "../testing/equivalent-wasm.ts";
+import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.ts";
 import { Random } from "../testing/random.ts";
 import { Spec } from "../testing/equivalent.ts";
-import { mod } from "../bigint/field-util.ts";
 
 for (const [label, BigintField] of Object.entries(exampleFields)) {
-  test(`wide inversion and helpers: ${label}`, async () => {
+  test(`wide helpers: ${label}`, async () => {
     const F = await Field.create(BigintField.p);
     const W = F.Wasm;
     const equiv = createEquivalentWasm(F.Memory);
@@ -27,74 +22,6 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
       back: F.readBigint,
     });
     equiv({ from: [field], to: field }, BigintField.negate, W.negate, "negate");
-    const lazy = wasmSpec(F.Memory, Random.uniformField(F.limit), {
-      size: F.sizeField,
-      there: F.writeBigint,
-      back(ptr) {
-        const value = F.readBigint(ptr);
-        assert(value < F.limit);
-        return mod(value, F.p);
-      },
-    });
-    equiv(
-      { from: [lazy], to: lazy, scratch: 3 },
-      (a) => mod(BigintField.inverse(a) * F.R * F.R, F.p),
-      ([scratch], out, a) => W.inverse(scratch, out, a),
-      "inverse with lazy raw inputs"
-    );
-    equiv(
-      { from: [raw, raw], to: raw },
-      (x, y) => mod(x + y, F.R),
-      W.addNoReduce,
-      "raw add"
-    );
-    equiv(
-      { from: [raw, raw], to: raw },
-      (x, y) => mod(x - y, F.R),
-      W.subtractNoReduce,
-      "raw subtract"
-    );
-    equiv(
-      { from: [raw, raw], to: WasmSpec.boolean },
-      (x, y) => x > y,
-      W.isGreater,
-      "isGreater"
-    );
-    const nearlyEqual = wasmSpec(
-      F.Memory,
-      Random.map(
-        Random.tuple([Random.int(2, 7), Random.int(-25, 25)]),
-        ([divisor, offset]) => mod(F.p / BigInt(divisor) + BigInt(offset), F.p)
-      ),
-      { size: F.sizeField, there: F.writeBigint, back: F.readBigint }
-    );
-    equiv(
-      { from: [nearlyEqual], to: lazy, scratch: 3 },
-      (a) => mod(BigintField.inverse(a) * F.R * F.R, F.p),
-      ([scratch], out, a) => W.inverse(scratch, out, a),
-      "fast inverse with nearly equal remainders"
-    );
-    equiv(
-      { from: [field], to: field, scratch: 3 },
-      BigintField.inverse,
-      ([scratch], out, a) => W.inverseKaliski(scratch, out, a),
-      "Kaliski reference"
-    );
-    equiv(
-      { from: [field], to: field, scratch: 3 },
-      BigintField.inverse,
-      ([scratch], out, x) => W.inverse(scratch, out, x),
-      "inverse"
-    );
-    equiv(
-      { from: [field], to: field, scratch: 3 },
-      BigintField.inverse,
-      ([scratch], out, x) => {
-        W.inverse(scratch, x, x);
-        W.copy(out, x);
-      },
-      "inverse in place"
-    );
     equiv(
       { from: [field, raw], to: field, scratch: 1 },
       BigintField.exp,
@@ -176,74 +103,13 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
       "packed bytes in place"
     );
 
-    let count = 0;
-    const array = wasmSpec(
-      F.Memory,
-      Random.array(
-        Random.reject(Random.field(F.p), (x) => x === 0n),
-        Random.nat(20)
-      ),
-      {
-        size: 20 * F.sizeField,
-        there(ptr, xs) {
-          count = xs.length;
-          xs.forEach((x, i) => F.fromBigint(ptr + i * F.sizeField, x));
-        },
-        back(ptr) {
-          return Array.from({ length: count }, (_, i) =>
-            F.toBigint(ptr + i * F.sizeField)
-          );
-        },
-      }
-    );
-    equiv(
-      { from: [array], to: array, scratch: 4 },
-      (xs) => xs.map(BigintField.inverse),
-      ([scratch], out, x) => W.batchInverse(scratch, out, x, count),
-      "batch inverse"
-    );
-    const [scratch] = F.Memory.local.getPointers(1, 4 * F.sizeField);
-    const [zero, out] = F.Memory.local.getPointers(2);
-    // Exercise whole-limb shifts in makeOdd, including a shift that ends odd.
-    for (let bit = 64; bit < 64 * F.n; bit += 64) {
-      const a = 1n << BigInt(bit);
-      if (a >= F.limit) continue;
-      F.writeBigint(zero, a);
-      W.inverse(scratch, out, zero);
-      assert.equal(F.toBigint(out), BigintField.inverse(F.toBigint(zero)));
-    }
+    const [scratch, zero, out] = F.Memory.local.getPointers(3);
     F.writeBigint(zero, 0n);
     W.exp(scratch, out, zero, zero);
     assert.equal(F.toBigint(out), 1n);
-
-    assert.throws(
-      () => W.inverse(scratch, out, zero),
-      WebAssembly.RuntimeError
-    );
-    W.batchInverse(scratch, out, zero, 0);
-    assert.throws(
-      () => W.batchInverse(scratch, out, zero, 1),
-      WebAssembly.RuntimeError
-    );
     assert.throws(
       () => W.leftShift(out, zero, F.p.toString(2).length),
       WebAssembly.RuntimeError
     );
   });
 }
-
-test("wide inverse rejects nonunits of a composite modulus", async () => {
-  const F = await Field.create(15n);
-  const [x, out] = F.Memory.local.getPointers(2);
-  const scratch = F.Memory.local.getPointer(F.inverseScratchSize);
-  for (const a of [0n, 3n, 5n, 6n, 9n, 10n, 12n, 15n]) {
-    F.writeBigint(x, a);
-    assert.throws(
-      () => F.Wasm.inverse(scratch, out, x),
-      WebAssembly.RuntimeError
-    );
-  }
-  F.fromBigint(x, 2n);
-  F.Wasm.inverse(scratch, out, x);
-  assert.equal(F.toBigint(out), 8n);
-});

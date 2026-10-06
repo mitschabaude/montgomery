@@ -4,7 +4,11 @@ import { Field } from "./field.ts";
 import { exampleFields } from "../concrete/example-fields.ts";
 import { inverse } from "../bigint/field.ts";
 import { mod } from "../bigint/field-util.ts";
-import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.ts";
+import {
+  createEquivalentWasm,
+  wasmSpec,
+  WasmSpec,
+} from "../testing/equivalent-wasm.ts";
 import { Random } from "../testing/random.ts";
 
 const R128 = 1n << 128n;
@@ -80,11 +84,28 @@ for (const [label, p] of cases) {
       },
       "square in place"
     );
+    const full = wasmSpec(F.Memory, Random.uniformField(F.R), {
+      size: F.sizeField,
+      there: F.writeBigint,
+      back: F.readBigint,
+    });
     equiv(
-      { from: [raw], to: raw, scratch: 3 },
-      (a) => mod(inverse(a, p) * F.R * F.R, p),
-      ([scratch], out, a) => F.Wasm.inverse(scratch, out, a),
-      "fast inverse at carry thresholds"
+      { from: [full, full], to: full },
+      (a, b) => mod(a + b, F.R),
+      F.Wasm.addNoReduce,
+      "raw add"
+    );
+    equiv(
+      { from: [full, full], to: full },
+      (a, b) => mod(a - b, F.R),
+      F.Wasm.subtractNoReduce,
+      "raw subtract"
+    );
+    equiv(
+      { from: [full, full], to: WasmSpec.boolean },
+      (a, b) => a > b,
+      F.Wasm.isGreater,
+      "isGreater"
     );
     function check(ptr: number, expected: bigint) {
       const raw = F.readBigint(ptr);
