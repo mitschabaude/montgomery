@@ -29,22 +29,25 @@ function fieldWithMethods(Field: FieldBase) {
  */
 function fieldMethods(Field: FieldBase) {
   // x === y
-  const isEqual = func({ in: [i32, i32], out: [i32] }, ([x, y]) => {
-    Field.forEach((i) => {
-      // if (x[i] !== y[i]) return false;
-      Field.loadLimb(x, i);
-      Field.loadLimb(y, i);
-      i64.ne();
-      if_(null, () => {
-        i32.const(0);
-        return_();
+  const isEqual = func(
+    { in: [{ x: i32 }, { y: i32 }], out: [i32] },
+    ({ x, y }) => {
+      Field.forEach((i) => {
+        // if (x[i] !== y[i]) return false;
+        Field.loadLimb(x, i);
+        Field.loadLimb(y, i);
+        i64.ne();
+        if_(null, () => {
+          i32.const(0);
+          return_();
+        });
       });
-    });
-    i32.const(1);
-  });
+      i32.const(1);
+    }
+  );
 
   // x === 0
-  const isZero = func({ in: [i32], out: [i32] }, ([x]) => {
+  const isZero = func({ in: [{ x: i32 }], out: [i32] }, ({ x }) => {
     Field.forEach((i) => {
       // if (x[i] !== 0) return false;
       Field.loadLimb(x, i);
@@ -59,8 +62,12 @@ function fieldMethods(Field: FieldBase) {
 
   // x > y
   const isGreater = func(
-    { in: [i32, i32], locals: [i64, i64], out: [i32] },
-    ([x, y], [xi, yi]) => {
+    {
+      in: [{ x: i32 }, { y: i32 }],
+      locals: { xi: i64, yi: i64 },
+      out: [i32],
+    },
+    ({ x, y }, { xi, yi }) => {
       block(null, () => {
         Field.forEachReversed((i) => {
           // if (x[i] > y[i]) return true;
@@ -135,20 +142,30 @@ function fieldMethods(Field: FieldBase) {
     });
   }
 
-  const reduce = func({ in: [i32], locals: [i64], out: [] }, ([x], [carry]) => {
-    reduceInline(x, carry);
-  });
-
-  const addRaw = func({ in: [i32, i32, i32], out: [] }, ([z, x, y]) => {
-    for (let i = 0; i < 5; i++) {
-      Field.loadLimb(x, i);
-      Field.loadLimb(y, i);
-      Field.storeLimb(z, i, i64.add());
+  const reduce = func(
+    { in: [{ x: i32 }], locals: { carry: i64 }, out: [] },
+    ({ x }, { carry }) => {
+      reduceInline(x, carry);
     }
-  });
+  );
+
+  const addRaw = func(
+    { in: [{ z: i32 }, { x: i32 }, { y: i32 }], out: [] },
+    ({ z, x, y }) => {
+      for (let i = 0; i < 5; i++) {
+        Field.loadLimb(x, i);
+        Field.loadLimb(y, i);
+        Field.storeLimb(z, i, i64.add());
+      }
+    }
+  );
   const addCarry = func(
-    { in: [i32, i32, i32], locals: [i64], out: [] },
-    ([z, x, y], [tmp]) => {
+    {
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
+      locals: { tmp: i64 },
+      out: [],
+    },
+    ({ z, x, y }, { tmp }) => {
       for (let i = 0; i < 5; i++) {
         // (carry, z[i]) = x[i] + y[i] + carry;
         let xi = Field.loadLimb(x, i);
@@ -161,8 +178,12 @@ function fieldMethods(Field: FieldBase) {
     }
   );
   const add = func(
-    { in: [i32, i32, i32], locals: [i64], out: [] },
-    ([z, x, y], [tmp]) => {
+    {
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
+      locals: { tmp: i64 },
+      out: [],
+    },
+    ({ z, x, y }, { tmp }) => {
       for (let i = 0; i < 5; i++) {
         Field.loadLimb(x, i);
         Field.loadLimb(y, i);
@@ -179,17 +200,24 @@ function fieldMethods(Field: FieldBase) {
     }
   );
 
-  const subRaw = func({ in: [i32, i32, i32], out: [] }, ([z, x, y]) => {
-    for (let i = 0; i < 5; i++) {
-      Field.loadLimb(x, i);
-      Field.loadLimb(y, i);
-      i64.sub();
-      Field.storeLimb(z, i, $);
+  const subRaw = func(
+    { in: [{ z: i32 }, { x: i32 }, { y: i32 }], out: [] },
+    ({ z, x, y }) => {
+      for (let i = 0; i < 5; i++) {
+        Field.loadLimb(x, i);
+        Field.loadLimb(y, i);
+        i64.sub();
+        Field.storeLimb(z, i, $);
+      }
     }
-  });
+  );
   const subCarry = func(
-    { in: [i32, i32, i32], locals: [i64], out: [] },
-    ([z, x, y], [tmp]) => {
+    {
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
+      locals: { tmp: i64 },
+      out: [],
+    },
+    ({ z, x, y }, { tmp }) => {
       for (let i = 0; i < 5; i++) {
         // (carry, out[i]) = x[i] - y[i] + carry;
         Field.loadLimb(x, i);
@@ -207,8 +235,12 @@ function fieldMethods(Field: FieldBase) {
    * Note that it can still be slightly negative -- in which case we do the same again
    */
   const sub = func(
-    { in: [i32, i32, i32], locals: [i64], out: [] },
-    ([z, x, y], [tmp]) => {
+    {
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
+      locals: { tmp: i64 },
+      out: [],
+    },
+    ({ z, x, y }, { tmp }) => {
       for (let i = 0; i < 5; i++) {
         // (carry, z[i]) = x[i] - y[i] + carry;
         Field.loadLimb(x, i);
@@ -250,8 +282,8 @@ function fieldMethods(Field: FieldBase) {
    * if (x >= p) x -= p
    */
   const fullyReduce = func(
-    { in: [i32], locals: [i64], out: [] },
-    ([x], [tmp]) => {
+    { in: [{ x: i32 }], locals: { tmp: i64 }, out: [] },
+    ({ x }, { tmp }) => {
       // check if x < p
       block(null, () => {
         Field.forEachReversed((i) => {
@@ -277,7 +309,7 @@ function fieldMethods(Field: FieldBase) {
     }
   );
 
-  let copy = func({ in: [i32, i32], out: [] }, ([x, y]) => {
+  let copy = func({ in: [{ x: i32 }, { y: i32 }], out: [] }, ({ x, y }) => {
     Field.copyInline(x, y);
   });
 

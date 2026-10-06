@@ -31,8 +31,12 @@ function arithmetic(Field: Field) {
 
   const addition = (doReduce: boolean) =>
     func(
-      { in: [i32, i32, i32], locals: [i64], out: [] },
-      ([out, x, y], [tmp]) => {
+      {
+        in: [{ out: i32 }, { x: i32 }, { y: i32 }],
+        locals: { tmp: i64 },
+        out: [],
+      },
+      ({ out, x, y }, { tmp }) => {
         // first loop: x + y
         Field.forEach((i) => {
           // (carry, out[i]) = x[i] + y[i] + carry;
@@ -75,8 +79,12 @@ function arithmetic(Field: Field) {
 
   const subtraction = (doReduce: boolean) =>
     func(
-      { in: [i32, i32, i32], locals: [i64], out: [] },
-      ([out, x, y], [tmp]) => {
+      {
+        in: [{ out: i32 }, { x: i32 }, { y: i32 }],
+        locals: { tmp: i64 },
+        out: [],
+      },
+      ({ out, x, y }, { tmp }) => {
         // first loop: x - y
         Field.forEach((i) => {
           // (carry, out[i]) = x[i] - y[i] + carry;
@@ -115,8 +123,12 @@ function arithmetic(Field: Field) {
   // => output is < x + 2p but not necessarily < 2p
   // this is often fine for inputs to multiplications, which e.g. contract <8p inputs to <2p outputs
   const subtractPositive = func(
-    { in: [i32, i32, i32], locals: [i64], out: [] },
-    ([out, x, y], [tmp]) => {
+    {
+      in: [{ out: i32 }, { x: i32 }, { y: i32 }],
+      locals: { tmp: i64 },
+      out: [],
+    },
+    ({ out, x, y }, { tmp }) => {
       // first loop: x - y
       Field.forEach((i) => {
         // (carry, out[i]) = 2p + x[i] - y[i] + carry;
@@ -139,31 +151,34 @@ function arithmetic(Field: Field) {
    * (condition: d*p < R = 2^(n*w); we always have d=1 for now but different ones could be used
    * once we try supporting less reductions in add/sub)
    */
-  const reduce = func({ in: [i32], locals: [i64], out: [] }, ([x], [tmp]) => {
-    // check if x < p
-    block(null, () => {
-      Field.forEachReversed((i) => {
-        // if (x[i] < p[i]) return
-        Field.loadLimb(x, i);
-        local.tee(tmp);
-        i64.lt_u($, Field.P[i]);
-        br_if(1);
-        // if (x[i] !== p[i]) break;
-        i64.ne(tmp, Field.P[i]);
-        br_if(0);
+  const reduce = func(
+    { in: [{ x: i32 }], locals: { tmp: i64 }, out: [] },
+    ({ x }, { tmp }) => {
+      // check if x < p
+      block(null, () => {
+        Field.forEachReversed((i) => {
+          // if (x[i] < p[i]) return
+          Field.loadLimb(x, i);
+          local.tee(tmp);
+          i64.lt_u($, Field.P[i]);
+          br_if(1);
+          // if (x[i] !== p[i]) break;
+          i64.ne(tmp, Field.P[i]);
+          br_if(0);
+        });
       });
-    });
-    // if we're here, t >= p but we assume t < 2p, so do t - p
-    Field.forEach((i) => {
-      // (carry, x[i]) = x[i] - p[i] + carry;
-      Field.loadLimb(x, i);
-      if (i > 0) i64.add(); // add the carry
-      i64.sub($, Field.P[i]);
-      Field.carrySigned($, tmp);
-      Field.storeLimb(x, i, $);
-    });
-    drop();
-  });
+      // if we're here, t >= p but we assume t < 2p, so do t - p
+      Field.forEach((i) => {
+        // (carry, x[i]) = x[i] - p[i] + carry;
+        Field.loadLimb(x, i);
+        if (i > 0) i64.add(); // add the carry
+        i64.sub($, Field.P[i]);
+        Field.carrySigned($, tmp);
+        Field.storeLimb(x, i, $);
+      });
+      drop();
+    }
+  );
 
   return {
     add,
@@ -181,23 +196,26 @@ function arithmetic(Field: Field) {
  */
 function fieldHelpers(Field: Field) {
   // x === y
-  const isEqual = func({ in: [i32, i32], out: [i32] }, ([x, y]) => {
-    Field.forEach((i) => {
-      // if (x[i] !== y[i]) return false;
-      let xi = Field.loadLimb(x, i);
-      let yi = Field.loadLimb(y, i);
-      i64.ne(xi, yi);
-      if_(null, () => {
-        i32.const(0);
-        return_();
+  const isEqual = func(
+    { in: [{ x: i32 }, { y: i32 }], out: [i32] },
+    ({ x, y }) => {
+      Field.forEach((i) => {
+        // if (x[i] !== y[i]) return false;
+        let xi = Field.loadLimb(x, i);
+        let yi = Field.loadLimb(y, i);
+        i64.ne(xi, yi);
+        if_(null, () => {
+          i32.const(0);
+          return_();
+        });
       });
-    });
-    // return true;
-    i32.const(1);
-  });
+      // return true;
+      i32.const(1);
+    }
+  );
 
   // x === 0
-  const isZero = func({ in: [i32], out: [i32] }, ([x]) => {
+  const isZero = func({ in: [{ x: i32 }], out: [i32] }, ({ x }) => {
     Field.forEach((i) => {
       // if (x[i] !== 0) return false;
       let xi = Field.loadLimb(x, i);
@@ -213,8 +231,12 @@ function fieldHelpers(Field: Field) {
 
   // x > y
   const isGreater = func(
-    { in: [i32, i32], locals: [i64, i64], out: [i32] },
-    ([x, y], [xi, yi]) => {
+    {
+      in: [{ x: i32 }, { y: i32 }],
+      locals: { xi: i64, yi: i64 },
+      out: [i32],
+    },
+    ({ x, y }, { xi, yi }) => {
       block(null, () => {
         Field.forEachReversed((i) => {
           // if (x[i] > y[i]) return true;
@@ -245,7 +267,7 @@ function fieldHelpers(Field: Field) {
     i32.const(Field.size);
     memory.copy();
   }
-  const copy = func({ in: [i32, i32], out: [] }, ([x, y]) => {
+  const copy = func({ in: [{ x: i32 }, { y: i32 }], out: [] }, ({ x, y }) => {
     copyInline(x, y);
   });
 

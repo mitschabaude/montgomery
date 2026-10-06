@@ -1,10 +1,10 @@
 import {
+  localArray,
   $,
   type AnyFunc,
   type Func,
   type Input,
   type Local,
-  type Type,
   block,
   br_if,
   call,
@@ -62,29 +62,27 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
   let [v10Sign, V10] = bigintToLimbsPositive(v10, w, n0);
   let [v11Sign, V11] = bigintToLimbsPositive(v11, w, n0);
 
-  let nLocals = Array<Type<i64>>(n).fill(i64);
-  let n0Locals = Array<Type<i64>>(n0).fill(i64);
-
   const decompose = func(
     {
-      in: [i32, i32, i32],
+      in: [{ s0: i32 }, { s1: i32 }, { s: i32 }],
       // TODO X0, X1 should be n0 limbs
-      locals: [i64, ...nLocals, ...n0Locals, ...n0Locals],
+      locals: {
+        tmp: i64,
+        S: localArray(i64, n),
+        X0: localArray(i64, n0),
+        X1: localArray(i64, n0),
+      },
       out: [i32],
     },
-    ([s0, s1, s], [tmp, ...rest]) => {
+    ({ s0, s1, s }, { tmp, S, X0, X1 }) => {
       // algorithm at a high level:
       // let x0 = (m0 * (s >> k)) >> m;
       // let x1 = (m1 * (s >> k)) >> m;
       // let s0 = v00 * x0 + v01 * x1 + s;
       // let s1 = v10 * x0 + v11 * x1;
 
-      let S = rest.splice(0, n);
       // s_hi := s >> k = highest n0 limbs of s
       let SHi = S.slice(n - n0, n);
-
-      let X0 = rest.splice(0, n0);
-      let X1 = rest.splice(0, n0);
 
       Field.load(s, S);
 
@@ -268,8 +266,12 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
   // e is how often we have to reduce by lambda if we want a decomposition x = x0 + lambda * x1 with x0 < lambda
 
   const reduceByOne = func(
-    { in: [i32], locals: [i64, i64, i32], out: [] },
-    ([r], [tmp, carry, l]) => {
+    {
+      in: [{ r: i32 }],
+      locals: { tmp: i64, carry: i64, l: i32 },
+      out: [],
+    },
+    ({ r }, { tmp, carry, l }) => {
       local.set(l, i32.add(r, sizeScalar));
 
       // check if r < lambda
@@ -309,17 +311,17 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
     }
   );
 
-  const decompose = func({ in: [i32], locals: [], out: [] }, ([x]) => {
-    call(barrett, [x]);
+  const decompose = func({ in: [{ x: i32 }], locals: {}, out: [] }, ({ x }) => {
+    call(barrett, { x });
     for (let i = 0; i < e; i++) {
-      call(reduceByOne, [x]);
+      call(reduceByOne, { r: x });
     }
   });
 
   // negates the scalar in the original scalar field, x = q - x; assuming x < q
   const negateNoReduceDouble = func(
-    { in: [i32], locals: [i64, i64], out: [] },
-    ([x], [tmp, carry]) => {
+    { in: [{ x: i32 }], locals: { tmp: i64, carry: i64 }, out: [] },
+    ({ x }, { tmp, carry }) => {
       // x = q - x
       for (let i = 0; i < 2 * n; i++) {
         // (carry, x[i]) = q[i] - x[i] + carry;
@@ -335,8 +337,12 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
   );
   // increments half scalar x without reduction modulo lambda
   const negateFirstHalfNoReduce = func(
-    { in: [i32], locals: [i64, i64, i32], out: [] },
-    ([s0], [tmp, carry, s1]) => {
+    {
+      in: [{ s0: i32 }],
+      locals: { tmp: i64, carry: i64, s1: i32 },
+      out: [],
+    },
+    ({ s0 }, { tmp, carry, s1 }) => {
       local.set(s1, i32.add(s0, sizeScalar));
       // s0 = lambda - s0
       for (let i = 0; i < n; i++) {
@@ -367,8 +373,12 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
   let lambdaShifted = bigintToLimbs(lambda << BigInt(lengthP - 1), w, 2 * n);
 
   const decomposeNoMsb = func(
-    { in: [i32], locals: [i32, i32], out: [i32] },
-    ([s], [flagNegateBoth, flagNegateFirst]) => {
+    {
+      in: [{ s: i32 }],
+      locals: { flagNegateBoth: i32, flagNegateFirst: i32 },
+      out: [i32],
+    },
+    ({ s }, { flagNegateBoth, flagNegateFirst }) => {
       // if (s1 > lambda) is possible, do s = q - s, flag both points for negation"
       // TODO: this check is specialized to our limb size, scalar field, lambda
       i32.ge_u(
@@ -377,13 +387,13 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
       );
       local.tee(flagNegateBoth);
       control.if({}, () => {
-        call(negateNoReduceDouble, [s]);
+        call(negateNoReduceDouble, { x: s });
       });
 
       // split s = s0 + s1*lambda, where s0 < lambda
-      call(barrett, [s]);
+      call(barrett, { x: s });
       for (let i = 0; i < e; i++) {
-        call(reduceByOne, [s]);
+        call(reduceByOne, { r: s });
       }
 
       // if s0 >= 2^(b-1), do s0 = lambda - s0, s1++, flag first point for negation
@@ -394,7 +404,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
       i32.shr_u(i32.load({ offset: 4 * (n - 1) }, s), msbInHighestLimb);
       local.tee(flagNegateFirst);
       control.if({}, () => {
-        call(negateFirstHalfNoReduce, [s]);
+        call(negateFirstHalfNoReduce, { s0: s });
       });
 
       // return an integer containing flags to negate first / second point

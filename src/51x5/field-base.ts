@@ -68,7 +68,7 @@ const FieldPair = {
     }
   },
   copyInline,
-  copy: func({ in: [i32, i32], out: [] }, ([x, y]) => {
+  copy: func({ in: [{ x: i32 }, { y: i32 }], out: [] }, ({ x, y }) => {
     copyInline(x, y);
   }),
   forEach,

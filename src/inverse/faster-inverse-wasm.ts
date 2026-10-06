@@ -30,8 +30,8 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   let { w, n } = Field;
 
   const getBitLength = func(
-    { in: [i32], locals: [i32], out: [i32] },
-    ([x], [xi]) => {
+    { in: [{ x: i32 }], locals: { xi: i32 }, out: [i32] },
+    ({ x }, { xi }) => {
       Field.forEachReversed((i) => {
         local.set(xi, Field.i32.loadLimb(x, i));
         let isNonZero = i32.ne(xi, 0);
@@ -48,8 +48,12 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   // assumes input is n limbs, and we shift by at most 1 limb
   // also assumes that shifted result + additional hi limb again fits in n limbs
   const makeOdd = func(
-    { in: [i32, i64], locals: [i64, i64, i64], out: [i32] },
-    ([u, uhi], [k, l, tmp]) => {
+    {
+      in: [{ u: i32 }, { uhi: i64 }],
+      locals: { k: i64, l: i64, tmp: i64 },
+      out: [i32],
+    },
+    ({ u, uhi }, { k, l, tmp }) => {
       // k = count_trailing_zeros(u[0])
       local.tee(tmp, Field.loadLimb(u, 0));
       local.tee(k, i64.ctz($));
@@ -113,16 +117,34 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const logHex = (...args: bigint[]) => console.log(...args.map(hex));
   const logBin = (...args: bigint[]) => console.log(...args.map(bin));
 
-  const log64 = importFunc({ in: [i64], out: [] }, console.log);
-  const log64Hex = importFunc({ in: [i64], out: [] }, logHex);
-  const log64Bin = importFunc({ in: [i64], out: [] }, logBin);
-  const log64x2 = importFunc({ in: [i64, i64], out: [] }, console.log);
-  const log64x4 = importFunc(
-    { in: [i64, i64, i64, i64], out: [] },
+  const log64 = importFunc({ in: [{ value: i64 }], out: [] }, console.log);
+  const log64Hex = importFunc({ in: [{ value: i64 }], out: [] }, logHex);
+  const log64Bin = importFunc({ in: [{ value: i64 }], out: [] }, logBin);
+  const log64x2 = importFunc(
+    { in: [{ value0: i64 }, { value1: i64 }], out: [] },
     console.log
   );
-  const log64x4Hex = importFunc({ in: [i64, i64, i64, i64], out: [] }, logHex);
-  const log64x4Bin = importFunc({ in: [i64, i64, i64, i64], out: [] }, logBin);
+  const log64x4 = importFunc(
+    {
+      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
+      out: [],
+    },
+    console.log
+  );
+  const log64x4Hex = importFunc(
+    {
+      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
+      out: [],
+    },
+    logHex
+  );
+  const log64x4Bin = importFunc(
+    {
+      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
+      out: [],
+    },
+    logBin
+  );
 
   /**
    * input: pointers for
@@ -132,35 +154,35 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
    */
   const almostInverse = func(
     {
-      in: [i32, i32, i32],
-      locals: [
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i32,
-        i64,
-        i64,
-        i64,
-        i64,
-        v128,
-        v128,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-      ],
+      in: [{ v: i32 }, { s: i32 }, { a: i32 }],
+      locals: {
+        u: i32,
+        r: i32,
+        i: i32,
+        tmp32: i32,
+        k: i32,
+        ulen: i32,
+        uhi: i64,
+        vhi: i64,
+        ulo: i64,
+        vlo: i64,
+        f0g0: v128,
+        f1g1: v128,
+        f0: i64,
+        g0: i64,
+        f1: i64,
+        g1: i64,
+        uj: i64,
+        vj: i64,
+        carryu: i64,
+        carryv: i64,
+        tmp: i64,
+      },
       out: [i32],
     },
     (
-      [v, s, a],
-      [
+      { v, s, a },
+      {
         u,
         r,
         i,
@@ -182,7 +204,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         carryu,
         carryv,
         tmp,
-      ]
+      }
     ) => {
       // setup locals
       local.set(u, i32.add(v, Field.size));
@@ -207,9 +229,9 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           let vlen = tmp32;
 
           // max(len(u), len(v))
-          call(getBitLength, [u]);
+          call(getBitLength, { x: u });
           local.tee(ulen);
-          call(getBitLength, [v]);
+          call(getBitLength, { x: v });
           local.tee(vlen);
           i32.gt_u(ulen, vlen);
           select(i32);
@@ -337,7 +359,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       });
 
       local.get(k);
-      call(makeOdd, [s, carrys]);
+      call(makeOdd, { u: s, uhi: carrys });
       i32.sub();
     }
   );
@@ -354,11 +376,15 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     if_(null, () => {
       local.set(hiStart, 0);
     });
-    call(extractBits, [u, hiStart, 25]);
+    call(extractBits, { x: u, startBit: hiStart, bitLength: 25 });
     i64.extend_i32_u();
-    call(extractBits, [u, i32.add(hiStart, 25), 25]);
+    call(extractBits, { x: u, startBit: i32.add(hiStart, 25), bitLength: 25 });
     i64.shl(i64.extend_i32_u(), 25n);
-    call(extractBits, [u, i32.add(hiStart, 50), hiBits - 50]);
+    call(extractBits, {
+      x: u,
+      startBit: i32.add(hiStart, 50),
+      bitLength: hiBits - 50,
+    });
     i64.shl(i64.extend_i32_u(), 50n);
     i64.or();
     return i64.or();

@@ -26,12 +26,16 @@ export { curveOps };
 function curveOps(
   implicitMemory: ImplicitMemory,
   Field: FieldWithMultiply,
-  inverse: Func<[i32, i32, i32], []>,
+  inverse: Func<[{ scratch: "i32" }, { r: "i32" }, { a: "i32" }], []>,
   beta: bigint
 ) {
   const addAffine = func(
-    { in: [i32, i32, i32, i32, i32], locals: [i32, i32, i32, i32], out: [] },
-    ([m, x3, x1, x2, d], [y3, y1, y2, tmp]) => {
+    {
+      in: [{ m: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }, { d: i32 }],
+      locals: { y3: i32, y1: i32, y2: i32, tmp: i32 },
+      out: [],
+    },
+    ({ m, x3, x1, x2, d }, { y3, y1, y2, tmp }) => {
       // compute other pointers from inputs
       local.set(y1, i32.add(x1, Field.size));
       local.set(y2, i32.add(x2, Field.size));
@@ -42,18 +46,18 @@ function curveOps(
       i32.store8({ offset: 2 * Field.size }, x3, 1);
 
       // m = (y2 - y1)*d
-      call(Field.subtractPositive, [m, y2, y1]);
-      call(Field.multiply, [m, m, d]);
+      call(Field.subtractPositive, { out: m, x: y2, y: y1 });
+      call(Field.multiply, { xy: m, x: m, y: d });
 
       // x3 = m^2 - x1 - x2
-      call(Field.square, [tmp, m]);
-      call(Field.subtract, [x3, tmp, x1]);
-      call(Field.subtract, [x3, x3, x2]);
+      call(Field.square, { xy: tmp, x: m });
+      call(Field.subtract, { out: x3, x: tmp, y: x1 });
+      call(Field.subtract, { out: x3, x: x3, y: x2 });
 
       // y3 = (x2 - x3)*m - y2
-      call(Field.subtractPositive, [y3, x2, x3]);
-      call(Field.multiply, [y3, y3, m]);
-      call(Field.subtract, [y3, y3, y2]);
+      call(Field.subtractPositive, { out: y3, x: x2, y: x3 });
+      call(Field.multiply, { xy: y3, x: y3, y: m });
+      call(Field.subtract, { out: y3, x: y3, y: y2 });
     }
   );
 
@@ -61,8 +65,12 @@ function curveOps(
   // when add-assigning, y3 = y1; note that given m, we don't need y1
   // so we replace y1 AND d with m, which saves 1 stored field
   const addAffinePacked = func(
-    { in: [i32, i32, i32, i32], locals: [i32, i32, i32], out: [] },
-    ([tmp, x3, x1, x2], [y3, y2]) => {
+    {
+      in: [{ tmp: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }],
+      locals: { y3: i32, y2: i32, unused2: i32 },
+      out: [],
+    },
+    ({ tmp, x3, x1, x2 }, { y3, y2 }) => {
       // compute other pointers from inputs
       local.set(y2, i32.add(x2, Field.size));
       local.set(y3, i32.add(x3, Field.size));
@@ -72,14 +80,14 @@ function curveOps(
       i32.store8({ offset: 2 * Field.size }, x3, 1);
 
       // x3 = m^2 - x1 - x2
-      call(Field.square, [tmp, m]);
-      call(Field.subtract, [x3, tmp, x1]);
-      call(Field.subtract, [x3, x3, x2]);
+      call(Field.square, { xy: tmp, x: m });
+      call(Field.subtract, { out: x3, x: tmp, y: x1 });
+      call(Field.subtract, { out: x3, x: x3, y: x2 });
 
       // y3 = (x2 - x3)*m - y2
-      call(Field.subtractPositive, [tmp, x2, x3]);
-      call(Field.multiply, [y3, m, tmp]); // y3 = m is fine here
-      call(Field.subtract, [y3, y3, y2]);
+      call(Field.subtractPositive, { out: tmp, x: x2, y: x3 });
+      call(Field.multiply, { xy: y3, x: m, y: tmp }); // y3 = m is fine here
+      call(Field.subtract, { out: y3, x: y3, y: y2 });
     }
   );
 
@@ -88,14 +96,18 @@ function curveOps(
   const betaGlobal = implicitMemory.data(Field.bigintToData(betaMontgomery));
 
   const endomorphism = func(
-    { in: [i32, i32], locals: [i32, i32], out: [] },
-    ([xOut, x], [yOut, y]) => {
+    {
+      in: [{ xOut: i32 }, { x: i32 }],
+      locals: { yOut: i32, y: i32 },
+      out: [],
+    },
+    ({ xOut, x }, { yOut, y }) => {
       // compute other pointers from inputs
       local.set(y, i32.add(x, Field.size));
       local.set(yOut, i32.add(xOut, Field.size));
 
       // x_out = x * beta
-      call(Field.multiply, [xOut, x, betaGlobal]);
+      call(Field.multiply, { xy: xOut, x, y: betaGlobal });
 
       // y_out = y
       Field.copyInline(yOut, y);
@@ -104,11 +116,19 @@ function curveOps(
 
   const batchAddUnsafe = func(
     {
-      in: [i32, i32, i32, i32, i32, i32, i32],
-      locals: [i32, i32, i32, i32],
+      in: [
+        { scratch: i32 },
+        { d: i32 },
+        { x: i32 },
+        { S: i32 },
+        { G: i32 },
+        { H: i32 },
+        { $n: i32 },
+      ],
+      locals: { $i: i32, $j: i32, I: i32, $N: i32 },
       out: [],
     },
-    ([scratch, d, x, S, G, H, $n], [$i, $j, I, $N]) => {
+    ({ scratch, d, x, S, G, H, $n }, { $i, $j, I, $N }) => {
       local.set(I, scratch);
       local.set(scratch, i32.add(scratch, Field.size));
       local.set($N, i32.mul($n, Field.size));
@@ -120,104 +140,116 @@ function curveOps(
       });
       i32.eq($n, 1);
       if_(null, () => {
-        call(Field.subtractPositive, [x, i32.load({}, H), i32.load({}, G)]);
-        call(inverse, [scratch, d, x]),
-          call(addAffine, [
-            scratch,
-            i32.load({}, S),
-            i32.load({}, G),
-            i32.load({}, H),
+        call(Field.subtractPositive, {
+          out: x,
+          x: i32.load({}, H),
+          y: i32.load({}, G),
+        });
+        call(inverse, { scratch, r: d, a: x }),
+          call(addAffine, {
+            m: scratch,
+            x3: i32.load({}, S),
+            x1: i32.load({}, G),
+            x2: i32.load({}, H),
             d,
-          ]),
+          }),
           return_();
       });
 
       // create products di = x0*...*xi, where xi = Hi_x - Gi_x
-      call(Field.subtractPositive, [x, i32.load({}, H), i32.load({}, G)]);
-      call(Field.subtractPositive, [
-        i32.add(x, Field.size),
-        i32.load({ offset: 4 }, H),
-        i32.load({ offset: 4 }, G),
-      ]);
-      call(Field.multiply, [i32.add(d, Field.size), i32.add(x, Field.size), x]);
+      call(Field.subtractPositive, {
+        out: x,
+        x: i32.load({}, H),
+        y: i32.load({}, G),
+      });
+      call(Field.subtractPositive, {
+        out: i32.add(x, Field.size),
+        x: i32.load({ offset: 4 }, H),
+        y: i32.load({ offset: 4 }, G),
+      });
+      call(Field.multiply, {
+        xy: i32.add(d, Field.size),
+        x: i32.add(x, Field.size),
+        y: x,
+      });
       i32.eq($n, 2);
       if_(null, () => {
-        call(inverse, [scratch, I, i32.add(d, Field.size)]);
-        call(Field.multiply, [i32.add(d, Field.size), x, I]);
-        call(addAffine, [
-          scratch,
-          i32.load({ offset: 4 }, S),
-          i32.load({ offset: 4 }, G),
-          i32.load({ offset: 4 }, H),
-          i32.add(d, Field.size),
-        ]);
-        call(Field.multiply, [d, i32.add(x, Field.size), I]);
-        call(addAffine, [
-          scratch,
-          i32.load({}, S),
-          i32.load({}, G),
-          i32.load({}, H),
+        call(inverse, { scratch, r: I, a: i32.add(d, Field.size) });
+        call(Field.multiply, { xy: i32.add(d, Field.size), x, y: I });
+        call(addAffine, {
+          m: scratch,
+          x3: i32.load({ offset: 4 }, S),
+          x1: i32.load({ offset: 4 }, G),
+          x2: i32.load({ offset: 4 }, H),
+          d: i32.add(d, Field.size),
+        });
+        call(Field.multiply, { xy: d, x: i32.add(x, Field.size), y: I });
+        call(addAffine, {
+          m: scratch,
+          x3: i32.load({}, S),
+          x1: i32.load({}, G),
+          x2: i32.load({}, H),
           d,
-        ]);
+        });
         return_();
       });
       local.set($i, i32.const(2 * Field.size));
       local.set($j, i32.const(2 * 4));
       loop(null, () => {
-        call(Field.subtractPositive, [
-          i32.add(x, $i),
-          i32.load({}, i32.add(H, $j)),
-          i32.load({}, i32.add(G, $j)),
-        ]);
-        call(Field.multiply, [
-          i32.add(d, $i),
-          i32.add(d, i32.sub($i, Field.size)),
-          i32.add(x, $i),
-        ]);
+        call(Field.subtractPositive, {
+          out: i32.add(x, $i),
+          x: i32.load({}, i32.add(H, $j)),
+          y: i32.load({}, i32.add(G, $j)),
+        });
+        call(Field.multiply, {
+          xy: i32.add(d, $i),
+          x: i32.add(d, i32.sub($i, Field.size)),
+          y: i32.add(x, $i),
+        });
         local.set($j, i32.add($j, 4));
         i32.ne($N, local.tee($i, i32.add($i, Field.size)));
         br_if(0);
       });
       // inverse I = 1/(x0*...*x(n-1))
-      call(inverse, [scratch, I, i32.add(d, i32.sub($N, Field.size))]);
+      call(inverse, { scratch, r: I, a: i32.add(d, i32.sub($N, Field.size)) });
       // create inverses 1/x(n-1), ..., 1/x2
       local.set($i, i32.sub($N, Field.size));
       local.set($j, i32.sub($j, 4));
       loop(null, () => {
-        call(Field.multiply, [
-          i32.add(d, $i),
-          i32.add(d, i32.sub($i, Field.size)),
-          I,
-        ]);
-        call(addAffine, [
-          scratch,
-          i32.load({}, i32.add(S, $j)),
-          i32.load({}, i32.add(G, $j)),
-          i32.load({}, i32.add(H, $j)),
-          i32.add(d, $i),
-        ]);
-        call(Field.multiply, [I, I, i32.add(x, $i)]);
+        call(Field.multiply, {
+          xy: i32.add(d, $i),
+          x: i32.add(d, i32.sub($i, Field.size)),
+          y: I,
+        });
+        call(addAffine, {
+          m: scratch,
+          x3: i32.load({}, i32.add(S, $j)),
+          x1: i32.load({}, i32.add(G, $j)),
+          x2: i32.load({}, i32.add(H, $j)),
+          d: i32.add(d, $i),
+        });
+        call(Field.multiply, { xy: I, x: I, y: i32.add(x, $i) });
         local.set($j, i32.sub($j, 4));
         i32.ne(Field.size, local.tee($i, i32.sub($i, Field.size)));
         br_if(0);
       });
       // 1/x1, 1/x0
-      call(Field.multiply, [i32.add(d, Field.size), x, I]);
-      call(addAffine, [
-        scratch,
-        i32.load({ offset: 4 }, S),
-        i32.load({ offset: 4 }, G),
-        i32.load({ offset: 4 }, H),
-        i32.add(d, Field.size),
-      ]);
-      call(Field.multiply, [d, i32.add(x, Field.size), I]);
-      call(addAffine, [
-        scratch,
-        i32.load({}, S),
-        i32.load({}, G),
-        i32.load({}, H),
+      call(Field.multiply, { xy: i32.add(d, Field.size), x, y: I });
+      call(addAffine, {
+        m: scratch,
+        x3: i32.load({ offset: 4 }, S),
+        x1: i32.load({ offset: 4 }, G),
+        x2: i32.load({ offset: 4 }, H),
+        d: i32.add(d, Field.size),
+      });
+      call(Field.multiply, { xy: d, x: i32.add(x, Field.size), y: I });
+      call(addAffine, {
+        m: scratch,
+        x3: i32.load({}, S),
+        x1: i32.load({}, G),
+        x2: i32.load({}, H),
         d,
-      ]);
+      });
     }
   );
 

@@ -40,8 +40,12 @@ function fieldInverse(
    * so everything holds modulo p
    */
   const makeOdd = func(
-    { in: [i32, i32], locals: [i64, i32, i64, i64], out: [i32] },
-    ([u, s], [k, k0, l, tmp]) => {
+    {
+      in: [{ u: i32 }, { s: i32 }],
+      locals: { k: i64, k0: i32, l: i64, tmp: i64 },
+      out: [i32],
+    },
+    ({ u, s }, { k, k0, l, tmp }) => {
       // k = count_trailing_zeros(u[0])
       let ui = Field.loadLimb(u, 0);
       local.tee(k, i64.ctz(ui));
@@ -134,8 +138,12 @@ function fieldInverse(
   // * returns r < p unconditionally
   // * allows to batch left- / right-shifts
   const almostInverse = func(
-    { in: [i32, i32, i32], locals: [i32, i32, i32], out: [i32] },
-    ([u, r, a], [v, s, k]) => {
+    {
+      in: [{ u: i32 }, { r: i32 }, { a: i32 }],
+      locals: { v: i32, s: i32, k: i32 },
+      out: [i32],
+    },
+    ({ u, r, a }, { v, s, k }) => {
       // setup locals
       local.set(v, i32.add(u, Field.size));
       local.set(s, i32.add(v, Field.size));
@@ -147,27 +155,27 @@ function fieldInverse(
       Field.i32.store(s, Field.i32.One);
 
       // main algorithm
-      call(makeOdd, [u, s]);
-      call(makeOdd, [v, r]);
+      call(makeOdd, { u, s });
+      call(makeOdd, { u: v, s: r });
       local.set(k, i32.add());
 
       block(null, (block) => {
         loop(null, (loop) => {
-          call(Field.isGreater, [u, v]);
+          call(Field.isGreater, { x: u, y: v });
           if_(
             null,
             () => {
-              call(Field.subtractNoReduce, [u, u, v]);
-              call(Field.addNoReduce, [r, r, s]);
-              call(makeOdd, [u, s]);
+              call(Field.subtractNoReduce, { out: u, x: u, y: v });
+              call(Field.addNoReduce, { out: r, x: r, y: s });
+              call(makeOdd, { u, s });
               local.set(k, i32.add($, k));
             },
             () => {
-              call(Field.subtractNoReduce, [v, v, u]);
-              call(Field.addNoReduce, [s, s, r]);
-              call(Field.isZero, [v]);
+              call(Field.subtractNoReduce, { out: v, x: v, y: u });
+              call(Field.addNoReduce, { out: s, x: s, y: r });
+              call(Field.isZero, { x: v });
               br_if(block);
-              call(makeOdd, [v, r]);
+              call(makeOdd, { u: v, s: r });
               local.set(k, i32.add($, k));
             }
           );
@@ -189,28 +197,32 @@ function fieldInverse(
    * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
    */
   const inverse = func(
-    { in: [i32, i32, i32], locals: [i32], out: [] },
-    ([scratch, r, a], [k]) => {
+    {
+      in: [{ scratch: i32 }, { r: i32 }, { a: i32 }],
+      locals: { k: i32 },
+      out: [],
+    },
+    ({ scratch, r, a }, { k }) => {
       // TODO adapt this when we use larger p factor
-      call(Field.reduce, [a]);
+      call(Field.reduce, { x: a });
 
       // error if input is zero
-      call(Field.isZero, [a]);
+      call(Field.isZero, { x: a });
       if_(null, () => unreachable());
 
-      call(almostInverse, [scratch, r, a]);
+      call(almostInverse, { u: scratch, r, a });
       local.set(k);
       // don't have to reduce r here, because it's already < p
-      call(Field.subtractNoReduce, [r, pGlobal, r]);
+      call(Field.subtractNoReduce, { out: r, x: pGlobal, y: r });
       // multiply by 2^(2N - k), where N = 381 = bit length of p
       // TODO: efficient multiplication by power-of-2?
       // we use k+1 here because that's the value the theory is about:
       // N <= k+1 <= 2N, so that 0 <= 2N-(k+1) <= N, so that
       // 1 <= 2^(2N-(k+1)) <= 2^N < 2p
       // (in practice, k seems to be normally distributed around ~1.4N and never reach either N or 2N)
-      call(Field.leftShift, [r, r, i32.sub(2 * N - 1, k)]); // * 2^(2N - (k+1)) * 2^(-K)
+      call(Field.leftShift, { xy: r, y: r, k: i32.sub(2 * N - 1, k) }); // * 2^(2N - (k+1)) * 2^(-K)
       // now we multiply by 2^(2(K + K-N) + 1))
-      call(Field.multiply, [r, r, r2corrGlobal]); // * 2^(2K + 2(K-n) + 1) * 2^(-K)
+      call(Field.multiply, { xy: r, x: r, y: r2corrGlobal }); // * 2^(2K + 2(K-n) + 1) * 2^(-K)
       // = * 2 ^ (2n - k - 1 + 2(K-n) + 1)) = 2^(2*K - k)
       // ^^^ transforms (a * 2^K)^(-1)*2^k = a^(-1) 2^(-K+k)
       //     to a^(-1) 2^(-K+k + 2K -k) = a^(-1) 2^K = the montgomery representation of a^(-1)
@@ -218,8 +230,12 @@ function fieldInverse(
   );
 
   const batchInverse = func(
-    { in: [i32, i32, i32, i32], locals: [i32, i32, i32], out: [] },
-    ([scratch, z, x, $n], [$i, I, $N]) => {
+    {
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
+      locals: { $i: i32, I: i32, $N: i32 },
+      out: [],
+    },
+    ({ scratch, z, x, $n }, { $i, I, $N }) => {
       local.set(I, scratch);
       local.set(scratch, i32.add(scratch, Field.size));
       local.set($N, i32.mul($n, Field.size));
@@ -228,45 +244,49 @@ function fieldInverse(
       if_(null, () => return_());
       i32.eq($n, 1);
       if_(null, () => {
-        call(inverse, [scratch, z, x]);
+        call(inverse, { scratch, r: z, a: x });
         return_();
       });
       // create products x0*x1, ..., x0*...*x(n-1)
-      call(multiply, [i32.add(z, Field.size), i32.add(x, Field.size), x]);
+      call(multiply, {
+        xy: i32.add(z, Field.size),
+        x: i32.add(x, Field.size),
+        y: x,
+      });
       i32.eq($n, 2);
       if_(null, () => {
-        call(inverse, [scratch, I, i32.add(z, Field.size)]);
-        call(multiply, [i32.add(z, Field.size), x, I]),
-          call(multiply, [z, i32.add(x, Field.size), I]),
+        call(inverse, { scratch, r: I, a: i32.add(z, Field.size) });
+        call(multiply, { xy: i32.add(z, Field.size), x, y: I }),
+          call(multiply, { xy: z, x: i32.add(x, Field.size), y: I }),
           return_();
       });
       local.set($i, i32.const(2 * Field.size));
       loop(null, () => {
-        call(multiply, [
-          i32.add(z, $i),
-          i32.add(z, i32.sub($i, Field.size)),
-          i32.add(x, $i),
-        ]);
+        call(multiply, {
+          xy: i32.add(z, $i),
+          x: i32.add(z, i32.sub($i, Field.size)),
+          y: i32.add(x, $i),
+        });
         i32.ne($N, local.tee($i, i32.add($i, Field.size)));
         br_if(0);
       });
       // inverse I = 1/(x0*...*x(n-1))
-      call(inverse, [scratch, I, i32.add(z, i32.sub($N, Field.size))]);
+      call(inverse, { scratch, r: I, a: i32.add(z, i32.sub($N, Field.size)) });
       // create inverses 1/x(n-1), ..., 1/x2
       local.set($i, i32.sub($N, Field.size));
       loop(null, () => {
-        call(multiply, [
-          i32.add(z, $i),
-          i32.add(z, i32.sub($i, Field.size)),
-          I,
-        ]);
-        call(multiply, [I, I, i32.add(x, $i)]);
+        call(multiply, {
+          xy: i32.add(z, $i),
+          x: i32.add(z, i32.sub($i, Field.size)),
+          y: I,
+        });
+        call(multiply, { xy: I, x: I, y: i32.add(x, $i) });
         i32.ne(Field.size, local.tee($i, i32.sub($i, Field.size)));
         br_if(0);
       });
       // 1/x1, 1/x0
-      call(multiply, [i32.add(z, Field.size), x, I]);
-      call(multiply, [z, i32.add(x, Field.size), I]);
+      call(multiply, { xy: i32.add(z, Field.size), x, y: I });
+      call(multiply, { xy: z, x: i32.add(x, Field.size), y: I });
     }
   );
 

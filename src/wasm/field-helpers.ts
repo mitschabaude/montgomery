@@ -107,8 +107,10 @@ function createField(p: bigint, w: number, n: number) {
     i32.store({ offset: 4 * (n - 1) }, x, $);
   }
 
-  // TODO wasmati optimizes for TS tuples, should be easier to work with TS arrays
-  let limbsType: Tuple<Type<i64>> = [i64, ...Array(n - 1).fill(i64)];
+  const limbNames = Array.from({ length: n }, (_, i) => `limb${i}`);
+  const limbsType: Record<string, typeof i64>[] = limbNames.map((name) => ({
+    [name]: i64,
+  }));
 
   let logLocalsImport = importFunc(
     { in: limbsType, out: [] },
@@ -120,7 +122,10 @@ function createField(p: bigint, w: number, n: number) {
   );
 
   function logLocals(X: Local<i64>[]) {
-    call(logLocalsImport, X as Tuple<Local<i64>>);
+    call(
+      logLocalsImport,
+      Object.fromEntries(limbNames.map((name, i) => [name, X[i]]))
+    );
   }
 
   /**
@@ -216,8 +221,12 @@ function fromPackedBytes(w: number, n: number, nPackedBytes: number) {
 
   // recover n*w-bit representation (1 int32 per w-bit limb) from packed byte representation
   return func(
-    { in: [i32, i32], locals: [i64, i64], out: [] },
-    ([x, bytes], [tmp, chunk]) => {
+    {
+      in: [{ x: i32 }, { bytes: i32 }],
+      locals: { tmp: i64, chunk: i64 },
+      out: [],
+    },
+    ({ x, bytes }, { tmp, chunk }) => {
       let offset = 0; // bytes offset
       let nRes = 0n; // residual bits read in the last iteration
       let nRead = 0; // bytes read
@@ -272,8 +281,8 @@ function toPackedBytes(w: number, n: number, nPackedBytes: number) {
   if (w > 32) throw Error(`toPackedBytes assumes that w <= 32, got w = ${w}`);
 
   return func(
-    { in: [i32, i32], locals: [i64], out: [] },
-    ([bytes, x], [tmp]) => {
+    { in: [{ bytes: i32 }, { x: i32 }], locals: { tmp: i64 }, out: [] },
+    ({ bytes, x }, { tmp }) => {
       let offset = 0; // memory offset
       let nRes = 0; // residual bits to write from last iteration
 
@@ -313,8 +322,12 @@ function extractBitSlice(w: number, n: number) {
   // these assumptions imply that after truncation of the startBit, we have
   // startBit + bitLength <= w-1 + w+1 <= 2w < 64
   return func(
-    { in: [i32, i32, i32], locals: [i32, i32, i32], out: [i32] },
-    ([x, startBit, bitLength], [endBit, startLimb, endLimb]) => {
+    {
+      in: [{ x: i32 }, { startBit: i32 }, { bitLength: i32 }],
+      locals: { endBit: i32, startLimb: i32, endLimb: i32 },
+      out: [i32],
+    },
+    ({ x, startBit, bitLength }, { endBit, startLimb, endLimb }) => {
       local.set(endBit, i32.add(startBit, bitLength));
       local.set(startLimb, i32.div_u(startBit, w));
       local.set(startBit, i32.sub(local.get(startBit), i32.mul(startLimb, w)));
@@ -356,5 +369,3 @@ function extractBitSlice(w: number, n: number) {
     }
   );
 }
-
-type Tuple<T> = [T, ...T[]];

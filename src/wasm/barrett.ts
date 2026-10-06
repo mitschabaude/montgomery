@@ -1,4 +1,4 @@
-import { $, type Func, type Type, call, func, i32, i64, local } from "wasmati";
+import { localArray, $, type Func, call, func, i32, i64, local } from "wasmati";
 import { bigintFromLimbs, bigintToLimbs, log2 } from "../util.ts";
 import { forLoop1 } from "./wasm-util.ts";
 
@@ -86,14 +86,13 @@ function barrettReduction(p: bigint, w: number, n: number) {
   let M = bigintToLimbs(m, w, n);
   let P = bigintToLimbs(p, w, n);
 
-  let nLocals = Array<Type<i64>>(n).fill(i64);
-
   return func(
-    { in: [i32], locals: [i64, ...nLocals, ...nLocals], out: [] },
-    ([x], [tmp, ...rest]) => {
-      let L = rest.splice(0, n);
-      let LP = rest.splice(0, n);
-
+    {
+      in: [{ x: i32 }],
+      locals: { tmp: i64, L: localArray(i64, n), LP: localArray(i64, n) },
+      out: [],
+    },
+    ({ x }, { tmp, L, LP }) => {
       // extract x_hi := x >> k = all bits of x except the lowest k
       // x_hi = x.slice(n-1, 2*n) <==> x >> (n - 1)*w
       // then we only have to do x_hi >>= k - (n - 1)*w
@@ -165,22 +164,22 @@ function multiplyBarrett(
   p: bigint,
   w: number,
   n: number,
-  multiply: Func<[i32, i32, i32], []>
+  multiply: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>
 ) {
   const barrett = barrettReduction(p, w, n);
 
   const modularMultiply = func(
-    { in: [i32, i32, i32], locals: [], out: [] },
-    ([xy, x, y]) => {
-      call(multiply, [xy, x, y]);
-      call(barrett, [xy]);
+    { in: [{ xy: i32 }, { x: i32 }, { y: i32 }], locals: {}, out: [] },
+    ({ xy, x, y }) => {
+      call(multiply, { xy, x, y });
+      call(barrett, { x: xy });
     }
   );
   const benchMultiply = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(modularMultiply, [x, x, x]);
+        call(modularMultiply, { xy: x, x, y: x });
       });
     }
   );
