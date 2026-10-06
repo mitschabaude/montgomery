@@ -23,17 +23,35 @@ import {
 } from "../../src/util.ts";
 import { randomGenerators } from "../../src/bigint/field-random.ts";
 import { createWasmWithBenches } from "../../src/51x5/field.ts";
+import { createWasm as createWide } from "../../src/wide/field.ts";
 
 export { benchmark };
 
 async function benchmark(
   { p, t }: { p: bigint; t: bigint },
-  { doWrite = false, onlyQuick = false } = {}
+  { doWrite = false, onlyQuick = false, wide = false } = {}
 ) {
   let { randomField, randomFieldx2 } = randomGenerators(p);
   let N = 1e7;
   let Ninv = 5e5;
   let Npow = 5e4;
+
+  if (wide) {
+    const F = await createWide(p);
+    const [x, z] = F.Memory.local.getPointers(2);
+    console.log(
+      `wide: ${F.n} x 64 bits, ${F.lazy ? "lazy [0, 2p)" : "canonical [0, p)"}`
+    );
+    F.fromBigint(x, randomField());
+    bench("multiply wide", F.Wasm.benchMultiply, { x, N });
+    F.fromBigint(x, randomField());
+    bench("square wide", F.Wasm.benchSquare, { x, N });
+    F.fromBigint(x, randomField());
+    bench("add wide", F.Wasm.benchAddx3, { x, N }, 3);
+    F.fromBigint(x, randomField());
+    F.writeBigint(z, 0n);
+    bench("sub wide", F.Wasm.benchSubx3, { x, z, N }, 3);
+  }
 
   if (p < 1n << 255n) {
     let Fp = await createWasmWithBenches(p);
@@ -93,6 +111,15 @@ async function benchmark(
       }
     );
 
+    const benchSub = func(
+      { in: [i32, i32, i32], locals: [i32], out: [] },
+      ([x, z, N], [i]) => {
+        forLoop1(i, 0, N, () => {
+          for (let j = 0; j < 3; j++) call(Field.subtract, [z, z, x]);
+        });
+      }
+    );
+
     let implicitMemory = new ImplicitMemory(memory({ min: 100 }));
 
     let { inverse } = fieldInverse(implicitMemory, Field);
@@ -131,6 +158,7 @@ async function benchmark(
         benchBarrett,
         benchSquare,
         benchAdd,
+        benchSub,
         benchInverse,
         benchFastAlmostInverse,
         exp: fieldExp(Field),
@@ -211,6 +239,9 @@ async function benchmark(
 
     // bench("multiply bigint", benchMultiplyBigint, { x, N });
     bench("add", wasm.benchAdd, { x, N }, 3);
+    writeBigint(x, randomFieldx2());
+    writeBigint(y, 0n);
+    bench("sub", wasm.benchSub, { x, z: y, N }, 3);
 
     if (onlyQuick) continue;
 
@@ -305,10 +336,19 @@ function bench(
 ) {
   let Nscaled = Math.round(N / scale);
   name = name.padEnd(20, " ");
-  tic();
-  if (z === undefined) (compute as (x: number, N: number) => void)(x, Nscaled);
-  else compute(x, z, Nscaled);
-  let time = toc();
+  function run(iterations: number) {
+    if (z === undefined)
+      (compute as (x: number, N: number) => void)(x, iterations);
+    else compute(x, z, iterations);
+  }
+  run(10_000); // Tier up before timing, including the benchmark loop itself.
+  const samples = Array.from({ length: 3 }, () => {
+    tic();
+    run(Nscaled);
+    return toc();
+  }).sort((a, b) => a - b);
+  let time = samples[1];
+  N = Nscaled * scale;
   console.log(`${name} \t ${(N / time / 1e3).toFixed(1).padStart(4)}M ops/s`);
   console.log(`${name} \t ${((time / N) * 1e6).toFixed(0)}ns`);
   console.log();

@@ -19,10 +19,12 @@
   "files": [
     "build/src",
     "!build/src/**/*.test.*",
+    "!build/src/**/*.unit-test.*",
     "build/web/index.js",
     "build/web/index.js.map",
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.unit-test.ts",
     "README.md",
     "NOTICE"
   ],
@@ -38,7 +40,9 @@
     "benchmark-377": "node scripts/field-benchmarks/377.ts",
     "benchmark-381": "node scripts/field-benchmarks/381.ts",
     "prepublishOnly": "npm run clean && npm run build && node scripts/build/bundle-dist-web.ts",
-    "clean": "rm -rf build"
+    "clean": "rm -rf build",
+    "test-wide": "node --wasm-wide-arithmetic --test src/wide/*.unit-test.ts",
+    "benchmark-wide": "node --wasm-wide-arithmetic scripts/field-benchmarks/wide.ts"
   },
   "keywords": [],
   "author": "Gregor Mitscha-Baude",
