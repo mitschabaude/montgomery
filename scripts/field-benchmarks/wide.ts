@@ -3,7 +3,6 @@ import { benchmark } from "./field-benchmark.ts";
 import { bn254Params } from "../../src/concrete/bn254.params.ts";
 import { pallasParams } from "../../src/concrete/pasta.params.ts";
 import { curveParams as bls12_377 } from "../../src/concrete/bls12-377.params.ts";
-import { curveParams as bls12_381 } from "../../src/concrete/bls12-381.params.ts";
 
 console.log(
   `${process.version}, V8 ${process.versions.v8}, ${cpus()[0].model}`
@@ -13,7 +12,6 @@ console.log("Warmup + median of three samples, ~10M operations per sample.");
 const fields = [
   pallasParams,
   bls12_377,
-  bls12_381,
   { label: "bn254-scalar", modulus: bn254Params.order },
 ];
 const labels = process.argv.slice(2);

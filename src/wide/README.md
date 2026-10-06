@@ -27,9 +27,8 @@ Measured on 2026-10-06 on an AMD Ryzen 7 3700X, pinned to CPU 2 (`taskset -c 2 n
 | --- | ---: | ---: | ---: | ---: |
 | Pallas | 37 → 19 | 28 → 18 | 6 → 9 | 8 → 5 |
 | BLS12-377 | 101 → 40 | 78 → 39 | 9 → 10 | 11 → 6 |
-| BLS12-381 | 115 → 41 | 93 → 40 | 9 → 10 | 14 → 6 |
 | BN254 scalar | 50 → 20 | 42 → 19 | 6 → 9 | 8 → 4 |
 
-Multiplication improves by about 1.9×, 2.5×, 2.8×, and 2.5× respectively. Pallas 51x5 multiply measured 47 ns per element (paired), 45 ns (single), and 45 ns (paired without FMA), versus 19 ns for wide. Wide beats the schoolbook multiplication benchmark too (27/58/57 ns respectively). Addition is currently slower than production; subtraction is faster. Timings vary across runs, especially branch-heavy add/subtract and the production Pallas multiplication (37–48 ns in the two isolated runs). No end-to-end MSM speedup has been measured yet.
+Multiplication improves by about 1.9×, 2.5×, and 2.5× respectively. Pallas 51x5 multiply measured 47 ns per element (paired), 45 ns (single), and 45 ns (paired without FMA), versus 19 ns for wide. Wide beats the schoolbook multiplication benchmark too (27/58/27 ns respectively). Addition is currently slower than production; subtraction is faster. Timings vary across runs, especially branch-heavy add/subtract and the production Pallas multiplication (37–48 ns in the two isolated runs). No end-to-end MSM speedup has been measured yet.
 
 BN254 scalar uses the curve order, not its base-field modulus. Its four 64-bit limbs satisfy `4p <= R`, so multiplication omits the final reduction. Its 51x5 multiply measured 49 ns per element (paired), 57 ns (single), and 57 ns (paired without FMA).
