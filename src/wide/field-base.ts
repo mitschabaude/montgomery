@@ -1,11 +1,9 @@
 import {
   $,
   block,
-  br,
   br_if,
   i32,
   i64,
-  if_,
   local,
   type Input,
   type Local,
@@ -54,32 +52,33 @@ function createField(p: bigint) {
     X: Local<i64>[],
     high: Input<i64>,
     borrow: Local<i64>,
-    subtract: Local<i32>,
     threshold = P,
     subtrahend = P
   ) {
-    local.set(subtract, i64.ne(high, 0n));
-    i32.eqz(subtract);
-    if_(null, () => {
-      block(null, (done) => {
+    block(null, (done) => {
+      block(null, (needsSubtract) => {
+        if (high !== 0n) {
+          i64.ne(high, 0n);
+          br_if(needsSubtract);
+        }
         for (let i = n - 1; i >= 0; i--) {
           i64.lt_u(X[i], threshold[i]);
           br_if(done);
-          i64.gt_u(X[i], threshold[i]);
-          if_(null, () => {
-            local.set(subtract, 1);
-            br(done);
-          });
+          i64.ne(X[i], threshold[i]);
+          br_if(needsSubtract);
         }
-        local.set(subtract, 1); // X === threshold
       });
-    });
-    local.get(subtract);
-    if_(null, () => {
       local.set(borrow, 0n);
       for (let i = 0; i < n; i++) {
-        i64.sub128(X[i], 0n, subtrahend[i], 0n);
-        i64.sub128($, $, borrow, 0n);
+        // A constant limb other than UINT64_MAX can absorb the borrow
+        // without overflowing, so only one widening subtraction is needed.
+        if (i === 0) i64.sub128(X[i], 0n, subtrahend[i], 0n);
+        else if (subtrahend[i] !== -1n) {
+          i64.sub128(X[i], 0n, i64.add(subtrahend[i], borrow), 0n);
+        } else {
+          i64.sub128(X[i], 0n, subtrahend[i], 0n);
+          i64.sub128($, $, borrow, 0n);
+        }
         local.set(borrow, i64.and($, 1n));
         local.set(X[i], $);
       }

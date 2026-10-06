@@ -29,9 +29,27 @@ export { benchmark };
 
 async function benchmark(
   { p, t }: { p: bigint; t: bigint },
-  { doWrite = false, onlyQuick = false, wide = false } = {}
+  {
+    doWrite = false,
+    onlyQuick = false,
+    wide = false,
+    samples = 1,
+    warmup = 10_000,
+  } = {}
 ) {
+  if (!Number.isInteger(samples) || samples < 1)
+    throw Error("samples must be a positive integer");
+  const measure = (
+    name: string,
+    compute: BenchFunction,
+    inputs: BenchInputs,
+    scale = 1
+  ) => bench(name, compute, inputs, scale, samples, warmup);
+  console.log(
+    `${samples} timed sample(s); ${warmup} warmup iterations per benchmark.`
+  );
   let { randomField, randomFieldx2 } = randomGenerators(p);
+  const initial = randomField();
   let N = 1e7;
   let Ninv = 5e5;
   let Npow = 5e4;
@@ -42,15 +60,35 @@ async function benchmark(
     console.log(
       `wide: ${F.n} x 64 bits, ${F.lazy ? "lazy [0, 2p)" : "canonical [0, p)"}`
     );
-    F.fromBigint(x, randomField());
-    bench("multiply wide", F.Wasm.benchMultiply, { x, N });
-    F.fromBigint(x, randomField());
-    bench("square wide", F.Wasm.benchSquare, { x, N });
-    F.fromBigint(x, randomField());
-    bench("add wide", F.Wasm.benchAddx3, { x, N }, 3);
-    F.fromBigint(x, randomField());
-    F.writeBigint(z, 0n);
-    bench("sub wide", F.Wasm.benchSubx3, { x, z, N }, 3);
+    measure("multiply wide", F.Wasm.benchMultiply, {
+      x,
+      N,
+      reset: () => F.writeBigint(x, initial),
+    });
+    measure("square wide", F.Wasm.benchSquare, {
+      x,
+      N,
+      reset: () => F.writeBigint(x, initial),
+    });
+    measure(
+      "add wide",
+      F.Wasm.benchAddx3,
+      { x, N, reset: () => F.writeBigint(x, initial) },
+      3
+    );
+    measure(
+      "sub wide",
+      F.Wasm.benchSubx3,
+      {
+        x,
+        z,
+        N,
+        reset: () => {
+          F.writeBigint(x, initial);
+        },
+      },
+      3
+    );
   }
 
   if (p < 1n << 255n) {
@@ -58,21 +96,47 @@ async function benchmark(
     let x = Fp.Memory.local.getPointer(Fp.size);
     let z = Fp.Memory.local.getPointer(Fp.size);
 
-    Fp.writePair(x, randomField(), randomField());
-    bench("multiply 51x5", Fp.Wasm.benchMultiply, { x, N }, 2);
+    measure(
+      "multiply 51x5",
+      Fp.Wasm.benchMultiply,
+      { x, N, reset: () => Fp.writePair(x, initial, initial) },
+      2
+    );
 
-    Fp.writeSingle(x, randomField());
-    bench("multiply 51x5 single", Fp.Wasm.benchMultiplySingle, { x, N });
+    measure("multiply 51x5 single", Fp.Wasm.benchMultiplySingle, {
+      x,
+      N,
+      reset: () => Fp.writeSingle(x, initial),
+    });
 
-    Fp.writePair(x, randomField(), randomField());
-    bench("multiply 51x5 no fma", Fp.Wasm.benchMultiplyNoFma, { x, N }, 2);
+    measure(
+      "multiply 51x5 no fma",
+      Fp.Wasm.benchMultiplyNoFma,
+      { x, N, reset: () => Fp.writePair(x, initial, initial) },
+      2
+    );
 
-    Fp.writeSingle(x, randomField());
-    bench("add 51x5", Fp.Wasm.benchAddx3, { x, N }, 3);
+    measure(
+      "add 51x5",
+      Fp.Wasm.benchAddx3,
+      { x, N, reset: () => Fp.writeSingle(x, initial) },
+      3
+    );
 
-    Fp.writeSingle(x, randomField());
-    Fp.writeSingle(z, 0n);
-    bench("sub 51x5", Fp.Wasm.benchSubx3, { x, z, N }, 3);
+    measure(
+      "sub 51x5",
+      Fp.Wasm.benchSubx3,
+      {
+        x,
+        z,
+        N,
+        reset: () => {
+          Fp.writeSingle(x, initial);
+          Fp.writeSingle(z, 0n);
+        },
+      },
+      3
+    );
   }
 
   for (let w of [29]) {
@@ -225,23 +289,52 @@ async function benchmark(
     }
 
     let [scratch] = getPointers(2);
-    let x = getPointer();
+    let x = getPointer(2 * helpers.sizeField); // Schoolbook writes a double-width product.
     let y = getPointer();
-    writeBigint(x, randomFieldx2());
-    writeBigint(y, randomFieldx2());
-
     console.log(`w=${w}, n=${n}, nw=${n * w}, op x ${N}\n`);
 
-    let tMul = bench("multiply montgomery", wasm.benchMontgomery, { x, N });
-    bench("multiply barrett", wasm.benchBarrett, { x, N });
-    bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
-    bench("multiply square", wasm.benchSquare, { x, N });
+    let tMul = measure("multiply montgomery", wasm.benchMontgomery, {
+      x,
+      N,
+      reset: () => writeBigint(x, initial),
+    });
+    measure("multiply barrett", wasm.benchBarrett, {
+      x,
+      N,
+      reset: () => writeBigint(x, initial),
+    });
+    measure("multiply schoolbook", wasm.benchSchoolbook, {
+      x,
+      N,
+      reset: () => writeBigint(x, initial),
+    });
+    measure("multiply square", wasm.benchSquare, {
+      x,
+      N,
+      reset: () => writeBigint(x, initial),
+    });
 
-    // bench("multiply bigint", benchMultiplyBigint, { x, N });
-    bench("add", wasm.benchAdd, { x, N }, 3);
-    writeBigint(x, randomFieldx2());
-    writeBigint(y, 0n);
-    bench("sub", wasm.benchSub, { x, z: y, N }, 3);
+    // measure("multiply bigint", benchMultiplyBigint, { x, N });
+    measure(
+      "add",
+      wasm.benchAdd,
+      { x, N, reset: () => writeBigint(x, initial) },
+      3
+    );
+    measure(
+      "sub",
+      wasm.benchSub,
+      {
+        x,
+        z: y,
+        N,
+        reset: () => {
+          writeBigint(x, initial);
+          writeBigint(y, 0n);
+        },
+      },
+      3
+    );
 
     if (onlyQuick) continue;
 
@@ -323,34 +416,41 @@ async function benchmark(
   }
 }
 
+type BenchFunction =
+  | ((x: number, N: number) => void)
+  | ((x: number, z: number, N: number) => void);
+type BenchInputs = { x: number; z?: number; N: number; reset?: () => void };
+
 function bench(
   name: string,
-  compute:
-    | ((x: number, N: number) => void)
-    | ((x: number, z: number, N: number) => void),
-  { x, z, N }: { x: number; z?: number; N: number },
-  /**
-   * parameter to use if the operation is performed multiple times
-   */
-  scale = 1
+  compute: BenchFunction,
+  { x, z, N, reset }: BenchInputs,
+  scale = 1,
+  sampleCount = 1,
+  warmup = 10_000
 ) {
-  let Nscaled = Math.round(N / scale);
-  name = name.padEnd(20, " ");
+  const iterations = Math.round(N / scale);
+  N = iterations * scale;
+  console.log(
+    `${name}: ${scale} op(s)/iteration, ${iterations} iterations/sample, ${sampleCount} sample(s).`
+  );
   function run(iterations: number) {
     if (z === undefined)
       (compute as (x: number, N: number) => void)(x, iterations);
     else compute(x, z, iterations);
   }
-  run(10_000); // Tier up before timing, including the benchmark loop itself.
-  const samples = Array.from({ length: 3 }, () => {
+  reset?.();
+  run(warmup);
+  const timings = Array.from({ length: sampleCount }, () => {
+    reset?.();
     tic();
-    run(Nscaled);
+    run(iterations);
     return toc();
   }).sort((a, b) => a - b);
-  let time = samples[1];
-  N = Nscaled * scale;
+  const time = timings[Math.floor(sampleCount / 2)];
+  name = name.padEnd(20, " ");
   console.log(`${name} \t ${(N / time / 1e3).toFixed(1).padStart(4)}M ops/s`);
-  console.log(`${name} \t ${((time / N) * 1e6).toFixed(0)}ns`);
+  console.log(`${name} \t ${((time / N) * 1e6).toFixed(1)}ns`);
   console.log();
   return time / N;
 }

@@ -9,15 +9,24 @@ export { arithmetic };
 function arithmetic(F: FieldBase) {
   const limbs = Array(F.n).fill(i64) as (typeof i64)[];
   const add = func(
-    { in: [i32, i32, i32], locals: [i64, i32, ...limbs], out: [] },
-    ([z, x, y], [carry, subtract, ...X]) => {
+    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
+    ([z, x, y], [carry, ...X]) => {
       for (let i = 0; i < F.n; i++) {
-        i64.add128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
-        if (i !== 0) i64.add128($, $, carry, 0n);
-        local.set(carry, $);
-        local.set(X[i], $);
+        if (i === F.n - 1 && 2n * F.limit <= F.R) {
+          // The modulus guarantees that the full sum fits in the layout.
+          local.set(
+            X[i],
+            i64.add(i64.add(F.loadLimb(x, i), F.loadLimb(y, i)), carry)
+          );
+          local.set(carry, 0n);
+        } else {
+          i64.add128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
+          if (i !== 0) i64.add128($, $, carry, 0n);
+          local.set(carry, $);
+          local.set(X[i], $);
+        }
       }
-      F.reduceLocals(X, carry, carry, subtract, F.Limit, F.Limit);
+      F.reduceLocals(X, carry, carry, F.Limit, F.Limit);
       F.store(z, X);
     }
   );
@@ -44,10 +53,10 @@ function arithmetic(F: FieldBase) {
     }
   );
   const reduce = func(
-    { in: [i32], locals: [i64, i32, ...limbs], out: [] },
-    ([x], [borrow, subtract, ...X]) => {
+    { in: [i32], locals: [i64, ...limbs], out: [] },
+    ([x], [borrow, ...X]) => {
       F.load(X, x);
-      F.reduceLocals(X, 0n, borrow, subtract);
+      F.reduceLocals(X, 0n, borrow);
       F.store(x, X);
     }
   );

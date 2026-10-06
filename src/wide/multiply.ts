@@ -18,8 +18,7 @@ function multiplyMontgomery(F: FieldBase) {
     Y: Local<i64>[],
     T: Local<i64>[],
     carry: Local<i64>,
-    q: Local<i64>,
-    subtract: Local<i32>
+    q: Local<i64>
   ) {
     function addMul(
       a: Local<i64>,
@@ -76,7 +75,7 @@ function multiplyMontgomery(F: FieldBase) {
     // T < 2p already, so no final comparison or subtraction is needed.
     // Otherwise T < 3p (lazy) or < 2p (canonical); one subtraction suffices.
     if (!F.lazy || 4n * F.p > F.R) {
-      F.reduceLocals(T.slice(0, F.n), T[F.n], carry, subtract, F.Limit);
+      F.reduceLocals(T.slice(0, F.n), T[F.n], carry, F.Limit);
     }
     F.store(z, T.slice(0, F.n));
   }
@@ -84,26 +83,26 @@ function multiplyMontgomery(F: FieldBase) {
   const multiply = func(
     {
       in: [i32, i32, i32],
-      locals: [i64, i64, i32, ...limbs(3 * F.n + 2)],
+      locals: [i64, i64, ...limbs(3 * F.n + 2)],
       out: [],
     },
-    ([z, x, y], [carry, q, subtract, ...rest]) => {
+    ([z, x, y], [carry, q, ...rest]) => {
       const X = rest.slice(0, F.n),
         Y = rest.slice(F.n, 2 * F.n),
         T = rest.slice(2 * F.n);
       F.load(X, x);
       F.load(Y, y);
-      kernel(z, X, Y, T, carry, q, subtract);
+      kernel(z, X, Y, T, carry, q);
     }
   );
   // Same CIOS algorithm, specialized to load the input only once.
   const square = func(
-    { in: [i32, i32], locals: [i64, i64, i32, ...limbs(2 * F.n + 2)], out: [] },
-    ([z, x], [carry, q, subtract, ...rest]) => {
+    { in: [i32, i32], locals: [i64, i64, ...limbs(2 * F.n + 2)], out: [] },
+    ([z, x], [carry, q, ...rest]) => {
       const X = rest.slice(0, F.n),
         T = rest.slice(F.n);
       F.load(X, x);
-      kernel(z, X, X, T, carry, q, subtract);
+      kernel(z, X, X, T, carry, q);
     }
   );
   return { multiply, square };
