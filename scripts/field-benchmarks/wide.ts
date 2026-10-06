@@ -13,13 +13,7 @@ const fields = [
   bls12_377,
   { label: "bn254-scalar", modulus: bn254Params.order },
 ];
-const args = process.argv.slice(2);
-const samples = Number(
-  args
-    .find((arg) => arg.startsWith("--samples="))
-    ?.slice("--samples=".length) ?? 1
-);
-const labels = args.filter((arg) => !arg.startsWith("--samples="));
+const labels = process.argv.slice(2);
 for (const label of labels) {
   if (!fields.some((field) => field.label === label))
     throw Error(`Unknown field: ${label}`);
@@ -30,5 +24,5 @@ for (const params of fields) {
   let t = p - 1n;
   while (t % 2n === 0n) t >>= 1n;
   console.log(`\n${params.label}\n`);
-  await benchmark({ p, t }, { onlyQuick: true, wide: true, samples });
+  await benchmark({ p, t }, { onlyQuick: true, wide: true });
 }

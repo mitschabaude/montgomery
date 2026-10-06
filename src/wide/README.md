@@ -12,8 +12,6 @@ npm run test-wide
 npm run benchmark-wide
 # Optionally select individual fields:
 npm run benchmark-wide -- bn254-scalar
-# Explicitly opt into median-of-three sampling:
-npm run benchmark-wide -- --samples=3
 ```
 
 The scripts require a Node build supporting `--wasm-wide-arithmetic`; measurements below use Node `v27.0.0-nightly20261006fcfb7ecc0b`. The local dependency is pinned to wasmati commit `4ede9ad`; the sibling checkout now has further API changes under development.
@@ -24,9 +22,9 @@ For `n = ceil(bitLength(p) / 64)` and `R = 2^(64n)`, inputs and outputs are in `
 
 23 tests cover all 17 example fields and six moduli bordering the reduction/carry thresholds, including small primes, 64-bit Goldilocks, Pasta, BN254, secp256k1, and BLS12-377/381. Boundary and deterministic randomized tests check lazy input/output bounds, overflowing carries, input/output aliasing, conversions, and repeated squaring against bigint arithmetic.
 
-Benchmarks use dependent chains inside Wasm, 10,000 warmup iterations, and one timed sample by default. `--samples=3` explicitly selects three samples and reports their median. Output prints the sample count, iterations per sample, and operations per iteration (including three additions/subtractions or two field multiplications for paired 51x5). All inputs reset before warmup and each timed sample, with the same initial raw field value used for production and wide arithmetic. The Pallas and BN254 scalar comparisons also include paired and single 51x5; paired timings are per field operation. These are arithmetic microbenchmarks, not MSM measurements.
+Benchmarks use dependent chains inside Wasm, 10,000 warmup iterations, and one timed run. Output prints warmup and timed iteration counts, plus operations per iteration (including three additions/subtractions or two field multiplications for paired 51x5). Each benchmark starts with explicit input writes, using the same initial raw field value for production and wide arithmetic. The Pallas and BN254 scalar comparisons also include paired and single 51x5; paired timings are per field operation. These are arithmetic microbenchmarks, not MSM measurements.
 
-Measured on 2026-10-06 on an AMD Ryzen 7 3700X, pinned to CPU 2 (`taskset -c 2 npm run benchmark-wide -- --samples=3`). Results below are nanoseconds per operation, shown as existing 29-bit Montgomery arithmetic → wide arithmetic:
+Measured on 2026-10-06 on an AMD Ryzen 7 3700X, pinned to CPU 2 (`taskset -c 2 npm run benchmark-wide`). The table records medians from the three-sample investigation; the runner now performs one timed run. Results below are nanoseconds per operation, shown as existing 29-bit Montgomery arithmetic → wide arithmetic:
 
 | Field | Multiply | Square | Add | Subtract |
 | --- | ---: | ---: | ---: | ---: |
