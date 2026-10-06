@@ -59,6 +59,12 @@ async function benchmark(
       N: Ninv,
       tMul: tMulWide,
     });
+    F.writeBigint(x, initial);
+    F.writeBigint(z, initial);
+    bench2("add + Kaliski wide", () => F.Wasm.benchInverseKaliski(scratch, x, z, Ninv), {
+      N: Ninv,
+      tMul: tMulWide,
+    });
   }
 
   if (p < 1n << 255n) {
@@ -257,6 +263,13 @@ async function benchmark(
       writeBigint(x, initial);
       writeBigint(y, initial);
       bench2("add + inverse montgomery", () => wasm.benchInverse(scratch, x, y, Ninv), {
+        N: Ninv,
+        tMul,
+      });
+      writeBigint(x, initial);
+      writeBigint(y, initial);
+      // Existing fast benchmark measures only the almost-inverse core.
+      bench2("add + fast core 29bit", () => wasm.benchFastAlmostInverse(scratch, x, y, Ninv), {
         N: Ninv,
         tMul,
       });

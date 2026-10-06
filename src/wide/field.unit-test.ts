@@ -80,6 +80,12 @@ for (const [label, p] of cases) {
       },
       "square in place"
     );
+    equiv(
+      { from: [raw], to: raw, scratch: 3 },
+      (a) => mod(inverse(a, p) * F.R * F.R, p),
+      ([scratch], out, a) => F.Wasm.inverse(scratch, out, a),
+      "fast inverse at carry thresholds"
+    );
     function check(ptr: number, expected: bigint) {
       const raw = F.readBigint(ptr);
       assert(raw >= 0n && raw < F.limit, `output bound: ${raw}`);

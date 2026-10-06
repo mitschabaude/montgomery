@@ -20,6 +20,8 @@ import type { multiplyMontgomery } from "./multiply.ts";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
 import { mod } from "../bigint/field-util.ts";
 
+import { fastInverse } from "./fast-inverse.ts";
+
 export { fieldInverse };
 
 function fieldInverse(
@@ -103,7 +105,7 @@ function fieldInverse(
 
   // Three scratch elements (u, v, s); r may alias a. Input is preserved
   // unless it is also the output. Zero/noninvertible input traps.
-  const inverse = func(
+  const inverseKaliski = func(
     { in: [i32, i32, i32], locals: [i32, i32, i32], out: [] },
     ([scratch, r, a], [v, s, k]) => {
       local.set(v, i32.add(scratch, size));
@@ -155,6 +157,8 @@ function fieldInverse(
     }
   );
 
+  const inverse = fastInverse(F, ops, mem);
+
   // Four scratch elements. As in the production backend, batch output must
   // not overlap input: output is used for prefix products before inversion.
   const batchInverse = func(
@@ -200,5 +204,5 @@ function fieldInverse(
       call(ops.copy, [z, inv]);
     }
   );
-  return { inverse, batchInverse };
+  return { inverse, inverseKaliski, batchInverse };
 }

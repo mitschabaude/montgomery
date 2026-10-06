@@ -60,6 +60,26 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
       W.isGreater,
       "isGreater"
     );
+    const nearlyEqual = wasmSpec(
+      F.Memory,
+      Random.map(
+        Random.tuple([Random.int(2, 7), Random.int(-25, 25)]),
+        ([divisor, offset]) => mod(F.p / BigInt(divisor) + BigInt(offset), F.p)
+      ),
+      { size: F.size, there: F.writeBigint, back: F.readBigint }
+    );
+    equiv(
+      { from: [nearlyEqual], to: lazy, scratch: 3 },
+      (a) => mod(BigintField.inverse(a) * F.R * F.R, F.p),
+      ([scratch], out, a) => W.inverse(scratch, out, a),
+      "fast inverse with nearly equal remainders"
+    );
+    equiv(
+      { from: [field], to: field, scratch: 3 },
+      BigintField.inverse,
+      ([scratch], out, a) => W.inverseKaliski(scratch, out, a),
+      "Kaliski reference"
+    );
     equiv(
       { from: [field], to: field, scratch: 3 },
       BigintField.inverse,
