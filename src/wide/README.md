@@ -20,7 +20,7 @@ The scripts require a Node build supporting `--wasm-wide-arithmetic`; measuremen
 
 For `n = ceil(bitLength(p) / 64)` and `R = 2^(64n)`, inputs and outputs are in `[0, 2p)` when `2p < R`, otherwise `[0, p)`. The builder omits multiplication's final reduction when `4p <= R`, omits the extra carry limb when `p + inputLimit <= R`, and specializes zero/one limbs of the modulus. These choices happen during module generation, including for fields larger than 255 bits. Squaring currently specializes the multiplication kernel to load its operand once; it does not yet exploit symmetric cross-products.
 
-50 tests cover all 17 example fields, six moduli bordering the reduction/carry thresholds, and inversion of a composite modulus. Property tests use the existing `Random`, `wasmSpec`, and `createEquivalentWasm` framework with bigint references. They check arithmetic and lazy bounds, aliasing, inversion, batch inversion, exponentiation, negation, raw integer operations, shifts, and little-endian packed bytes. Explicit cases check carry boundaries, whole-limb inversion shifts, zero/nonunit traps, conversions, and repeated squaring.
+68 tests cover all 17 example fields, six moduli bordering the reduction/carry thresholds, and inversion of a composite modulus. Property tests use the existing `Random`, `wasmSpec`, and `createEquivalentWasm` framework with bigint references. They check arithmetic and lazy bounds, aliasing, inversion, batch inversion, exponentiation, negation, raw integer operations, shifts, and little-endian packed bytes. Explicit cases check carry boundaries, whole-limb inversion shifts, zero/nonunit traps, conversions, and repeated squaring.
 
 Benchmarks use dependent chains inside Wasm and the existing single timed run, without extra warmup or sampling. Each wide and production benchmark starts with explicit input writes so preceding benchmarks cannot affect its inputs. The same initial raw field value is used for production and wide arithmetic. The Pallas and BN254 scalar comparisons also include paired and single 51x5; paired timings are per field operation. These are arithmetic microbenchmarks, not MSM measurements.
 
@@ -40,28 +40,22 @@ The `inverseKaliski` reference follows the mainline algorithm, retaining batched
 
 `exp(scratch, out, x, exponent)` needs one disjoint scratch element. The exponent is an ordinary raw integer in the full limb layout. `leftShift(out, x, k)` follows the mainline REDC contract, computing `x * 2^k * R^-1 mod p` for `0 <= k < bitLength(p)`. Packed-byte helpers operate on the raw representation without Montgomery conversion or reduction. `addNoReduce` and `subtractNoReduce` are raw integer operations modulo R; their outputs must satisfy the arithmetic input bound before being passed to multiplication. Existing loose-range curve formulas cannot consume these helpers without checking their intermediate bounds.
 
-Before porting the fast algorithm, inversion comparisons used the mainline dependent chain: one addition followed by one Kaliski inverse, 500,000 iterations, one timed run without added warmup. On the same machine and runtime, the measured times are:
+The default `inverse` ports the batched algorithm in `src/inverse/faster-inverse-wasm.ts`. Each batch accumulates 62 binary steps in a SIMD 2×2 matrix using high/low approximations, then applies the matrix to full-width limbs with signed wide products. Matrix entries fit signed 64-bit values. Negative full remainders are corrected together with the corresponding matrix row.
 
-| Field | Mainline add + inverse | Wide add + inverse | Speedup |
-| --- | ---: | ---: | ---: |
-| Pallas | 5.11 µs | 3.05 µs | 1.67× |
-| BLS12-377 | 10.22 µs | 6.05 µs | 1.69× |
-| BN254 scalar | 5.14 µs | 3.08 µs | 1.67× |
+Inversion coefficients are divided by `2^62` modulo p after each batch. Adding a multiple of p chosen from the low 62 bits makes this division exact; one conditional addition/subtraction restores canonical coefficients. This keeps coefficients bounded for fields close to R as well as fields with unused high bits. A final Montgomery multiplication by `R^3 mod p` converts the raw inverse into the Montgomery inverse. `batchInverse` uses the fast path automatically.
 
-The mainline runner now allocates three scratch elements for Kaliski instead of two. The former allocation overlapped its third scratch element with the input buffer; these inversion numbers use the corrected allocation.
+Main's experimental `fastInverse` previously exported only an almost-inverse core, with a sign-handling TODO. Its legacy benchmark discards the returned correction exponent. The core also gives incorrect results on some boundary inputs, including Pallas `p - 1`. It now has an experimental complete `inverse(scratch, out, input)` entry point that applies the Montgomery correction, verifies the inverse, and falls back to the existing Kaliski implementation if verification fails. It uses three scratch elements and supports output/input aliasing. `fallbackCount` records correctness fallbacks for tests and benchmark reporting. The production field factory currently uses Kaliski.
 
-The default `inverse` now ports the batched algorithm in `src/inverse/faster-inverse-wasm.ts`. Each batch accumulates 62 binary steps in a SIMD 2×2 matrix using the high/low approximations, then applies that matrix to full-width limbs with signed wide products. Matrix entries fit signed 64-bit values. Negative full remainders are corrected together with the corresponding matrix row; the original experimental implementation leaves sign correction as a TODO.
+Inversion comparisons now use `scripts/field-benchmarks/wide-inverse.ts`, called by `benchmark-wide`. Both layouts receive the same array of 256 nonzero raw integers. Every complete implementation is checked against bigint on every fixture before timing, and the runner reports that validation explicitly. Each timed row performs 500,000 inversions by cycling over that immutable array in Wasm. Outputs never become subsequent inputs. There is no addition, benchmark-loop warmup, repeated timing, or median. The existing timing helper APIs are unchanged. The main almost-inverse core is reported separately, with correction/verification omitted.
 
-Inversion coefficients are divided by `2^62` modulo p after each batch. Adding a multiple of p chosen from the low 62 bits makes this division exact; one conditional addition/subtraction then restores canonical coefficients. This keeps coefficients bounded for fields close to R as well as fields with unused high bits. The final coefficient is a complete inverse of the raw input. A single Montgomery multiplication by `R^3 mod p` converts it to the Montgomery inverse. Zero/nonunit behavior, aliasing, and the three/four-element scratch requirements are unchanged. `batchInverse` uses the fast path automatically.
+Measured on the same AMD Ryzen 7 3700X and Node build, pinned to CPU 2:
 
-The same property-test framework now checks inversion at all six carry thresholds, including odd composite moduli; nearly equal remainders; explicit sign-correction regressions; and 10,000 additional uniform cases over Pallas, Goldilocks, secp256k1, BN254 scalar, and BLS12-377.
+| Field | Complete main fast | Complete wide fast | Main Kaliski | Wide Kaliski | Main core only |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Pallas | 3.50 µs | 2.57 µs | 8.38 µs | 4.55 µs | 2.98 µs |
+| BLS12-377 | 4.27 µs | 3.25 µs | 11.01 µs | 6.22 µs | 3.97 µs |
+| BN254 scalar | 2.57 µs | 2.02 µs | 6.84 µs | 3.20 µs | 2.41 µs |
 
-A new run compares the complete fast wide inverse, the previous wide Kaliski inverse, mainline Kaliski, and the existing 29-bit fast almost-inverse core. Each row still measures the addition-plus-inversion chain with one timed run of 500,000 iterations. The last column omits the Montgomery correction and is labelled separately in the runner.
+Main used zero correctness fallbacks on all 256 fixtures and all 500,000 timed calls for each field. Complete wide inversion was approximately 1.36×, 1.31×, and 1.27× faster than the completed main fast implementation in this run. These fixed-input timings replace the earlier comparisons of evolving add-plus-inverse chains. Other CPU-intensive jobs were active on the server; absolute timings remain sensitive to system load. No MSM speedup has been measured.
 
-| Field | Complete fast wide | Wide Kaliski | Mainline Kaliski | Existing fast core only |
-| --- | ---: | ---: | ---: | ---: |
-| Pallas | 2.65 µs | 4.48 µs | 8.12 µs | 3.23 µs |
-| BLS12-377 | 4.25 µs | 8.59 µs | 17.04 µs | 5.33 µs |
-| BN254 scalar | 2.66 µs | 4.48 µs | 8.14 µs | 3.21 µs |
-
-This run was slower overall than the earlier run: Pallas wide multiplication measured 30 ns rather than 19 ns. Compare the inversion implementations within this run; the complete fast wide path is about 1.7–2.0× faster than wide Kaliski and 3.1–4.0× faster than mainline Kaliski. The server had other CPU-intensive tasks running. These timings do not establish an MSM speedup.
+Property tests use the existing framework to check both complete fast implementations across all 17 example fields, lazy inputs, aliases, nearly equal remainders, and the main fallback boundary case. Tests also cover a composite modulus, inversion at six wide carry thresholds, explicit wide sign-correction regressions, and 10,000 additional uniform wide cases.

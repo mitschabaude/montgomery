@@ -44,7 +44,7 @@ async function benchmark(
       `wide: ${F.n} x 64 bits, ${F.lazy ? "lazy [0, 2p)" : "canonical [0, p)"}`
     );
     F.writeBigint(x, initial);
-    const tMulWide = bench("multiply wide", F.Wasm.benchMultiply, { x, N });
+    bench("multiply wide", F.Wasm.benchMultiply, { x, N });
     F.writeBigint(x, initial);
     bench("square wide", F.Wasm.benchSquare, { x, N });
     F.writeBigint(x, initial);
@@ -52,19 +52,6 @@ async function benchmark(
     F.writeBigint(x, initial);
     F.writeBigint(z, 0n);
     bench("sub wide", F.Wasm.benchSubx3, { x, z, N }, 3);
-    const scratch = F.Memory.local.getPointer(F.inverseScratchSize);
-    F.writeBigint(x, initial);
-    F.writeBigint(z, initial);
-    bench2("add + inverse wide", () => F.Wasm.benchInverse(scratch, x, z, Ninv), {
-      N: Ninv,
-      tMul: tMulWide,
-    });
-    F.writeBigint(x, initial);
-    F.writeBigint(z, initial);
-    bench2("add + Kaliski wide", () => F.Wasm.benchInverseKaliski(scratch, x, z, Ninv), {
-      N: Ninv,
-      tMul: tMulWide,
-    });
   }
 
   if (p < 1n << 255n) {
@@ -258,22 +245,6 @@ async function benchmark(
     writeBigint(x, initial);
     writeBigint(y, 0n);
     bench("sub", wasm.benchSub, { x, z: y, N }, 3);
-
-    if (wide) {
-      writeBigint(x, initial);
-      writeBigint(y, initial);
-      bench2("add + inverse montgomery", () => wasm.benchInverse(scratch, x, y, Ninv), {
-        N: Ninv,
-        tMul,
-      });
-      writeBigint(x, initial);
-      writeBigint(y, initial);
-      // Existing fast benchmark measures only the almost-inverse core.
-      bench2("add + fast core 29bit", () => wasm.benchFastAlmostInverse(scratch, x, y, Ninv), {
-        N: Ninv,
-        tMul,
-      });
-    }
 
     if (onlyQuick) continue;
 

@@ -17,12 +17,17 @@ import {
   select,
   memory,
   v128,
+  unreachable,
+  Const,
+  global,
+  br,
   i64x2,
 } from "wasmati";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
 import { type FieldWithMultiply } from "../wasm/multiply-montgomery.ts";
 import { extractBitSlice } from "../wasm/field-helpers.ts";
 import { assert } from "../util.ts";
+import { fieldInverse as kaliskiInverse } from "../wasm/inverse.ts";
 
 export { fastInverse };
 
@@ -364,7 +369,69 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     return i64.or();
   }
 
-  return { almostInverse, getBitLength, makeOdd };
+  // Complete Montgomery inversion: the core returns a*s = 2^k (mod p).
+  // REDC(s * R^3 * 2^-k) gives a^-1 * R^2, the inverse of a
+  // in Montgomery representation. Keep the same three-element scratch layout.
+  let correction = Field.R ** 3n % Field.p;
+  const correctionBytes: number[] = [];
+  for (let k = 0; k <= 2 * n * w; k++) {
+    correctionBytes.push(...Field.bigintToData(correction));
+    correction =
+      (correction & 1n) === 0n
+        ? correction >> 1n
+        : (correction + Field.p) >> 1n;
+  }
+  const correctionPtr = implicitMemory.dataToOffset(correctionBytes);
+  const onePtr = implicitMemory.dataToOffset(
+    Field.bigintToData(Field.R % Field.p)
+  );
+  const fallback = kaliskiInverse(implicitMemory, Field).inverse;
+  // Counts only correctness fallbacks, for transparent benchmark reporting.
+  const fallbackCount = global(Const.i32(0), { mutable: true });
+  const limbs = Array(n).fill(i64) as (typeof i64)[];
+  const inverse = func(
+    { in: [i32, i32, i32], locals: [i32, ...limbs], out: [] },
+    ([scratch, out, input], [k, ...A]) => {
+      // Preserve the canonical input across the core, including out = input.
+      Field.copyInline(scratch, input);
+      call(Field.reduce, [scratch]);
+      call(Field.isZero, [scratch]);
+      if_(null, () => unreachable());
+      for (let j = 0; j < n; j++) local.set(A[j], Field.loadLimb(scratch, j));
+      call(almostInverse, [scratch, out, scratch]);
+      local.set(k, $);
+      block(null, (done) => {
+        block(null, (needsFallback) => {
+          i32.gt_u(k, 2 * n * w);
+          br_if(needsFallback);
+          call(Field.multiply, [
+            out,
+            out,
+            i32.add(correctionPtr, i32.mul(k, Field.size)),
+          ]);
+          for (let j = 0; j < n; j++) Field.storeLimb(scratch, j, A[j]);
+          call(Field.multiply, [scratch, scratch, out]);
+          call(Field.reduce, [scratch]);
+          call(Field.isEqual, [scratch, onePtr]);
+          br_if(done);
+        });
+        // The experimental core has unimplemented sign handling and can
+        // return an incorrect almost inverse. A checked fallback makes the
+        // complete entry point correct without changing the core's API.
+        global.set(fallbackCount, i32.add(fallbackCount, 1));
+        for (let j = 0; j < n; j++) Field.storeLimb(out, j, A[j]);
+        call(fallback, [scratch, out, out]);
+        for (let j = 0; j < n; j++) Field.storeLimb(scratch, j, A[j]);
+        call(Field.multiply, [scratch, scratch, out]);
+        call(Field.reduce, [scratch]);
+        call(Field.isEqual, [scratch, onePtr]);
+        i32.eqz();
+        if_(null, () => unreachable());
+      });
+    }
+  );
+
+  return { almostInverse, inverse, fallbackCount, getBitLength, makeOdd };
 }
 
 function hex(m: bigint) {

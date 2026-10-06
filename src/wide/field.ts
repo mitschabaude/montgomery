@@ -56,25 +56,6 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
       });
     }
   );
-  // Match the existing inversion benchmark: one addition plus one inverse.
-  const benchInverse = func(
-    { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-    ([scratch, x, y, N], [i]) => {
-      forLoop1(i, 0, N, () => {
-        call(ops.add, [x, x, y]);
-        call(ops.inverse, [scratch, y, x]);
-      });
-    }
-  );
-  const benchInverseKaliski = func(
-    { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-    ([scratch, x, y, N], [i]) => {
-      forLoop1(i, 0, N, () => {
-        call(ops.add, [x, x, y]);
-        call(ops.inverseKaliski, [scratch, y, x]);
-      });
-    }
-  );
   const module = Module({
     memory: wasmMemory,
     exports: {
@@ -84,8 +65,6 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
       benchSquare,
       benchAddx3,
       benchSubx3,
-      benchInverse,
-      benchInverseKaliski,
     },
   });
   const { instance } = await module.instantiate();
