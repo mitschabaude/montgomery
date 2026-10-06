@@ -2,7 +2,7 @@ import { assert, mapRange } from "./util.ts";
 import type { WasmFunctions } from "./types.ts";
 import type { FieldWithMultiply } from "./wasm/multiply-montgomery.ts";
 import type { MemoryHelpers } from "./wasm/memory-helpers.ts";
-import { type Func, type Parameters, i32 } from "wasmati";
+import { type Func } from "wasmati";
 
 export { createSqrt };
 
@@ -275,21 +275,6 @@ type WasmField = WasmFunctions<
   "copy" | "add" | "reduce" | "isEqual" | "isZero" | "multiply" | "square"
 > &
   WasmFunctions<{
-    exp: Func<
-      Parameters<
-        [
-          { x: typeof i32 },
-          { z: typeof i32 },
-          { xIn: typeof i32 },
-          { n: typeof i32 },
-        ]
-      >,
-      []
-    >;
-    inverse: Func<
-      Parameters<
-        [{ scratch: typeof i32 }, { r: typeof i32 }, { a: typeof i32 }]
-      >,
-      []
-    >;
+    exp: Func<[{ x: "i32" }, { z: "i32" }, { xIn: "i32" }, { n: "i32" }], []>;
+    inverse: Func<[{ scratch: "i32" }, { r: "i32" }, { a: "i32" }], []>;
   }>;

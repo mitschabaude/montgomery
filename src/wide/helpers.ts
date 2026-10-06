@@ -1,5 +1,4 @@
 import {
-  params,
   localArray,
   $,
   call,
@@ -24,12 +23,9 @@ function helpers(
   mem: ImplicitMemory
 ) {
   const zero = mem.dataToOffset(Array(F.size).fill(0));
-  const negate = func(
-    { in: params({ z: i32 }, { x: i32 }), out: [] },
-    ({ z, x }) => {
-      call(ops.subtract, { z, x: zero, y: x });
-    }
-  );
+  const negate = func({ in: [{ z: i32 }, { x: i32 }], out: [] }, ({ z, x }) => {
+    call(ops.subtract, { z, x: zero, y: x });
+  });
   const bitLength = F.p.toString(2).length;
   const packedSize = Math.ceil(bitLength / 8);
   const powers: number[] = [];
@@ -42,7 +38,7 @@ function helpers(
   // Match the production leftShift contract: raw multiplication by 2^k
   // through REDC, so the result includes R^-1. 0 <= k < bitLength(p).
   const leftShift = func(
-    { in: params({ z: i32 }, { x: i32 }, { k: i32 }), out: [] },
+    { in: [{ z: i32 }, { x: i32 }, { k: i32 }], out: [] },
     ({ z, x, k }) => {
       i32.ge_u(k, bitLength);
       if_(null, () => unreachable());
@@ -53,7 +49,7 @@ function helpers(
   // The exponent uses the ordinary little-endian 64-bit limb representation.
   const exp = func(
     {
-      in: params({ scratch: i32 }, { z: i32 }, { x: i32 }, { exponent: i32 }),
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { exponent: i32 }],
       locals: { j: i32, ni: i64, mask: i64, E: localArray(i64, F.n) },
       out: [],
     },
@@ -81,7 +77,7 @@ function helpers(
   // the production Wasm helpers. The input must fit in packedSize bytes.
   const toPackedBytes = func(
     {
-      in: params({ bytes: i32 }, { x: i32 }),
+      in: [{ bytes: i32 }, { x: i32 }],
       locals: { X: localArray(i64, F.n) },
       out: [],
     },
@@ -98,7 +94,7 @@ function helpers(
   );
   const fromPackedBytes = func(
     {
-      in: params({ x: i32 }, { bytes: i32 }),
+      in: [{ x: i32 }, { bytes: i32 }],
       locals: { X: localArray(i64, F.n) },
       out: [],
     },

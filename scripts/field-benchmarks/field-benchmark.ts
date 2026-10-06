@@ -1,13 +1,4 @@
-import {
-  params,
-  Const,
-  Module,
-  call,
-  func,
-  global,
-  i32,
-  memory,
-} from "wasmati";
+import { Const, Module, call, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../../src/testing/tictoc.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { memoryHelpers } from "../../src/wasm/memory-helpers.ts";
@@ -111,7 +102,7 @@ async function benchmark(
     };
 
     const benchAdd = func(
-      { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+      { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
       ({ x, N }, { i }) => {
         forLoop1(i, 0, N, () => {
           for (let i = 0; i < 3; i++) {
@@ -123,7 +114,7 @@ async function benchmark(
 
     const benchSub = func(
       {
-        in: params({ x: i32 }, { z: i32 }, { N: i32 }),
+        in: [{ x: i32 }, { z: i32 }, { N: i32 }],
         locals: { i: i32 },
         out: [],
       },

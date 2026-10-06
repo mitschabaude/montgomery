@@ -1,13 +1,4 @@
-import {
-  params,
-  localArray,
-  $,
-  func,
-  i32,
-  i64,
-  local,
-  type Local,
-} from "wasmati";
+import { localArray, $, func, i32, i64, local, type Local } from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 
 export { multiplyMontgomery };
@@ -90,7 +81,7 @@ function multiplyMontgomery(F: FieldBase) {
 
   const multiply = func(
     {
-      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
       locals: {
         carry: i64,
         q: i64,
@@ -109,7 +100,7 @@ function multiplyMontgomery(F: FieldBase) {
   // Same CIOS algorithm, specialized to load the input only once.
   const square = func(
     {
-      in: params({ z: i32 }, { x: i32 }),
+      in: [{ z: i32 }, { x: i32 }],
       locals: {
         carry: i64,
         q: i64,

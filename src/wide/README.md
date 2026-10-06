@@ -10,7 +10,7 @@ npm run benchmark-wide
 npm run benchmark-wide -- bn254-scalar
 ```
 
-The scripts require a Node build supporting `--wasm-wide-arithmetic`; measurements below use Node `v27.0.0-nightly20261006fcfb7ecc0b`. The dependency is published wasmati `0.3.0`.
+The scripts require a Node build supporting `--wasm-wide-arithmetic`; measurements below use Node `v27.0.0-nightly20261006fcfb7ecc0b`. The dependency is published wasmati `0.3.2`.
 
 `Field.create(p)` in `field.ts` builds a modulus-specific module. `Wasm` contains the pointer operations; `Memory.local.getPointers()` allocates field elements. `fromBigint()` and `toBigint()` convert between ordinary bigints and Montgomery representation. `writeBigint()` and `readBigint()` access the raw limb representation. Single-element arithmetic allows its output to alias an input. Raw equality and zero checks compare stored representations; use `reduce()` first for modular equality.
 

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {
-  params,
   Module,
   call,
   drop,
@@ -8,7 +7,6 @@ import {
   i32,
   memory,
   type Func,
-  type Parameters,
   type Dependency,
 } from "wasmati";
 import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.ts";
@@ -28,13 +26,11 @@ import { tic, toc } from "../../src/testing/tictoc.ts";
 export { benchmarkInverses };
 
 type Inverse = Func<
-  Parameters<
-    [
-      { [name: string]: typeof i32 },
-      { [name: string]: typeof i32 },
-      { [name: string]: typeof i32 },
-    ]
-  >,
+  [
+    { [name: string]: "i32" },
+    { [name: string]: "i32" },
+    { [name: string]: "i32" },
+  ],
   []
 >;
 
@@ -138,12 +134,7 @@ async function build<const Extra extends Record<string, Dependency.Export>>(
   const loop = (operation: Inverse) =>
     func(
       {
-        in: params(
-          { scratch: i32 },
-          { output: i32 },
-          { inputs: i32 },
-          { N: i32 }
-        ),
+        in: [{ scratch: i32 }, { output: i32 }, { inputs: i32 }, { N: i32 }],
         locals: { i: i32 },
         out: [],
       },
@@ -223,12 +214,7 @@ async function createMain(p: bigint) {
   // Make a separate core benchmark over exactly the same sample sequence.
   const benchCore = func(
     {
-      in: params(
-        { scratch: i32 },
-        { output: i32 },
-        { inputs: i32 },
-        { N: i32 }
-      ),
+      in: [{ scratch: i32 }, { output: i32 }, { inputs: i32 }, { N: i32 }],
       locals: { i: i32 },
       out: [],
     },

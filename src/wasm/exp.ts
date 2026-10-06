@@ -1,5 +1,5 @@
 import type { Func } from "wasmati";
-import { params, call, func, i32, if_, local } from "wasmati";
+import { call, func, i32, if_, local } from "wasmati";
 import { mod } from "../bigint/field-util.ts";
 import { forLoop1 } from "./wasm-util.ts";
 import { type FieldWithMultiply } from "./multiply-montgomery.ts";
@@ -21,7 +21,7 @@ function fieldExp(Field: FieldWithMultiply) {
    */
   const exp = func(
     {
-      in: params({ x: i32 }, { z: i32 }, { xIn: i32 }, { n: i32 }),
+      in: [{ x: i32 }, { z: i32 }, { xIn: i32 }, { n: i32 }],
       locals: { j: i32, ni: i32 },
       out: [],
     },

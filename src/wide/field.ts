@@ -1,4 +1,4 @@
-import { params, Module, call, func, i32, memory } from "wasmati";
+import { Module, call, func, i32, memory } from "wasmati";
 import { mod } from "../bigint/field-util.ts";
 import { inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
@@ -25,7 +25,7 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
     ...helpers(F, baseOps, implicitMemory),
   };
   const benchMultiply = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(ops.multiply, { z: x, x, y: x });
@@ -33,7 +33,7 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
     }
   );
   const benchSquare = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         call(ops.square, { z: x, x });
@@ -41,7 +41,7 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
     }
   );
   const benchAddx3 = func(
-    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
     ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         for (let j = 0; j < 3; j++) call(ops.add, { z: x, x, y: x });
@@ -50,7 +50,7 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
   );
   const benchSubx3 = func(
     {
-      in: params({ x: i32 }, { z: i32 }, { N: i32 }),
+      in: [{ x: i32 }, { z: i32 }, { N: i32 }],
       locals: { i: i32 },
       out: [],
     },

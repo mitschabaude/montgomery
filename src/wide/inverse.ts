@@ -1,5 +1,4 @@
 import {
-  params,
   $,
   block,
   br,
@@ -50,7 +49,7 @@ function fieldInverse(
   // u /= 2^k, s *= 2^k. Kaliski's invariants ensure s*2^k <= p.
   const makeOdd = func(
     {
-      in: params({ u: i32 }, { s: i32 }),
+      in: [{ u: i32 }, { s: i32 }],
       locals: { k: i64, l: i64, tmp: i64, total: i32 },
       out: [i32],
     },
@@ -112,7 +111,7 @@ function fieldInverse(
   // unless it is also the output. Zero/noninvertible input traps.
   const inverseKaliski = func(
     {
-      in: params({ scratch: i32 }, { r: i32 }, { a: i32 }),
+      in: [{ scratch: i32 }, { r: i32 }, { a: i32 }],
       locals: { v: i32, s: i32, k: i32 },
       out: [],
     },
@@ -176,7 +175,7 @@ function fieldInverse(
   // not overlap input: output is used for prefix products before inversion.
   const batchInverse = func(
     {
-      in: params({ scratch: i32 }, { z: i32 }, { x: i32 }, { count: i32 }),
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { count: i32 }],
       locals: { i: i32, inv: i32 },
       out: [],
     },

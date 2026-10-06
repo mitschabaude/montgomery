@@ -10,8 +10,6 @@
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
 import {
-  type Parameters,
-  params,
   localArray,
   $,
   call,
@@ -49,18 +47,9 @@ import { assert } from "../util.ts";
 export { Multiply, multiplySingle };
 
 type Multiply = {
-  multiply: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
-  multiplyNoFma: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
-  multiplySingle: Func<
-    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-    []
-  >;
+  multiply: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+  multiplyNoFma: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+  multiplySingle: Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
 };
 
 let zInitial = new BigInt64Array(11);
@@ -122,7 +111,7 @@ function Multiply(
   // original version that turned out to be slower
   let multiply2 = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }], // pointers to z, x, y, where z = x * y
       out: [],
       locals: {
         xi: v128,
@@ -227,7 +216,7 @@ function Multiply(
    */
   let multiply = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }], // pointers to z, x, y, where z = x * y
       out: [],
       locals: {
         tmp: v128,
@@ -328,7 +317,7 @@ function Multiply(
   // still, might be better if there was f64.relaxed_madd in Wasm
   let multiplySingleFma = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }], // pointers to z, x, y, where z = x * y
       out: [],
       locals: {
         tmp: v128,
@@ -459,7 +448,7 @@ function Multiply(
    */
   let multiplySingleSlow = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }], // pointers to z, x, y, where z = x * y
       out: [],
       locals: {
         l128: v128,
@@ -638,7 +627,7 @@ function Multiply(
 
   let multiplyNoFma = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
       out: [],
     },
     ({ xy, x, y }) => {
@@ -665,7 +654,7 @@ function Multiply(
   // slow, probably because there is no actual i64x2.mul supported by Intel
   let multiplyNoFmaSimd = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
       locals: {
         tmp: v128,
         qi: v128,
@@ -761,7 +750,7 @@ function Multiply(
    */
   let multiplyNoFmaSlow = func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }], // pointers to z, x, y, where z = x * y
       out: [],
       locals: {
         tmp: v128,
@@ -861,10 +850,7 @@ function Multiply(
 function multiplySingle(
   p: bigint,
   layout: FieldLayout
-): Func<
-  Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
-  []
-> {
+): Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []> {
   let { limbGap, limbOffset } = FieldLayout(layout);
 
   let PI = bigintToInt51Limbs(p);
@@ -874,7 +860,7 @@ function multiplySingle(
 
   return func(
     {
-      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
       locals: {
         tmp: i64,
         qi: i64,
@@ -1009,10 +995,10 @@ function swap64x2(z: Local<v128>) {
 
 // debugging helpers, currently unused
 let log = (...args: any) => console.log("wasm", ...args);
-let logI64 = importFunc({ in: params({ i: i32 }, { x: i64 }), out: [] }, log);
-let logF64 = importFunc({ in: params({ i: i32 }, { x: f64 }), out: [] }, log);
+let logI64 = importFunc({ in: [{ i: i32 }, { x: i64 }], out: [] }, log);
+let logF64 = importFunc({ in: [{ i: i32 }, { x: f64 }], out: [] }, log);
 let logF64x2_0 = func(
-  { in: params({ i: i32 }, { x: v128 }), out: [] },
+  { in: [{ i: i32 }, { x: v128 }], out: [] },
   ({ i, x }) => {
     local.get(x);
     f64x2.extract_lane(0);
@@ -1020,7 +1006,7 @@ let logF64x2_0 = func(
   }
 );
 let logI64x2_0 = func(
-  { in: params({ i: i32 }, { x: v128 }), out: [] },
+  { in: [{ i: i32 }, { x: v128 }], out: [] },
   ({ i, x }) => {
     local.get(x);
     i64x2.extract_lane(0);

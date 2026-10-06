@@ -1,5 +1,4 @@
 import {
-  params,
   localArray,
   $,
   block,
@@ -47,7 +46,7 @@ function fastInverse(
     )
   );
   const bitLength = func(
-    { in: params({ x: i32 }), locals: { xi: i64 }, out: [i32] },
+    { in: [{ x: i32 }], locals: { xi: i64 }, out: [i32] },
     ({ x }, { xi }) => {
       for (let j = F.n - 1; j >= 0; j--) {
         local.set(xi, F.loadLimb(x, j));
@@ -62,7 +61,7 @@ function fastInverse(
   );
   const highBits = func(
     {
-      in: params({ x: i32 }, { length: i32 }),
+      in: [{ x: i32 }, { length: i32 }],
       locals: { start: i32, shift: i64, hi: i64 },
       out: [i64],
     },
@@ -160,14 +159,14 @@ function fastInverse(
   }
   const updateCoefficients = func(
     {
-      in: params(
+      in: [
         { r: i32 },
         { s: i32 },
         { f0: i64 },
         { g0: i64 },
         { f1: i64 },
-        { g1: i64 }
-      ),
+        { g1: i64 },
+      ],
       locals: {
         rj: i64,
         sj: i64,
@@ -214,7 +213,7 @@ function fastInverse(
   );
   const inverse = func(
     {
-      in: params({ v: i32 }, { s: i32 }, { a: i32 }),
+      in: [{ v: i32 }, { s: i32 }, { a: i32 }],
       locals: {
         u: i32,
         r: i32,
