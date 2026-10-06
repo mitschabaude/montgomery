@@ -1,4 +1,13 @@
-import { Const, Module, call, func, global, i32, memory } from "wasmati";
+import {
+  Const,
+  Module,
+  call,
+  func,
+  global,
+  i32,
+  memory,
+  type Local,
+} from "wasmati";
 import { tic, toc } from "../../src/testing/tictoc.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { memoryHelpers } from "../../src/wasm/memory-helpers.ts";
@@ -23,7 +32,9 @@ import {
 } from "../../src/util.ts";
 import { randomGenerators } from "../../src/bigint/field-random.ts";
 import { createWasmWithBenches } from "../../src/51x5/field.ts";
-import { createWasm as createWide } from "../../src/wide/field.ts";
+import { createField as createWideField } from "../../src/wide/field-base.ts";
+import { arithmetic as wideArithmetic } from "../../src/wide/arithmetic.ts";
+import { multiplyMontgomery as wideMultiply } from "../../src/wide/multiply.ts";
 
 export { benchmark };
 
@@ -38,20 +49,19 @@ async function benchmark(
   let Npow = 5e4;
 
   if (wide) {
-    const F = await createWide(p);
-    const [x, z] = F.Memory.local.getPointers(2);
+    const { F, W, x, z, write } = await createWideBenches(p);
     console.log(
       `wide: ${F.n} x 64 bits, ${F.lazy ? "lazy [0, 2p)" : "canonical [0, p)"}`
     );
-    F.writeBigint(x, initial);
-    bench("multiply wide", F.Wasm.benchMultiply, { x, N });
-    F.writeBigint(x, initial);
-    bench("square wide", F.Wasm.benchSquare, { x, N });
-    F.writeBigint(x, initial);
-    bench("add wide", F.Wasm.benchAddx3, { x, N }, 3);
-    F.writeBigint(x, initial);
-    F.writeBigint(z, 0n);
-    bench("sub wide", F.Wasm.benchSubx3, { x, z, N }, 3);
+    write(x, initial);
+    bench("multiply wide", W.multiply, { x, z, N });
+    write(x, initial);
+    bench("square wide", W.square, { x, z, N });
+    write(x, initial);
+    bench("add wide", W.add, { x, z, N }, 3);
+    write(x, initial);
+    write(z, 0n);
+    bench("sub wide", W.subtract, { x, z, N }, 3);
   }
 
   if (p < 1n << 255n) {
@@ -334,4 +344,37 @@ function bench2(
     ).toFixed(0)}ns`
   );
   console.log();
+}
+
+// Dependent chains of wide arithmetic, x <- op(x, x) (or z <- z - x), in Wasm.
+async function createWideBenches(p: bigint) {
+  const F = createWideField(p);
+  const wasmMemory = memory({ min: 1 });
+  const ops = { ...wideArithmetic(F), ...wideMultiply(F) };
+  const loop = (op: (x: Local<i32>, z: Local<i32>) => void) =>
+    func(
+      { in: [{ x: i32 }, { z: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
+      ({ x, z, N }, { i }) => forLoop1(i, 0, N, () => op(x, z))
+    );
+  const module = Module({
+    memory: wasmMemory,
+    exports: {
+      memory: wasmMemory,
+      multiply: loop((x) => call(ops.multiply, { xy: x, x, y: x })),
+      square: loop((x) => call(ops.square, { xy: x, x })),
+      add: loop((x) => {
+        for (let j = 0; j < 3; j++) call(ops.add, { out: x, x, y: x });
+      }),
+      subtract: loop((x, z) => {
+        for (let j = 0; j < 3; j++) call(ops.subtract, { out: z, x: z, y: x });
+      }),
+    },
+  });
+  const W = (await module.instantiate()).instance.exports;
+  const view = new DataView(W.memory.buffer);
+  function write(ptr: number, value: bigint) {
+    for (let i = 0; i < F.n; i++, value >>= 64n)
+      view.setBigUint64(ptr + 8 * i, BigInt.asUintN(64, value), true);
+  }
+  return { F, W, x: 0, z: F.size, write };
 }

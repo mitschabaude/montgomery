@@ -1,14 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  Module,
-  call,
-  drop,
-  func,
-  i32,
-  memory,
-  type Func,
-  type Dependency,
-} from "wasmati";
+import { Module, call, func, i32, memory, type Func } from "wasmati";
 import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { fieldInverse as kaliskiInverse } from "../../src/wasm/inverse.ts";
@@ -25,14 +16,7 @@ import { tic, toc } from "../../src/testing/tictoc.ts";
 
 export { benchmarkInverses };
 
-type Inverse = Func<
-  [
-    { [name: string]: "i32" },
-    { [name: string]: "i32" },
-    { [name: string]: "i32" },
-  ],
-  []
->;
+type Inverse = Func<[{ scratch: "i32" }, { r: "i32" }, { a: "i32" }], []>;
 
 // Each timed iteration reads the same immutable sample sequence for every
 // implementation. No addition, evolving output/input chain, warmup, or sampling.
@@ -67,14 +51,10 @@ async function benchmarkInverses(p: bigint, { wide = true } = {}) {
       }
     }
   }
-  const fixtureFallbacks = main.fallbackCount.value as number;
   console.log(
     `complete ${
       wide ? "main/wide" : "main"
     } inverses: ${sampleCount} shared immutable nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
-  );
-  console.log(
-    `main fast fixture fallbacks: ${fixtureFallbacks}/${sampleCount}`
   );
   for (const [name, F, run] of [
     ["inverse main fast", main, main.benches.fast],
@@ -92,7 +72,6 @@ async function benchmarkInverses(p: bigint, { wide = true } = {}) {
         ]
       : []),
   ] as const) {
-    const before = main.fallbackCount.value as number;
     tic();
     run(F.scratch, F.output, F.inputs, N);
     const elapsed = toc();
@@ -105,30 +84,16 @@ async function benchmarkInverses(p: bigint, { wide = true } = {}) {
       );
     });
     console.log(`${name.padEnd(23)} ${((elapsed * 1e6) / N).toFixed(0)} ns`);
-    if (F === main && name === "inverse main fast")
-      console.log(
-        `main fast timed fallbacks: ${
-          (main.fallbackCount.value as number) - before
-        }/${N}`
-      );
   }
-  tic();
-  main.core(main.scratch, main.output, main.inputs, N);
-  console.log(
-    `${"almost-inverse main core".padEnd(23)} ${((toc() * 1e6) / N).toFixed(
-      0
-    )} ns (excludes correction/verification)`
-  );
 }
 
-async function build<const Extra extends Record<string, Dependency.Export>>(
+async function build(
   p: bigint,
   w: number,
   n: number,
   R: bigint,
   mem: ImplicitMemory,
-  inverses: { fast: Inverse; kaliski: Inverse },
-  extras: Extra
+  inverses: { fast: Inverse; kaliski: Inverse }
 ) {
   const size = n * (w === 64 ? 8 : 4);
   const loop = (operation: Inverse) =>
@@ -140,18 +105,11 @@ async function build<const Extra extends Record<string, Dependency.Export>>(
       },
       ({ scratch, output, inputs, N }, { i }) => {
         forLoop1(i, 0, N, () => {
-          // Map the common ABI to each inverse's named signature during generation.
-          const values = [
+          call(operation, {
             scratch,
-            output,
-            i32.add(inputs, i32.mul(i32.and(i, 255), size)),
-          ];
-          call(
-            operation,
-            Object.fromEntries(
-              operation.params.names.map((name, j) => [name, values[j]])
-            )
-          );
+            r: output,
+            a: i32.add(inputs, i32.mul(i32.and(i, 255), size)),
+          });
         });
       }
     );
@@ -160,7 +118,6 @@ async function build<const Extra extends Record<string, Dependency.Export>>(
     exports: {
       ...mem.getExports(),
       ...inverses,
-      ...extras,
       benchFast: loop(inverses.fast),
       benchKaliski: loop(inverses.kaliski),
     },
@@ -210,39 +167,10 @@ async function createMain(p: bigint) {
     ...FieldWithArithmetic(p, w, n),
     ...multiplyMontgomery(p, w, n, { countMultiplications: false }),
   };
-  const fast = fastInverse(mem, F);
-  // Make a separate core benchmark over exactly the same sample sequence.
-  const benchCore = func(
-    {
-      in: [{ scratch: i32 }, { output: i32 }, { inputs: i32 }, { N: i32 }],
-      locals: { i: i32 },
-      out: [],
-    },
-    ({ scratch, output, inputs, N }, { i }) => {
-      forLoop1(i, 0, N, () => {
-        call(fast.almostInverse, {
-          v: scratch,
-          s: output,
-          a: i32.add(inputs, i32.mul(i32.and(i, 255), F.size)),
-        });
-        drop();
-      });
-    }
-  );
-  const Fbench = await build(
-    p,
-    w,
-    n,
-    F.R,
-    mem,
-    { fast: fast.inverse, kaliski: kaliskiInverse(mem, F).inverse },
-    { core: benchCore, fallbackCount: fast.fallbackCount }
-  );
-  return {
-    ...Fbench,
-    core: Fbench.W.core,
-    fallbackCount: Fbench.W.fallbackCount,
-  };
+  return build(p, w, n, F.R, mem, {
+    fast: fastInverse(mem, F).inverse,
+    kaliski: kaliskiInverse(mem, F).inverse,
+  });
 }
 
 async function createWide(p: bigint) {
@@ -250,13 +178,8 @@ async function createWide(p: bigint) {
   const mem = new ImplicitMemory(memory({ min: 100 }));
   const ops = { ...arithmetic(F), ...wideMultiply(F) };
   const I = wideInverse(F, ops, mem);
-  return build(
-    p,
-    64,
-    F.n,
-    F.R,
-    mem,
-    { fast: I.inverse, kaliski: I.inverseKaliski },
-    {}
-  );
+  return build(p, 64, F.n, F.R, mem, {
+    fast: I.inverse,
+    kaliski: I.inverseKaliski,
+  });
 }

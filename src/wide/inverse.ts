@@ -118,11 +118,11 @@ function fieldInverse(
     ({ scratch, r, a }, { v, s, k }) => {
       local.set(v, i32.add(scratch, size));
       local.set(s, i32.add(scratch, 2 * size));
-      call(ops.copy, { z: v, x: a });
+      call(ops.copy, { x: v, y: a });
       call(ops.reduce, { x: v });
       call(ops.isZero, { x: v });
       if_(null, () => unreachable());
-      call(ops.copy, { z: scratch, x: pPtr });
+      call(ops.copy, { x: scratch, y: pPtr });
       for (let i = 0; i < n; i++) {
         F.storeLimb(r, i, 0n);
         F.storeLimb(s, i, i === 0 ? 1n : 0n);
@@ -135,14 +135,14 @@ function fieldInverse(
           if_(
             null,
             () => {
-              call(ops.subtractNoReduce, { z: scratch, x: scratch, y: v });
-              call(ops.addNoReduce, { z: r, x: r, y: s });
+              call(ops.subtractNoReduce, { out: scratch, x: scratch, y: v });
+              call(ops.addNoReduce, { out: r, x: r, y: s });
               call(makeOdd, { u: scratch, s });
               local.set(k, i32.add($, k));
             },
             () => {
-              call(ops.subtractNoReduce, { z: v, x: v, y: scratch });
-              call(ops.addNoReduce, { z: s, x: s, y: r });
+              call(ops.subtractNoReduce, { out: v, x: v, y: scratch });
+              call(ops.addNoReduce, { out: s, x: s, y: r });
               call(ops.isZero, { x: v });
               br_if(done);
               call(makeOdd, { u: v, s: r });
@@ -160,9 +160,9 @@ function fieldInverse(
         i32.or();
       }
       if_(null, () => unreachable());
-      call(ops.subtractNoReduce, { z: r, x: pPtr, y: r });
+      call(ops.subtractNoReduce, { out: r, x: pPtr, y: r });
       call(ops.multiply, {
-        z: r,
+        xy: r,
         x: r,
         y: i32.add(correctionPtr, i32.mul(k, size)),
       });
@@ -175,45 +175,45 @@ function fieldInverse(
   // not overlap input: output is used for prefix products before inversion.
   const batchInverse = func(
     {
-      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { count: i32 }],
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
       locals: { i: i32, inv: i32 },
       out: [],
     },
-    ({ scratch, z, x, count }, { i, inv }) => {
-      i32.eqz(count);
+    ({ scratch, z, x, $n }, { i, inv }) => {
+      i32.eqz($n);
       if_(null, () => return_());
       local.set(inv, scratch);
       local.set(scratch, i32.add(scratch, size));
-      i32.eq(count, 1);
+      i32.eq($n, 1);
       if_(null, () => {
-        call(inverse, { v: scratch, s: z, a: x });
+        call(inverse, { scratch, r: z, a: x });
         return_();
       });
-      call(ops.copy, { z, x });
-      forLoop1(i, 1, count, () => {
+      call(ops.copy, { x: z, y: x });
+      forLoop1(i, 1, $n, () => {
         call(ops.multiply, {
-          z: i32.add(z, i32.mul(i, size)),
+          xy: i32.add(z, i32.mul(i, size)),
           x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
           y: i32.add(x, i32.mul(i, size)),
         });
       });
       call(inverse, {
-        v: scratch,
-        s: inv,
-        a: i32.add(z, i32.mul(i32.sub(count, 1), size)),
+        scratch,
+        r: inv,
+        a: i32.add(z, i32.mul(i32.sub($n, 1), size)),
       });
       block(null, (done) => {
-        local.set(i, i32.sub(count, 1));
+        local.set(i, i32.sub($n, 1));
         loop(null, (again) => {
           i32.eqz(i);
           br_if(done);
           call(ops.multiply, {
-            z: i32.add(z, i32.mul(i, size)),
+            xy: i32.add(z, i32.mul(i, size)),
             x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
             y: inv,
           });
           call(ops.multiply, {
-            z: inv,
+            xy: inv,
             x: inv,
             y: i32.add(x, i32.mul(i, size)),
           });
@@ -221,7 +221,7 @@ function fieldInverse(
           br(again);
         });
       });
-      call(ops.copy, { z, x: inv });
+      call(ops.copy, { x: z, y: inv });
     }
   );
   return { inverse, inverseKaliski, batchInverse };

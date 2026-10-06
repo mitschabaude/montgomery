@@ -12,7 +12,7 @@ function multiplyMontgomery(F: FieldBase) {
   // exactly in 128 bits: (B-1)^2 + (B-1) + (B-1) = B^2-1, B = 2^64.
   // Combining two full-width products into one accumulator would need 129 bits.
   function kernel(
-    z: Local<i32>,
+    xy: Local<i32>,
     X: Local<i64>[],
     Y: Local<i64>[],
     T: Local<i64>[],
@@ -63,7 +63,6 @@ function multiplyMontgomery(F: FieldBase) {
       }
       if (noOverflow) {
         local.set(T[F.n - 1], i64.add(T[F.n], carry));
-        local.set(T[F.n], 0n);
       } else {
         i64.add128(T[F.n], T[F.n + 1], carry, 0n);
         local.set(T[F.n], $);
@@ -74,14 +73,14 @@ function multiplyMontgomery(F: FieldBase) {
     // T < 2p already, so no final comparison or subtraction is needed.
     // Otherwise T < 3p (lazy) or < 2p (canonical); one subtraction suffices.
     if (!F.lazy || 4n * F.p > F.R) {
-      F.reduceLocals(T.slice(0, F.n), T[F.n], carry, F.Limit);
+      F.reduceLocals(T.slice(0, F.n), noOverflow ? 0n : T[F.n], carry, F.Limit);
     }
-    F.store(z, T.slice(0, F.n));
+    F.store(xy, T.slice(0, F.n));
   }
 
   const multiply = func(
     {
-      in: [{ z: i32 }, { x: i32 }, { y: i32 }],
+      in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
       locals: {
         carry: i64,
         q: i64,
@@ -91,16 +90,16 @@ function multiplyMontgomery(F: FieldBase) {
       },
       out: [],
     },
-    ({ z, x, y }, { carry, q, X, Y, T }) => {
+    ({ xy, x, y }, { carry, q, X, Y, T }) => {
       F.load(X, x);
       F.load(Y, y);
-      kernel(z, X, Y, T, carry, q);
+      kernel(xy, X, Y, T, carry, q);
     }
   );
   // Same CIOS algorithm, specialized to load the input only once.
   const square = func(
     {
-      in: [{ z: i32 }, { x: i32 }],
+      in: [{ xy: i32 }, { x: i32 }],
       locals: {
         carry: i64,
         q: i64,
@@ -109,9 +108,9 @@ function multiplyMontgomery(F: FieldBase) {
       },
       out: [],
     },
-    ({ z, x }, { carry, q, X, T }) => {
+    ({ xy, x }, { carry, q, X, T }) => {
       F.load(X, x);
-      kernel(z, X, X, T, carry, q);
+      kernel(xy, X, X, T, carry, q);
     }
   );
   return { multiply, square };

@@ -1,9 +1,9 @@
-import { Module, call, func, i32, memory } from "wasmati";
+import { Module, memory } from "wasmati";
 import { mod } from "../bigint/field-util.ts";
 import { inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
 import { MemorySection } from "../wasm/memory-helpers.ts";
-import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
+import { ImplicitMemory } from "../wasm/wasm-util.ts";
 import { createField, mask64 } from "./field-base.ts";
 import { arithmetic } from "./arithmetic.ts";
 import { multiplyMontgomery } from "./multiply.ts";
@@ -24,52 +24,9 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
     ...fieldInverse(F, baseOps, implicitMemory),
     ...helpers(F, baseOps, implicitMemory),
   };
-  const benchMultiply = func(
-    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
-    ({ x, N }, { i }) => {
-      forLoop1(i, 0, N, () => {
-        call(ops.multiply, { z: x, x, y: x });
-      });
-    }
-  );
-  const benchSquare = func(
-    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
-    ({ x, N }, { i }) => {
-      forLoop1(i, 0, N, () => {
-        call(ops.square, { z: x, x });
-      });
-    }
-  );
-  const benchAddx3 = func(
-    { in: [{ x: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
-    ({ x, N }, { i }) => {
-      forLoop1(i, 0, N, () => {
-        for (let j = 0; j < 3; j++) call(ops.add, { z: x, x, y: x });
-      });
-    }
-  );
-  const benchSubx3 = func(
-    {
-      in: [{ x: i32 }, { z: i32 }, { N: i32 }],
-      locals: { i: i32 },
-      out: [],
-    },
-    ({ x, z, N }, { i }) => {
-      forLoop1(i, 0, N, () => {
-        for (let j = 0; j < 3; j++) call(ops.subtract, { z, x: z, y: x });
-      });
-    }
-  );
   const module = Module({
     memory: wasmMemory,
-    exports: {
-      ...ops,
-      memory: wasmMemory,
-      benchMultiply,
-      benchSquare,
-      benchAddx3,
-      benchSubx3,
-    },
+    exports: { ...ops, memory: wasmMemory },
   });
   const { instance } = await module.instantiate();
   const Wasm = instance.exports;
@@ -118,13 +75,11 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
 
   return {
     p,
-    modulus: p,
     n: F.n,
     w: 64,
     R: F.R,
     limit: F.limit,
     lazy: F.lazy,
-    size: F.size,
     sizeField: F.size,
     packedSizeField: Math.ceil(p.toString(2).length / 8),
     inverseScratchSize: 3 * F.size,

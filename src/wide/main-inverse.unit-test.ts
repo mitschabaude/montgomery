@@ -19,7 +19,7 @@ for (const [label, B] of [
     { p: 15n, inverse: (a: bigint) => bigintInverse(a, 15n) },
   ] as const,
 ]) {
-  test(`complete main fast inverse: ${label}`, async () => {
+  test(`main fast inverse: ${label}`, async () => {
     const w = 29;
     const n = Math.max(2, montgomeryParams(B.p, w).n);
     const mem = new ImplicitMemory(memory({ min: 100 }));
@@ -27,9 +27,9 @@ for (const [label, B] of [
       ...FieldWithArithmetic(B.p, w, n),
       ...multiplyMontgomery(B.p, w, n, { countMultiplications: false }),
     };
-    const { inverse, fallbackCount } = fastInverse(mem, F);
+    const { inverse } = fastInverse(mem, F);
     const module = Module({
-      exports: { ...mem.getExports(), inverse, fallbackCount },
+      exports: { ...mem.getExports(), inverse },
     });
     const W = (await module.instantiate()).instance.exports;
     const H = memoryHelpers(B.p, w, n, W);
@@ -54,18 +54,16 @@ for (const [label, B] of [
       },
       "inverse in place"
     );
-    // Main's experimental core fails this boundary input without fallback.
+    // Boundary input that needs a negative remainder correction.
     if (label === "pastaFp") {
       const [a, out] = H.local.getPointers(2);
       const scratch = H.local.getPointer(3 * F.size);
       H.writeBigint(a, B.p - 1n);
-      const before = W.fallbackCount.value as number;
       W.inverse(scratch, out, a);
       assert.equal(
         mod(H.readBigint(out), B.p),
         mod(B.inverse(B.p - 1n) * F.R * F.R, B.p)
       );
-      assert.equal(W.fallbackCount.value, before + 1);
     }
     const nearlyEqual = wasmSpec(
       H,

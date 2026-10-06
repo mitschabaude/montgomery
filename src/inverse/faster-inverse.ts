@@ -1,6 +1,7 @@
 import { Module, memory } from "wasmati";
 import { Pallas } from "../concrete/pasta.ts";
 import { mod } from "../bigint/field-util.ts";
+import { inverse as inverseMod } from "../bigint/field.ts";
 import { assert, log2 } from "../util.ts";
 import { ImplicitMemory } from "../wasm/wasm-util.ts";
 import { fastInverse } from "./faster-inverse-wasm.ts";
@@ -48,47 +49,34 @@ assert(length === 117);
 
 for (let i = 0; i < N; i++) {
   let x0 = randomField();
-  // x0 =
-  //   3644898569073079219285804017037847737335778255461247493887823044200058407990n;
-  // x0 = (1n << 254n) + 1n;
-  // console.log({ x0 });
 
-  let [s0, k0, signFlip] = almostInverse(x0, p, BigInt(w), n);
+  let [s0, signFlip] = inverse(x0, p, BigInt(w), n);
   signFlips += Number(signFlip);
-
-  assert(k0 + 1 >= b && k0 <= 2 * n * w, "k bounds");
-  assert(s0 < p, "s < p");
-  assert(mod(x0 * s0 - (1n << BigInt(k0)), p) === 0n, "almost inverse");
+  assert(mod(x0 * s0, p) === 1n, "inverse");
 
   wasm.writeBigint(x, x0);
-  let k1 = wasm.almostInverse(scratch[0], s, x);
-  let s1 = wasm.readBigint(s);
+  wasm.inverse(scratch[0], s, x);
+  let s1 = mod(wasm.readBigint(s), p);
 
-  if (verbose) console.log({ i, k0, k1, s0, s1 });
+  if (verbose) console.log({ i, s0, s1 });
 
-  assert(k0 === k1, "equal number of iterations");
-  assert(s0 === s1, "equal results");
+  assert(s1 === mod(s0 * Field0.R * Field0.R, p), "equal results");
 }
 
 console.log(`${(signFlips / N) * 100}% flips`);
 
-function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
+function inverse(a: bigint, p: bigint, w: bigint, n: number) {
   let u = p;
   let v = a;
   let r = 0n;
   let s = 1n;
-  let k = 0n;
   let signFlip = false;
+  let wInv = mod(inverseMod(1n << w, p), p);
 
-  for (let i = 0; i < 2 * n; i++) {
+  for (let i = 0; ; i++) {
     let ulen = log2(u);
     let vlen = log2(v);
-    if (verbose) console.log({ i, ulen, vlen, rlen: log2(r), slen: log2(s) });
-    // console.log({ i, u, v, r, s });
-    // console.log({
-    //   s0: hex(s & Field0.wordMax),
-    //   s1: hex((s >> w) & Field0.wordMax),
-    // });
+    if (verbose) console.log({ i, ulen, vlen });
     let [f0, g0] = [1n, 0n];
     let [f1, g1] = [0n, 1n];
 
@@ -96,6 +84,7 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
     let vlo = v & ((1n << w) - 1n);
 
     let shift = BigInt(Math.max(ulen, vlen)) - hiBits;
+    if (shift < 0n) shift = 0n;
 
     let uhi = u >> shift;
     let vhi = v >> shift;
@@ -129,11 +118,8 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
           g0 <<= 1n;
         }
       }
-      k++;
     }
-
-    assert(k === BigInt(i + 1) * w);
-    assert(f0 <= 1n << w);
+    assert(f0 + g0 <= 1n << w && f1 + g1 <= 1n << w);
 
     let unew = u * f0 - v * g0;
     let vnew = v * g1 - u * f1;
@@ -152,31 +138,23 @@ function almostInverse(a: bigint, p: bigint, w: bigint, n: number) {
       signFlip = true;
       [v, f1, g1] = [-v, -f1, -g1];
     }
-    let rnew = r * f0 + s * g0;
-    let snew = r * f1 + s * g1;
-    [r, s] = [rnew, snew];
+    // coefficients are divided by 2^w mod p, so a*r = u and a*s = v (mod p)
+    [r, s] = [
+      mod((r * f0 - s * g0) * wInv, p),
+      mod((s * g1 - r * f1) * wInv, p),
+    ];
 
-    let lin = v * r + u * s;
-    assert(lin === p || lin === -p, "linear combination");
-    assert(mod(a * r + u * 2n ** k, p) === 0n, "mod p, r");
-    assert(mod(a * s - v * 2n ** k, p) === 0n, "mod p, s");
+    assert(mod(a * r - u, p) === 0n, "mod p, r");
+    assert(mod(a * s - v, p) === 0n, "mod p, s");
 
     if (u === 0n) break;
-    if (v === 0n) throw Error("v = 0");
+    if (v === 0n) {
+      [s, v] = [r, u];
+      break;
+    }
   }
-
-  if (verbose) console.log({ u, v, rlen: log2(r), slen: log2(s) });
-  // second case can only happen when sign flips and by chance v becomes 0
-  // return [u === 0n ? s : mod(-r, p), k, signFlip] as const;
-
-  // remove unnecessary low 0 bits in s
-  let i = 0;
-  while (i < w && (s & 1n) === 0n) {
-    s >>= 1n;
-    k--;
-    i++;
-  }
-  return [s, Number(k), signFlip] as const;
+  assert(v === 1n, "gcd");
+  return [s, signFlip] as const;
 }
 
 function hex(m: bigint) {

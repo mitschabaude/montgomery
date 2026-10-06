@@ -48,7 +48,7 @@ for (const label of [
       maxRuns: 2000,
     });
     const raw = wasmSpec(F.Memory, Random.uniformField(F.limit), {
-      size: F.size,
+      size: F.sizeField,
       there: F.writeBigint,
       back(ptr) {
         const value = F.readBigint(ptr);

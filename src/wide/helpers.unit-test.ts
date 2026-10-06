@@ -12,23 +12,23 @@ import { Spec } from "../testing/equivalent.ts";
 import { mod } from "../bigint/field-util.ts";
 
 for (const [label, BigintField] of Object.entries(exampleFields)) {
-  test(`wide curve operations: ${label}`, async () => {
+  test(`wide inversion and helpers: ${label}`, async () => {
     const F = await Field.create(BigintField.p);
     const W = F.Wasm;
     const equiv = createEquivalentWasm(F.Memory);
     const field = wasmSpec(F.Memory, Random.field(F.p), {
-      size: F.size,
+      size: F.sizeField,
       there: F.fromBigint,
       back: F.toBigint,
     });
     const raw = wasmSpec(F.Memory, Random.uniformField(F.R), {
-      size: F.size,
+      size: F.sizeField,
       there: F.writeBigint,
       back: F.readBigint,
     });
     equiv({ from: [field], to: field }, BigintField.negate, W.negate, "negate");
     const lazy = wasmSpec(F.Memory, Random.uniformField(F.limit), {
-      size: F.size,
+      size: F.sizeField,
       there: F.writeBigint,
       back(ptr) {
         const value = F.readBigint(ptr);
@@ -66,7 +66,7 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
         Random.tuple([Random.int(2, 7), Random.int(-25, 25)]),
         ([divisor, offset]) => mod(F.p / BigInt(divisor) + BigInt(offset), F.p)
       ),
-      { size: F.size, there: F.writeBigint, back: F.readBigint }
+      { size: F.sizeField, there: F.writeBigint, back: F.readBigint }
     );
     equiv(
       { from: [nearlyEqual], to: lazy, scratch: 3 },
@@ -126,7 +126,7 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
       "leftShift"
     );
     const packedInput = wasmSpec(F.Memory, Random.field(F.p), {
-      size: F.size,
+      size: F.sizeField,
       there: F.writeBigint,
       back: F.readBigint,
     });
@@ -184,14 +184,14 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
         Random.nat(20)
       ),
       {
-        size: 20 * F.size,
+        size: 20 * F.sizeField,
         there(ptr, xs) {
           count = xs.length;
-          xs.forEach((x, i) => F.fromBigint(ptr + i * F.size, x));
+          xs.forEach((x, i) => F.fromBigint(ptr + i * F.sizeField, x));
         },
         back(ptr) {
           return Array.from({ length: count }, (_, i) =>
-            F.toBigint(ptr + i * F.size)
+            F.toBigint(ptr + i * F.sizeField)
           );
         },
       }
@@ -202,7 +202,7 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
       ([scratch], out, x) => W.batchInverse(scratch, out, x, count),
       "batch inverse"
     );
-    const [scratch] = F.Memory.local.getPointers(1, 4 * F.size);
+    const [scratch] = F.Memory.local.getPointers(1, 4 * F.sizeField);
     const [zero, out] = F.Memory.local.getPointers(2);
     // Exercise whole-limb shifts in makeOdd, including a shift that ends odd.
     for (let bit = 64; bit < 64 * F.n; bit += 64) {

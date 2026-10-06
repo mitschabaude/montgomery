@@ -211,9 +211,10 @@ function fastInverse(
       F.store(s, Y);
     }
   );
+  // The output parameter r holds the coefficient s; local r is the other one.
   const inverse = func(
     {
-      in: [{ v: i32 }, { s: i32 }, { a: i32 }],
+      in: [{ scratch: i32 }, { r: i32 }, { a: i32 }],
       locals: {
         u: i32,
         r: i32,
@@ -243,7 +244,7 @@ function fastInverse(
       out: [],
     },
     (
-      { v, s, a },
+      { scratch: v, r: s, a },
       {
         u,
         r,
@@ -273,7 +274,7 @@ function fastInverse(
     ) => {
       local.set(u, i32.add(v, F.size));
       local.set(r, i32.add(v, 2 * F.size));
-      call(ops.copy, { z: v, x: a });
+      call(ops.copy, { x: v, y: a });
       call(ops.reduce, { x: v });
       call(ops.isZero, { x: v });
       if_(null, () => unreachable());
@@ -374,8 +375,8 @@ function fastInverse(
           br_if(done);
           call(ops.isZero, { x: v });
           if_(null, () => {
-            call(ops.copy, { z: s, x: r });
-            call(ops.copy, { z: v, x: u });
+            call(ops.copy, { x: s, y: r });
+            call(ops.copy, { x: v, y: u });
             br(done);
           });
           br(again);
@@ -387,7 +388,7 @@ function fastInverse(
         i32.or();
       }
       if_(null, () => unreachable());
-      call(ops.multiply, { z: s, x: s, y: correctionPtr });
+      call(ops.multiply, { xy: s, x: s, y: correctionPtr });
     }
   );
   return inverse;

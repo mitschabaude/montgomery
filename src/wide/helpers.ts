@@ -23,9 +23,12 @@ function helpers(
   mem: ImplicitMemory
 ) {
   const zero = mem.dataToOffset(Array(F.size).fill(0));
-  const negate = func({ in: [{ z: i32 }, { x: i32 }], out: [] }, ({ z, x }) => {
-    call(ops.subtract, { z, x: zero, y: x });
-  });
+  const negate = func(
+    { in: [{ out: i32 }, { x: i32 }], out: [] },
+    ({ out, x }) => {
+      call(ops.subtract, { out, x: zero, y: x });
+    }
+  );
   const bitLength = F.p.toString(2).length;
   const packedSize = Math.ceil(bitLength / 8);
   const powers: number[] = [];
@@ -38,24 +41,29 @@ function helpers(
   // Match the production leftShift contract: raw multiplication by 2^k
   // through REDC, so the result includes R^-1. 0 <= k < bitLength(p).
   const leftShift = func(
-    { in: [{ z: i32 }, { x: i32 }, { k: i32 }], out: [] },
-    ({ z, x, k }) => {
+    { in: [{ xy: i32 }, { y: i32 }, { k: i32 }], out: [] },
+    ({ xy, y, k }) => {
       i32.ge_u(k, bitLength);
       if_(null, () => unreachable());
-      call(ops.multiply, { z, x, y: i32.add(powersPtr, i32.mul(k, F.size)) });
+      call(ops.multiply, {
+        xy,
+        x: y,
+        y: i32.add(powersPtr, i32.mul(k, F.size)),
+      });
     }
   );
-  // One scratch element, disjoint from all inputs/output. Output may alias x.
+  // z = xIn^n. x is one scratch element, disjoint from all inputs/output.
+  // Output may alias xIn.
   // The exponent uses the ordinary little-endian 64-bit limb representation.
   const exp = func(
     {
-      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { exponent: i32 }],
+      in: [{ x: i32 }, { z: i32 }, { xIn: i32 }, { n: i32 }],
       locals: { j: i32, ni: i64, mask: i64, E: localArray(i64, F.n) },
       out: [],
     },
-    ({ scratch, z, x, exponent }, { j, ni, mask, E }) => {
-      F.load(E, exponent);
-      call(ops.copy, { z: scratch, x });
+    ({ x, z, xIn, n }, { j, ni, mask, E }) => {
+      F.load(E, n);
+      call(ops.copy, { x, y: xIn });
       const one = F.R % F.p;
       for (let i = 0; i < F.n; i++)
         F.storeLimb(z, i, BigInt.asIntN(64, one >> BigInt(64 * i)));
@@ -63,10 +71,10 @@ function helpers(
         local.set(ni, E[i]);
         local.set(mask, -(1n << 63n));
         forLoop1(j, 0, 64, () => {
-          call(ops.square, { z, x: z });
+          call(ops.square, { xy: z, x: z });
           i64.ne(i64.and(ni, mask), 0n);
           if_(null, () => {
-            call(ops.multiply, { z, x: z, y: scratch });
+            call(ops.multiply, { xy: z, x: z, y: x });
           });
           local.set(mask, i64.shr_u(mask, 1n));
         });

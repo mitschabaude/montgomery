@@ -34,7 +34,7 @@ for (const [label, p] of cases) {
     const pairs = values.flatMap((a) => values.map((b) => [a, b]));
     const equiv = createEquivalentWasm(F.Memory);
     const raw = wasmSpec(F.Memory, Random.uniformField(F.limit), {
-      size: F.size,
+      size: F.sizeField,
       there: F.writeBigint,
       back(ptr) {
         const value = F.readBigint(ptr);
