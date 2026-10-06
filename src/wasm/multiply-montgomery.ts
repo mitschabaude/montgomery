@@ -1,11 +1,13 @@
 import type * as W from "wasmati";
 import {
+  type Parameters,
+  params,
+  localArray,
   $,
   Const,
   type Input,
   type Local,
   type Func,
-  type Type,
   call,
   func,
   global,
@@ -22,9 +24,15 @@ import { FieldWithArithmetic } from "./field-arithmetic.ts";
 export { multiplyMontgomery, type FieldWithMultiply };
 
 type FieldMultiplications = {
-  multiply: Func<[i32, i32, i32], []>;
-  square: Func<[i32, i32], []>;
-  leftShift: Func<[i32, i32, i32], []>;
+  multiply: Func<
+    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
+    []
+  >;
+  square: Func<Parameters<[{ xy: typeof i32 }, { x: typeof i32 }]>, []>;
+  leftShift: Func<
+    Parameters<[{ xy: typeof i32 }, { y: typeof i32 }, { k: typeof i32 }]>,
+    []
+  >;
 };
 type FieldWithMultiply = FieldWithArithmetic & FieldMultiplications;
 
@@ -49,22 +57,24 @@ function multiplyMontgomery(
 
   const multiplyCount = global(Const.i32(0), { mutable: true });
 
-  const resetMultiplyCount = func({ in: [], locals: [], out: [] }, () => {
+  const resetMultiplyCount = func({ in: params(), locals: {}, out: [] }, () => {
     global.set(multiplyCount, 0);
   });
 
-  let nLocals = Array<Type<i64>>(n).fill(i64);
-
   const multiply = func(
     {
-      in: [i32, i32, i32],
-      locals: [i64, i64, i64, i32, ...nLocals, ...nLocals],
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      locals: {
+        tmp: i64,
+        qi: i64,
+        xi: i64,
+        i: i32,
+        Y: localArray(i64, n),
+        XY: localArray(i64, n),
+      },
       out: [],
     },
-    ([xy, x, y], [tmp, qi, xi, i, ...rest]) => {
-      let Y = rest.slice(0, n);
-      let XY = rest.slice(n, 2 * n);
-
+    ({ xy, x, y }, { tmp, qi, xi, i, Y, XY }) => {
       if (countMultiplications) {
         global.set(multiplyCount, i32.add(multiplyCount, 1));
       }
@@ -136,11 +146,17 @@ function multiplyMontgomery(
   );
 
   const square = func(
-    { in: [i32, i32], locals: [i64, i64, ...nLocals, ...nLocals], out: [] },
-    ([xy, x], [tmp, qi, ...rest]) => {
-      let X = rest.slice(0, n);
-      let XY = rest.slice(n, 2 * n);
-
+    {
+      in: params({ xy: i32 }, { x: i32 }),
+      locals: {
+        tmp: i64,
+        qi: i64,
+        X: localArray(i64, n),
+        XY: localArray(i64, n),
+      },
+      out: [],
+    },
+    ({ xy, x }, { tmp, qi, X, XY }) => {
       if (countMultiplications) {
         global.set(multiplyCount, i32.add(multiplyCount, 1));
       }
@@ -223,14 +239,20 @@ function multiplyMontgomery(
   // of flexible reduction by 2^(w*n-k % n))
   const leftShift = func(
     {
-      in: [i32, i32, i32],
-      locals: [i64, i64, i64, i32, i32, i32, ...nLocals, ...nLocals],
+      in: params({ xy: i32 }, { y: i32 }, { k: i32 }),
+      locals: {
+        tmp: i64,
+        qi: i64,
+        xi: i64,
+        i: i32,
+        i0: i32,
+        xi0: i32,
+        Y: localArray(i64, n),
+        XY: localArray(i64, n),
+      },
       out: [],
     },
-    ([xy, y, k], [tmp, qi, xi, i, i0, xi0, ...rest]) => {
-      let Y = rest.slice(0, n);
-      let XY = rest.slice(n, 2 * n);
-
+    ({ xy, y, k }, { tmp, qi, xi, i, i0, xi0, Y, XY }) => {
       // load y from memory into locals
       Field.load(y, Y);
 
@@ -296,18 +318,18 @@ function multiplyMontgomery(
   );
 
   const benchMultiply = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(multiply, [x, x, x]);
+        call(multiply, { xy: x, x, y: x });
       });
     }
   );
   const benchSquare = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(square, [x, x]);
+        call(square, { xy: x, x });
       });
     }
   );

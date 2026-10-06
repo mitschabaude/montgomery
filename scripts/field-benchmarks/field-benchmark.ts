@@ -1,4 +1,14 @@
-import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
+import {
+  params,
+  Const,
+  Module,
+  call,
+  drop,
+  func,
+  global,
+  i32,
+  memory,
+} from "wasmati";
 import { tic, toc } from "../../src/testing/tictoc.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { memoryHelpers } from "../../src/wasm/memory-helpers.ts";
@@ -83,11 +93,11 @@ async function benchmark(
     };
 
     const benchAdd = func(
-      { in: [i32, i32], locals: [i32], out: [] },
-      ([x, N], [i]) => {
+      { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+      ({ x, N }, { i }) => {
         forLoop1(i, 0, N, () => {
           for (let i = 0; i < 3; i++) {
-            call(Field.add, [x, x, x]);
+            call(Field.add, { out: x, x, y: x });
           }
         });
       }
@@ -98,13 +108,17 @@ async function benchmark(
     let { inverse } = fieldInverse(implicitMemory, Field);
 
     const benchInverse = func(
-      { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-      ([scratch, x, y, N], [i]) => {
+      {
+        in: params({ scratch: i32 }, { x: i32 }, { y: i32 }, { N: i32 }),
+        locals: { i: i32 },
+        out: [],
+      },
+      ({ scratch, x, y, N }, { i }) => {
         forLoop1(i, 0, N, () => {
           // x <- x + y
-          call(Field.add, [x, x, y]);
+          call(Field.add, { out: x, x, y });
           // y <- 1/x
-          call(inverse, [scratch, y, x]);
+          call(inverse, { scratch, r: y, a: x });
         });
       }
     );
@@ -112,13 +126,17 @@ async function benchmark(
     let { almostInverse } = fastInverse(implicitMemory, Field);
 
     const benchFastAlmostInverse = func(
-      { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-      ([scratch, x, y, N], [i]) => {
+      {
+        in: params({ scratch: i32 }, { x: i32 }, { y: i32 }, { N: i32 }),
+        locals: { i: i32 },
+        out: [],
+      },
+      ({ scratch, x, y, N }, { i }) => {
         forLoop1(i, 0, N, () => {
           // x <- x + y
-          call(Field.add, [x, x, y]);
+          call(Field.add, { out: x, x, y });
           // y <- 1/x
-          call(almostInverse, [scratch, y, x]);
+          call(almostInverse, { v: scratch, s: y, a: x });
           drop();
         });
       }

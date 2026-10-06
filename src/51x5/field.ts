@@ -1,4 +1,4 @@
-import { call, func, i32, importMemory, Module } from "wasmati";
+import { params, call, func, i32, importMemory, Module } from "wasmati";
 import { type MemoryHelpers, memoryHelpers } from "../wasm/memory-helpers.ts";
 import { type Tuple } from "../types.ts";
 import { c52, c52n, float51ToInt64, mask51 } from "./common.ts";
@@ -308,49 +308,53 @@ async function createWasmWithBenches(p: bigint) {
   });
 
   const benchMultiply = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(multiply, [x, x, x]);
+        call(multiply, { xy: x, x, y: x });
       });
     }
   );
   const benchMultiplyNoFma = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(multiplyNoFma, [x, x, x]);
+        call(multiplyNoFma, { xy: x, x, y: x });
       });
     }
   );
 
   const benchMultiplySingle = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(multiplySingle, [x, x, x]);
+        call(multiplySingle, { xy: x, x, y: x });
       });
     }
   );
 
   const benchAddx3 = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         for (let i = 0; i < 3; i++) {
-          call(FieldSingle.add, [x, x, x]);
+          call(FieldSingle.add, { z: x, x, y: x });
         }
       });
     }
   );
 
   const benchSubx3 = func(
-    { in: [i32, i32, i32], locals: [i32], out: [] },
-    ([x, z, N], [i]) => {
+    {
+      in: params({ x: i32 }, { z: i32 }, { N: i32 }),
+      locals: { i: i32 },
+      out: [],
+    },
+    ({ x, z, N }, { i }) => {
       F.setZero(z);
       forLoop1(i, 0, N, () => {
         for (let i = 0; i < 3; i++) {
-          call(FieldSingle.sub, [z, z, x]);
+          call(FieldSingle.sub, { z, x: z, y: x });
         }
       });
     }

@@ -1,4 +1,5 @@
 import {
+  params,
   i32,
   i64,
   local,
@@ -68,7 +69,7 @@ const FieldPair = {
     }
   },
   copyInline,
-  copy: func({ in: [i32, i32], out: [] }, ([x, y]) => {
+  copy: func({ in: params({ x: i32 }, { y: i32 }), out: [] }, ({ x, y }) => {
     copyInline(x, y);
   }),
   forEach,

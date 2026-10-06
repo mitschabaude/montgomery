@@ -15,6 +15,7 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
+      - run: npx tsc --noEmit
       - run: npm test
       - run: node doc/zprize23/submission-test.ts
       - run: node doc/zprize23/submission-test-bls377.ts
