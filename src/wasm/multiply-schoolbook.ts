@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import { $, type Type, call, func, i32, i64, local } from "wasmati";
+import { params, localArray, $, call, func, i32, i64, local } from "wasmati";
 import { forLoop1, forLoop4 } from "./wasm-util.ts";
 
 export { multiplySchoolbook };
@@ -7,18 +7,20 @@ export { multiplySchoolbook };
 function multiplySchoolbook(p: bigint, w: number, n: number) {
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
-  let nLocals = Array<Type<i64>>(n).fill(i64);
 
   const multiply = func(
     {
-      in: [i32, i32, i32],
-      locals: [i64, i64, i32, ...nLocals, ...nLocals],
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      locals: {
+        tmp: i64,
+        xi: i64,
+        i: i32,
+        Y: localArray(i64, n),
+        XY: localArray(i64, n),
+      },
       out: [],
     },
-    ([xy, x, y], [tmp, xi, i, ...rest]) => {
-      let Y = rest.slice(0, n);
-      let XY = rest.slice(n, 2 * n);
-
+    ({ xy, x, y }, { tmp, xi, i, Y, XY }) => {
       // load y into locals
       for (let i = 0; i < n; i++) {
         i32.load({ offset: i * 4 }, y);
@@ -71,10 +73,10 @@ function multiplySchoolbook(p: bigint, w: number, n: number) {
   );
 
   const benchMultiply = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(multiply, [x, x, x]);
+        call(multiply, { xy: x, x, y: x });
       });
     }
   );

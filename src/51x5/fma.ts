@@ -10,6 +10,9 @@
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
 import {
+  type Parameters,
+  params,
+  localArray,
   $,
   call,
   f64,
@@ -24,7 +27,6 @@ import {
   type Global,
   type Func,
   type Local,
-  type Type,
   type Input,
 } from "wasmati";
 import { inverse } from "../bigint/field.ts";
@@ -47,9 +49,18 @@ import { assert } from "../util.ts";
 export { Multiply, multiplySingle };
 
 type Multiply = {
-  multiply: Func<["i32", "i32", "i32"], []>;
-  multiplyNoFma: Func<["i32", "i32", "i32"], []>;
-  multiplySingle: Func<["i32", "i32", "i32"], []>;
+  multiply: Func<
+    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
+    []
+  >;
+  multiplyNoFma: Func<
+    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
+    []
+  >;
+  multiplySingle: Func<
+    Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
+    []
+  >;
 };
 
 let zInitial = new BigInt64Array(11);
@@ -61,10 +72,6 @@ for (let i = 0; i < 10; i++) {
 
 let mask26 = (1n << 26n) - 1n;
 let mask25 = (1n << 25n) - 1n;
-
-let localsI64 = (n: number) => Array<Type<i64>>(n).fill(i64);
-let localsF64 = (n: number) => Array<Type<f64>>(n).fill(f64);
-let localsV128 = (n: number) => Array<Type<v128>>(n).fill(v128);
 
 type MultiplyOptions = {
   /**
@@ -115,24 +122,22 @@ function Multiply(
   // original version that turned out to be slower
   let multiply2 = func(
     {
-      in: [i32, i32, i32], // pointers to z, x, y, where z = x * y
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
       out: [],
-      locals: [
-        v128,
-        v128,
-        v128,
-        v128,
-        v128,
-        v128,
-        v128,
-        i32,
-        ...localsV128(5 + 5),
-      ],
+      locals: {
+        xi: v128,
+        qi: v128,
+        hi1: v128,
+        hi2: v128,
+        lo1: v128,
+        lo2: v128,
+        carry: v128,
+        idx: i32,
+        Y: localArray(v128, 5),
+        Z: localArray(v128, 5),
+      },
     },
-    ([z, x, y], [xi, qi, hi1, hi2, lo1, lo2, carry, idx, ...rest]) => {
-      let Y = rest.slice(0, 5);
-      let Z = rest.slice(5, 10);
-
+    ({ xy: z, x, y }, { xi, qi, hi1, hi2, lo1, lo2, carry, idx, Y, Z }) => {
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         local.set(Y[i], v128.load({ offset: i * 16 }, y));
@@ -222,15 +227,17 @@ function Multiply(
    */
   let multiply = func(
     {
-      in: [i32, i32, i32], // pointers to z, x, y, where z = x * y
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
       out: [],
-      locals: [v128, i32, ...localsV128(5 + 5 + 6)],
+      locals: {
+        tmp: v128,
+        idx: i32,
+        Y: localArray(v128, 5),
+        LH: localArray(v128, 5),
+        Z: localArray(v128, 6),
+      },
     },
-    ([z, x, y], [tmp, idx, ...rest]) => {
-      let Y = rest.slice(0, 5);
-      let LH = rest.slice(5, 10);
-      let Z = rest.slice(10, 16);
-
+    ({ xy: z, x, y }, { tmp, idx, Y, LH, Z }) => {
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         v128.load({ offset: i * 16 }, y);
@@ -321,15 +328,16 @@ function Multiply(
   // still, might be better if there was f64.relaxed_madd in Wasm
   let multiplySingleFma = func(
     {
-      in: [i32, i32, i32], // pointers to z, x, y, where z = x * y
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
       out: [],
-      locals: [v128, ...localsV128(5), ...localsF64(5), ...localsI64(6)],
+      locals: {
+        tmp: v128,
+        Y: localArray(v128, 5),
+        LH: localArray(f64, 5),
+        Z: localArray(i64, 6),
+      },
     },
-    ([z, x, y], [tmp, ...rest]) => {
-      let Y = rest.slice(0, 5) as Local<v128>[];
-      let LH = rest.slice(5, 10) as Local<f64>[];
-      let Z = rest.slice(10, 16) as Local<i64>[];
-
+    ({ xy: z, x, y }, { tmp, Y, LH, Z }) => {
       // load y from memory into locals, convert to f64
       for (let i = 0; i < 5; i++) {
         i64.load({ offset: i * 8 }, y);
@@ -451,16 +459,17 @@ function Multiply(
    */
   let multiplySingleSlow = func(
     {
-      in: [i32, i32, i32], // pointers to z, x, y, where z = x * y
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
       out: [],
-      locals: [v128, ...localsV128(3 + 3 + 3), ...localsI64(5)],
+      locals: {
+        l128: v128,
+        Y: localArray(v128, 3),
+        LH: localArray(v128, 3),
+        Z: localArray(v128, 3),
+        Z5: localArray(i64, 5),
+      },
     },
-    ([z, x, y], [l128, ...rest]) => {
-      let Y = rest.slice(0, 3) as Local<v128>[];
-      let LH = rest.slice(3, 6) as Local<v128>[];
-      let Z = rest.slice(6, 9) as Local<v128>[];
-      let Z5 = rest.slice(9, 14) as Local<i64>[];
-
+    ({ xy: z, x, y }, { l128, Y, LH, Z, Z5 }) => {
       let layout = [
         [0, 3],
         [1, 4],
@@ -629,12 +638,12 @@ function Multiply(
 
   let multiplyNoFma = func(
     {
-      in: [i32, i32, i32],
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
       out: [],
     },
-    ([xy, x, y]) => {
-      call(multiplyNoFma0, [xy, x, y]);
-      call(multiplyNoFma1, [xy, x, y]);
+    ({ xy, x, y }) => {
+      call(multiplyNoFma0, { xy, x, y });
+      call(multiplyNoFma1, { xy, x, y });
     }
   );
 
@@ -656,14 +665,18 @@ function Multiply(
   // slow, probably because there is no actual i64x2.mul supported by Intel
   let multiplyNoFmaSimd = func(
     {
-      in: [i32, i32, i32],
-      locals: [v128, v128, v128, v128, ...localsV128(10 + 9)],
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      locals: {
+        tmp: v128,
+        qi: v128,
+        xix2: v128,
+        xi: v128,
+        Y: localArray(v128, 10),
+        Z: localArray(v128, 9),
+      },
       out: [],
     },
-    ([xy, x, y], [tmp, qi, xix2, xi, ...rest]) => {
-      let Y = rest.slice(0, 10);
-      let Z = rest.slice(10, 19);
-
+    ({ xy, x, y }, { tmp, qi, xix2, xi, Y, Z }) => {
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         local.set(xi, v128.load({ offset: i * 16 }, y));
@@ -748,15 +761,19 @@ function Multiply(
    */
   let multiplyNoFmaSlow = func(
     {
-      in: [i32, i32, i32], // pointers to z, x, y, where z = x * y
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }), // pointers to z, x, y, where z = x * y
       out: [],
-      locals: [v128, i32, v128, v128, ...localsV128(5 + 5 + 5), v128],
+      locals: {
+        tmp: v128,
+        idx: i32,
+        xiLo: v128,
+        xiHi: v128,
+        Ylo: localArray(v128, 5),
+        Yhi: localArray(v128, 5),
+        Z: localArray(v128, 6),
+      },
     },
-    ([z, x, y], [tmp, idx, xiLo, xiHi, ...rest]) => {
-      let Ylo = rest.slice(0, 5);
-      let Yhi = rest.slice(5, 10);
-      let Z = rest.slice(10, 16);
-
+    ({ xy: z, x, y }, { tmp, idx, xiLo, xiHi, Ylo, Yhi, Z }) => {
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         local.set(tmp, v128.load({ offset: i * 16 }, y));
@@ -844,7 +861,10 @@ function Multiply(
 function multiplySingle(
   p: bigint,
   layout: FieldLayout
-): Func<["i32", "i32", "i32"], []> {
+): Func<
+  Parameters<[{ xy: typeof i32 }, { x: typeof i32 }, { y: typeof i32 }]>,
+  []
+> {
   let { limbGap, limbOffset } = FieldLayout(layout);
 
   let PI = bigintToInt51Limbs(p);
@@ -854,14 +874,18 @@ function multiplySingle(
 
   return func(
     {
-      in: [i32, i32, i32],
-      locals: [i64, i64, i64, i64, ...localsI64(10 + 9)],
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      locals: {
+        tmp: i64,
+        qi: i64,
+        xix2: i64,
+        xi: i64,
+        Y: localArray(i64, 10),
+        Z: localArray(i64, 9),
+      },
       out: [],
     },
-    ([xy, x, y], [tmp, qi, xix2, xi, ...rest]) => {
-      let Y = rest.slice(0, 10);
-      let Z = rest.slice(10, 19);
-
+    ({ xy, x, y }, { tmp, qi, xix2, xi, Y, Z }) => {
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         local.set(xi, i64.load({ offset: i * limbGap + limbOffset }, y));
@@ -985,15 +1009,21 @@ function swap64x2(z: Local<v128>) {
 
 // debugging helpers, currently unused
 let log = (...args: any) => console.log("wasm", ...args);
-let logI64 = importFunc({ in: [i32, i64], out: [] }, log);
-let logF64 = importFunc({ in: [i32, f64], out: [] }, log);
-let logF64x2_0 = func({ in: [i32, v128], out: [] }, ([i, x]) => {
-  local.get(x);
-  f64x2.extract_lane(0);
-  call(logF64, [i, $]);
-});
-let logI64x2_0 = func({ in: [i32, v128], out: [] }, ([i, x]) => {
-  local.get(x);
-  i64x2.extract_lane(0);
-  call(logI64, [i, $]);
-});
+let logI64 = importFunc({ in: params({ i: i32 }, { x: i64 }), out: [] }, log);
+let logF64 = importFunc({ in: params({ i: i32 }, { x: f64 }), out: [] }, log);
+let logF64x2_0 = func(
+  { in: params({ i: i32 }, { x: v128 }), out: [] },
+  ({ i, x }) => {
+    local.get(x);
+    f64x2.extract_lane(0);
+    call(logF64, { i, x: $ });
+  }
+);
+let logI64x2_0 = func(
+  { in: params({ i: i32 }, { x: v128 }), out: [] },
+  ({ i, x }) => {
+    local.get(x);
+    i64x2.extract_lane(0);
+    call(logI64, { i, x: $ });
+  }
+);

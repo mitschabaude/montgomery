@@ -9,7 +9,7 @@
  * Reference code:
  * https://github.com/yrrid/submission-wasm-twisted-edwards (see FP51.java and FieldPair.c)
  */
-import { f64, f64x2, func, Module } from "wasmati";
+import { params, f64, f64x2, func, Module } from "wasmati";
 import { pallasParams } from "../concrete/pasta.params.ts";
 import { createField, inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
@@ -48,13 +48,16 @@ export {
 
 // bigint mul using float madd instruction
 
-const maddWasm = func({ in: [f64, f64, f64], out: [f64] }, ([x, y, z]) => {
-  f64x2.splat(x);
-  f64x2.splat(y);
-  f64x2.splat(z);
-  f64x2.relaxed_madd();
-  f64x2.extract_lane(0);
-});
+const maddWasm = func(
+  { in: params({ x: f64 }, { y: f64 }, { z: f64 }), out: [f64] },
+  ({ x, y, z }) => {
+    f64x2.splat(x);
+    f64x2.splat(y);
+    f64x2.splat(z);
+    f64x2.relaxed_madd();
+    f64x2.extract_lane(0);
+  }
+);
 let module = Module({ exports: { madd: maddWasm } });
 let { instance } = await module.instantiate();
 let madd: (x: number, y: number, z: number) => number = instance.exports.madd;

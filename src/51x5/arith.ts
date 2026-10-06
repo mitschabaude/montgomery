@@ -3,6 +3,7 @@
  */
 // import type * as W from "wasmati";
 import {
+  params,
   $,
   block,
   br_if,
@@ -196,8 +197,8 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
    * if (x > p) x -= p
    */
   const fullyReduce = func(
-    { in: [i32], locals: [i64], out: [] },
-    ([x], [xi]) => {
+    { in: params({ x: i32 }), locals: { xi: i64 }, out: [] },
+    ({ x }, { xi }) => {
       fullyReduceLane(0, x, xi);
       fullyReduceLane(1, x, xi);
     }

@@ -1,5 +1,16 @@
 import type * as W from "wasmati";
-import { $, type Type, call, func, i32, i64, i64x2, local, v128 } from "wasmati";
+import {
+  params,
+  localArray,
+  $,
+  call,
+  func,
+  i32,
+  i64,
+  i64x2,
+  local,
+  v128,
+} from "wasmati";
 import { forLoop1, forLoop4 } from "../wasm-util.ts";
 import { type Local } from "wasmati";
 
@@ -22,27 +33,26 @@ function multiplySchoolbook(p: bigint, w: number, n: number) {
   let lastIndices = nIsEven ? [] : [n - 1];
   console.log({ n, lastIndices, vIndices });
 
-  let nLocals = Array<Type<i64>>(n).fill(i64);
-
-  let startLocals = [i64, i64];
-  let vLocals = vIndices.map(() => v128);
-  let lastLocal = lastIndices.map(() => i64);
-  let allLocals = [...startLocals, ...vLocals, ...lastLocal];
-
   const multiply = func(
     {
-      in: [i32, i32, i32],
-      locals: [i64, v128, i64, v128, i32, ...allLocals, ...nLocals],
+      in: params({ xy: i32 }, { x: i32 }, { y: i32 }),
+      locals: {
+        tmp: i64,
+        vtmp: v128,
+        xi: i64,
+        xi2: v128,
+        i: i32,
+        Ystart: localArray(i64, 2),
+        Y: localArray(v128, vIndices.length),
+        Ylast: localArray(i64, lastIndices.length),
+        XY: localArray(i64, n),
+      },
       out: [],
     },
-    ([xy, x, y], [tmp, vtmp, xi, xi2, i, ...rest]) => {
-      let Ystart = rest.splice(0, 2) as Local<i64>[];
+    ({ xy, x, y }, { tmp, vtmp, xi, xi2, i, Ystart, Y, Ylast, XY }) => {
       let [y0, y1] = Ystart;
-      let Y = rest.splice(0, vLocals.length) as Local<v128>[];
-      let Ylast = rest.splice(0, lastLocal.length) as Local<i64>[];
-      let Ysingle = [y0, y1, ...Ylast];
 
-      let XY = rest.splice(0, n) as Local<i64>[];
+      let Ysingle = [y0, y1, ...Ylast];
 
       // load y into locals
       for (let i of [0, 1]) {
@@ -124,8 +134,8 @@ function multiplySchoolbook(p: bigint, w: number, n: number) {
   );
 
   const benchMultiply = func(
-    { in: [i32, i32], locals: [i32], out: [] },
-    ([x, N], [i]) => {
+    { in: params({ x: i32 }, { N: i32 }), locals: { i: i32 }, out: [] },
+    ({ x, N }, { i }) => {
       forLoop1(i, 0, N, () => {
         local.get(x);
         local.get(x);
