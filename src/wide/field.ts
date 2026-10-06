@@ -3,10 +3,12 @@ import { mod } from "../bigint/field-util.ts";
 import { inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
 import { MemorySection } from "../wasm/memory-helpers.ts";
-import { forLoop1 } from "../wasm/wasm-util.ts";
+import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
 import { createField, mask64 } from "./field-base.ts";
 import { arithmetic } from "./arithmetic.ts";
 import { multiplyMontgomery } from "./multiply.ts";
+import { helpers } from "./helpers.ts";
+import { fieldInverse } from "./inverse.ts";
 
 export { Field, createWasm };
 
@@ -14,8 +16,14 @@ const Field = { create: createWasm };
 
 async function createWasm(p: bigint, { memSize = 100 } = {}) {
   const F = createField(p);
-  const ops = { ...arithmetic(F), ...multiplyMontgomery(F) };
   const wasmMemory = memory({ min: memSize, max: memSize });
+  const implicitMemory = new ImplicitMemory(wasmMemory);
+  const baseOps = { ...arithmetic(F), ...multiplyMontgomery(F) };
+  const ops = {
+    ...baseOps,
+    ...fieldInverse(F, baseOps, implicitMemory),
+    ...helpers(F, baseOps, implicitMemory),
+  };
   const benchMultiply = func(
     { in: [i32, i32], locals: [i32], out: [] },
     ([x, N], [i]) => {
@@ -48,7 +56,18 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
       });
     }
   );
+  // Match the existing inversion benchmark: one addition plus one inverse.
+  const benchInverse = func(
+    { in: [i32, i32, i32, i32], locals: [i32], out: [] },
+    ([scratch, x, y, N], [i]) => {
+      forLoop1(i, 0, N, () => {
+        call(ops.add, [x, x, y]);
+        call(ops.inverse, [scratch, y, x]);
+      });
+    }
+  );
   const module = Module({
+    memory: wasmMemory,
     exports: {
       ...ops,
       memory: wasmMemory,
@@ -56,6 +75,7 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
       benchSquare,
       benchAddx3,
       benchSubx3,
+      benchInverse,
     },
   });
   const { instance } = await module.instantiate();
@@ -63,8 +83,8 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
   // MemorySection's default allocation size is expressed in 32-bit words.
   const local = new MemorySection(
     Wasm.memory,
-    0,
-    memSize * 65536,
+    implicitMemory.dataOffset,
+    memSize * 65536 - implicitMemory.dataOffset,
     2 * F.n,
     false
   );
@@ -113,6 +133,9 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
     lazy: F.lazy,
     size: F.size,
     sizeField: F.size,
+    packedSizeField: Math.ceil(p.toString(2).length / 8),
+    inverseScratchSize: 3 * F.size,
+    batchInverseScratchSize: 4 * F.size,
     Wasm,
     Memory: { local },
     moduleBytes: module.toBytes(),

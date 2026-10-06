@@ -60,6 +60,47 @@ function arithmetic(F: FieldBase) {
       F.store(x, X);
     }
   );
+  // Raw integer operations: callers must ensure the result fits in R.
+  // These are used by binary inversion, whose coefficients stay <= p.
+  const addNoReduce = func(
+    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
+    ([z, x, y], [carry, ...X]) => {
+      for (let i = 0; i < F.n; i++) {
+        i64.add128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
+        if (i !== 0) i64.add128($, $, carry, 0n);
+        local.set(carry, $);
+        local.set(X[i], $);
+      }
+      F.store(z, X);
+    }
+  );
+  const subtractNoReduce = func(
+    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
+    ([z, x, y], [borrow, ...X]) => {
+      for (let i = 0; i < F.n; i++) {
+        i64.sub128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
+        if (i !== 0) i64.sub128($, $, borrow, 0n);
+        local.set(borrow, i64.and($, 1n));
+        local.set(X[i], $);
+      }
+      F.store(z, X);
+    }
+  );
+  const isGreater = func({ in: [i32, i32], out: [i32] }, ([x, y]) => {
+    for (let i = F.n - 1; i >= 0; i--) {
+      i64.gt_u(F.loadLimb(x, i), F.loadLimb(y, i));
+      if_(null, () => {
+        i32.const(1);
+        return_();
+      });
+      i64.lt_u(F.loadLimb(x, i), F.loadLimb(y, i));
+      if_(null, () => {
+        i32.const(0);
+        return_();
+      });
+    }
+    i32.const(0);
+  });
   const isEqual = func({ in: [i32, i32], out: [i32] }, ([x, y]) => {
     for (let i = 0; i < F.n; i++) {
       i64.ne(F.loadLimb(x, i), F.loadLimb(y, i));
@@ -86,5 +127,15 @@ function arithmetic(F: FieldBase) {
     i32.const(F.size);
     memory.copy();
   });
-  return { add, subtract, reduce, isEqual, isZero, copy };
+  return {
+    add,
+    subtract,
+    addNoReduce,
+    subtractNoReduce,
+    reduce,
+    isEqual,
+    isGreater,
+    isZero,
+    copy,
+  };
 }

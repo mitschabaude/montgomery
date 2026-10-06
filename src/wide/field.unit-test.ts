@@ -4,19 +4,8 @@ import { Field } from "./field.ts";
 import { exampleFields } from "../concrete/example-fields.ts";
 import { inverse } from "../bigint/field.ts";
 import { mod } from "../bigint/field-util.ts";
-
-// Deterministic inputs, including noncanonical residues and full-width carries.
-let seed = 0x123456789abcdefn;
-function random(R: bigint) {
-  let x = 0n;
-  for (let i = 0; i < R.toString(2).length; i += 64) {
-    seed = BigInt.asUintN(64, seed ^ (seed << 13n));
-    seed ^= seed >> 7n;
-    seed = BigInt.asUintN(64, seed ^ (seed << 17n));
-    x = (x << 64n) | seed;
-  }
-  return x % R;
-}
+import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.ts";
+import { Random } from "../testing/random.ts";
 
 const R128 = 1n << 128n;
 const cases: [string, bigint][] = [
@@ -34,7 +23,7 @@ const cases: [string, bigint][] = [
 
 for (const [label, p] of cases) {
   test(`wide arithmetic: ${label}`, async () => {
-    const F = await Field.create(p, { memSize: 1 });
+    const F = await Field.create(p);
     const [x, y, z] = F.Memory.local.getPointers(3);
     const Rinv = inverse(F.R, p);
     const boundary = [0n, 1n, p - 1n, p, p + 1n, F.limit - 1n];
@@ -43,8 +32,54 @@ for (const [label, p] of cases) {
     }
     const values = [...new Set(boundary)].filter((x) => x < F.limit);
     const pairs = values.flatMap((a) => values.map((b) => [a, b]));
-    for (let i = 0; i < 300; i++)
-      pairs.push([random(F.limit), random(F.limit)]);
+    const equiv = createEquivalentWasm(F.Memory);
+    const raw = wasmSpec(F.Memory, Random.uniformField(F.limit), {
+      size: F.size,
+      there: F.writeBigint,
+      back(ptr) {
+        const value = F.readBigint(ptr);
+        assert(value < F.limit, "output stays within the lazy bound");
+        return mod(value, p);
+      },
+    });
+    for (const [label, op, reference] of [
+      ["add", F.Wasm.add, (a: bigint, b: bigint) => mod(a + b, p)],
+      ["subtract", F.Wasm.subtract, (a: bigint, b: bigint) => mod(a - b, p)],
+      [
+        "multiply",
+        F.Wasm.multiply,
+        (a: bigint, b: bigint) => mod(a * b * Rinv, p),
+      ],
+    ] as const) {
+      equiv({ from: [raw, raw], to: raw }, reference, op, label);
+      for (const alias of [0, 1]) {
+        equiv(
+          { from: [raw, raw], to: raw },
+          reference,
+          (out, a, b) => {
+            const target = alias === 0 ? a : b;
+            op(target, a, b);
+            F.Wasm.copy(out, target);
+          },
+          `${label} aliases input ${alias}`
+        );
+      }
+    }
+    equiv(
+      { from: [raw], to: raw },
+      (a) => mod(a * a * Rinv, p),
+      F.Wasm.square,
+      "square"
+    );
+    equiv(
+      { from: [raw], to: raw },
+      (a) => mod(a * a * Rinv, p),
+      (out, a) => {
+        F.Wasm.square(a, a);
+        F.Wasm.copy(out, a);
+      },
+      "square in place"
+    );
     function check(ptr: number, expected: bigint) {
       const raw = F.readBigint(ptr);
       assert(raw >= 0n && raw < F.limit, `output bound: ${raw}`);
