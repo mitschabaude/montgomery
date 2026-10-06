@@ -29,7 +29,7 @@ type Inverse = Func<[i32, i32, i32], []>;
 
 // Each timed iteration reads the same immutable sample sequence for every
 // implementation. No addition, evolving output/input chain, warmup, or sampling.
-async function benchmarkInverses(p: bigint) {
+async function benchmarkInverses(p: bigint, { wide = true } = {}) {
   const sampleCount = 256;
   const N = 500_000;
   const samples = sample(
@@ -37,8 +37,8 @@ async function benchmarkInverses(p: bigint) {
     sampleCount
   );
   const main = await createMain(p);
-  const wide = await createWide(p);
-  for (const F of [main, wide]) {
+  const wideField = wide ? await createWide(p) : undefined;
+  for (const F of wideField ? [main, wideField] : [main]) {
     samples.forEach((a, j) => F.write(F.inputs + j * F.size, a));
     // Validate every fixture against bigint before timing; this is reported
     // explicitly and does not execute the benchmark loop itself.
@@ -62,16 +62,26 @@ async function benchmarkInverses(p: bigint) {
   }
   const fixtureFallbacks = main.fallbackCount.value as number;
   console.log(
-    `complete main/wide inverses: ${sampleCount} shared immutable nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
+    `complete ${wide ? "main/wide" : "main"} inverses: ${sampleCount} shared immutable nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
   );
   console.log(
     `main fast fixture fallbacks: ${fixtureFallbacks}/${sampleCount}`
   );
   for (const [name, F, run] of [
     ["inverse main fast", main, main.benches.fast],
-    ["inverse wide fast", wide, wide.benches.fast],
+    ...(wideField
+      ? [["inverse wide fast", wideField, wideField.benches.fast] as const]
+      : []),
     ["inverse main Kaliski", main, main.benches.kaliski],
-    ["inverse wide Kaliski", wide, wide.benches.kaliski],
+    ...(wideField
+      ? [
+          [
+            "inverse wide Kaliski",
+            wideField,
+            wideField.benches.kaliski,
+          ] as const,
+        ]
+      : []),
   ] as const) {
     const before = main.fallbackCount.value as number;
     tic();

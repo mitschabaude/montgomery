@@ -1,4 +1,4 @@
-import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
+import { Const, Module, call, func, global, i32, memory } from "wasmati";
 import { tic, toc } from "../../src/testing/tictoc.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { memoryHelpers } from "../../src/wasm/memory-helpers.ts";
@@ -12,7 +12,7 @@ import { fieldExp } from "../../src/wasm/exp.ts";
 import { createSqrt } from "../../src/field-sqrt.ts";
 import { createConstants } from "../../src/field-msm.ts";
 import { mod, montgomeryParams } from "../../src/bigint/field-util.ts";
-import { fastInverse } from "../../src/inverse/faster-inverse-wasm.ts";
+import { benchmarkInverses } from "./wide-inverse.ts";
 import {
   bigintFromBytes,
   bigintFromBytes32,
@@ -125,33 +125,6 @@ async function benchmark(
 
     let { inverse } = fieldInverse(implicitMemory, Field);
 
-    const benchInverse = func(
-      { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-      ([scratch, x, y, N], [i]) => {
-        forLoop1(i, 0, N, () => {
-          // x <- x + y
-          call(Field.add, [x, x, y]);
-          // y <- 1/x
-          call(inverse, [scratch, y, x]);
-        });
-      }
-    );
-
-    let { almostInverse } = fastInverse(implicitMemory, Field);
-
-    const benchFastAlmostInverse = func(
-      { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-      ([scratch, x, y, N], [i]) => {
-        forLoop1(i, 0, N, () => {
-          // x <- x + y
-          call(Field.add, [x, x, y]);
-          // y <- 1/x
-          call(almostInverse, [scratch, y, x]);
-          drop();
-        });
-      }
-    );
-
     let module = Module({
       exports: {
         benchMontgomery,
@@ -160,8 +133,6 @@ async function benchmark(
         benchSquare,
         benchAdd,
         benchSub,
-        benchInverse,
-        benchFastAlmostInverse,
         exp: fieldExp(Field),
 
         memory: implicitMemory.memory,
@@ -225,7 +196,6 @@ async function benchmark(
       return x;
     }
 
-    let [scratch] = getPointers(3); // Kaliski uses u, v, and s.
     let x = getPointer(2 * helpers.sizeField); // Schoolbook writes a double-width product.
     let y = getPointer();
     console.log(`w=${w}, n=${n}, nw=${n * w}, op x ${N}\n`);
@@ -248,18 +218,11 @@ async function benchmark(
 
     if (onlyQuick) continue;
 
+    await benchmarkInverses(p, { wide: false });
+
     writeBigint(x, randomFieldx2());
     writeBigint(y, randomFieldx2());
 
-    bench2("inverse", () => wasm.benchInverse(scratch, x, y, Ninv), {
-      N: Ninv,
-      tMul,
-    });
-    bench2(
-      "fast inverse",
-      () => wasm.benchFastAlmostInverse(scratch, x, y, Ninv),
-      { N: Ninv, tMul }
-    );
     bench2("pow", () => benchPow(x, Npow), { N: Npow, tMul });
     bench2("sqrt", () => benchSqrt(x, y, Npow), { N: Npow, tMul });
 
