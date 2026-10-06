@@ -3,18 +3,14 @@
 Full-width 64-bit Montgomery limbs using Wasm `i64.mul_wide_u`, `i64.add128`, and `i64.sub128`. Provides add, subtract, multiply, square, canonical reduction, complete fast inversion, a Kaliski reference, batch inversion, exponentiation, negation, raw integer helpers, packed-byte I/O, memory helpers, and Montgomery conversions. Curve/MSM integration is not implemented.
 
 ```sh
-# Build the required wasmati revision.
-git -C ../wasmati worktree add --detach ../wasmati-wide-baseline 4ede9ad
-npm ci --prefix ../wasmati-wide-baseline
-npm run build --prefix ../wasmati-wide-baseline
-npm install --no-save --package-lock=false ../wasmati-wide-baseline
+npm ci
 npm run test-wide
 npm run benchmark-wide
 # Optionally select individual fields:
 npm run benchmark-wide -- bn254-scalar
 ```
 
-The scripts require a Node build supporting `--wasm-wide-arithmetic`; measurements below use Node `v27.0.0-nightly20261006fcfb7ecc0b`. The local dependency requires wasmati commit `4ede9ad`.
+The scripts require a Node build supporting `--wasm-wide-arithmetic`; measurements below use Node `v27.0.0-nightly20261006fcfb7ecc0b`. The dependency is published wasmati `0.3.0`.
 
 `Field.create(p)` in `field.ts` builds a modulus-specific module. `Wasm` contains the pointer operations; `Memory.local.getPointers()` allocates field elements. `fromBigint()` and `toBigint()` convert between ordinary bigints and Montgomery representation. `writeBigint()` and `readBigint()` access the raw limb representation. Single-element arithmetic allows its output to alias an input. Raw equality and zero checks compare stored representations; use `reduce()` first for modular equality.
 

@@ -28,16 +28,7 @@ jobs:
         with:
           node-version: "27.0.0-nightly20261006fcfb7ecc0b"
           cache: npm
-      # Use the compatible revision until wide arithmetic is published to npm.
-      - uses: actions/checkout@v4
-        with:
-          repository: zksecurity/wasmati
-          ref: 4ede9ad1c1961abce5fb8e4afcd359160fe97217
-          path: .ci/wasmati
-      - run: npm ci --prefix .ci/wasmati
-      - run: npm run build --prefix .ci/wasmati
       - run: npm ci
-      - run: npm install --no-save --package-lock=false ./.ci/wasmati
       - name: Check types across the project
         run: npx tsc --noEmit
       - run: npm run test-wide

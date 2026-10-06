@@ -1,4 +1,5 @@
 import {
+  params,
   $,
   block,
   br,
@@ -48,8 +49,12 @@ function fieldInverse(
 
   // u /= 2^k, s *= 2^k. Kaliski's invariants ensure s*2^k <= p.
   const makeOdd = func(
-    { in: [i32, i32], locals: [i64, i64, i64, i32], out: [i32] },
-    ([u, s], [k, l, tmp, total]) => {
+    {
+      in: params({ u: i32 }, { s: i32 }),
+      locals: { k: i64, l: i64, tmp: i64, total: i32 },
+      out: [i32],
+    },
+    ({ u, s }, { k, l, tmp, total }) => {
       local.set(k, i64.ctz(F.loadLimb(u, 0)));
       i64.eqz(k);
       if_(null, () => {
@@ -106,38 +111,42 @@ function fieldInverse(
   // Three scratch elements (u, v, s); r may alias a. Input is preserved
   // unless it is also the output. Zero/noninvertible input traps.
   const inverseKaliski = func(
-    { in: [i32, i32, i32], locals: [i32, i32, i32], out: [] },
-    ([scratch, r, a], [v, s, k]) => {
+    {
+      in: params({ scratch: i32 }, { r: i32 }, { a: i32 }),
+      locals: { v: i32, s: i32, k: i32 },
+      out: [],
+    },
+    ({ scratch, r, a }, { v, s, k }) => {
       local.set(v, i32.add(scratch, size));
       local.set(s, i32.add(scratch, 2 * size));
-      call(ops.copy, [v, a]);
-      call(ops.reduce, [v]);
-      call(ops.isZero, [v]);
+      call(ops.copy, { z: v, x: a });
+      call(ops.reduce, { x: v });
+      call(ops.isZero, { x: v });
       if_(null, () => unreachable());
-      call(ops.copy, [scratch, pPtr]);
+      call(ops.copy, { z: scratch, x: pPtr });
       for (let i = 0; i < n; i++) {
         F.storeLimb(r, i, 0n);
         F.storeLimb(s, i, i === 0 ? 1n : 0n);
       }
-      call(makeOdd, [v, r]);
+      call(makeOdd, { u: v, s: r });
       local.set(k, $);
       block(null, (done) => {
         loop(null, (again) => {
-          call(ops.isGreater, [scratch, v]);
+          call(ops.isGreater, { x: scratch, y: v });
           if_(
             null,
             () => {
-              call(ops.subtractNoReduce, [scratch, scratch, v]);
-              call(ops.addNoReduce, [r, r, s]);
-              call(makeOdd, [scratch, s]);
+              call(ops.subtractNoReduce, { z: scratch, x: scratch, y: v });
+              call(ops.addNoReduce, { z: r, x: r, y: s });
+              call(makeOdd, { u: scratch, s });
               local.set(k, i32.add($, k));
             },
             () => {
-              call(ops.subtractNoReduce, [v, v, scratch]);
-              call(ops.addNoReduce, [s, s, r]);
-              call(ops.isZero, [v]);
+              call(ops.subtractNoReduce, { z: v, x: v, y: scratch });
+              call(ops.addNoReduce, { z: s, x: s, y: r });
+              call(ops.isZero, { x: v });
               br_if(done);
-              call(makeOdd, [v, r]);
+              call(makeOdd, { u: v, s: r });
               local.set(k, i32.add($, k));
             }
           );
@@ -152,8 +161,12 @@ function fieldInverse(
         i32.or();
       }
       if_(null, () => unreachable());
-      call(ops.subtractNoReduce, [r, pPtr, r]);
-      call(ops.multiply, [r, r, i32.add(correctionPtr, i32.mul(k, size))]);
+      call(ops.subtractNoReduce, { z: r, x: pPtr, y: r });
+      call(ops.multiply, {
+        z: r,
+        x: r,
+        y: i32.add(correctionPtr, i32.mul(k, size)),
+      });
     }
   );
 
@@ -162,46 +175,54 @@ function fieldInverse(
   // Four scratch elements. As in the production backend, batch output must
   // not overlap input: output is used for prefix products before inversion.
   const batchInverse = func(
-    { in: [i32, i32, i32, i32], locals: [i32, i32], out: [] },
-    ([scratch, z, x, count], [i, inv]) => {
+    {
+      in: params({ scratch: i32 }, { z: i32 }, { x: i32 }, { count: i32 }),
+      locals: { i: i32, inv: i32 },
+      out: [],
+    },
+    ({ scratch, z, x, count }, { i, inv }) => {
       i32.eqz(count);
       if_(null, () => return_());
       local.set(inv, scratch);
       local.set(scratch, i32.add(scratch, size));
       i32.eq(count, 1);
       if_(null, () => {
-        call(inverse, [scratch, z, x]);
+        call(inverse, { v: scratch, s: z, a: x });
         return_();
       });
-      call(ops.copy, [z, x]);
+      call(ops.copy, { z, x });
       forLoop1(i, 1, count, () => {
-        call(ops.multiply, [
-          i32.add(z, i32.mul(i, size)),
-          i32.add(z, i32.mul(i32.sub(i, 1), size)),
-          i32.add(x, i32.mul(i, size)),
-        ]);
+        call(ops.multiply, {
+          z: i32.add(z, i32.mul(i, size)),
+          x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
+          y: i32.add(x, i32.mul(i, size)),
+        });
       });
-      call(inverse, [
-        scratch,
-        inv,
-        i32.add(z, i32.mul(i32.sub(count, 1), size)),
-      ]);
+      call(inverse, {
+        v: scratch,
+        s: inv,
+        a: i32.add(z, i32.mul(i32.sub(count, 1), size)),
+      });
       block(null, (done) => {
         local.set(i, i32.sub(count, 1));
         loop(null, (again) => {
           i32.eqz(i);
           br_if(done);
-          call(ops.multiply, [
-            i32.add(z, i32.mul(i, size)),
-            i32.add(z, i32.mul(i32.sub(i, 1), size)),
-            inv,
-          ]);
-          call(ops.multiply, [inv, inv, i32.add(x, i32.mul(i, size))]);
+          call(ops.multiply, {
+            z: i32.add(z, i32.mul(i, size)),
+            x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
+            y: inv,
+          });
+          call(ops.multiply, {
+            z: inv,
+            x: inv,
+            y: i32.add(x, i32.mul(i, size)),
+          });
           local.set(i, i32.sub(i, 1));
           br(again);
         });
       });
-      call(ops.copy, [z, inv]);
+      call(ops.copy, { z, x: inv });
     }
   );
   return { inverse, inverseKaliski, batchInverse };

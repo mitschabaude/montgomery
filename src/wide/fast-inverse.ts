@@ -1,4 +1,6 @@
 import {
+  params,
+  localArray,
   $,
   block,
   br,
@@ -38,7 +40,6 @@ function fastInverse(
 ) {
   const batch = 62;
   const mask = (1n << BigInt(batch)) - 1n;
-  const limbs = Array(F.n).fill(i64) as (typeof i64)[];
   const correction = mod(F.R ** 3n, F.p);
   const correctionPtr = mem.dataToOffset(
     Array.from({ length: F.size }, (_, i) =>
@@ -46,8 +47,8 @@ function fastInverse(
     )
   );
   const bitLength = func(
-    { in: [i32], locals: [i64], out: [i32] },
-    ([x], [xi]) => {
+    { in: params({ x: i32 }), locals: { xi: i64 }, out: [i32] },
+    ({ x }, { xi }) => {
       for (let j = F.n - 1; j >= 0; j--) {
         local.set(xi, F.loadLimb(x, j));
         i64.ne(xi, 0n);
@@ -60,8 +61,12 @@ function fastInverse(
     }
   );
   const highBits = func(
-    { in: [i32, i32], locals: [i32, i64, i64], out: [i64] },
-    ([x, length], [start, shift, hi]) => {
+    {
+      in: params({ x: i32 }, { length: i32 }),
+      locals: { start: i32, shift: i64, hi: i64 },
+      out: [i64],
+    },
+    ({ x, length }, { start, shift, hi }) => {
       // At most 63 significant bits, so signed comparisons have headroom.
       local.set(start, i32.sub(length, 63));
       i32.lt_s(start, 0);
@@ -155,29 +160,34 @@ function fastInverse(
   }
   const updateCoefficients = func(
     {
-      in: [i32, i32, i64, i64, i64, i64],
-      locals: [
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        ...limbs,
-        ...limbs,
-      ],
+      in: params(
+        { r: i32 },
+        { s: i32 },
+        { f0: i64 },
+        { g0: i64 },
+        { f1: i64 },
+        { g1: i64 }
+      ),
+      locals: {
+        rj: i64,
+        sj: i64,
+        carryR: i64,
+        carryS: i64,
+        lo: i64,
+        hi: i64,
+        otherLo: i64,
+        otherHi: i64,
+        mR: i64,
+        mS: i64,
+        X: localArray(i64, F.n),
+        Y: localArray(i64, F.n),
+      },
       out: [],
     },
     (
-      [r, s, f0, g0, f1, g1],
-      [rj, sj, carryR, carryS, lo, hi, otherLo, otherHi, mR, mS, ...XY]
+      { r, s, f0, g0, f1, g1 },
+      { rj, sj, carryR, carryS, lo, hi, otherLo, otherHi, mR, mS, X, Y }
     ) => {
-      const X = XY.slice(0, F.n),
-        Y = XY.slice(F.n);
       for (let j = 0; j < F.n; j++) {
         local.set(rj, F.loadLimb(r, j));
         local.set(sj, F.loadLimb(s, j));
@@ -204,38 +214,38 @@ function fastInverse(
   );
   const inverse = func(
     {
-      in: [i32, i32, i32],
-      locals: [
-        i32,
-        i32,
-        i32,
-        i32,
-        i64,
-        i64,
-        i64,
-        i64,
-        v128,
-        v128,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        ...limbs,
-        ...limbs,
-      ],
+      in: params({ v: i32 }, { s: i32 }, { a: i32 }),
+      locals: {
+        u: i32,
+        r: i32,
+        length: i32,
+        vLength: i32,
+        ulo: i64,
+        vlo: i64,
+        uhi: i64,
+        vhi: i64,
+        f0g0: v128,
+        f1g1: v128,
+        f0: i64,
+        g0: i64,
+        f1: i64,
+        g1: i64,
+        uj: i64,
+        vj: i64,
+        carryU: i64,
+        carryV: i64,
+        lo: i64,
+        hi: i64,
+        otherLo: i64,
+        otherHi: i64,
+        X: localArray(i64, F.n),
+        Y: localArray(i64, F.n),
+      },
       out: [],
     },
     (
-      [v, s, a],
-      [
+      { v, s, a },
+      {
         u,
         r,
         length,
@@ -258,16 +268,15 @@ function fastInverse(
         hi,
         otherLo,
         otherHi,
-        ...XY
-      ]
+        X,
+        Y,
+      }
     ) => {
-      const X = XY.slice(0, F.n),
-        Y = XY.slice(F.n);
       local.set(u, i32.add(v, F.size));
       local.set(r, i32.add(v, 2 * F.size));
-      call(ops.copy, [v, a]);
-      call(ops.reduce, [v]);
-      call(ops.isZero, [v]);
+      call(ops.copy, { z: v, x: a });
+      call(ops.reduce, { x: v });
+      call(ops.isZero, { x: v });
       if_(null, () => unreachable());
       for (let j = 0; j < F.n; j++) {
         F.storeLimb(u, j, F.P[j]);
@@ -280,18 +289,18 @@ function fastInverse(
           local.set(f1g1, v128.const("i64x2", [0n, 1n]));
           local.set(ulo, F.loadLimb(u, 0));
           local.set(vlo, F.loadLimb(v, 0));
-          call(bitLength, [u]);
+          call(bitLength, { x: u });
           local.set(length, $);
-          call(bitLength, [v]);
+          call(bitLength, { x: v });
           local.set(vLength, $);
           local.get(vLength);
           local.get(length);
           i32.gt_u(vLength, length);
           select(i32);
           local.set(length, $);
-          call(highBits, [u, length]);
+          call(highBits, { x: u, length });
           local.set(uhi, $);
-          call(highBits, [v, length]);
+          call(highBits, { x: v, length });
           local.set(vhi, $);
           for (let j = 0; j < batch; j++) {
             i64.eqz(i64.and(ulo, 1n));
@@ -361,13 +370,13 @@ function fastInverse(
           });
           F.store(u, X);
           F.store(v, Y);
-          call(updateCoefficients, [r, s, f0, g0, f1, g1]);
-          call(ops.isZero, [u]);
+          call(updateCoefficients, { r, s, f0, g0, f1, g1 });
+          call(ops.isZero, { x: u });
           br_if(done);
-          call(ops.isZero, [v]);
+          call(ops.isZero, { x: v });
           if_(null, () => {
-            call(ops.copy, [s, r]);
-            call(ops.copy, [v, u]);
+            call(ops.copy, { z: s, x: r });
+            call(ops.copy, { z: v, x: u });
             br(done);
           });
           br(again);
@@ -379,7 +388,7 @@ function fastInverse(
         i32.or();
       }
       if_(null, () => unreachable());
-      call(ops.multiply, [s, s, correctionPtr]);
+      call(ops.multiply, { z: s, x: s, y: correctionPtr });
     }
   );
   return inverse;

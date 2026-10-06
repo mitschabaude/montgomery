@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  params,
   Module,
   call,
   drop,
@@ -7,6 +8,7 @@ import {
   i32,
   memory,
   type Func,
+  type Parameters,
   type Dependency,
 } from "wasmati";
 import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.ts";
@@ -25,7 +27,16 @@ import { tic, toc } from "../../src/testing/tictoc.ts";
 
 export { benchmarkInverses };
 
-type Inverse = Func<[i32, i32, i32], []>;
+type Inverse = Func<
+  Parameters<
+    [
+      { [name: string]: typeof i32 },
+      { [name: string]: typeof i32 },
+      { [name: string]: typeof i32 },
+    ]
+  >,
+  []
+>;
 
 // Each timed iteration reads the same immutable sample sequence for every
 // implementation. No addition, evolving output/input chain, warmup, or sampling.
@@ -62,7 +73,9 @@ async function benchmarkInverses(p: bigint, { wide = true } = {}) {
   }
   const fixtureFallbacks = main.fallbackCount.value as number;
   console.log(
-    `complete ${wide ? "main/wide" : "main"} inverses: ${sampleCount} shared immutable nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
+    `complete ${
+      wide ? "main/wide" : "main"
+    } inverses: ${sampleCount} shared immutable nonzero raw inputs, all validated against bigint; ${N} fixed-input iterations per row`
   );
   console.log(
     `main fast fixture fallbacks: ${fixtureFallbacks}/${sampleCount}`
@@ -98,13 +111,17 @@ async function benchmarkInverses(p: bigint, { wide = true } = {}) {
     console.log(`${name.padEnd(23)} ${((elapsed * 1e6) / N).toFixed(0)} ns`);
     if (F === main && name === "inverse main fast")
       console.log(
-        `main fast timed fallbacks: ${(main.fallbackCount.value as number) - before}/${N}`
+        `main fast timed fallbacks: ${
+          (main.fallbackCount.value as number) - before
+        }/${N}`
       );
   }
   tic();
   main.core(main.scratch, main.output, main.inputs, N);
   console.log(
-    `${"almost-inverse main core".padEnd(23)} ${((toc() * 1e6) / N).toFixed(0)} ns (excludes correction/verification)`
+    `${"almost-inverse main core".padEnd(23)} ${((toc() * 1e6) / N).toFixed(
+      0
+    )} ns (excludes correction/verification)`
   );
 }
 
@@ -120,14 +137,30 @@ async function build<const Extra extends Record<string, Dependency.Export>>(
   const size = n * (w === 64 ? 8 : 4);
   const loop = (operation: Inverse) =>
     func(
-      { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-      ([scratch, output, inputs, N], [i]) => {
+      {
+        in: params(
+          { scratch: i32 },
+          { output: i32 },
+          { inputs: i32 },
+          { N: i32 }
+        ),
+        locals: { i: i32 },
+        out: [],
+      },
+      ({ scratch, output, inputs, N }, { i }) => {
         forLoop1(i, 0, N, () => {
-          call(operation, [
+          // Map the common ABI to each inverse's named signature during generation.
+          const values = [
             scratch,
             output,
             i32.add(inputs, i32.mul(i32.and(i, 255), size)),
-          ]);
+          ];
+          call(
+            operation,
+            Object.fromEntries(
+              operation.params.names.map((name, j) => [name, values[j]])
+            )
+          );
         });
       }
     );
@@ -189,14 +222,23 @@ async function createMain(p: bigint) {
   const fast = fastInverse(mem, F);
   // Make a separate core benchmark over exactly the same sample sequence.
   const benchCore = func(
-    { in: [i32, i32, i32, i32], locals: [i32], out: [] },
-    ([scratch, output, inputs, N], [i]) => {
+    {
+      in: params(
+        { scratch: i32 },
+        { output: i32 },
+        { inputs: i32 },
+        { N: i32 }
+      ),
+      locals: { i: i32 },
+      out: [],
+    },
+    ({ scratch, output, inputs, N }, { i }) => {
       forLoop1(i, 0, N, () => {
-        call(fast.almostInverse, [
-          scratch,
-          output,
-          i32.add(inputs, i32.mul(i32.and(i, 255), F.size)),
-        ]);
+        call(fast.almostInverse, {
+          v: scratch,
+          s: output,
+          a: i32.add(inputs, i32.mul(i32.and(i, 255), F.size)),
+        });
         drop();
       });
     }

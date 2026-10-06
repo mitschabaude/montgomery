@@ -1,4 +1,13 @@
-import { $, func, i32, i64, local, type Local } from "wasmati";
+import {
+  params,
+  localArray,
+  $,
+  func,
+  i32,
+  i64,
+  local,
+  type Local,
+} from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 
 export { multiplyMontgomery };
@@ -7,7 +16,6 @@ function multiplyMontgomery(F: FieldBase) {
   // T < p + inputLimit throughout CIOS. With this headroom there is
   // no extra carry limb; decide that once while generating the module.
   const noOverflow = F.p + F.limit <= F.R;
-  const limbs = (n: number) => Array(n).fill(i64) as (typeof i64)[];
 
   // CIOS with separate product and reduction passes. Each multiply-add fits
   // exactly in 128 bits: (B-1)^2 + (B-1) + (B-1) = B^2-1, B = 2^64.
@@ -82,14 +90,17 @@ function multiplyMontgomery(F: FieldBase) {
 
   const multiply = func(
     {
-      in: [i32, i32, i32],
-      locals: [i64, i64, ...limbs(3 * F.n + 2)],
+      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      locals: {
+        carry: i64,
+        q: i64,
+        X: localArray(i64, F.n),
+        Y: localArray(i64, F.n),
+        T: localArray(i64, F.n + 2),
+      },
       out: [],
     },
-    ([z, x, y], [carry, q, ...rest]) => {
-      const X = rest.slice(0, F.n),
-        Y = rest.slice(F.n, 2 * F.n),
-        T = rest.slice(2 * F.n);
+    ({ z, x, y }, { carry, q, X, Y, T }) => {
       F.load(X, x);
       F.load(Y, y);
       kernel(z, X, Y, T, carry, q);
@@ -97,10 +108,17 @@ function multiplyMontgomery(F: FieldBase) {
   );
   // Same CIOS algorithm, specialized to load the input only once.
   const square = func(
-    { in: [i32, i32], locals: [i64, i64, ...limbs(2 * F.n + 2)], out: [] },
-    ([z, x], [carry, q, ...rest]) => {
-      const X = rest.slice(0, F.n),
-        T = rest.slice(F.n);
+    {
+      in: params({ z: i32 }, { x: i32 }),
+      locals: {
+        carry: i64,
+        q: i64,
+        X: localArray(i64, F.n),
+        T: localArray(i64, F.n + 2),
+      },
+      out: [],
+    },
+    ({ z, x }, { carry, q, X, T }) => {
       F.load(X, x);
       kernel(z, X, X, T, carry, q);
     }

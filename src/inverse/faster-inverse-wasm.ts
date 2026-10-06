@@ -1,4 +1,5 @@
 import {
+  localArray,
   params,
   func,
   type Func,
@@ -433,31 +434,34 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const fallback = kaliskiInverse(implicitMemory, Field).inverse;
   // Counts only correctness fallbacks, for transparent benchmark reporting.
   const fallbackCount = global(Const.i32(0), { mutable: true });
-  const limbs = Array(n).fill(i64) as (typeof i64)[];
   const inverse = func(
-    { in: [i32, i32, i32], locals: [i32, ...limbs], out: [] },
-    ([scratch, out, input], [k, ...A]) => {
+    {
+      in: params({ scratch: i32 }, { out: i32 }, { input: i32 }),
+      locals: { k: i32, A: localArray(i64, n) },
+      out: [],
+    },
+    ({ scratch, out, input }, { k, A }) => {
       // Preserve the canonical input across the core, including out = input.
       Field.copyInline(scratch, input);
-      call(Field.reduce, [scratch]);
-      call(Field.isZero, [scratch]);
+      call(Field.reduce, { x: scratch });
+      call(Field.isZero, { x: scratch });
       if_(null, () => unreachable());
       for (let j = 0; j < n; j++) local.set(A[j], Field.loadLimb(scratch, j));
-      call(almostInverse, [scratch, out, scratch]);
+      call(almostInverse, { v: scratch, s: out, a: scratch });
       local.set(k, $);
       block(null, (done) => {
         block(null, (needsFallback) => {
           i32.gt_u(k, 2 * n * w);
           br_if(needsFallback);
-          call(Field.multiply, [
-            out,
-            out,
-            i32.add(correctionPtr, i32.mul(k, Field.size)),
-          ]);
+          call(Field.multiply, {
+            xy: out,
+            x: out,
+            y: i32.add(correctionPtr, i32.mul(k, Field.size)),
+          });
           for (let j = 0; j < n; j++) Field.storeLimb(scratch, j, A[j]);
-          call(Field.multiply, [scratch, scratch, out]);
-          call(Field.reduce, [scratch]);
-          call(Field.isEqual, [scratch, onePtr]);
+          call(Field.multiply, { xy: scratch, x: scratch, y: out });
+          call(Field.reduce, { x: scratch });
+          call(Field.isEqual, { x: scratch, y: onePtr });
           br_if(done);
         });
         // The experimental core has unimplemented sign handling and can
@@ -465,11 +469,11 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         // complete entry point correct without changing the core's API.
         global.set(fallbackCount, i32.add(fallbackCount, 1));
         for (let j = 0; j < n; j++) Field.storeLimb(out, j, A[j]);
-        call(fallback, [scratch, out, out]);
+        call(fallback, { scratch, r: out, a: out });
         for (let j = 0; j < n; j++) Field.storeLimb(scratch, j, A[j]);
-        call(Field.multiply, [scratch, scratch, out]);
-        call(Field.reduce, [scratch]);
-        call(Field.isEqual, [scratch, onePtr]);
+        call(Field.multiply, { xy: scratch, x: scratch, y: out });
+        call(Field.reduce, { x: scratch });
+        call(Field.isEqual, { x: scratch, y: onePtr });
         i32.eqz();
         if_(null, () => unreachable());
       });

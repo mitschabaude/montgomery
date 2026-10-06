@@ -1,4 +1,15 @@
-import { $, func, i32, i64, if_, local, memory, return_ } from "wasmati";
+import {
+  params,
+  localArray,
+  $,
+  func,
+  i32,
+  i64,
+  if_,
+  local,
+  memory,
+  return_,
+} from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 
 export { arithmetic };
@@ -7,10 +18,13 @@ export { arithmetic };
 // when two residues do not fit. Output may alias either input.
 // reduce canonicalizes a stored value below min(2p, R).
 function arithmetic(F: FieldBase) {
-  const limbs = Array(F.n).fill(i64) as (typeof i64)[];
   const add = func(
-    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
-    ([z, x, y], [carry, ...X]) => {
+    {
+      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      locals: { carry: i64, X: localArray(i64, F.n) },
+      out: [],
+    },
+    ({ z, x, y }, { carry, X }) => {
       for (let i = 0; i < F.n; i++) {
         if (i === F.n - 1 && 2n * F.limit <= F.R) {
           // The modulus guarantees that the full sum fits in the layout.
@@ -31,8 +45,12 @@ function arithmetic(F: FieldBase) {
     }
   );
   const subtract = func(
-    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
-    ([z, x, y], [borrow, ...X]) => {
+    {
+      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      locals: { borrow: i64, X: localArray(i64, F.n) },
+      out: [],
+    },
+    ({ z, x, y }, { borrow, X }) => {
       for (let i = 0; i < F.n; i++) {
         i64.sub128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
         if (i !== 0) i64.sub128($, $, borrow, 0n);
@@ -53,8 +71,12 @@ function arithmetic(F: FieldBase) {
     }
   );
   const reduce = func(
-    { in: [i32], locals: [i64, ...limbs], out: [] },
-    ([x], [borrow, ...X]) => {
+    {
+      in: params({ x: i32 }),
+      locals: { borrow: i64, X: localArray(i64, F.n) },
+      out: [],
+    },
+    ({ x }, { borrow, X }) => {
       F.load(X, x);
       F.reduceLocals(X, 0n, borrow);
       F.store(x, X);
@@ -63,8 +85,12 @@ function arithmetic(F: FieldBase) {
   // Raw integer operations: callers must ensure the result fits in R.
   // These are used by binary inversion, whose coefficients stay <= p.
   const addNoReduce = func(
-    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
-    ([z, x, y], [carry, ...X]) => {
+    {
+      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      locals: { carry: i64, X: localArray(i64, F.n) },
+      out: [],
+    },
+    ({ z, x, y }, { carry, X }) => {
       for (let i = 0; i < F.n; i++) {
         i64.add128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
         if (i !== 0) i64.add128($, $, carry, 0n);
@@ -75,8 +101,12 @@ function arithmetic(F: FieldBase) {
     }
   );
   const subtractNoReduce = func(
-    { in: [i32, i32, i32], locals: [i64, ...limbs], out: [] },
-    ([z, x, y], [borrow, ...X]) => {
+    {
+      in: params({ z: i32 }, { x: i32 }, { y: i32 }),
+      locals: { borrow: i64, X: localArray(i64, F.n) },
+      out: [],
+    },
+    ({ z, x, y }, { borrow, X }) => {
       for (let i = 0; i < F.n; i++) {
         i64.sub128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
         if (i !== 0) i64.sub128($, $, borrow, 0n);
@@ -86,32 +116,38 @@ function arithmetic(F: FieldBase) {
       F.store(z, X);
     }
   );
-  const isGreater = func({ in: [i32, i32], out: [i32] }, ([x, y]) => {
-    for (let i = F.n - 1; i >= 0; i--) {
-      i64.gt_u(F.loadLimb(x, i), F.loadLimb(y, i));
-      if_(null, () => {
-        i32.const(1);
-        return_();
-      });
-      i64.lt_u(F.loadLimb(x, i), F.loadLimb(y, i));
-      if_(null, () => {
-        i32.const(0);
-        return_();
-      });
+  const isGreater = func(
+    { in: params({ x: i32 }, { y: i32 }), out: [i32] },
+    ({ x, y }) => {
+      for (let i = F.n - 1; i >= 0; i--) {
+        i64.gt_u(F.loadLimb(x, i), F.loadLimb(y, i));
+        if_(null, () => {
+          i32.const(1);
+          return_();
+        });
+        i64.lt_u(F.loadLimb(x, i), F.loadLimb(y, i));
+        if_(null, () => {
+          i32.const(0);
+          return_();
+        });
+      }
+      i32.const(0);
     }
-    i32.const(0);
-  });
-  const isEqual = func({ in: [i32, i32], out: [i32] }, ([x, y]) => {
-    for (let i = 0; i < F.n; i++) {
-      i64.ne(F.loadLimb(x, i), F.loadLimb(y, i));
-      if_(null, () => {
-        i32.const(0);
-        return_();
-      });
+  );
+  const isEqual = func(
+    { in: params({ x: i32 }, { y: i32 }), out: [i32] },
+    ({ x, y }) => {
+      for (let i = 0; i < F.n; i++) {
+        i64.ne(F.loadLimb(x, i), F.loadLimb(y, i));
+        if_(null, () => {
+          i32.const(0);
+          return_();
+        });
+      }
+      i32.const(1);
     }
-    i32.const(1);
-  });
-  const isZero = func({ in: [i32], out: [i32] }, ([x]) => {
+  );
+  const isZero = func({ in: params({ x: i32 }), out: [i32] }, ({ x }) => {
     for (let i = 0; i < F.n; i++) {
       i64.ne(F.loadLimb(x, i), 0n);
       if_(null, () => {
@@ -121,12 +157,15 @@ function arithmetic(F: FieldBase) {
     }
     i32.const(1);
   });
-  const copy = func({ in: [i32, i32], out: [] }, ([z, x]) => {
-    local.get(z);
-    local.get(x);
-    i32.const(F.size);
-    memory.copy();
-  });
+  const copy = func(
+    { in: params({ z: i32 }, { x: i32 }), out: [] },
+    ({ z, x }) => {
+      local.get(z);
+      local.get(x);
+      i32.const(F.size);
+      memory.copy();
+    }
+  );
   return {
     add,
     subtract,
