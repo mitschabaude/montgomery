@@ -14,16 +14,17 @@ import { log2 } from "./util.ts";
 import {
   type Chunk,
   createLog,
-  splitBuckets,
+  splitPartitions,
   windowSizeAffine,
 } from "./msm-common.ts";
 
 // work counters, and sizes of dynamically claimed units of work
-const PREPARE = 0;
-const SORT = 1;
-const ACCUMULATE = 2;
+const ACCUMULATE = 0;
+const REDUCE = 1;
 const UNITS_PER_THREAD = 4;
-const POINTS_PER_CLAIM = 1024;
+const POINTS_PER_CLAIM = 256;
+// number of additions per batch inversion
+const BATCH_SIZE = 512;
 
 export { createMsm, type MsmInputCurve };
 
@@ -46,10 +47,10 @@ type MsmInputCurve = {
  * broadly, our implementation uses the pippenger algorithm / bucket method, where scalars are sliced
  * into windows of size c, giving rise to K = [b/c] _partitions_ or "sub-MSMs" (where b is the scalar bit length).
  *
- * for each partition k, points `G_i` are sorted into `L = 2^(c-1)` _buckets_ according to the ḱth NAF slice of their scalar `s_i`.
+ * for each partition k, points `G_i` are added into `L = 2^(c_k-1)` _buckets_ according to the ḱth NAF slice of their scalar `s_i`.
  * in total, we end up with `K*L` buckets, which are indexed by `(k, l)` where `k = 0,...K-1` and `l = 1,...,L`.
  *
- * after sorting the points, computation proceeds in **three main steps:**
+ * computation proceeds in **three main steps:**
  * 1. each bucket is accumulated into a single point, the _bucket sum_ `B_(l,k)`, which is simply the sum of all points in the bucket.
  * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
  * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c*P_1 + ... + 2^(c*(K-1))*P_(K-1)`
@@ -100,204 +101,211 @@ function createMsm({
     c ??= windowSizeAffine(Field, n);
 
     let K = Math.ceil((b + 1) / c); // number of partitions
-    let L = 2 ** (c - 1); // number of buckets per partition, -1 (we'll skip the 0 bucket, but will have them in the array at index 0 to simplify access)
-    let params = { N, K, L, c, b };
-    log({ n, K, c });
+    // window sizes c_k differ by at most 1 and add up to b + 1 (one bit for
+    // the carry of signed digits), so that even the last partition has about
+    // L = 2^(c_k - 1) buckets. its additions would serialize otherwise.
+    let cs = Array.from({ length: K }, (_, k) => Math.floor((b + 1 + k) / K));
+    let Ls = cs.map((ck) => 2 ** (ck - 1));
+    // bit offset of each window, and index of each partition's first bucket
+    let starts = Array(K);
+    let bases = Array(K);
+    for (let k = 0, start = 0, base = 0; k < K; k++) {
+      starts[k] = start;
+      bases[k] = base;
+      start += cs[k];
+      base += Ls[k];
+    }
+    let nBuckets = bases[K - 1] + Ls[K - 1];
+    log({ n, K, c: cs.join(",") });
 
     let scratch = Field.local.getPointers(40);
 
     tic("prepare shared pointers");
-    let { bucketCounts, scalarSlices, buckets, maxBucketSizes, counters } =
-      await broadcastFromMain("buckets", () => {
-        let buckets: Uint32Array[] = Array(K);
-        for (let k = 0; k < K; k++) {
-          buckets[k] = new Uint32Array(new SharedArrayBuffer(4 * (L + 1)));
-          // the starting pointer for the array of points, in bucket order
-          buckets[k][0] = Field.global.getPointer(2 * N * sizeAffine);
+    let { bucketsPtr, locks, counters } = await broadcastFromMain(
+      "buckets",
+      () => {
+        // bucket (k, l) is at bucketsPtr + (bases[k] + l - 1) * sizeAffine
+        let bucketsPtr = Field.global.getPointer(nBuckets * sizeAffine);
+        for (let b = 0; b < nBuckets; b++) {
+          Affine.setIsNonZero(bucketsPtr + b * sizeAffine, false);
         }
-
-        let bucketCounts: Uint32Array[] = Array(K);
-        let scalarSlices: Uint32Array[] = Array(K);
-        for (let k = 0; k < K; k++) {
-          bucketCounts[k] = new Uint32Array(new SharedArrayBuffer(8 * (L + 1)));
-          scalarSlices[k] = new Uint32Array(new SharedArrayBuffer(8 * 2 * N));
-        }
-
-        let maxBucketSizes = new Uint32Array(
-          new SharedArrayBuffer(4 * THREADS)
-        );
+        // one lock per bucket, held while an addition into it is in flight
+        let locks = new Int32Array(new SharedArrayBuffer(4 * nBuckets));
         // work counters for the phases below, see `claim()`
-        let counters = new Int32Array(new SharedArrayBuffer(4 * 3));
-        return {
-          bucketCounts,
-          scalarSlices,
-          buckets,
-          maxBucketSizes,
-          counters,
-        };
-      });
+        let counters = new Int32Array(new SharedArrayBuffer(4 * 2));
+        return { bucketsPtr, locks, counters };
+      }
+    );
 
     // ensure same pointer offsets in other threads
-    if (!isMain()) {
-      Field.global.getPointer(2 * N * K * sizeAffine);
-    }
+    if (!isMain()) Field.global.getPointer(nBuckets * sizeAffine);
 
     // split buckets into more units of work than threads, which threads
     // claim dynamically
     let nUnits = UNITS_PER_THREAD * THREADS;
-    let { chunksPerUnit, chunkSumsPerPartition: columnss } = splitBuckets(
+    let { chunksPerUnit, chunkSumsPerPartition: columnss } = splitPartitions(
       { Field, Curve: Projective },
-      params,
+      Ls,
       nUnits
     );
+    let pointPtr = Field.global.getPointer(N * 4 * sizeAffine);
+    let scalarPtr = Scalar.global.getPointer(N * 2 * sizeScalar);
     toc();
 
     /**
-     * Preparation
-     * -----------
+     * Bucket accumulation
+     * -------------------
      *
-     * this phase is where we process inputs and count bucket sizes, in chunks of
-     * points that threads claim dynamically:
+     * threads claim chunks of input points, and for each chunk
+     * - store the points in the format we need: G, -G, endo(G), -endo(G)
+     * - decompose scalars as `s = s0 + s1*lambda`, and slice s0, s1 into c-bit signed digits
+     * - add each point into its bucket in every partition, in batches of
+     *   affine additions which share one inversion
      *
-     * - store input points in wasm memory, in the format we need
-     * - compute & store negative, endo, and negative-endo points
-     * - decompose input scalars as `s = s0 + s1*lambda` and store s0, s1 in wasm memory
-     * - compute c-bit windows for each scalar, and count bucket sizes as in the first
-     *   loop of a _counting sort_: https://en.wikipedia.org/wiki/Counting_sort#Pseudocode
+     * an addition locks its bucket until its batch is done. if the bucket is
+     * locked, by another thread or by an earlier addition in the same batch,
+     * the addition is retried in the next batch.
      */
-    tic("prepare points & scalars, count buckets");
-    let pointPtr = Field.global.getPointer(N * 4 * sizeAffine);
-    let scalarPtr = Scalar.global.getPointer(N * 2 * sizeScalar);
-    let maxBucketSizeLocal = 0;
-    let twoL = 2 * L;
-
-    for (let [i0, iend0] of claim(counters, PREPARE, N, POINTS_PER_CLAIM)) {
-      preparePointsAndScalars(
-        pointPtr0,
-        scalarPtr0,
-        pointPtr,
-        scalarPtr,
-        i0,
-        iend0
-      );
-
-      for (
-        let i = i0 * 2, iend = iend0 * 2, scalar = scalarPtr + sizeScalar * i;
-        i < iend;
-        i++, scalar += sizeScalar
-      ) {
-        // partition each 16-byte scalar into c-bit slices
-        for (let k = 0, carry = 0; k < K; k++) {
-          // compute kth slice from first half scalar
-          let l = extractBitSlice(scalar, k * c, c) + carry;
-
-          if (l > L) {
-            l = twoL - l;
-            carry = 1;
-          } else {
-            carry = 0;
-          }
-          scalarSlices[k][i] = l | (carry << 31);
-
-          if (l !== 0) {
-            // if the slice is non-zero, increase bucket count
-            let bucketSize = Atomics.add(bucketCounts[k], l, 1) + 1;
-            if (bucketSize > maxBucketSizeLocal) {
-              maxBucketSizeLocal = bucketSize;
-            }
-          }
-        }
-      }
-    }
-    maxBucketSizes[thread] = maxBucketSizeLocal;
-    toc();
-
-    tic("bucket counts (wait)");
-    await barrier();
-    let maxBucketSize = Math.max(...maxBucketSizes);
-    toc();
-
-    tic("integrate bucket counts");
-    // this takes < 1ms, so we just do it on the main thread
-    if (isMain()) {
-      integrateBucketCounts(bucketCounts, buckets, params);
-    }
-    await barrier();
-    toc();
-
-    tic("sort points");
-    sortPoints(buckets, pointPtr, bucketCounts, scalarSlices, counters, params);
-    toc();
-
-    tic("sort points (wait)");
-    await barrier();
-    toc();
-
-    // first large computation stage - bucket accumulation, then reduction of
-    // the accumulated buckets, per claimed unit of buckets
-    tic("bucket accumulation & reduction");
-    for (let [unit] of claim(counters, ACCUMULATE, nUnits)) {
+    tic("bucket accumulation");
+    {
       using _ = Field.local.atCurrentOffset;
-      let chunks = chunksPerUnit[unit];
-
-      // pair pointers live in wasm memory, so a whole batch is added in wasm.
-      // this unit has at most half of its points as pairs.
-      let nPoints = 0;
-      for (let { k, lstart, length } of chunks) {
-        nPoints +=
-          (buckets[k][lstart + length - 1] - buckets[k][lstart - 1]) /
-          sizeAffine;
-      }
-      let nPairsMax = nPoints >> 1;
-      let gPtr = Field.local.getPointer(4 * nPairsMax);
-      let G = new Uint32Array(memoryBytes.buffer, gPtr, nPairsMax); // first summands
+      let B = BATCH_SIZE;
+      let pairsPtr = Field.local.getPointer(8 * B);
       // scratch for safe additions
-      let tmp = Field.local.getPointer(nPairsMax * sizeField);
-      let d = Field.local.getPointer(nPairsMax * sizeField);
-      let kinds = Field.local.getPointer(nPairsMax);
+      let tmp = Field.local.getPointer(B * sizeField);
+      let d = Field.local.getPointer(B * sizeField);
+      let kinds = Field.local.getPointer(B);
+      let pairs = new Uint32Array(memoryBytes.buffer, pairsPtr, 2 * B);
+      let held = new Int32Array(B);
+      let nPairs = 0;
+      let retry: number[] = [];
 
-      // batch-add buckets into their first point, in `maxBucketSize` iterations
-      for (let m = 1; m < maxBucketSize; m *= 2) {
-        let p = 0;
-        let sizeAffineM = m * sizeAffine;
-        let sizeAffine2M = 2 * m * sizeAffine;
+      // signed digits of the current chunk's scalars, K per half scalar,
+      // as bucket index and sign bit
+      let slices = new Int32Array(2 * POINTS_PER_CLAIM * K);
+      let j = 0;
+      let jEnd = 0;
+      let i0 = 0;
+      let chunks = claim(counters, ACCUMULATE, N, POINTS_PER_CLAIM);
 
-        // walk over this unit's buckets to identify point-pairs to add;
-        // the second summand of each pair is at G[p] + sizeAffineM
-        for (let { k, lstart, length } of chunks) {
-          for (let l = lstart; l < lstart + length; l++) {
-            let bucketsK = buckets[k];
-            let bucket = bucketsK[l - 1];
-            let nextBucket = bucketsK[l];
+      // add point into bucket b, or schedule a retry
+      let tryAdd = (b: number, point: number) => {
+        if (nPairs === B || Atomics.compareExchange(locks, b, 0, 1) !== 0) {
+          retry.push(b, point);
+          return;
+        }
+        let bucket = bucketsPtr + b * sizeAffine;
+        if (memoryBytes[bucket + 2 * sizeField] === 0) {
+          memoryBytes.copyWithin(bucket, point, point + sizeAffine);
+          Atomics.store(locks, b, 0);
+          return;
+        }
+        pairs[2 * nPairs] = bucket;
+        pairs[2 * nPairs + 1] = point;
+        held[nPairs] = b;
+        nPairs++;
+      };
 
-            for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
-              G[p] = bucket;
-              p++;
+      // slice the next chunk's scalars, returns false when all are claimed
+      let nextChunk = () => {
+        let next = chunks.next();
+        if (next.done) return false;
+        let [i, iend] = next.value;
+        preparePointsAndScalars(
+          pointPtr0,
+          scalarPtr0,
+          pointPtr,
+          scalarPtr,
+          i,
+          iend
+        );
+        i0 = 2 * i;
+        j = 0;
+        jEnd = 2 * (iend - i) * K;
+        for (
+          let h = i0, scalar = scalarPtr + sizeScalar * h, jj = 0;
+          h < 2 * iend;
+          h++, scalar += sizeScalar
+        ) {
+          let isNonZero =
+            memoryBytes[pointPtr + h * 2 * sizeAffine + 2 * sizeField];
+          for (let k = 0, carry = 0; k < K; k++, jj++) {
+            let L = Ls[k];
+            let l = extractBitSlice(scalar, starts[k], cs[k]) + carry;
+            if (l > L) {
+              l = 2 * L - l;
+              carry = 1;
+            } else {
+              carry = 0;
             }
+            slices[jj] =
+              l === 0 || isNonZero === 0
+                ? -1
+                : (bases[k] + l - 1) | (carry << 31);
           }
         }
+        return true;
+      };
 
-        let nPairs = p;
-        if (nPairs === 0) continue;
-
-        // now G represents a big array of independent additions, which we batch-add
+      let flush = () => {
         if (useSafeAdditions) {
-          Field.batchAdd(scratch[0], tmp, d, kinds, gPtr, sizeAffineM, nPairs);
+          Field.batchAdd(scratch[0], tmp, d, kinds, pairsPtr, nPairs);
         } else {
-          Field.batchAddUnsafe(scratch[0], gPtr, sizeAffineM, nPairs);
+          Field.batchAddUnsafe(scratch[0], pairsPtr, nPairs);
         }
-      }
-      // buckets[k][l-1] now contains the bucket sum (for non-empty buckets)
+        for (let p = 0; p < nPairs; p++) Atomics.store(locks, held[p], 0);
+        nPairs = 0;
+      };
 
-      // second computation stage: reduce this unit's buckets into columns
-      let projectiveChunks = normalizeBucketsStorage(buckets, chunks, true);
+      let sizeAffine2 = 2 * sizeAffine;
+      let hasInput = nextChunk();
+      while (hasInput || retry.length > 0 || nPairs > 0) {
+        // retries first, then new input until the batch is full
+        if (retry.length > 0) {
+          let old = retry;
+          retry = [];
+          for (let r = 0; r < old.length; r += 2) tryAdd(old[r], old[r + 1]);
+        }
+        while (hasInput && nPairs < B) {
+          if (j === jEnd) {
+            hasInput = nextChunk();
+            continue;
+          }
+          let slice = slices[j];
+          if (slice !== -1) {
+            let h = i0 + Math.floor(j / K);
+            // a point `A` and its negation `-A` are stored next to each other
+            let point =
+              pointPtr + h * sizeAffine2 + (slice >>> 31) * sizeAffine;
+            tryAdd(slice & 0x7f_ff_ff_ff, point);
+          }
+          j++;
+        }
+        flush();
+      }
+    }
+    toc();
+
+    tic("bucket accumulation (wait)");
+    await barrier();
+    toc();
+
+    // second computation stage: reduce buckets into columns, per claimed unit
+    tic("bucket reduction");
+    for (let [unit] of claim(counters, REDUCE, nUnits)) {
+      using _ = Field.local.atCurrentOffset;
+      let projectiveChunks = normalizeBucketsStorage(
+        bucketsPtr,
+        chunksPerUnit[unit],
+        bases
+      );
       for (let { j, k, lstart, buckets } of projectiveChunks) {
         reduceBucketsColumnProjective(columnss[k][j], buckets, lstart);
       }
     }
     toc();
 
-    tic("bucket accumulation (wait)");
+    tic("bucket reduction (wait)");
     await barrier();
     toc();
 
@@ -323,7 +331,7 @@ function createMsm({
     Projective.copy(finalSum, partialSums[k]);
     k--;
     for (; k >= 0; k--) {
-      for (let j = 0; j < c; j++) {
+      for (let j = 0; j < cs[k]; j++) {
         Projective.doubleInPlace(scratch, finalSum);
       }
       Projective.addAssign(scratch, finalSum, partialSums[k]);
@@ -415,133 +423,29 @@ function createMsm({
     }
   }
 
-  function integrateBucketCounts(
-    bucketCounts: Uint32Array[],
-    buckets: Uint32Array[],
-    { K, L }: { K: number; L: number }
-  ) {
-    /**
-     * loop #2 of counting sort (for each k).
-     * "integrate" bucket counts, to become start / end indices (i.e., bucket bounds).
-     * while we're at it, we fill an array `buckets` with the same bucket bounds but in a
-     * more convenient format -- as memory addresses.
-     */
-    for (let k = 0; k < K; k++) {
-      let counts = bucketCounts[k];
-      let running = 0;
-      let bucketsK = buckets[k];
-      let runningIndex = bucketsK[0];
-      for (let l = 1; l <= L; l++) {
-        let count = counts[l];
-        counts[l] = running;
-        running += count;
-        runningIndex += count * sizeAffine;
-        bucketsK[l] = runningIndex;
-      }
-    }
-  }
-
   /**
-   * input:\
-   * points, scalars and bucket counts returned from {@link preparePointsAndScalars}
-   *
-   * output:\
-   * buckets bounds, which lay out the points sorted in bucket order, for each partition
+   * copy this unit's buckets to projective points, which the reduction adds
    */
-  function sortPoints(
-    buckets: Uint32Array[],
-    pointPtr: number,
-    bucketCounts: Uint32Array[],
-    scalarSlices: Uint32Array[],
-    counters: Int32Array,
-    { N, K }: { N: number; K: number }
-  ) {
-    let sizeAffine2 = 2 * sizeAffine;
-    // units of work are segments of the 2N points of one partition, so that all
-    // threads have work even if K is smaller than the number of threads
-    let nSegments = Math.ceil((UNITS_PER_THREAD * THREADS) / K);
-    let segmentLength = Math.ceil((2 * N) / nSegments);
-    /**
-     * loop #3 of counting sort (for each k).
-     * we loop over the input elements and re-compute in which bucket `l` they belong.
-     * by retrieving counts[l], we find the output position where a point should be stored in.
-     * at the beginning, counts[l] will be the 0 index of bucket l, but when we store a point we increment count[l]
-     * so that the next point in this bucket is stored at the next position.
-     *
-     * all in all, the result of this sorting is that points form a contiguous array, one bucket after another
-     * => this is fantastic for the batch additions in the next step
-     */
-    for (let [unit] of claim(counters, SORT, K * nSegments)) {
-      let k = Math.floor(unit / nSegments);
-      let iStart = (unit % nSegments) * segmentLength;
-      let iEnd = Math.min(iStart + segmentLength, 2 * N);
-      let scalarSlicesK = scalarSlices[k];
-      let bucketCountsK = bucketCounts[k];
-      let startBucket = buckets[k][0];
-      for (
-        // we loop over implicit arrays of points by taking their starting pointers and incrementing by the size of one element
-        // note: this time, we treat `G` and `endo(G)` as separate points, and iterate over 2N points.
-        let i = iStart, point = pointPtr + i * sizeAffine2;
-        i < iEnd;
-        i++, point += sizeAffine2
-      ) {
-        let l = scalarSlicesK[i];
-        let carry = l >>> 31;
-        l &= 0x7f_ff_ff_ff;
-        if (l === 0) continue;
-
-        // compute the memory address in the bucket array where we want to store our point.
-        // the start index is updated atomically, so the next point in this bucket lands at one
-        // position higher, also when other threads sort other segments of this partition
-        let l0 = Atomics.add(bucketCountsK, l, 1);
-        let newPtr = startBucket + l0 * sizeAffine; // this is where the point should be copied to
-
-        // a point `A` and it's negation `-A` are stored next to each other
-        let negPoint = point + sizeAffine;
-        let ptr = carry === 1 ? negPoint : point; // this is the point that should be copied
-
-        // copy point to the bucket array -- expensive operation! (but it pays off)
-        Affine.copy(newPtr, ptr);
-      }
-    }
-  }
-
   function normalizeBucketsStorage(
-    oldBuckets: Uint32Array[],
+    bucketsPtr: number,
     chunks: Chunk[],
-    toProjective = false
+    bases: number[]
   ) {
-    let size = toProjective ? sizeProjective : sizeAffine;
-    let setZero = toProjective
-      ? Projective.setZero
-      : (ptr: number) => Affine.setIsNonZero(ptr, false);
-    let copy = toProjective ? Projective.fromAffine : Affine.copy;
-
-    // normalize the way buckets are stored
-    let nChunks = chunks.length;
-    let chunksWithBuckets: (Chunk & { buckets: Uint32Array })[] =
-      Array(nChunks);
-
-    for (let i = 0; i < nChunks; i++) {
-      let chunk = chunks[i];
+    return chunks.map((chunk) => {
       let { k, length, lstart } = chunk;
-      let buckets = Uint32Array.from(Field.local.getPointers(length, size));
-
-      for (let l = 0; l < length; l++) {
-        let bucket = oldBuckets[k][lstart + l - 1];
-        let nextBucket = oldBuckets[k][lstart + l];
-        if (bucket === nextBucket) {
-          // empty bucket
-          setZero(buckets[l]);
+      let buckets = Uint32Array.from(
+        Field.local.getPointers(length, sizeProjective)
+      );
+      let bucket = bucketsPtr + (bases[k] + lstart - 1) * sizeAffine;
+      for (let l = 0; l < length; l++, bucket += sizeAffine) {
+        if (memoryBytes[bucket + 2 * sizeField] === 0) {
+          Projective.setZero(buckets[l]);
         } else {
-          copy(buckets[l], bucket);
+          Projective.fromAffine(buckets[l], bucket);
         }
       }
-
-      chunksWithBuckets[i] = { ...chunk, buckets: buckets };
-    }
-
-    return chunksWithBuckets;
+      return { ...chunk, buckets };
+    });
   }
 
   /**

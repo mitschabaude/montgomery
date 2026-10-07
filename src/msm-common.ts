@@ -1,7 +1,14 @@
 import { assert } from "./util.ts";
 import type { MemorySection } from "./wasm/memory-helpers.ts";
 
-export { windowSize, windowSizeAffine, splitBuckets, type Chunk, createLog };
+export {
+  windowSize,
+  windowSizeAffine,
+  splitBuckets,
+  splitPartitions,
+  type Chunk,
+  createLog,
+};
 
 const REMOVE_ALL_LOGS = false;
 
@@ -181,6 +188,47 @@ function splitBuckets(
     );
   }
 
+  return { chunksPerUnit, chunkSumsPerPartition };
+}
+
+/**
+ * Split partitions with `Ls[k]` buckets each into `nUnits` units with about
+ * the same number of buckets, which threads claim
+ */
+function splitPartitions(
+  {
+    Field,
+    Curve,
+  }: {
+    Field: { global: MemorySection };
+    Curve: { size: number };
+  },
+  Ls: number[],
+  nUnits: number
+) {
+  let K = Ls.length;
+  let total = Ls.reduce((a, b) => a + b, 0);
+  let perUnit = Math.ceil(total / nUnits);
+  let chunksPerUnit: Chunk[][] = Array.from({ length: nUnits }, () => []);
+  let nChunksPerPartition: number[] = Array(K).fill(0);
+
+  // bucket ranges [start, start + perUnit) of the concatenated partitions
+  for (let unit = 0, start = 0; unit < nUnits && start < total; unit++) {
+    let end = Math.min(start + perUnit, total);
+    for (let k = 0, offset = 0; k < K; offset += Ls[k], k++) {
+      let lstart = Math.max(start, offset) - offset + 1;
+      let lend = Math.min(end, offset + Ls[k]) - offset + 1;
+      if (lstart >= lend) continue;
+      let j = nChunksPerPartition[k]++;
+      chunksPerUnit[unit].push({ k, j, lstart, length: lend - lstart });
+    }
+    start = end;
+  }
+
+  // allocate space for the contribution of each chunk to its partition
+  let chunkSumsPerPartition = nChunksPerPartition.map((nChunks) =>
+    Uint32Array.from(Field.global.getPointers(nChunks, Curve.size))
+  );
   return { chunksPerUnit, chunkSumsPerPartition };
 }
 

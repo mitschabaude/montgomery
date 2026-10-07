@@ -141,8 +141,8 @@ function curveOps(
   );
 
   /**
-   * In-place batch addition G_i += H_i of affine points, i < n, where G is an
-   * array of n point pointers and H_i = G_i + offset. Uses one inversion.
+   * In-place batch addition G_i += H_i of affine points, i < n, where `pairs`
+   * holds n pointer pairs (G_i, H_i). Uses one inversion.
    *
    * Unsafe: assumes no point is zero and G_i != +-H_i, which holds with
    * overwhelming probability for independent random inputs.
@@ -151,18 +151,19 @@ function curveOps(
    */
   const batchAddUnsafe = func(
     {
-      in: [{ scratch: i32 }, { G: i32 }, { offset: i32 }, { n: i32 }],
+      in: [{ scratch: i32 }, { pairs: i32 }, { n: i32 }],
       locals: { ...locals, g: i32, h: i32, i: i32, inv: i32 },
       out: [],
     },
-    ({ scratch, G, offset, n }, L) => {
+    ({ scratch, pairs, n }, L) => {
       let { g, h, i, inv } = L;
       // formula elements first, then the inversion's input, output and scratch
       let f = context(L, scratch, 7);
       local.set(inv, i32.add(scratch, 7 * S));
       let loadPair = () => {
-        local.set(g, i32.load({}, i32.add(G, i32.shl(i, 2))));
-        local.set(h, i32.add(g, offset));
+        local.set(h, i32.add(pairs, i32.shl(i, 3)));
+        local.set(g, i32.load({}, h));
+        local.set(h, i32.load({ offset: 4 }, h));
       };
       let ACC = f.element();
       let DX = f.element();
@@ -235,14 +236,18 @@ function curveOps(
         { tmp: i32 },
         { d: i32 },
         { kinds: i32 },
-        { G: i32 },
-        { offset: i32 },
+        { pairs: i32 },
         { n: i32 },
       ],
       locals: { g: i32, h: i32, i: i32, j: i32, kind: i32 },
       out: [],
     },
-    ({ scratch, tmp, d, kinds, G, offset, n }, { g, h, i, j, kind }) => {
+    ({ scratch, tmp, d, kinds, pairs, n }, { g, h, i, j, kind }) => {
+      const loadPair = () => {
+        local.set(h, i32.add(pairs, i32.shl(i, 3)));
+        local.set(g, i32.load({}, h));
+        local.set(h, i32.load({ offset: 4 }, h));
+      };
       const y = (p: Local<"i32">) => i32.add(p, S);
       const isZero = (p: Local<"i32">) =>
         i32.eqz(i32.load8_u({ offset: 2 * S }, p));
@@ -255,8 +260,7 @@ function curveOps(
         loop(null, (next) => {
           i32.ge_u(i, n);
           br_if(done);
-          local.set(g, i32.load({}, i32.add(G, i32.shl(i, 2))));
-          local.set(h, i32.add(g, offset));
+          loadPair();
           local.set(kind, 0);
           block(null, (classified) => {
             isZero(g);
@@ -305,8 +309,7 @@ function curveOps(
           i32.ge_u(i, n);
           br_if(done);
           local.set(kind, i32.load8_u({}, i32.add(kinds, i)));
-          local.set(g, i32.load({}, i32.add(G, i32.shl(i, 2))));
-          local.set(h, i32.add(g, offset));
+          loadPair();
           i32.eq(kind, 1);
           if_(null, () =>
             call(addAffine, { scratch, x3: g, x1: g, x2: h, d: dJ() })
