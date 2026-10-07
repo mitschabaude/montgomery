@@ -68,16 +68,51 @@ equiv(
 // addition
 
 equiv(
-  { from: [point, point], to: pointStrict, scratch: 9 },
+  { from: [point, point], to: point, scratch: 9 },
   CurveBigint.add,
   Curve.add,
   "add"
 );
 
+// equal points take the fallback of the dedicated addition formulas
+equiv(
+  { from: [point], to: point, scratch: 9 },
+  (P) => CurveBigint.add(P, P),
+  (scratch, out, P) => Curve.add(scratch, out, P, P),
+  "add equal points"
+);
+
+// mixed addition and subtraction, with Z2 = 1
+const pointAffine = wasmSpec(
+  Field,
+  Random.map(Random(CurveBigint.random), (P) =>
+    CurveBigint.fromAffine(CurveBigint.toAffine(P))
+  ),
+  { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
+);
+equiv(
+  { from: [point, pointAffine], to: point, scratch: 9 },
+  CurveBigint.add,
+  Curve.addMixed,
+  "add mixed"
+);
+equiv(
+  { from: [point, pointAffine], to: point, scratch: 9 },
+  (P, Q) => CurveBigint.add(P, CurveBigint.negate(Q)),
+  Curve.subMixed,
+  "subtract mixed"
+);
+equiv(
+  { from: [pointAffine], to: point, scratch: 9 },
+  (P) => CurveBigint.add(P, P),
+  (scratch, out, P) => Curve.addMixed(scratch, out, P, P),
+  "add mixed equal points"
+);
+
 // adding zero
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: point, scratch: 9 },
   (P) => CurveBigint.add(P, CurveBigint.zero),
   (scratch, out, P) => Curve.add(scratch, out, P, Curve.zero),
   "add zero"
@@ -104,7 +139,7 @@ equiv(
 // adding the negation
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: point, scratch: 9 },
   (P) => CurveBigint.add(P, CurveBigint.negate(P)),
   (scratch, out, P) => {
     Curve.negate(out, P);

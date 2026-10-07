@@ -71,8 +71,10 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     copyPoint(P, zero);
   }
 
-  // Additions are strongly unified and run in wasm (src/wasm/curve.ts): 9M,
-  // P3 may alias P1 and P2, and scratch must be 9 contiguous field elements.
+  // Additions run in wasm (src/wasm/curve.ts): dedicated formulas, 7M mixed
+  // and 8M otherwise, which fall back to the unified 9M formula for P1 = P2.
+  // Doubling uses the unified formula. P3 may alias P1 and P2, and scratch
+  // must be 9 contiguous field elements.
   // TODO: dedicated doubling
 
   function negateInPlace(P: number) {
@@ -124,7 +126,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * TODO: dedicated doubling, saves some operations compared to add
    */
   function double(scratch: number[], P3: number, P1: number) {
-    Field.addEdwards(scratch[0], P3, P1, P1, k);
+    Field.doubleEdwards(scratch[0], P3, P1, P1, k);
   }
 
   /**
@@ -134,7 +136,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * squares instead of multiplies etc
    */
   function doubleInPlace(scratch: number[], P: number) {
-    Field.addEdwards(scratch[0], P, P, P, k);
+    Field.doubleEdwards(scratch[0], P, P, P, k);
   }
 
   /**
