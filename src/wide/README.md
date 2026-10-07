@@ -20,16 +20,18 @@ With `n = ceil(bitLength(p) / 64)` and `R = 2^(64n)`, values are in `[0, 2p)` wh
 
 ## Implementation notes
 
-Multiplication is CIOS with separate product and reduction passes, so every multiply-add fits exactly in 128 bits. The generator drops the final subtraction when `4p <= R`, drops the extra carry limb when `p + limit <= R`, and specializes zero and one modulus limbs. Squaring reuses the multiplication kernel and does not exploit symmetric cross products.
+When `p + limit <= R`, multiplication is a single CIOS pass per row that interleaves the product and reduction carry chains, as in gnark's "no-carry" variant. Other moduli use CIOS with separate passes and an extra carry limb. Every multiply-add fits exactly in 128 bits. The generator drops the final subtraction when `4p <= R`, and it replaces multiplications by zero, one or power-of-two modulus limbs with shifts. On x64, V8 lowers each limb product to `mul` plus two `add`/`adc` pairs, so the kernel is bound by instruction count. Symmetric squaring needs fewer multiplications but more additions, and it measured slower than reusing the multiplication kernel.
 
-`inverse` is a batched binary GCD. Each batch accumulates 62 steps in a 2x2 matrix from high/low approximations, then applies the matrix to the full remainders with signed wide products. A negative remainder is negated together with its matrix row. Coefficients are divided by `2^62` modulo p in every batch, so they stay canonical, and one final multiplication by `R^3` gives the Montgomery inverse. The 29-bit fast inverse in `src/inverse/faster-inverse-wasm.ts` uses the same scheme with 29-step batches. `inverseKaliski` is a simpler reference implementation.
+Add and subtract select their result without branches. Their reduction condition is data dependent and mispredicts on random field elements. On dependent chains of a single operation, branches predict better, so subtraction looks slightly slower there; the affine addition benchmark below reflects MSM use. The rarely needed final subtraction of multiplication stays a branch.
+
+`inverse` is a branchless batched binary GCD after Pornin (2020). b stays odd, and each step subtracts b from an odd a, swapping them if the difference is negative. All trailing zeros of a are removed at once, and the shift is computed from `a - b` in parallel with its absolute value. Each batch runs 62 steps on 63 high and 64 low bits of a and b, accumulating a 2x2 matrix of signed 64-bit entries, then applies it to the full values with wide products. A negative full value, caused by an approximation, is negated together with its matrix row. Coefficients are divided by `2^62` modulo p in every batch, and a final multiplication by `R^3` gives the Montgomery inverse. `inverseKaliski` is a simpler reference implementation.
 
 ## Benchmarks
 
-Nanoseconds per operation, 29-bit → wide, measured with `taskset -c 2 npm run benchmark-wide` on an AMD Ryzen 7 3700X with Node `v27.0.0-nightly20261006fcfb7ecc0b`. Arithmetic runs dependent chains inside Wasm. Inversion cycles 500,000 calls over the same 256 random inputs for both backends, after checking every output against bigint. Each row is a single run, and timings vary with server load.
+Nanoseconds per operation, 29-bit → wide, measured with `taskset -c 6 npm run benchmark-wide` on an AMD Ryzen 7 3700X with Node `v27.0.0-nightly20261006fcfb7ecc0b`. Arithmetic rows are dependent chains inside Wasm. The affine row runs the field operations of a batch-affine point addition over 1024 independent random inputs, with the same generated code for both backends. Inversion cycles 500,000 calls over the same 256 random inputs for both backends, after checking every output against bigint. The 29-bit fast inverse uses the earlier branching steps. Each row is a single run, and timings vary with server load.
 
-| Field | Multiply | Square | Add | Subtract | Fast inverse | Kaliski inverse |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Pallas | 37 → 18 | 28 → 18 | 13 → 9 | 8 → 5 | 2648 → 1960 | 5529 → 3145 |
-| BLS12-377 | 100 → 40 | 77 → 39 | 16 → 10 | 11 → 7 | 4401 → 3142 | 10773 → 6119 |
-| BN254 scalar | 52 → 19 | 41 → 19 | 13 → 9 | 8 → 5 | 2573 → 1963 | 5511 → 3196 |
+| Field | Multiply | Square | Add | Subtract | Affine addition | Fast inverse | Kaliski inverse |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Pallas | 36 → 17 | 28 → 16 | 13 → 7 | 8 → 6 | 164 → 85 | 2629 → 681 | 5344 → 3117 |
+| BLS12-377 | 99 → 39 | 77 → 38 | 16 → 10 | 10 → 8 | 372 → 165 | 4338 → 1214 | 10774 → 6056 |
+| BN254 scalar | 52 → 18 | 41 → 18 | 13 → 7 | 8 → 6 | 221 → 91 | 2582 → 692 | 5393 → 3113 |

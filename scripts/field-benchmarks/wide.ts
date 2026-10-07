@@ -1,5 +1,6 @@
 import { cpus } from "node:os";
 import { benchmarkInverses } from "./wide-inverse.ts";
+import { benchmarkAffine } from "./wide-affine.ts";
 import { benchmark } from "./field-benchmark.ts";
 import { bn254Params } from "../../src/concrete/bn254.params.ts";
 import { pallasParams } from "../../src/concrete/pasta.params.ts";
@@ -26,5 +27,6 @@ for (const params of fields) {
   while (t % 2n === 0n) t >>= 1n;
   console.log(`\n${params.label}\n`);
   await benchmark({ p, t }, { onlyQuick: true, wide: true });
+  await benchmarkAffine(p);
   await benchmarkInverses(p);
 }
