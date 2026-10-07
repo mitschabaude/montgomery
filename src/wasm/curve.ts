@@ -312,7 +312,7 @@ function curveOps(
             // with G and H at the same address, the batch would overwrite the
             // y of H, so G is doubled on its own
             i32.eq(g, h);
-            if_(() => {
+            if_({ likely: false }, () => {
               isZero(g);
               br_if(classified);
               f.load(Y, g, S);
@@ -339,16 +339,17 @@ function curveOps(
             });
             // G = 0: G + H = H
             isZero(g);
-            if_(() => {
+            if_({ likely: false }, () => {
               copyBytes(g, h, 2 * S + 1);
               br(classified);
             });
             isZero(h);
-            br_if(classified);
+            br_if(classified, { likely: false });
             f.subtract(DX, f.input(h), f.input(g));
             f.reduce(DX);
             f.isEqual(DX, ZERO);
             if_(
+              { likely: false },
               () => {
                 f.subtract(M, f.input(h, S), f.input(g, S));
                 f.reduce(M);
@@ -407,7 +408,7 @@ function curveOps(
           local.set(i, i32.sub(i, 1));
           local.set(kind, i32.load8_u({}, i32.add(kinds, i)));
           i32.eq(kind, SKIP);
-          br_if(next);
+          br_if(next, { likely: false });
           loadPair();
           local.set(dxi, i32.add(dx, i32.mul(i, S)));
           f.load(DX, dxi);
@@ -814,7 +815,7 @@ function curveOps(
         f.isEqual(F, zero);
         f.isEqual(G, zero);
         i32.or();
-        if_(() => {
+        if_({ likely: false }, () => {
           call(unified, { scratch, p3, p1, p2, k });
           return_();
         });
