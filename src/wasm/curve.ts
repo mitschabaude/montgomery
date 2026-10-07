@@ -751,30 +751,31 @@ function curveOps(
         if (isSubtract) f.addLoose(tmp, Y2, X2);
         else f.subtractLoose(tmp, Y2, X2);
         f.multiply(B, B, tmp);
-        // C = 2 Z1 T2. Reducing additions keep F and H below 2p, so that one
-        // reduction makes them canonical for the zero check.
+        // C = 2 Z1 T2
         f.add(tmp, T2, T2);
         if (isSubtract) f.negate(tmp, tmp);
         f.multiply(C, Z1, tmp);
         // D = 2 T1 Z2
         f.add(D, T1, T1);
         if (Z2 !== undefined) f.multiply(D, D, Z2);
-        // F = B - A, H = D - C; both zero iff the formula degenerates
+        // F = B - A, G = B + A. the result is (EF, GH, EH, FG), which is
+        // correct iff Z3 = FG is nonzero. this excludes equal points, and
+        // some sums with points of small order
         f.subtract(F, B, A);
-        f.subtract(H, D, C);
+        f.add(G, B, A);
         f.reduce(F);
-        f.reduce(H);
+        f.reduce(G);
         let zero = f.input(formulas.zeroPtr);
         f.isEqual(F, zero);
-        f.isEqual(H, zero);
-        i32.and();
+        f.isEqual(G, zero);
+        i32.or();
         if_(null, () => {
           call(unified, { scratch, p3, p1, p2, k });
           return_();
         });
-        // E = D + C, G = B + A
+        // E = D + C, H = D - C
         f.addLoose(E, D, C);
-        f.addLoose(G, B, A);
+        f.subtract(H, D, C);
         let X3 = f.output(p3);
         let Y3 = f.output(p3, S);
         let Z3 = f.output(p3, 2 * S);
