@@ -32,7 +32,7 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
   let orderBits = bigintToBits(CurveBigint.order);
 
   function copyPoint(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + size);
+    Field.copyMemory(target, source, size);
   }
 
   function isZero(pointer: number) {
@@ -161,13 +161,9 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
 
   function fromAffine(P: number, A: number) {
     // x,y = x,y
-    memoryBytes.copyWithin(P, A, A + 2 * sizeField);
+    Field.copyMemory(P, A, 2 * sizeField);
     // z = 1
-    memoryBytes.copyWithin(
-      P + 2 * sizeField,
-      constants.mg1,
-      constants.mg1 + sizeField
-    );
+    Field.copy(P + 2 * sizeField, constants.mg1);
     // isInfinity = isInfinity
     memoryBytes[P + 3 * sizeField] = memoryBytes[A + 2 * sizeField];
   }

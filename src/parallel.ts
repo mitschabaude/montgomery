@@ -15,7 +15,7 @@ import {
   createRandomScalars,
 } from "./curve-random.ts";
 import { type GlvScalarParams, createGlvScalar } from "./scalar-glv.ts";
-import { createMsm } from "./msm-batched-affine.ts";
+import { createMsm, createMsmShared } from "./msm-batched-affine.ts";
 import { pool } from "./threads/global-pool.ts";
 import { type CurveParams } from "./bigint/affine-weierstrass.ts";
 import { type CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
@@ -207,7 +207,7 @@ async function createWeierstraß(
     }
   }
 
-  const Parallel = pool.register(`Weierstraß, ${label}, ${backend}`, {
+  const ParallelApi = pool.register(`Weierstraß, ${label}, ${backend}`, {
     randomPointsFast,
     randomScalars,
     msmUnsafe,
@@ -218,6 +218,14 @@ async function createWeierstraß(
     scalarsFromBytes,
     pointsFromBytes,
   });
+  // the main thread creates the state that all threads of an MSM share
+  const Parallel = {
+    ...ParallelApi,
+    msm: (...[s, p, N, verbose, options]: Parameters<typeof msm>) =>
+      ParallelApi.msm(s, p, N, verbose, options, createMsmShared()),
+    msmUnsafe: (...[s, p, N, verbose, options]: Parameters<typeof msmUnsafe>) =>
+      ParallelApi.msmUnsafe(s, p, N, verbose, options, createMsmShared()),
+  };
 
   const bigintProjective = createBigintCurve(params);
   const Bigint = {

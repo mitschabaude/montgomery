@@ -52,7 +52,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     ];
   }
   function copyPoint(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + size);
+    Field.copyMemory(target, source, size);
   }
 
   function isZero(P: number) {

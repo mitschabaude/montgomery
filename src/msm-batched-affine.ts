@@ -8,9 +8,8 @@ import { type CurveAffine } from "./curve-affine.ts";
 import { type CurveProjective } from "./curve-projective.ts";
 import { type MsmField } from "./field-msm.ts";
 import { type GlvScalar } from "./scalar-glv.ts";
-import { broadcastFromMain } from "./threads/global-pool.ts";
 import { THREADS, barrier, claim, isMain } from "./threads/threads.ts";
-import { log2 } from "./util.ts";
+import { assert, log2 } from "./util.ts";
 import { createLog, splitPartitions, windowSizeAffine } from "./msm-common.ts";
 
 // work counters, and sizes of dynamically claimed units of work
@@ -25,8 +24,20 @@ const REDUCE_UNITS_PER_THREAD = 4;
 const BATCH_SIZE = 512;
 // number of bucket columns reduced side by side
 const REDUCE_COLUMNS = 128;
+// maximum number of partitions
+const MAX_K = 256;
 
-export { createMsm, type MsmInputCurve };
+/**
+ * Shared state of one MSM call, which the main thread passes to all threads:
+ * work counters, then per partition: claimed half points and claimed copies,
+ * then whether copy r of partition k has points, at k*R + r.
+ */
+function createMsmShared() {
+  let size = 3 + 2 * MAX_K + MAX_K * (THREADS + 2);
+  return new Int32Array(new SharedArrayBuffer(4 * size));
+}
+
+export { createMsm, createMsmShared, type MsmInputCurve };
 
 type MsmInputCurve = {
   params: CurveParams;
@@ -65,9 +76,8 @@ function createMsm({
   Affine,
   Projective,
 }: MsmInputCurve) {
-  const { copy, subtract, endomorphism, sizeField, memoryBytes, constants } =
-    Field;
-  let { decompose, extractBitSlice, sizeField: sizeScalar } = Scalar;
+  const { sizeField, memoryBytes } = Field;
+  let { sizeField: sizeScalar } = Scalar;
   const b = Scalar.maxBits;
 
   let sizeAffine = Affine.size;
@@ -81,6 +91,7 @@ function createMsm({
    * @param verboseTiming whether to log timing information
    * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
    * than our well-optimized, hard-coded ones; see {@link cTable})
+   * @param shared state shared by all threads, from {@link createMsmShared}
    */
   async function msm(
     scalarPtr0: number,
@@ -90,7 +101,8 @@ function createMsm({
     {
       c,
       useSafeAdditions = true,
-    }: { c?: number; useSafeAdditions?: boolean } = {}
+    }: { c?: number; useSafeAdditions?: boolean } = {},
+    shared = createMsmShared()
   ) {
     let { tic, toc, log, getLog } = createLog(verboseTiming && isMain());
     tic("msm total");
@@ -109,8 +121,6 @@ function createMsm({
     // L = 2^(c_k - 1) buckets. its additions would serialize otherwise.
     let cs = Array.from({ length: K }, (_, k) => Math.floor((b + 1 + k) / K));
     let Ls = cs.map((ck) => 2 ** (ck - 1));
-    // bit offset of each window
-    let starts = cs.map((_, k) => cs.slice(0, k).reduce((a, b) => a + b, 0));
     log({ n, K, c: cs.join(",") });
 
     let scratch = Field.local.getPointers(40);
@@ -120,14 +130,11 @@ function createMsm({
     // buckets, by threads that claim chunks of the points
     let R0 = Math.ceil(THREADS / K);
     let R = R0 + 2;
-    let { counters, copiesUsed } = await broadcastFromMain("counters", () => ({
-      // phase counters, then per partition: claimed half points, and copies
-      counters: new Int32Array(new SharedArrayBuffer(4 * (3 + 2 * K))),
-      // whether copy r of partition k has points, at k*R + r
-      copiesUsed: new Uint8Array(new SharedArrayBuffer(K * R)),
-    }));
+    assert(K <= MAX_K, `at most ${MAX_K} partitions`);
+    let counters = shared;
     let pointsClaimed = (k: number) => 3 + k;
-    let copiesClaimed = (k: number) => 3 + K + k;
+    let copiesClaimed = (k: number) => 3 + MAX_K + k;
+    let copiesUsed = shared.subarray(3 + 2 * MAX_K);
 
     let maxL = Math.max(...Ls);
     let bucketsPtr = Field.global.getPointer(K * R * maxL * sizeAffine);
@@ -144,11 +151,18 @@ function createMsm({
       nUnits
     );
     let pointPtr = Field.global.getPointer(N * 4 * sizeAffine);
-    let scalarPtr = Scalar.global.getPointer(N * 2 * sizeScalar);
     // signed digit of each half scalar h in each partition k, at k*2N + h,
     // as bucket index l in 1..L_k and sign bit. 0 if there is no bucket
-    let slicesPtr = Field.global.getPointer(4 * K * 2 * N);
-    let slices = new Int32Array(memoryBytes.buffer, slicesPtr, K * 2 * N);
+    let slicesPtr = Scalar.global.getPointer(4 * K * 2 * N);
+    let slices = new Int32Array(
+      Scalar.memoryBytes.buffer,
+      slicesPtr,
+      K * 2 * N
+    );
+    // scratch for preparing a chunk
+    let scalarScratch = Scalar.local.getPointer(2 * sizeScalar);
+    let scalarFlags = Scalar.local.getPointer(POINTS_PER_CLAIM);
+    let flags = Field.local.getPointer(POINTS_PER_CLAIM);
     toc();
 
     /**
@@ -160,33 +174,40 @@ function createMsm({
      * - decompose scalars as `s = s0 + s1*lambda`, and slice s0, s1 into c_k-bit signed digits
      */
     tic("prepare points & scalars");
+    // windows of c_k = c0 bits for k < kHi, and c0 + 1 bits for k >= kHi
+    let c0 = cs[0];
+    let kHi = cs.indexOf(c0 + 1) === -1 ? K : cs.indexOf(c0 + 1);
     for (let [i, iend] of claim(counters, PREPARE, N, POINTS_PER_CLAIM)) {
-      preparePointsAndScalars(
-        pointPtr0,
-        scalarPtr0,
-        pointPtr,
-        scalarPtr,
-        i,
-        iend
+      let n = iend - i;
+      Scalar.decomposeAndSlice(
+        slicesPtr + 4 * 2 * i,
+        scalarFlags,
+        scalarPtr0 + i * sizeScalar,
+        scalarScratch,
+        n,
+        2 * N,
+        K,
+        c0,
+        kHi
       );
-      for (
-        let h = 2 * i, scalar = scalarPtr + sizeScalar * h;
-        h < 2 * iend;
-        h++, scalar += sizeScalar
-      ) {
-        let isNonZero =
-          memoryBytes[pointPtr + h * 2 * sizeAffine + 2 * sizeField];
-        for (let k = 0, carry = 0; k < K; k++) {
-          let L = Ls[k];
-          let l = extractBitSlice(scalar, starts[k], cs[k]) + carry;
-          if (l > L) {
-            l = 2 * L - l;
-            carry = 1;
-          } else {
-            carry = 0;
-          }
-          slices[k * 2 * N + h] =
-            isNonZero === 0 || l === 0 ? 0 : l | (carry << 31);
+      memoryBytes.set(
+        Scalar.memoryBytes.subarray(scalarFlags, scalarFlags + n),
+        flags
+      );
+      Field.preparePoints(
+        pointPtr + i * 4 * sizeAffine,
+        pointPtr0 + i * sizeAffine,
+        flags,
+        n
+      );
+      // zero points don't go into buckets
+      for (; i < iend; i++) {
+        if (memoryBytes[pointPtr0 + i * sizeAffine + 2 * sizeField] !== 0) {
+          continue;
+        }
+        for (let k = 0; k < K; k++) {
+          slices[k * 2 * N + 2 * i] = 0;
+          slices[k * 2 * N + 2 * i + 1] = 0;
         }
       }
     }
@@ -292,84 +313,6 @@ function createMsm({
   }
 
   /**
-   * input: points and scalars
-   *
-   * output:
-   * - points in 4 variants: G, -G, endo(G), -endo(G)
-   *   with coordinates in Montgomery form
-   * - scalars decomposed into 2 half-size chunks
-   */
-  function preparePointsAndScalars(
-    pointPtr0: number,
-    scalarPtr0: number,
-    pointPtr: number,
-    scalarPtr: number,
-    i: number,
-    iend: number
-  ) {
-    let sizeAffine4 = 4 * sizeAffine;
-    let sizeScalar2 = 2 * sizeScalar;
-    let point = pointPtr + sizeAffine4 * i;
-    let scalar = scalarPtr + sizeScalar2 * i;
-
-    let point0 = pointPtr0 + sizeAffine * i;
-    let scalarInput = scalarPtr0 + sizeScalar * i;
-
-    for (
-      ;
-      i < iend;
-      i++,
-        point0 += sizeAffine,
-        point += sizeAffine4,
-        scalarInput += sizeScalar,
-        scalar += sizeScalar2
-    ) {
-      // load scalar and decompose from one 32-byte into two 16-byte chunks
-      let scalar0 = scalar;
-      let scalar1 = scalar + sizeScalar;
-      let negateFlags = decompose(scalar0, scalar1, scalarInput);
-      let scalar0Negative = negateFlags & 1;
-      let scalar1Negative = negateFlags >> 1;
-
-      let x = point;
-      let y = point + sizeField;
-
-      // copy original point to new, larger array
-      copy(x, point0);
-      copy(y, point0 + sizeField);
-      let isNonZero = memoryBytes[point0 + 2 * sizeField];
-      memoryBytes[point + 2 * sizeField] = isNonZero;
-
-      // -point, endo(point), -endo(point)
-      // this just takes 1 field multiplication for the endomorphism, and 1 subtraction
-      let negPoint = point + sizeAffine;
-      let endoPoint = negPoint + sizeAffine;
-      let negEndoPoint = endoPoint + sizeAffine;
-      copy(negPoint, x);
-
-      memoryBytes[negPoint + 2 * sizeField] = isNonZero;
-      endomorphism(endoPoint, point);
-      memoryBytes[endoPoint + 2 * sizeField] = isNonZero;
-      copy(negEndoPoint, endoPoint);
-      memoryBytes[negEndoPoint + 2 * sizeField] = isNonZero;
-
-      if (scalar0Negative) {
-        copy(negPoint + sizeField, y);
-        subtract(y, constants.p, y);
-      } else {
-        subtract(negPoint + sizeField, constants.p, y);
-      }
-      if (scalar1Negative === scalar0Negative) {
-        copy(endoPoint + sizeField, y);
-        copy(negEndoPoint + sizeField, negPoint + sizeField);
-      } else {
-        copy(negEndoPoint + sizeField, y);
-        copy(endoPoint + sizeField, negPoint + sizeField);
-      }
-    }
-  }
-
-  /**
    * accumulates the n buckets of a partition, stored from `buckets` on: adds
    * the points in each of the claimed chunks into the buckets given by their
    * signed digits in `slices`. returns whether there were any points.
@@ -415,7 +358,7 @@ function createMsm({
       }
       let bucket = buckets + l * sizeAffine;
       if (memoryBytes[bucket + 2 * sizeField] === 0) {
-        memoryBytes.copyWithin(bucket, point, point + sizeAffine);
+        Affine.copy(bucket, point);
         return;
       }
       batches[l] = batch;
@@ -559,12 +502,17 @@ function createMsm({
       pointPtr: number,
       N: number,
       verbose?: boolean,
-      options?: { c?: number; c0?: number }
+      options?: { c?: number },
+      shared?: Int32Array<SharedArrayBuffer>
     ) {
-      return msm(scalarPtr, pointPtr, N, verbose, {
-        ...options,
-        useSafeAdditions: false,
-      });
+      return msm(
+        scalarPtr,
+        pointPtr,
+        N,
+        verbose,
+        { ...options, useSafeAdditions: false },
+        shared
+      );
     },
   };
 }

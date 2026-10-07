@@ -1,4 +1,5 @@
 import {
+  $,
   block,
   br,
   br_if,
@@ -9,13 +10,14 @@ import {
   local,
   loop,
   memory,
+  select,
   return_,
   type Input,
   type Local,
 } from "wasmati";
 import { type FieldBackend } from "../field-backend.ts";
 import { mod } from "../bigint/field-util.ts";
-import { ImplicitMemory } from "./wasm-util.ts";
+import { ImplicitMemory, forLoop1 } from "./wasm-util.ts";
 import { fieldFormulas, type Fe, type FormulaContext } from "./formula.ts";
 
 export { curveOps };
@@ -54,6 +56,20 @@ function curveOps(
     i32.const(length);
     memory.copy();
   };
+
+  /**
+   * copy `length` bytes from source to target. this is much faster than
+   * `copyWithin` on the shared memory from JS
+   */
+  const copyMemory = func(
+    { in: [{ target: i32 }, { source: i32 }, { length: i32 }], out: [] },
+    ({ target, source, length }) => {
+      local.get(target);
+      local.get(source);
+      local.get(length);
+      memory.copy();
+    }
+  );
 
   // affine
 
@@ -341,6 +357,53 @@ function curveOps(
       // x_out = x * beta, y_out = y
       call(Field.multiply, { xy: xOut, x, y: betaPtr });
       Field.copyInline(yOut, y);
+    }
+  );
+
+  /**
+   * for n affine points G_i, writes G_i, -G_i, endo(G_i), -endo(G_i) to
+   * consecutive points at out + 4i. the byte at flags + i says which point of
+   * each pair is negated first: G_i if bit 0 is set, endo(G_i) if bit 1 is.
+   */
+  const preparePoints = func(
+    {
+      in: [{ out: i32 }, { points: i32 }, { flags: i32 }, { n: i32 }],
+      locals: { i: i32, p: i32, g: i32, x: i32, y: i32, yNeg: i32, flag: i32 },
+      out: [],
+    },
+    ({ out, points, flags, n }, { i, p, g, x, y, yNeg, flag }) => {
+      const A = 2 * S + Field.size / Field.n;
+      forLoop1(i, 0, n, () => {
+        local.set(g, i32.add(points, i32.mul(i, A)));
+        local.set(p, i32.add(out, i32.mul(i, 4 * A)));
+        local.set(flag, i32.load8_u({}, i32.add(flags, i)));
+        // isNonZero
+        local.set(x, i32.load8_u({ offset: 2 * S }, g));
+        for (let j = 0; j < 4; j++) i32.store8({ offset: j * A + 2 * S }, p, x);
+        // x coordinates
+        copyBytes(p, g, S);
+        local.set(x, i32.add(p, A));
+        copyBytes(x, g, S);
+        local.set(x, i32.add(p, 2 * A));
+        call(Field.multiply, { xy: x, x: g, y: betaPtr });
+        local.set(y, i32.add(p, 3 * A));
+        copyBytes(y, x, S);
+        // y coordinates
+        local.set(x, i32.add(g, S));
+        for (let pair = 0; pair < 2; pair++) {
+          // y goes to the negated point of the pair if the flag is set
+          i32.add(p, (2 * pair + 1) * A + S);
+          i32.add(p, 2 * pair * A + S);
+          i32.and(flag, 1 << pair);
+          select(i32);
+          local.set(y, $);
+          // the other y of the pair
+          local.set(yNeg, i32.add(p, 2 * pair * A + S));
+          local.set(yNeg, i32.sub(i32.add(yNeg, i32.add(yNeg, A)), y));
+          copyBytes(y, x, S);
+          call(Field.subtract, { out: yNeg, x: formulas.zeroPtr, y: x });
+        }
+      });
     }
   );
 
@@ -699,6 +762,8 @@ function curveOps(
   };
 
   return {
+    copyMemory,
+    preparePoints,
     addAffine,
     doubleAffine,
     batchAdd,

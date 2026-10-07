@@ -3,7 +3,11 @@ import { Const, Module, global, importMemory } from "wasmati";
 import { glvGeneral } from "./wasm/glv.ts";
 import { assert, log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
-import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.ts";
+import {
+  decomposeAndSlice,
+  extractBitSlice,
+  fromPackedBytes,
+} from "./wasm/field-helpers.ts";
 import { mod, montgomeryParams } from "./bigint/field-util.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 
@@ -41,6 +45,7 @@ async function createGlvScalarWasm({ q, lambda, w }: Params) {
   let module = Module({
     exports: {
       decompose,
+      decomposeAndSlice: decomposeAndSlice(decompose, w, n, n0),
       fromPackedBytesSmall: fromPackedBytes(w, n0, Math.ceil(maxBits / 8)),
       fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       extractBitSlice: extractBitSlice(w, n0),

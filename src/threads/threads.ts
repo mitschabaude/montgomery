@@ -19,8 +19,6 @@ export {
   range,
   claim,
   barrier,
-  lock,
-  unlock,
   assertIsMain,
   shareOf,
 };
@@ -28,7 +26,7 @@ export {
 let thread = 0;
 let THREADS = 1;
 
-const SHARED_POINTERS = 2;
+const SHARED_POINTERS = 1;
 
 let sharedArray = new Int32Array(new SharedArrayBuffer(4 * SHARED_POINTERS));
 
@@ -290,60 +288,44 @@ function withNamespace(namespace: string | undefined, string: string) {
 
 // concurrent programming primitives
 
-const LOCKED = 1;
-const UNLOCKED = 0;
-const MUTEX_INDEX = 0;
-const BARRIER_INDEX = 1;
+const BARRIER_INDEX = 0;
+// iterations to spin before blocking, since threads usually arrive close together
+const BARRIER_SPIN = 10_000;
 let barrierCount = 0;
 
+/**
+ * Waits until all threads have arrived. Workers block synchronously after
+ * spinning: waking up from `Atomics.waitAsync` can take milliseconds. The main
+ * thread may not block in browsers, so it waits asynchronously.
+ */
 async function barrier() {
   if (!isParallel()) return;
-  // log(`syncing ${barrierCount}`);
-  await lock();
-  let expected = (barrierCount + 1) * THREADS;
+  barrierCount++;
+  let expected = barrierCount * THREADS;
   let arrived = Atomics.add(sharedArray, BARRIER_INDEX, 1) + 1;
   if (arrived === expected) {
-    // log(`notifying sync #${barrierCount}`);
-    unlock();
     Atomics.notify(sharedArray, BARRIER_INDEX);
-  } else {
-    // log(`waiting for sync #${barrierCount} (${arrived} threads got here)`);
-    // TODO this feels almost like cheating, to separate promise creation from awaiting
-    // to guarantee that we wait on an `arrived` value that is consistent with the value written
-    // by `add()`, since we unlock only after having issued the waitAsync call
-    let { value } = Atomics.waitAsync(
-      sharedArray,
-      BARRIER_INDEX,
-      arrived,
-      5000
-    );
-    unlock();
-    let returnValue = await value;
+    return;
+  }
+  for (let i = 0; i < BARRIER_SPIN; i++) {
+    if (Atomics.load(sharedArray, BARRIER_INDEX) >= expected) return;
+  }
+  while (true) {
+    let current = Atomics.load(sharedArray, BARRIER_INDEX);
+    if (current >= expected) return;
+    let result = isMain()
+      ? await Atomics.waitAsync(sharedArray, BARRIER_INDEX, current, 5000).value
+      : Atomics.wait(sharedArray, BARRIER_INDEX, current, 5000);
     assert(
-      returnValue === "ok",
-      `${thread}: bad sync #${barrierCount}, got ${returnValue}`
+      result !== "timed-out",
+      `${thread}: barrier #${barrierCount} timed out`
     );
   }
-  // log(`leaving barrier ${barrierCount}`);
-  barrierCount++;
 }
 
 function resetSharedArray() {
   barrierCount = 0;
   sharedArray.fill(0);
-}
-
-async function lock(data: Int32Array = sharedArray, index = MUTEX_INDEX) {
-  while (Atomics.compareExchange(data, index, UNLOCKED, LOCKED) !== UNLOCKED) {
-    // someone else is writing, wait for them to finish
-    await Atomics.waitAsync(data, 0, LOCKED).value;
-  }
-}
-
-function unlock(data: Int32Array = sharedArray, index = MUTEX_INDEX) {
-  let state = Atomics.compareExchange(data, index, LOCKED, UNLOCKED);
-  assert(state === LOCKED, "bad mutex");
-  Atomics.notify(data, MUTEX_INDEX);
 }
 
 function range(n: number, nThreads = THREADS) {
