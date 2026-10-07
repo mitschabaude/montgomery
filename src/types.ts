@@ -14,9 +14,13 @@ type AnyFunction = (...args: any) => any;
 
 type UnwrapPromise<T> = T extends Promise<infer U> ? U : never;
 
+/**
+ * A compiled module and its imports, which workers instantiate. The imports
+ * can be posted to workers as long as they are shared memories.
+ */
 type WasmArtifacts = {
   module: WebAssembly.Module;
-  memory: WebAssembly.Memory;
+  importMap: WebAssembly.Imports;
 };
 
 type WasmFunctions<
