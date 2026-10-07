@@ -24,6 +24,9 @@ const REDUCE_UNITS_PER_THREAD = 4;
 const BATCH_SIZE = 512;
 // number of bucket columns reduced side by side
 const REDUCE_COLUMNS = 128;
+// memory that all copies of the buckets may take, about the L3 cache of a
+// desktop CPU. with more, accumulation slows down from cache misses
+const BUCKET_CACHE = 32e6;
 // maximum number of partitions
 const MAX_K = 256;
 
@@ -112,8 +115,12 @@ function createMsm({
     using _l = Field.local.atCurrentOffset;
     using _s = Scalar.global.atCurrentOffset;
     let n = log2(N);
-    // pick window size if it was not passed in
-    c ??= windowSizeAffine(Field, n);
+    // pick window size if it was not passed in, small enough that all copies
+    // of the buckets fit in cache
+    if (c === undefined) {
+      c = windowSizeAffine(Field, n);
+      while (c > 1 && bucketMemory(c) > BUCKET_CACHE) c--;
+    }
 
     let K = Math.ceil((b + 1) / c); // number of partitions
     // window sizes c_k differ by at most 1 and add up to b + 1 (one bit for
@@ -310,6 +317,16 @@ function createMsm({
     log(Field.local.printMaxSizeUsed());
     toc();
     return { result, log: getLog() };
+  }
+
+  /**
+   * memory of the dense bucket copies for window size c: there are at least
+   * as many copies as threads
+   */
+  function bucketMemory(c: number) {
+    let K = Math.ceil((b + 1) / c);
+    let maxL = 2 ** (Math.ceil((b + 1) / K) - 1);
+    return K * Math.ceil(THREADS / K) * maxL * sizeAffine;
   }
 
   /**
