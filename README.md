@@ -174,3 +174,4 @@ If your threat model does include timing side channels (server-side key operatio
 - `doc/zprize23/` - ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
 - `doc/zprize22.md` - ZPrize 2022 write-up explaining some of the algorithms underlying the MSM.
 - `src/wide/` — field arithmetic of the wide backend using Wasm wide arithmetic; see its [notes and benchmarks](src/wide/README.md). `src/field-backend.ts` defines the interface both backends implement.
+- `src/generate.ts` — the only code that generates Wasm with wasmati; curves run from the compiled modules, also in workers.
