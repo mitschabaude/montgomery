@@ -92,12 +92,9 @@ async function benchmarkAffine(p: bigint) {
     const bytes = new Uint8Array(wasmMemory.buffer);
     const { randomField } = randomGenerators(p);
     for (let j = 0; j < 7 * K; j++) bytes.set(toBytes(randomField()), j * S);
-    let best = Infinity;
-    for (let r = 0; r < 5; r++) {
-      const start = performance.now();
-      runBench(rounds);
-      best = Math.min(best, performance.now() - start);
-    }
-    return (best * 1e6) / (rounds * K);
+    // a single timed run, like the other rows
+    const start = performance.now();
+    runBench(rounds);
+    return ((performance.now() - start) * 1e6) / (rounds * K);
   }
 }
