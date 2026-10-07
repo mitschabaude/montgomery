@@ -85,6 +85,12 @@ Under the hood, these constructors build a dedicated Wasm module on-the-fly base
 
 All factories accept options. `backend` selects the base field arithmetic: `"wide"` for 64-bit limbs with Wasm wide arithmetic, `"29-bit"` for the portable layout, or `"auto"` (default) to use wide arithmetic when the runtime supports it. For example, `await Pallas({ backend: "29-bit" })`.
 
+Pallas and BLS12-377 also come with prebuilt Wasm modules, in `montgomery/pallas` and `montgomery/bls12-377`. They export the same factory, `startThreads` and `stopThreads`, and load in a few milliseconds instead of generating their modules, which takes up to ~400 ms with wide arithmetic. Their modules are included as base64, so the browser builds are single files that need no bundler support for Wasm.
+
+```ts
+import { Pallas, startThreads } from "montgomery/pallas";
+```
+
 ## Threads
 
 Parallelism in both Node.js and browsers is supported by exposing methods to start and stop a global pool of workers. Performance-critical library methods like the MSM _automatically_ shard their work across the currently available pool.
