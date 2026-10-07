@@ -1,3 +1,4 @@
 node_modules
 /build
 *.tgz
+src/prebuilt/wasm/
