@@ -11,13 +11,8 @@
 // were created earlier and resegments their memory for the new thread
 // count.
 
-import {
-  Weierstraß,
-  TwistedEdwards,
-  startThreads,
-  stopThreads,
-  type CurveOptions,
-} from "./parallel.ts";
+import { startThreads, stopThreads, type CurveOptions } from "./parallel.ts";
+import { Weierstraß, TwistedEdwards } from "./generate.ts";
 import { pallasParams, vestaParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";

@@ -1,5 +1,5 @@
 import type * as _W from "wasmati";
-import { Weierstraß } from "../parallel.ts";
+import { Weierstraß } from "../generate.ts";
 import { curveParams } from "./bls12-377.params.ts";
 
 export { BLS12377, Weierstraß };

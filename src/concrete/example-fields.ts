@@ -19,8 +19,7 @@ let pSecp256k1 = (1n << 256n) - (1n << 32n) - 0b1111010001n;
 let pSecq256k1 = (1n << 256n) - 0x14551231950b75fc4402da1732fc9bebfn;
 
 // ed25519 scalar field order (for completeness; base field is f25519 above)
-let qEd25519 =
-  (1n << 252n) + 0x14def9dea2f79cd65812631a5cf5d3edn;
+let qEd25519 = (1n << 252n) + 0x14def9dea2f79cd65812631a5cf5d3edn;
 
 let exampleFields = {
   pastaFp: createField(pPasta),

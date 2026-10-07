@@ -6,7 +6,8 @@ import { Spec, throwError } from "./testing/equivalent.ts";
 import { test } from "node:test";
 import { Random, sample, sampleOne } from "./testing/random.ts";
 import { batchInverse } from "./curve-affine.ts";
-import { resolveFieldBackend } from "./field-backend.ts";
+import { resolveFieldBackend } from "./field-layout.ts";
+import { compileField } from "./generate.ts";
 
 Error.stackTraceLimit = 1000;
 
@@ -36,11 +37,8 @@ async function testField(
   options: { backend: "29-bit" | "wide"; w?: number },
   BigintField: BigintField
 ) {
-  const Field = await createMsmField({
-    p: BigintField.modulus,
-    beta: 1n,
-    ...options,
-  });
+  const params = { p: BigintField.modulus, beta: 1n, ...options };
+  const Field = await createMsmField(params, await compileField(params));
   const equiv = createEquivalentWasm(Field);
 
   const field = WasmSpec.fieldUnreduced(Field);

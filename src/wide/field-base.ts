@@ -10,6 +10,7 @@ import {
 } from "wasmati";
 import { inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
+import { wideParams } from "./params.ts";
 
 export { createField, type FieldBase, mask64 };
 
@@ -21,13 +22,10 @@ function createField(p: bigint) {
     p > 2n && (p & 1n) === 1n,
     "wide Montgomery arithmetic requires an odd modulus > 2"
   );
-  const n = Math.ceil(p.toString(2).length / 64);
-  const R = 1n << BigInt(64 * n);
+  const { n, R, lazy, limit } = wideParams(p);
   const P = Array.from({ length: n }, (_, i) =>
     BigInt.asIntN(64, p >> BigInt(64 * i))
   );
-  const lazy = 2n * p < R;
-  const limit = lazy ? 2n * p : p;
   const Limit = Array.from({ length: n }, (_, i) =>
     BigInt.asIntN(64, limit >> BigInt(64 * i))
   );

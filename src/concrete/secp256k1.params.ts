@@ -18,8 +18,10 @@ const generator = {
 
 // GLV endomorphism (well-known values, see e.g. libsecp256k1)
 // β is a primitive cube root of 1 in Fp, λ a primitive cube root of 1 in Fq
-const beta = 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501een;
-const lambda = 0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72n;
+const beta =
+  0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501een;
+const lambda =
+  0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72n;
 
 // sanity checks: cube roots of unity, and λ·G = (β·x, y)
 if (mod(beta * beta * beta, p) !== 1n) {

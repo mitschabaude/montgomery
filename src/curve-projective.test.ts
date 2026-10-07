@@ -2,7 +2,8 @@ import { type BigintPoint } from "./bigint/projective-weierstrass.ts";
 import { pallasParams as curveParams } from "./concrete/pasta.params.ts";
 import { createCurveProjective } from "./curve-projective.ts";
 import { createMsmField } from "./field-msm.ts";
-import { resolveFieldBackend } from "./field-backend.ts";
+import { resolveFieldBackend } from "./field-layout.ts";
+import { compileField, compileScalar } from "./generate.ts";
 import {
   WasmSpec,
   createEquivalentWasm,
@@ -16,12 +17,20 @@ import { msmBasic } from "./msm-basic.ts";
 import { createScalar } from "./scalar-simple.ts";
 
 // The wide backend runs where Wasm wide arithmetic is enabled (npm run test-wide).
-const Field = await createMsmField({
+const fieldParams = {
   p: curveParams.modulus,
   beta: 1n,
   backend: resolveFieldBackend("auto"),
-});
-const Scalar = await createScalar({ q: curveParams.order, w: 29 });
+};
+const Field = await createMsmField(
+  fieldParams,
+  await compileField(fieldParams)
+);
+const scalarParams = { q: curveParams.order, w: 29 };
+const Scalar = await createScalar(
+  scalarParams,
+  await compileScalar(scalarParams)
+);
 
 const Curve = createCurveProjective(Field, curveParams);
 const CurveBigint = Curve.Bigint;

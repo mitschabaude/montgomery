@@ -1,7 +1,7 @@
 import {
   resolveFieldBackend,
   type FieldBackendOption,
-} from "../src/field-backend.ts";
+} from "../src/field-layout.ts";
 import { assert } from "../src/util.ts";
 
 export { parseMsmArgs };

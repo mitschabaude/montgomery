@@ -1,4 +1,4 @@
-import { Dependency, type JSFunction } from "wasmati";
+import type { Dependency, JSFunction } from "wasmati";
 
 export {
   type AnyFunction,

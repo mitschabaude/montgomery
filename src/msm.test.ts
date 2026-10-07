@@ -3,12 +3,8 @@
  *
  * This test currently doesn't use node:test so that we can run it in the browser.
  */
-import {
-  Weierstraß,
-  TwistedEdwards,
-  startThreads,
-  stopThreads,
-} from "./parallel.ts";
+import { startThreads, stopThreads } from "./parallel.ts";
+import { Weierstraß, TwistedEdwards } from "./generate.ts";
 import { pallasParams, vestaParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { curveParams as bls12381Params } from "./concrete/bls12-381.params.ts";

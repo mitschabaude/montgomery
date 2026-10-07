@@ -1,18 +1,13 @@
 import type * as W from "wasmati"; // for type names
-import { Module, importMemory, type Instance } from "wasmati";
-import { ImplicitMemory } from "./wasm/wasm-util.ts";
+import type { Instance } from "wasmati";
+import type { fieldModule } from "./generate.ts";
 import { mod } from "./bigint/field-util.ts";
-import { curveOps } from "./wasm/curve.ts";
 import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 import { createSqrt } from "./field-sqrt.ts";
 import { log2 } from "./util.ts";
 import { isMain } from "./threads/threads.ts";
-import {
-  createFieldBackend,
-  fieldLayout,
-  type FieldBackendName,
-} from "./field-backend.ts";
+import { fieldLayout, type FieldBackendName } from "./field-layout.ts";
 
 export { createMsmField, type MsmField, type MsmFieldParams };
 export { createConstants };
@@ -27,74 +22,13 @@ type MsmFieldParams = {
   localRatio?: number;
 };
 
-async function createMsmField(params: MsmFieldParams, wasm?: WasmArtifacts) {
-  wasm ??= await compileField(params);
-  return await createFieldFromWasm(params, wasm);
-}
-
 type MsmFieldInstance = Instance<ReturnType<typeof fieldModule>>;
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
-function fieldModule({
-  p,
-  beta,
-  backend = "29-bit",
-  w,
-  minExtraBits,
-}: MsmFieldParams) {
-  let memSize = 1 << 16;
-  let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
-  let implicitMemory = new ImplicitMemory(wasmMemory);
-
-  let Field = createFieldBackend(backend, p, implicitMemory, {
-    w,
-    minExtraBits,
-  });
-  let curve = curveOps(implicitMemory, Field, beta);
-
-  return Module({
-    exports: {
-      ...implicitMemory.getExports(),
-      // curve ops
-      ...curve,
-      // multiplication
-      multiply: Field.multiply,
-      square: Field.square,
-      leftShift: Field.leftShift,
-      exp: Field.exp,
-      // inverse
-      inverse: Field.inverse,
-      /**
-       * batch inversion, using 4 field elements of scratch space
-       * @param scratch
-       * @param xInvs
-       * @param xs
-       * @param n
-       */
-      batchInverse: Field.batchInverse,
-      // arithmetic
-      add: Field.add,
-      addNoReduce: Field.addNoReduce,
-      subtract: Field.subtract,
-      subtractPositive: Field.subtractPositive,
-      reduce: Field.reduce,
-      copy: Field.copy,
-      // helpers
-      isEqual: Field.isEqual,
-      isGreater: Field.isGreater,
-      isZero: Field.isZero,
-      fromPackedBytes: Field.fromPackedBytes,
-      toPackedBytes: Field.toPackedBytes,
-    },
-  });
-}
-
-async function compileField(params: MsmFieldParams): Promise<WasmArtifacts> {
-  let wasm = fieldModule(params);
-  return { module: await wasm.compile(), importMap: wasm.importMap };
-}
-
-async function createFieldFromWasm(
+/**
+ * A field from its compiled module, which may come from another thread.
+ */
+async function createMsmField(
   { p, backend = "29-bit", w, minExtraBits, localRatio }: MsmFieldParams,
   wasmArtifacts: WasmArtifacts
 ) {

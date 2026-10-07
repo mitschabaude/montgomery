@@ -1,5 +1,5 @@
 import type * as _W from "wasmati";
-import { type WasmArtifacts } from "./types.ts";
+import type { WasmArtifacts } from "./types.ts";
 import { createMsmField } from "./field-msm.ts";
 import { createCurveProjective } from "./curve-projective.ts";
 import {
@@ -14,7 +14,7 @@ import {
   createRandomPointsFastSingleCurve,
   createRandomScalars,
 } from "./curve-random.ts";
-import { type GlvScalarParams, createGlvScalar } from "./scalar-glv.ts";
+import { createGlvScalar, type GlvScalarParams } from "./scalar-glv.ts";
 import { createMsm, createMsmShared } from "./msm-batched-affine.ts";
 import { pool } from "./threads/global-pool.ts";
 import { type CurveParams } from "./bigint/affine-weierstrass.ts";
@@ -28,16 +28,17 @@ import {
 } from "./bigint/twisted-edwards.ts";
 import { createMsmBasic, msmBasic } from "./msm-basic.ts";
 import { barrier, range } from "./threads/threads.ts";
-import {
-  resolveFieldBackend,
-  type FieldBackendOption,
-} from "./field-backend.ts";
+import type { FieldBackendName, FieldBackendOption } from "./field-layout.ts";
 
 export {
   startThreads,
   stopThreads,
-  Weierstraß,
-  TwistedEdwards,
+  createWeierstraß,
+  createTwistedEdwards,
+  type Weierstraß,
+  type TwistedEdwards,
+  type WeierstraßWasm,
+  type TwistedEdwardsWasm,
   type CurveOptions,
 };
 
@@ -47,6 +48,21 @@ export {
  */
 type CurveOptions = { backend?: FieldBackendOption };
 
+/** compiled modules of a Weierstraß curve, which workers receive */
+type WeierstraßWasm = {
+  backend: FieldBackendName;
+  field: WasmArtifacts;
+  scalar: WasmArtifacts;
+  glv: GlvScalarParams;
+};
+
+/** compiled modules of a twisted Edwards curve, which workers receive */
+type TwistedEdwardsWasm = {
+  backend: FieldBackendName;
+  field: WasmArtifacts;
+  scalar: WasmArtifacts;
+};
+
 // pool.register calls are at the bottom of this file — not here. They rely on
 // `createWeierstraß.name` / `createTwistedEdwards.name`, which under esbuild's
 // `keepNames` minification get patched by a helper inserted right after each
@@ -54,32 +70,30 @@ type CurveOptions = { backend?: FieldBackendOption };
 // that patch, leaving us with the mangled name. Registering at the bottom
 // (after the declarations) avoids the issue.
 
-/**
- * Short Weierstrass curve with batched-affine additions and GLV-endomorphism
- * accelerated scalar multiplication. Instantiate with `Weierstraß.create(params)`.
- */
 type Weierstraß = Awaited<ReturnType<typeof createWeierstraß>>;
-const Weierstraß = { create: createWeierstraß };
-
-/**
- * Twisted Edwards curve with projective additions. Instantiate with
- * `TwistedEdwards.create(params)`.
- */
 type TwistedEdwards = Awaited<ReturnType<typeof createTwistedEdwards>>;
-const TwistedEdwards = { create: createTwistedEdwards };
 
+// curves, with what new workers need to create them
 const curves: (
-  | { module: Weierstraß; create: typeof createWeierstraß }
-  | { module: TwistedEdwards; create: typeof createTwistedEdwards }
+  | {
+      module: Weierstraß;
+      create: typeof createWeierstraß;
+      wasm: WeierstraßWasm;
+    }
+  | {
+      module: TwistedEdwards;
+      create: typeof createTwistedEdwards;
+      wasm: TwistedEdwardsWasm;
+    }
 )[] = [];
 
 /**
- * Create a short Weierstrass curve from its parameters.
+ * Create a short Weierstrass curve from its parameters and compiled modules.
+ * The main thread compiles them, see `Weierstraß.create` for modules generated
+ * at runtime, and workers get them with the curve.
  *
- * Under the hood, this:
- * - generates wasm modules for the field and scalar arithmetic (via
- *   {@link https://github.com/zksecurity/wasmati | wasmati}) and instantiates
- *   them;
+ * This:
+ * - instantiates the field and scalar modules;
  * - sets up affine, projective, and bigint-level curve operations, plus the
  *   batched-affine MSM;
  * - registers the curve with the thread pool. If the pool is already running,
@@ -88,32 +102,19 @@ const curves: (
  *   new thread count.
  *
  * Only curves with `a = 0` and a GLV endomorphism are supported.
- *
- * @param options see {@link CurveOptions}
- * @param fieldWasm / @param scalarWasm are used internally when the main
- * thread broadcasts a curve to workers, so workers reuse the main thread's
- * compiled wasm instead of recompiling.
  */
-async function createWeierstraß(
-  params: CurveParams,
-  options: CurveOptions = {},
-  fieldWasm?: WasmArtifacts,
-  scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams },
-) {
-  let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
-  let backend = resolveFieldBackend(options.backend ?? "auto");
+async function createWeierstraß(params: CurveParams, wasm: WeierstraßWasm) {
+  let { modulus: p, endomorphism, a, b, label, cofactor: h } = params;
+  let { backend } = wasm;
   assert(a === 0n, "only curves with a = 0 are supported");
   assert(endomorphism !== undefined, "endomorphism required");
-  let { beta, lambda } = endomorphism;
+  let { beta } = endomorphism;
 
-  // create modules
-  // note: if wasm is not provided, it will be created
-  // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
     { p, beta, backend, localRatio: 0.25 },
-    fieldWasm,
+    wasm.field,
   );
-  const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
+  const Scalar = await createGlvScalar(wasm.glv, wasm.scalar);
   const Projective = createCurveProjective(Field, params);
   const Affine = createCurveAffine(Field, Projective, b);
   const Inputs = { params, Field, Scalar, Affine, Projective };
@@ -248,59 +249,33 @@ async function createWeierstraß(
     Bigint,
   };
 
-  curves.push({ module: Curve, create: createWeierstraß });
+  curves.push({ module: Curve, create: createWeierstraß, wasm });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
   if (pool.isRunning) {
-    await pool.callWorkers(
-      createWeierstraß,
-      Curve.params,
-      { backend },
-      Curve.Field.wasmArtifacts,
-      Curve.Scalar.wasmArtifacts,
-    );
+    await pool.callWorkers(createWeierstraß, params, wasm);
   }
 
   return Curve;
 }
 
 /**
- * Create a twisted edwards curve (`-x^2 + y^2 = 1 + d*x^2*y^2`) from its
- * parameters.
- *
- * Under the hood, this:
- * - generates wasm modules for the field and scalar arithmetic (via
- *   {@link https://github.com/zksecurity/wasmati | wasmati}) and instantiates
- *   them;
- * - sets up projective-extended curve ops and the generic (non-batched) MSM;
- * - registers the curve with the thread pool. If the pool is already running,
- *   the curve is broadcast to existing workers immediately; otherwise, a
- *   later `startThreads` call will pick it up and segment its memory for the
- *   new thread count.
- *
- * @param options see {@link CurveOptions}
- * @param fieldWasm / @param scalarWasm are used internally when the main
- * thread broadcasts a curve to workers, so workers reuse the main thread's
- * compiled wasm instead of recompiling.
+ * Create a twisted Edwards curve from its parameters and compiled modules, like
+ * {@link createWeierstraß}.
  */
 async function createTwistedEdwards(
   params: TwistedEdwardsParams,
-  options: CurveOptions = {},
-  fieldWasm?: WasmArtifacts,
-  scalarWasm?: WasmArtifacts,
+  wasm: TwistedEdwardsWasm,
 ) {
   let { modulus: p, order: q, label } = params;
-  let backend = resolveFieldBackend(options.backend ?? "auto");
+  let { backend } = wasm;
 
-  // create modules
-  // note: if wasm is not provided, it will be created
-  // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
     { p, beta: 1n, backend, localRatio: 0.8 },
-    fieldWasm,
+    wasm.field,
   );
-  const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
+  const Scalar = await createScalar({ q, w: 29 }, wasm.scalar);
   const Curve = createCurveTwistedEdwards(Field, params);
   const Inputs = { params, Field, Scalar, Curve };
 
@@ -400,18 +375,12 @@ async function createTwistedEdwards(
     Bigint,
   };
 
-  curves.push({ module: Module, create: createTwistedEdwards });
+  curves.push({ module: Module, create: createTwistedEdwards, wasm });
 
   // if the pool is already running, send wasm modules for the new curve to the workers
   // note: this code also runs in workers, but in their process, the pool is never running, and there are no workers to call
   if (pool.isRunning) {
-    await pool.callWorkers(
-      createTwistedEdwards,
-      Module.params,
-      { backend },
-      Module.Field.wasmArtifacts,
-      Module.Scalar.wasmArtifacts,
-    );
+    await pool.callWorkers(createTwistedEdwards, params, wasm);
   }
 
   return Module;
@@ -438,14 +407,8 @@ async function startThreads(n?: number) {
 
   // send wasm modules to newly created workers
   await Promise.all(
-    curves.map(({ module, create }) =>
-      pool.callWorkers(
-        create,
-        module.params as any,
-        { backend: module.Field.backend },
-        module.Field.wasmArtifacts,
-        module.Scalar.wasmArtifacts as any,
-      ),
+    curves.map(({ module, create, wasm }) =>
+      pool.callWorkers(create, module.params as any, wasm as any),
     ),
   );
 }

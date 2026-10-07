@@ -2,7 +2,7 @@
  * Test the Wasm batch-affine additions against the bigint implementation,
  * including zero, equal, opposite and aliased points.
  */
-import { Weierstraß } from "./parallel.ts";
+import { Weierstraß } from "./generate.ts";
 import { pallasParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
 import { type CurveParams } from "./bigint/affine-weierstrass.ts";

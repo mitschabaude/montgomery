@@ -2,7 +2,7 @@ import { assert, mapRange } from "./util.ts";
 import type { WasmFunctions } from "./types.ts";
 import type { FieldWithMultiply } from "./wasm/multiply-montgomery.ts";
 import type { MemoryHelpers } from "./wasm/memory-helpers.ts";
-import { type Func } from "wasmati";
+import type { Func } from "wasmati";
 
 export { createSqrt };
 

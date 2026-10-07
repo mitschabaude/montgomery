@@ -1,78 +1,29 @@
 import type * as W from "wasmati";
-import {
-  constant,
-  i32,
-  Module,
-  global,
-  importMemory,
-  type Instance,
-} from "wasmati";
-import { glvGeneral } from "./wasm/glv.ts";
+import type { Instance } from "wasmati";
+import type { glvScalarModule } from "./generate.ts";
 import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
-import {
-  decomposeAndSlice,
-  extractBitSlice,
-  fromPackedBytes,
-} from "./wasm/field-helpers.ts";
-import { mod, montgomeryParams } from "./bigint/field-util.ts";
+import { mod } from "./bigint/field-util.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 
 export { createGlvScalar, type GlvScalar, type GlvScalarParams };
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
-type Params = { q: bigint; lambda: bigint; w: number };
-type GlvScalarParams = Params & { n: number; n0: number; maxBits: number };
-
-/**
- * scalar module for MSM with GLV
- */
-async function createGlvScalar(
-  params: Params,
-  wasmAndFullParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
-) {
-  let { wasm, fullParams } =
-    wasmAndFullParams ?? (await compileGlvScalar(params));
-  return await createGlvScalarFromWasm(fullParams, wasm);
-}
-
-/**
- * scalar module for MSM with GLV
- */
-function glvScalarModule({ q, lambda, w }: Params) {
-  const { n, nPackedBytes } = montgomeryParams(q, w, 1);
-  const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
-  let memSize = 1 << 14;
-  let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
-
-  let wasm = Module({
-    exports: {
-      decompose,
-      decomposeAndSlice: decomposeAndSlice(decompose, w, n, n0),
-      fromPackedBytesSmall: fromPackedBytes(w, n0, Math.ceil(maxBits / 8)),
-      fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
-      extractBitSlice: extractBitSlice(w, n0),
-      extractBitSliceNoGlv: extractBitSlice(w, n),
-      memory: wasmMemory,
-      dataOffset: global(constant(() => i32.const(0))),
-    },
-  });
-
-  return { wasm, fullParams: { q, lambda, w, n, n0, maxBits } };
-}
-
-async function compileGlvScalar(params: Params) {
-  let { wasm, fullParams } = glvScalarModule(params);
-  let artifacts: WasmArtifacts = {
-    module: await wasm.compile(),
-    importMap: wasm.importMap,
-  };
-  return { wasm: artifacts, fullParams };
-}
+type GlvScalarParams = {
+  q: bigint;
+  lambda: bigint;
+  w: number;
+  n: number;
+  n0: number;
+  maxBits: number;
+};
 
 type GlvScalarInstance = Instance<ReturnType<typeof glvScalarModule>["wasm"]>;
 
-async function createGlvScalarFromWasm(
+/**
+ * scalar module for MSM with GLV, from its compiled module
+ */
+async function createGlvScalar(
   params: GlvScalarParams,
   wasmArtifacts: WasmArtifacts
 ) {
