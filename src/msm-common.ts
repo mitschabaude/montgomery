@@ -1,7 +1,14 @@
 import { assert } from "./util.ts";
 import type { MemorySection } from "./wasm/memory-helpers.ts";
 
-export { windowSize, windowSizeAffine, splitBuckets, type Chunk, createLog };
+export {
+  windowSize,
+  windowSizeAffine,
+  splitBuckets,
+  splitPartitions,
+  type Chunk,
+  createLog,
+};
 
 const REMOVE_ALL_LOGS = false;
 
@@ -24,7 +31,7 @@ function windowSizeAffine(Field: { sizeInBits: number }, n: number) {
  * tables of the form `n: c`, which has msm window sizes for different n.
  * n is the log-size of scalar and point inputs.
  *
- * table was optimized with 16 threads on my laptop, with two different types of curves:
+ * tables were optimized with 16 threads, on my laptop (projective) and on an 8-core Ryzen 7 3700X (affine), with two different types of curves:
  * - 'large' (~384 bit base field)
  * - 'small' (~256 bit base field)
  *
@@ -39,20 +46,34 @@ const windowSizeTable: {
   // TODO
   large: {},
   "large-affine": {
+    12: 12,
+    13: 12,
     14: 13,
-    15: 14,
-    16: 14,
-    17: 14,
-    18: 14,
-    19: 18,
-    20: 18,
+    15: 13,
+    16: 15,
+    17: 16,
+    18: 16,
+    19: 16,
+    20: 16,
+    21: 16,
+    22: 16,
   },
   // TODO
   small: {
     16: 14,
   },
   "small-affine": {
-    16: 12,
+    12: 12,
+    13: 12,
+    14: 12,
+    15: 13,
+    16: 15,
+    17: 15,
+    18: 16,
+    19: 16,
+    20: 15,
+    21: 16,
+    22: 16,
   },
 };
 
@@ -181,6 +202,47 @@ function splitBuckets(
     );
   }
 
+  return { chunksPerUnit, chunkSumsPerPartition };
+}
+
+/**
+ * Split partitions with `Ls[k]` buckets each into `nUnits` units with about
+ * the same number of buckets, which threads claim
+ */
+function splitPartitions(
+  {
+    Field,
+    Curve,
+  }: {
+    Field: { global: MemorySection };
+    Curve: { size: number };
+  },
+  Ls: number[],
+  nUnits: number
+) {
+  let K = Ls.length;
+  let total = Ls.reduce((a, b) => a + b, 0);
+  let perUnit = Math.ceil(total / nUnits);
+  let chunksPerUnit: Chunk[][] = Array.from({ length: nUnits }, () => []);
+  let nChunksPerPartition: number[] = Array(K).fill(0);
+
+  // bucket ranges [start, start + perUnit) of the concatenated partitions
+  for (let unit = 0, start = 0; unit < nUnits && start < total; unit++) {
+    let end = Math.min(start + perUnit, total);
+    for (let k = 0, offset = 0; k < K; offset += Ls[k], k++) {
+      let lstart = Math.max(start, offset) - offset + 1;
+      let lend = Math.min(end, offset + Ls[k]) - offset + 1;
+      if (lstart >= lend) continue;
+      let j = nChunksPerPartition[k]++;
+      chunksPerUnit[unit].push({ k, j, lstart, length: lend - lstart });
+    }
+    start = end;
+  }
+
+  // allocate space for the contribution of each chunk to its partition
+  let chunkSumsPerPartition = nChunksPerPartition.map((nChunks) =>
+    Uint32Array.from(Field.global.getPointers(nChunks, Curve.size))
+  );
   return { chunksPerUnit, chunkSumsPerPartition };
 }
 

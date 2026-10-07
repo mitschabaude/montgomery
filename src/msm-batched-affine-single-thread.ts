@@ -1,5 +1,6 @@
 /**
- * DEPRECATED. The current implementation, which supports multi-threading, is in `msm-batched-affine.ts`
+ * The original single-threaded MSM, kept for historical reference. It is not used by the library: the current
+ * implementation, which supports multi-threading, is in `msm-batched-affine.ts`
  */
 import {
   type CurveAffine,

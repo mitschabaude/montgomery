@@ -203,7 +203,7 @@ function createCurveAffine(
   }
 
   function copyAffine(target: number, source: number) {
-    memoryBytes.copyWithin(target, source, source + size);
+    Field.copyMemory(target, source, size);
   }
 
   function coords(pointer: number) {

@@ -1,4 +1,5 @@
 import {
+  $,
   block,
   br,
   br_if,
@@ -9,13 +10,14 @@ import {
   local,
   loop,
   memory,
+  select,
   return_,
   type Input,
   type Local,
 } from "wasmati";
 import { type FieldBackend } from "../field-backend.ts";
 import { mod } from "../bigint/field-util.ts";
-import { ImplicitMemory } from "./wasm-util.ts";
+import { ImplicitMemory, forLoop1 } from "./wasm-util.ts";
 import { fieldFormulas, type Fe, type FormulaContext } from "./formula.ts";
 
 export { curveOps };
@@ -54,6 +56,20 @@ function curveOps(
     i32.const(length);
     memory.copy();
   };
+
+  /**
+   * copy `length` bytes from source to target. this is much faster than
+   * `copyWithin` on the shared memory from JS
+   */
+  const copyMemory = func(
+    { in: [{ target: i32 }, { source: i32 }, { length: i32 }], out: [] },
+    ({ target, source, length }) => {
+      local.get(target);
+      local.get(source);
+      local.get(length);
+      memory.copy();
+    }
+  );
 
   // affine
 
@@ -141,8 +157,8 @@ function curveOps(
   );
 
   /**
-   * In-place batch addition G_i += H_i of affine points, i < n, where G is an
-   * array of n point pointers and H_i = G_i + offset. Uses one inversion.
+   * In-place batch addition G_i += H_i of affine points, i < n, where `pairs`
+   * holds n pointer pairs (G_i, H_i). Uses one inversion.
    *
    * Unsafe: assumes no point is zero and G_i != +-H_i, which holds with
    * overwhelming probability for independent random inputs.
@@ -151,18 +167,19 @@ function curveOps(
    */
   const batchAddUnsafe = func(
     {
-      in: [{ scratch: i32 }, { G: i32 }, { offset: i32 }, { n: i32 }],
+      in: [{ scratch: i32 }, { pairs: i32 }, { n: i32 }],
       locals: { ...locals, g: i32, h: i32, i: i32, inv: i32 },
       out: [],
     },
-    ({ scratch, G, offset, n }, L) => {
+    ({ scratch, pairs, n }, L) => {
       let { g, h, i, inv } = L;
       // formula elements first, then the inversion's input, output and scratch
       let f = context(L, scratch, 7);
       local.set(inv, i32.add(scratch, 7 * S));
       let loadPair = () => {
-        local.set(g, i32.load({}, i32.add(G, i32.shl(i, 2))));
-        local.set(h, i32.add(g, offset));
+        local.set(h, i32.add(pairs, i32.shl(i, 3)));
+        local.set(g, i32.load({}, h));
+        local.set(h, i32.load({ offset: 4 }, h));
       };
       let ACC = f.element();
       let DX = f.element();
@@ -222,43 +239,93 @@ function curveOps(
     }
   );
 
+  const onePtr = implicitMemory.dataToOffset(
+    Field.bigintToData(mod(Field.R, Field.p))
+  );
+  // kinds of additions in a safe batch
+  const SKIP = 0;
+  const ADD = 1;
+  const DOUBLE = 2;
+
   /**
    * Like {@link batchAddUnsafe}, but handles zero points and G_i = +-H_i.
-   * Equal points are doubled within the same batch inversion.
+   * Equal points are doubled within the same batch inversion: only the slope
+   * changes, to 3x^2 / 2y. The rare cases are branches off the common path.
+   * G_i and H_i may be at the same address.
    *
-   * scratch: 4 field elements; tmp, d: n field elements each; kinds: n bytes
+   * scratch: 14 field elements; kinds: n bytes
    */
   const batchAdd = func(
     {
-      in: [
-        { scratch: i32 },
-        { tmp: i32 },
-        { d: i32 },
-        { kinds: i32 },
-        { G: i32 },
-        { offset: i32 },
-        { n: i32 },
-      ],
-      locals: { g: i32, h: i32, i: i32, j: i32, kind: i32 },
+      in: [{ scratch: i32 }, { kinds: i32 }, { pairs: i32 }, { n: i32 }],
+      locals: { ...locals, g: i32, h: i32, i: i32, inv: i32, kind: i32 },
       out: [],
     },
-    ({ scratch, tmp, d, kinds, G, offset, n }, { g, h, i, j, kind }) => {
-      const y = (p: Local<"i32">) => i32.add(p, S);
+    ({ scratch, kinds, pairs, n }, L) => {
+      let { g, h, i, inv, kind } = L;
+      // formula elements first, then the inversion's input, output and scratch
+      let f = context(L, scratch, 8);
+      local.set(inv, i32.add(scratch, 8 * S));
+      let loadPair = () => {
+        local.set(h, i32.add(pairs, i32.shl(i, 3)));
+        local.set(g, i32.load({}, h));
+        local.set(h, i32.load({ offset: 4 }, h));
+      };
       const isZero = (p: Local<"i32">) =>
         i32.eqz(i32.load8_u({ offset: 2 * S }, p));
-      const tmpJ = () => i32.add(tmp, i32.mul(j, S));
-      const dJ = () => i32.add(d, i32.mul(j, S));
-      // kinds: 0 = nothing to do, 1 = add, 2 = double
+      let ACC = f.element();
+      let DX = f.element();
+      let M = f.element();
+      let T = f.element();
+      let Y = f.element();
+      let ZERO = f.input(formulas.zeroPtr);
+      // 2y, the slope's denominator for doubling
+      let twoY = () => {
+        f.load(Y, h, S);
+        f.add(DX, Y, Y);
+      };
+
+      i32.eqz(n);
+      if_(null, () => return_());
+      f.load(ACC, onePtr);
+      // y1_i := (numerator of slope_i) prod_{j<i} dx_j, ACC = prod_{j<=i} dx_j
       local.set(i, 0);
-      local.set(j, 0);
       block(null, (done) => {
         loop(null, (next) => {
           i32.ge_u(i, n);
           br_if(done);
-          local.set(g, i32.load({}, i32.add(G, i32.shl(i, 2))));
-          local.set(h, i32.add(g, offset));
-          local.set(kind, 0);
+          loadPair();
+          local.set(kind, SKIP);
           block(null, (classified) => {
+            // with G and H at the same address, the batch would overwrite the
+            // y of H, so G is doubled on its own
+            i32.eq(g, h);
+            if_(null, () => {
+              isZero(g);
+              br_if(classified);
+              f.load(Y, g, S);
+              f.reduce(Y);
+              f.isEqual(Y, ZERO);
+              if_(null, () => {
+                i32.store8({ offset: 2 * S }, g, 0);
+                br(classified);
+              });
+              f.add(DX, Y, Y);
+              f.store(inv, 0, DX);
+              call(inverse, {
+                scratch: i32.add(inv, 2 * S),
+                r: i32.add(inv, S),
+                a: inv,
+              });
+              call(doubleAffine, {
+                scratch: i32.add(inv, 2 * S),
+                xOut: g,
+                x: g,
+                d: i32.add(inv, S),
+              });
+              br(classified);
+            });
+            // G = 0: G + H = H
             isZero(g);
             if_(null, () => {
               copyBytes(g, h, 2 * S + 1);
@@ -266,57 +333,80 @@ function curveOps(
             });
             isZero(h);
             br_if(classified);
-            call(Field.reduce, { x: g });
-            call(Field.reduce, { x: h });
-            call(Field.isEqual, { x: g, y: h });
+            f.subtract(DX, f.input(h), f.input(g));
+            f.reduce(DX);
+            f.isEqual(DX, ZERO);
             if_(
               null,
               () => {
-                call(Field.reduce, { x: y(g) });
-                call(Field.reduce, { x: y(h) });
-                call(Field.isEqual, { x: y(g), y: y(h) });
-                if_(
-                  null,
-                  () => {
-                    call(Field.add, { out: tmpJ(), x: y(g), y: y(g) });
-                    local.set(kind, 2);
-                  },
-                  // G = -H
-                  () => i32.store8({ offset: 2 * S }, g, 0)
-                );
+                f.subtract(M, f.input(h, S), f.input(g, S));
+                f.reduce(M);
+                f.isEqual(M, ZERO);
+                // G = -H: G + H = 0
+                i32.eqz();
+                if_(null, () => {
+                  i32.store8({ offset: 2 * S }, g, 0);
+                  br(classified);
+                });
+                // G = H with y = 0 has order 2: G + H = 0
+                f.load(Y, h, S);
+                f.reduce(Y);
+                f.isEqual(Y, ZERO);
+                if_(null, () => {
+                  i32.store8({ offset: 2 * S }, g, 0);
+                  br(classified);
+                });
+                // G = H: slope 3x^2 / 2y
+                f.load(T, h);
+                f.square(T, T);
+                f.add(M, T, T);
+                f.add(M, M, T);
+                twoY();
+                local.set(kind, DOUBLE);
               },
               () => {
-                call(Field.subtractPositive, { out: tmpJ(), x: h, y: g });
-                local.set(kind, 1);
+                f.subtractLoose(M, f.input(h, S), f.input(g, S));
+                local.set(kind, ADD);
               }
             );
+            f.multiply(M, ACC, M);
+            f.store(g, S, M);
+            f.multiply(ACC, ACC, DX);
           });
           i32.store8({}, i32.add(kinds, i), kind);
-          local.set(j, i32.add(j, i32.ne(kind, 0)));
           local.set(i, i32.add(i, 1));
           br(next);
         });
       });
-      call(Field.batchInverse, { scratch, z: d, x: tmp, $n: j });
-      local.set(i, 0);
-      local.set(j, 0);
+      // ACC = prod_j dx_j^-1
+      f.store(inv, 0, ACC);
+      call(inverse, {
+        scratch: i32.add(inv, 2 * S),
+        r: i32.add(inv, S),
+        a: inv,
+      });
+      f.load(ACC, inv, S);
+      // walk back: slope_i = y1_i ACC, add, ACC *= dx_i
       block(null, (done) => {
         loop(null, (next) => {
-          i32.ge_u(i, n);
+          i32.eqz(i);
           br_if(done);
+          local.set(i, i32.sub(i, 1));
           local.set(kind, i32.load8_u({}, i32.add(kinds, i)));
-          local.set(g, i32.load({}, i32.add(G, i32.shl(i, 2))));
-          local.set(h, i32.add(g, offset));
-          i32.eq(kind, 1);
-          if_(null, () =>
-            call(addAffine, { scratch, x3: g, x1: g, x2: h, d: dJ() })
+          i32.eq(kind, SKIP);
+          br_if(next);
+          loadPair();
+          i32.eq(kind, ADD);
+          if_(
+            null,
+            () => f.subtractLoose(DX, f.input(h), f.input(g)),
+            () => twoY()
           );
-          i32.eq(kind, 2);
-          if_(null, () =>
-            call(doubleAffine, { scratch, xOut: g, x: g, d: dJ() })
-          );
-          local.set(j, i32.add(j, i32.ne(kind, 0)));
-          local.set(i, i32.add(i, 1));
+          f.load(M, g, S);
+          f.multiply(M, M, ACC);
+          // with x1 = x2 and y1 = y2, this is the doubling formula
+          addAffineGivenSlope(f, g, g, h, M);
+          f.multiply(ACC, ACC, DX);
           br(next);
         });
       });
@@ -338,6 +428,53 @@ function curveOps(
       // x_out = x * beta, y_out = y
       call(Field.multiply, { xy: xOut, x, y: betaPtr });
       Field.copyInline(yOut, y);
+    }
+  );
+
+  /**
+   * for n affine points G_i, writes G_i, -G_i, endo(G_i), -endo(G_i) to
+   * consecutive points at out + 4i. the byte at flags + i says which point of
+   * each pair is negated first: G_i if bit 0 is set, endo(G_i) if bit 1 is.
+   */
+  const preparePoints = func(
+    {
+      in: [{ out: i32 }, { points: i32 }, { flags: i32 }, { n: i32 }],
+      locals: { i: i32, p: i32, g: i32, x: i32, y: i32, yNeg: i32, flag: i32 },
+      out: [],
+    },
+    ({ out, points, flags, n }, { i, p, g, x, y, yNeg, flag }) => {
+      const A = 2 * S + Field.size / Field.n;
+      forLoop1(i, 0, n, () => {
+        local.set(g, i32.add(points, i32.mul(i, A)));
+        local.set(p, i32.add(out, i32.mul(i, 4 * A)));
+        local.set(flag, i32.load8_u({}, i32.add(flags, i)));
+        // isNonZero
+        local.set(x, i32.load8_u({ offset: 2 * S }, g));
+        for (let j = 0; j < 4; j++) i32.store8({ offset: j * A + 2 * S }, p, x);
+        // x coordinates
+        copyBytes(p, g, S);
+        local.set(x, i32.add(p, A));
+        copyBytes(x, g, S);
+        local.set(x, i32.add(p, 2 * A));
+        call(Field.multiply, { xy: x, x: g, y: betaPtr });
+        local.set(y, i32.add(p, 3 * A));
+        copyBytes(y, x, S);
+        // y coordinates
+        local.set(x, i32.add(g, S));
+        for (let pair = 0; pair < 2; pair++) {
+          // y goes to the negated point of the pair if the flag is set
+          i32.add(p, (2 * pair + 1) * A + S);
+          i32.add(p, 2 * pair * A + S);
+          i32.and(flag, 1 << pair);
+          select(i32);
+          local.set(y, $);
+          // the other y of the pair
+          local.set(yNeg, i32.add(p, 2 * pair * A + S));
+          local.set(yNeg, i32.sub(i32.add(yNeg, i32.add(yNeg, A)), y));
+          copyBytes(y, x, S);
+          call(Field.subtract, { out: yNeg, x: formulas.zeroPtr, y: x });
+        }
+      });
     }
   );
 
@@ -697,6 +834,8 @@ function curveOps(
   };
 
   return {
+    copyMemory,
+    preparePoints,
     addAffine,
     doubleAffine,
     batchAdd,

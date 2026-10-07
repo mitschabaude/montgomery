@@ -12,7 +12,10 @@ import {
   importFunc,
   type Type,
   call,
+  select,
+  type Func,
 } from "wasmati";
+import { forLoop1 } from "./wasm-util.ts";
 import {
   assert,
   bigintFromLimbs,
@@ -21,7 +24,7 @@ import {
 } from "../util.ts";
 
 export { createField, type Field };
-export { fromPackedBytes, toPackedBytes, extractBitSlice };
+export { fromPackedBytes, toPackedBytes, extractBitSlice, decomposeAndSlice };
 
 // inline methods to operate on a field element stored as n * w-bit limbs
 
@@ -366,6 +369,112 @@ function extractBitSlice(w: number, n: number) {
       // stitch together with first half, and return
       i32.shl($, i32.sub(w, startBit));
       i32.or();
+    }
+  );
+}
+
+/**
+ * GLV-decomposes n scalars and slices both halves into K signed digits, for
+ * windows of c bits for k < kHi and c + 1 bits for k >= kHi.
+ *
+ * The digit in window k of half scalar h = 2i + j, j = 0, 1, is stored at
+ * index k*stride + h of `slices`, as bucket l in 1..2^(c_k - 1) and the sign
+ * in the top bit, or 0 for digit 0. The negation flags returned by `decompose`
+ * are stored as bytes at `flags`. Takes two scalars of scratch.
+ *
+ * Assumes that half scalars have n0 limbs of w bits, and windows of at most
+ * w + 1 bits.
+ */
+function decomposeAndSlice(
+  decompose: Func<[{ s0: "i32" }, { s1: "i32" }, { s: "i32" }], ["i32"]>,
+  w: number,
+  n: number,
+  n0: number
+) {
+  let size = 4 * n;
+  return func(
+    {
+      in: [
+        { slices: i32 },
+        { flags: i32 },
+        { scalars: i32 },
+        { scratch: i32 },
+        { nScalars: i32 },
+        { stride: i32 },
+        { K: i32 },
+        { c: i32 },
+        { kHi: i32 },
+      ],
+      locals: {
+        i: i32,
+        j: i32,
+        k: i32,
+        half: i32,
+        out: i32,
+        start: i32,
+        ck: i32,
+        limb: i32,
+        l: i32,
+        L: i32,
+        carry: i32,
+      },
+      out: [],
+    },
+    (
+      { slices, flags, scalars, scratch, nScalars, stride, K, c, kHi },
+      { i, j, k, half, out, start, ck, limb, l, L, carry }
+    ) => {
+      forLoop1(i, 0, nScalars, () => {
+        call(decompose, {
+          s0: scratch,
+          s1: i32.add(scratch, size),
+          s: i32.add(scalars, i32.mul(i, size)),
+        });
+        local.set(l, $);
+        i32.store8({}, i32.add(flags, i), l);
+        forLoop1(j, 0, 2, () => {
+          local.set(half, i32.add(scratch, i32.mul(j, size)));
+          // index 2i + j of window 0
+          local.set(
+            out,
+            i32.add(slices, i32.shl(i32.add(i32.shl(i, 1), j), 2))
+          );
+          local.set(start, 0);
+          local.set(carry, 0);
+          forLoop1(k, 0, K, () => {
+            local.set(ck, i32.add(c, i32.ge_u(k, kHi)));
+            local.set(limb, i32.div_u(start, w));
+            // the window's bits, from at most two limbs
+            i64.load32_u({}, i32.add(half, i32.shl(limb, 2)));
+            i64.load32_u({ offset: 4 }, i32.add(half, i32.shl(limb, 2)));
+            i64.shl($, BigInt(w));
+            i64.const(0n);
+            i32.lt_u(i32.add(limb, 1), n0);
+            select(i64);
+            i64.or();
+            i64.shr_u($, i64.extend_i32_u(i32.sub(start, i32.mul(limb, w))));
+            i32.wrap_i64($);
+            i32.and($, i32.sub(i32.shl(1, ck), 1));
+            local.set(l, i32.add($, carry));
+            // signed digit: if l > L, use 2L - l and carry 1
+            local.set(L, i32.shl(1, i32.sub(ck, 1)));
+            local.set(carry, i32.gt_u(l, L));
+            i32.sub(i32.shl(L, 1), l);
+            local.get(l);
+            local.get(carry);
+            select(i32);
+            local.set(l, $);
+            i32.or(l, i32.shl(carry, 31));
+            i32.const(0);
+            local.get(l);
+            select(i32);
+            local.set(l, $);
+            i32.store({}, out, l);
+            local.set(out, i32.add(out, i32.shl(stride, 2)));
+            local.set(start, i32.add(start, ck));
+          });
+        });
+      });
     }
   );
 }
