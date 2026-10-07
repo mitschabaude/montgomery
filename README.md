@@ -27,7 +27,7 @@ Browsers additionally need the page to be **cross-origin isolated** for `SharedA
 
 `using` declarations are used internally but compiled away in the web bundle, so browser support doesn't depend on them. If there is demand, we could do that for the Node.js build as well.
 
-Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 1.3–1.7x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
+Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 1.9–2.2x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
 
 ## Quick start
 
@@ -62,7 +62,7 @@ await stopThreads();
 
 For performance-sensitive workloads, stream the inputs as raw bytes straight into wasm memory — see `Curve.Parallel.scalarsFromBytes` / `Curve.Parallel.pointsFromBytes`. The submission examples in `doc/zprize23/` show that pattern.
 
-For best throughput on very large MSMs, `Curve.Parallel.msmUnsafe` skips the degenerate-addition check and is ~25% faster, but assumes the input points don't collide (the main application of the library is with pseudo-randomly generated points for prover-side computation, where the check is wasteful).
+For best throughput on very large MSMs, `Curve.Parallel.msmUnsafe` skips the degenerate-addition check and is a few percent faster, but assumes the input points don't collide (the main application of the library is with pseudo-randomly generated points for prover-side computation, where the check is wasteful).
 
 ## Curves
 
@@ -146,7 +146,7 @@ Underneath the MSM, every curve exposes its full wasm field/scalar/curve arithme
 - `curve.Field` / `curve.Scalar` — `add`, `subtract`, `multiply`, `square`, `inverse`, `exp`, `sqrt`, `isEqual`, `isZero`, `reduce`, `toMontgomery`/`fromMontgomery`, `fromPackedBytes`/`toPackedBytes`, `writeBigint`/`readBigint`, …
 - `curve.Affine` / `curve.Projective` (Weierstrass) or `curve.Curve` (twisted edwards) — `add`, `double`, `negate`, `scale`, `isOnCurve`, `batchNormalize`, `toBigint`/`writeBigint`, …
 
-These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~590 lines of pure TS) and `msm-basic.ts` (~220 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
+These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~510 lines of pure TS) and `msm-basic.ts` (~240 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Scalar` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
 
 A few highlights:
 
@@ -154,6 +154,7 @@ A few highlights:
 - **Fast modular inverse** at **< 30 × MUL** cost, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). Much faster than the usual `exp(x, p-2)` Fermat trick.
 - **Fast square root** via Tonelli–Shanks optimized after Daniel Bernstein's ["Faster square roots in annoying finite fields"](http://cr.yp.to/papers/sqroot.pdf): the discrete-log phase caches roots-of-unity windows so it drops to a handful of multiplications, leaving the `x^((t−1)/2)` exponentiation as the dominant cost.
 - **64-bit limbs with Wasm wide arithmetic** where available. `i64.mul_wide_u` and `i64.add128` make full-width Montgomery multiplication about 2–2.6x faster than the 29-bit layout, and a branchless batched binary GCD inverts 256-bit field elements in about 0.7 µs. See [`src/wide/README.md`](src/wide/README.md).
+- **Lock-free multithreaded MSM.** Threads claim chunks of work from shared counters, and add points into their own copies of a partition's buckets, so that buckets stay in a core's cache. Batches of affine additions share one inversion and run in a single Wasm call. The bucket reduction also uses batch-affine additions, and sums up the copies along the way.
 
 ## Constant-time: not a design goal
 
