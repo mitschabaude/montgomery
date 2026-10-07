@@ -255,8 +255,9 @@ function curveOps(
    * Like {@link batchAddUnsafe}, but handles zero points and G_i = +-H_i.
    * Equal points are doubled within the same batch inversion: only the slope
    * changes, to 3x^2 / 2y. The rare cases are branches off the common path.
+   * G_i and H_i may be at the same address.
    *
-   * scratch: 13 field elements; dx: n field elements; kinds: n bytes
+   * scratch: 14 field elements; dx: n field elements; kinds: n bytes
    */
   const batchAdd = func(
     {
@@ -309,6 +310,34 @@ function curveOps(
           loadPair();
           local.set(kind, SKIP);
           block(null, (classified) => {
+            // with G and H at the same address, the batch would overwrite the
+            // y of H, so G is doubled on its own
+            i32.eq(g, h);
+            if_(null, () => {
+              isZero(g);
+              br_if(classified);
+              f.load(Y, g, S);
+              f.reduce(Y);
+              f.isEqual(Y, ZERO);
+              if_(null, () => {
+                i32.store8({ offset: 2 * S }, g, 0);
+                br(classified);
+              });
+              f.add(DX, Y, Y);
+              f.store(inv, 0, DX);
+              call(inverse, {
+                scratch: i32.add(inv, 2 * S),
+                r: i32.add(inv, S),
+                a: inv,
+              });
+              call(doubleAffine, {
+                scratch: i32.add(inv, 2 * S),
+                xOut: g,
+                x: g,
+                d: i32.add(inv, S),
+              });
+              br(classified);
+            });
             // G = 0: G + H = H
             isZero(g);
             if_(null, () => {
@@ -332,12 +361,19 @@ function curveOps(
                   i32.store8({ offset: 2 * S }, g, 0);
                   br(classified);
                 });
+                // G = H with y = 0 has order 2: G + H = 0
+                f.load(Y, h, S);
+                f.reduce(Y);
+                f.isEqual(Y, ZERO);
+                if_(null, () => {
+                  i32.store8({ offset: 2 * S }, g, 0);
+                  br(classified);
+                });
                 // G = H: slope 3x^2 / 2y
                 f.load(T, h);
                 f.square(T, T);
                 f.add(M, T, T);
                 f.add(M, M, T);
-                f.load(Y, h, S);
                 f.add(DX, Y, Y);
                 local.set(kind, ADD);
               },
@@ -763,30 +799,31 @@ function curveOps(
         if (isSubtract) f.addLoose(tmp, Y2, X2);
         else f.subtractLoose(tmp, Y2, X2);
         f.multiply(B, B, tmp);
-        // C = 2 Z1 T2. Reducing additions keep F and H below 2p, so that one
-        // reduction makes them canonical for the zero check.
+        // C = 2 Z1 T2
         f.add(tmp, T2, T2);
         if (isSubtract) f.negate(tmp, tmp);
         f.multiply(C, Z1, tmp);
         // D = 2 T1 Z2
         f.add(D, T1, T1);
         if (Z2 !== undefined) f.multiply(D, D, Z2);
-        // F = B - A, H = D - C; both zero iff the formula degenerates
+        // F = B - A, G = B + A. the result is (EF, GH, EH, FG), which is
+        // correct iff Z3 = FG is nonzero. this excludes equal points, and
+        // some sums with points of small order
         f.subtract(F, B, A);
-        f.subtract(H, D, C);
+        f.add(G, B, A);
         f.reduce(F);
-        f.reduce(H);
+        f.reduce(G);
         let zero = f.input(formulas.zeroPtr);
         f.isEqual(F, zero);
-        f.isEqual(H, zero);
-        i32.and();
+        f.isEqual(G, zero);
+        i32.or();
         if_(null, () => {
           call(unified, { scratch, p3, p1, p2, k });
           return_();
         });
-        // E = D + C, G = B + A
+        // E = D + C, H = D - C
         f.addLoose(E, D, C);
-        f.addLoose(G, B, A);
+        f.subtract(H, D, C);
         let X3 = f.output(p3);
         let Y3 = f.output(p3, S);
         let Z3 = f.output(p3, 2 * S);
