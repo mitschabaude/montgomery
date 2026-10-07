@@ -48,7 +48,7 @@
   "author": "Gregor Mitscha-Baude",
   "license": "Apache-2.0",
   "dependencies": {
-    "wasmati": "file:../wasmati-release-1.0"
+    "wasmati": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

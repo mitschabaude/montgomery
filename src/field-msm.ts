@@ -1,5 +1,5 @@
 import type * as W from "wasmati"; // for type names
-import type { Instance } from "wasmati";
+import type { ModuleInstance } from "wasmati";
 import type { fieldModule } from "./generate.ts";
 import { mod } from "./bigint/field-util.ts";
 import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
@@ -22,7 +22,7 @@ type MsmFieldParams = {
   localRatio?: number;
 };
 
-type MsmFieldInstance = Instance<ReturnType<typeof fieldModule>>;
+type MsmFieldInstance = ModuleInstance<ReturnType<typeof fieldModule>>;
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
 /**

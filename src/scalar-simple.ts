@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import type { Instance } from "wasmati";
+import type { ModuleInstance } from "wasmati";
 import type { scalarModule } from "./generate.ts";
 import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
@@ -11,7 +11,7 @@ export { createScalar, type Scalar, type ScalarParams };
 type Scalar = UnwrapPromise<ReturnType<typeof createScalar>>;
 type ScalarParams = { q: bigint; w: number };
 
-type ScalarInstance = Instance<ReturnType<typeof scalarModule>>;
+type ScalarInstance = ModuleInstance<ReturnType<typeof scalarModule>>;
 
 /**
  * scalar module for basic MSM, from its compiled module

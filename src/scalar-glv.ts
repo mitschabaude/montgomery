@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import type { Instance } from "wasmati";
+import type { ModuleInstance } from "wasmati";
 import type { glvScalarModule } from "./generate.ts";
 import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
@@ -11,7 +11,7 @@ export { createGlvScalar, type GlvScalar };
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
 
-type GlvScalarInstance = Instance<ReturnType<typeof glvScalarModule>>;
+type GlvScalarInstance = ModuleInstance<ReturnType<typeof glvScalarModule>>;
 
 /**
  * scalar module for MSM with GLV, from its compiled module
