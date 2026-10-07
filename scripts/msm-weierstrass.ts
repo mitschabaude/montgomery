@@ -3,6 +3,7 @@ import {
   startThreads,
   stopThreads,
   type CurveParams,
+  type CurveOptions,
 } from "../src/index.ts";
 import { tic, toc } from "../src/testing/tictoc.ts";
 import { assertDeepEqual } from "../src/testing/nested.ts";
@@ -11,11 +12,16 @@ import { median, standardDev } from "./evaluate-util.ts";
 
 export { benchmarkMsm, runMsm };
 
-async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
+async function benchmarkMsm(
+  params: CurveParams,
+  n: number,
+  nThreads?: number,
+  options?: CurveOptions,
+) {
   let N = 1 << n;
   await startThreads(nThreads);
 
-  const { Parallel } = await Weierstraß.create(params);
+  const { Parallel } = await Weierstraß.create(params, options);
 
   tic("random points");
   let [pointPtr] = await Parallel.randomPointsFast(N);
@@ -52,9 +58,14 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   await stopThreads();
 }
 
-async function runMsm(params: CurveParams, n: number, nThreads?: number) {
+async function runMsm(
+  params: CurveParams,
+  n: number,
+  nThreads?: number,
+  options?: CurveOptions,
+) {
   let N = 1 << n;
-  const Curve = await Weierstraß.create(params);
+  const Curve = await Weierstraß.create(params, options);
   await startThreads(nThreads);
 
   tic("random points");
