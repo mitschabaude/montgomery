@@ -55,8 +55,8 @@ function createField(p: bigint) {
     threshold = P,
     subtrahend = P
   ) {
-    block(null, (done) => {
-      block(null, (needsSubtract) => {
+    block((done) => {
+      block((needsSubtract) => {
         if (high !== 0n) {
           i64.ne(high, 0n);
           br_if(needsSubtract);

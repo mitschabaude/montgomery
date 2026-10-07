@@ -11,6 +11,8 @@ import {
   select,
   type Input,
   type Local,
+  type LocalArray,
+  type Type,
 } from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 
@@ -37,7 +39,13 @@ function additionKernels(F: FieldBase) {
   const n = F.n;
   // The modulus guarantees that the full sum fits in the layout.
   const sumFits = 2n * F.limit <= F.R;
-  const locals = {
+  const locals: {
+    aCarry: Type<"i64">;
+    aBorrow: Type<"i64">;
+    aKeep: Type<"i32">;
+    aT: LocalArray<"i64">;
+    aD: LocalArray<"i64">;
+  } = {
     aCarry: i64,
     aBorrow: i64,
     aKeep: i32,
@@ -193,12 +201,12 @@ function arithmetic(F: FieldBase) {
     ({ x, y }) => {
       for (let i = F.n - 1; i >= 0; i--) {
         i64.gt_u(F.loadLimb(x, i), F.loadLimb(y, i));
-        if_(null, () => {
+        if_(() => {
           i32.const(1);
           return_();
         });
         i64.lt_u(F.loadLimb(x, i), F.loadLimb(y, i));
-        if_(null, () => {
+        if_(() => {
           i32.const(0);
           return_();
         });
@@ -211,7 +219,7 @@ function arithmetic(F: FieldBase) {
     ({ x, y }) => {
       for (let i = 0; i < F.n; i++) {
         i64.ne(F.loadLimb(x, i), F.loadLimb(y, i));
-        if_(null, () => {
+        if_(() => {
           i32.const(0);
           return_();
         });
@@ -222,7 +230,7 @@ function arithmetic(F: FieldBase) {
   const isZero = func({ in: [{ x: i32 }], out: [i32] }, ({ x }) => {
     for (let i = 0; i < F.n; i++) {
       i64.ne(F.loadLimb(x, i), 0n);
-      if_(null, () => {
+      if_(() => {
         i32.const(0);
         return_();
       });

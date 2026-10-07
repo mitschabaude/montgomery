@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import { Const, Module, global, importMemory } from "wasmati";
+import { constant, i32, Module, global, importMemory } from "wasmati";
 import { glvGeneral } from "./wasm/glv.ts";
 import { assert, log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
@@ -51,7 +51,7 @@ async function createGlvScalarWasm({ q, lambda, w }: Params) {
       extractBitSlice: extractBitSlice(w, n0),
       extractBitSliceNoGlv: extractBitSlice(w, n),
       memory: wasmMemory,
-      dataOffset: global(Const.i32(0)),
+      dataOffset: global(constant(() => i32.const(0))),
     },
   });
 

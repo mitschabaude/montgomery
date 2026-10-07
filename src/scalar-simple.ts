@@ -1,5 +1,5 @@
 import type * as W from "wasmati";
-import { Const, Module, global, importMemory } from "wasmati";
+import { constant, i32, Module, global, importMemory } from "wasmati";
 import { assert, log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
 import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.ts";
@@ -35,7 +35,7 @@ async function createScalarWasm({ q, w }: { q: bigint; w: number }) {
       fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       extractBitSlice: extractBitSlice(w, n),
       memory: wasmMemory,
-      dataOffset: global(Const.i32(0)),
+      dataOffset: global(constant(() => i32.const(0))),
     },
   });
 
