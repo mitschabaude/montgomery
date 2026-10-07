@@ -61,7 +61,10 @@ const Weierstraß = {
    * that are generated for them. Only curves with `a = 0` and a GLV
    * endomorphism are supported.
    */
-  async create(params: CurveParams, options?: CurveOptions) {
+  async create(
+    params: CurveParams,
+    options?: CurveOptions
+  ): Promise<WeierstraßCurve> {
     return createWeierstraß(params, await compileWeierstraß(params, options));
   },
 };
@@ -76,7 +79,10 @@ const TwistedEdwards = {
    * Create a twisted Edwards curve from its parameters, with Wasm modules that
    * are generated for them.
    */
-  async create(params: TwistedEdwardsParams, options?: CurveOptions) {
+  async create(
+    params: TwistedEdwardsParams,
+    options?: CurveOptions
+  ): Promise<TwistedEdwardsCurve> {
     return createTwistedEdwards(
       params,
       await compileTwistedEdwards(params, options)

@@ -22,7 +22,14 @@ import { wideOps } from "./wide/field.ts";
 import { fieldKernels } from "./wide/kernels.ts";
 import { log2 } from "./util.ts";
 
-export { createFieldBackend, type FieldBackend, type FieldKernels };
+export {
+  createFieldBackend,
+  type FieldBackend,
+  type FieldKernels,
+  type MultiplyFunc,
+  type AddFunc,
+  type Predicate,
+};
 
 type MultiplyFunc = Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
 type AddFunc = Func<[{ out: "i32" }, { x: "i32" }, { y: "i32" }], []>;
