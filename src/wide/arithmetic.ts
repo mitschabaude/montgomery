@@ -9,6 +9,7 @@ import {
   memory,
   return_,
   select,
+  type Input,
   type Local,
 } from "wasmati";
 import type { FieldBase } from "./field-base.ts";
@@ -78,28 +79,42 @@ function additionKernels(F: FieldBase) {
     }
   }
   function subtract(
-    { aBorrow: borrow, aCarry: mask, aT: T }: AdditionLocals,
+    { aBorrow: borrow, aCarry: carry, aT: T }: AdditionLocals,
     Z: Local<i64>[],
     X: Local<i64>[],
     Y: Local<i64>[]
   ) {
+    // the borrow is the high word of each difference, 0 or -1, which is
+    // added to the next one as a signed 128-bit value
     for (let i = 0; i < n; i++) {
       i64.sub128(X[i], 0n, Y[i], 0n);
-      if (i !== 0) i64.sub128($, $, borrow, 0n);
-      local.set(borrow, i64.and($, 1n));
+      if (i !== 0) i64.add128($, $, borrow, borrow);
+      local.set(borrow, $);
       local.set(T[i], $);
     }
-    // T += limit if x < y; the final carry cancels the borrow modulo R
-    local.set(mask, i64.sub(0n, borrow));
+    // T += limit if x < y, with the final borrow as mask. the final carry
+    // cancels the borrow modulo R. zero limbs of the limit only pass on
+    // the carry
+    let hasCarry = false;
     for (let i = 0; i < n; i++) {
-      const limb = i64.and(mask, F.Limit[i]);
+      const L = F.Limit[i];
+      const limb = () => (L === -1n ? local.get(borrow) : i64.and(borrow, L));
       if (i === n - 1) {
-        local.set(Z[i], i64.add(i64.add(T[i], limb), i === 0 ? 0n : borrow));
+        let sum: Input<i64> = T[i];
+        if (L !== 0n) sum = i64.add(sum, limb());
+        if (hasCarry) sum = i64.add(sum, carry);
+        local.set(Z[i], sum);
+      } else if (L === 0n && !hasCarry) {
+        local.set(Z[i], T[i]);
       } else {
-        i64.add128(T[i], 0n, limb, 0n);
-        if (i !== 0) i64.add128($, $, borrow, 0n);
-        local.set(borrow, $);
+        if (L === 0n) i64.add128(T[i], 0n, carry, 0n);
+        else {
+          i64.add128(T[i], 0n, limb(), 0n);
+          if (hasCarry) i64.add128($, $, carry, 0n);
+        }
+        local.set(carry, $);
         local.set(Z[i], $);
+        hasCarry = true;
       }
     }
   }

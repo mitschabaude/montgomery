@@ -21,6 +21,7 @@ async function testBatchAdd(params: CurveParams) {
     !G.isZero && G.y === 0n && !H.isZero && H.x === G.x ? B.zero : B.add(G, H);
   using _ = Field.local.atCurrentOffset;
   let scratch = Field.local.getPointers(14);
+  let dx = Field.local.getPointer(128 * Field.sizeField);
   let P = B.random();
   let Q = B.random();
   let pairs: [Point, Point][] = [
@@ -51,7 +52,7 @@ async function testBatchAdd(params: CurveParams) {
     view.set([aliased[i], aliased[i]], 2 * (n + i));
   });
   let kinds = Field.local.getPointer(2 * n);
-  Field.batchAdd(scratch[0], kinds, pairsPtr, 2 * n);
+  Field.batchAdd(scratch[0], dx, kinds, pairsPtr, 2 * n);
   pairs.forEach(([G, H], i) => {
     let label = `${params.label}: batch add, pair ${i}`;
     let expected = add(G, H);
@@ -80,7 +81,7 @@ async function testBatchAdd(params: CurveParams) {
     Affine.writeBigint(ptrs[2 * i + 1], hs[i]);
     unsafeView.set([ptrs[2 * i], ptrs[2 * i + 1]], 2 * i);
   }
-  Field.batchAddUnsafe(scratch[0], unsafePairs, m);
+  Field.batchAddUnsafe(scratch[0], dx, unsafePairs, m);
   for (let i = 0; i < m; i++) {
     assert(
       B.isEqual(Affine.toBigint(ptrs[2 * i]), B.add(gs[i], hs[i])),
