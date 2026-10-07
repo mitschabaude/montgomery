@@ -5,20 +5,13 @@ import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
 import { mod } from "./bigint/field-util.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
+import type { GlvScalarParams } from "./glv/glv.ts";
 
-export { createGlvScalar, type GlvScalar, type GlvScalarParams };
+export { createGlvScalar, type GlvScalar };
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
-type GlvScalarParams = {
-  q: bigint;
-  lambda: bigint;
-  w: number;
-  n: number;
-  n0: number;
-  maxBits: number;
-};
 
-type GlvScalarInstance = Instance<ReturnType<typeof glvScalarModule>["wasm"]>;
+type GlvScalarInstance = Instance<ReturnType<typeof glvScalarModule>>;
 
 /**
  * scalar module for MSM with GLV, from its compiled module

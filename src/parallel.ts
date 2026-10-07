@@ -14,7 +14,8 @@ import {
   createRandomPointsFastSingleCurve,
   createRandomScalars,
 } from "./curve-random.ts";
-import { createGlvScalar, type GlvScalarParams } from "./scalar-glv.ts";
+import { createGlvScalar } from "./scalar-glv.ts";
+import { glvScalarParams } from "./glv/glv.ts";
 import { createMsm, createMsmShared } from "./msm-batched-affine.ts";
 import { pool } from "./threads/global-pool.ts";
 import { type CurveParams } from "./bigint/affine-weierstrass.ts";
@@ -37,8 +38,7 @@ export {
   createTwistedEdwards,
   type Weierstraß,
   type TwistedEdwards,
-  type WeierstraßWasm,
-  type TwistedEdwardsWasm,
+  type CurveWasm,
   type CurveOptions,
 };
 
@@ -48,16 +48,8 @@ export {
  */
 type CurveOptions = { backend?: FieldBackendOption };
 
-/** compiled modules of a Weierstraß curve, which workers receive */
-type WeierstraßWasm = {
-  backend: FieldBackendName;
-  field: WasmArtifacts;
-  scalar: WasmArtifacts;
-  glv: GlvScalarParams;
-};
-
-/** compiled modules of a twisted Edwards curve, which workers receive */
-type TwistedEdwardsWasm = {
+/** compiled modules of a curve, which workers receive */
+type CurveWasm = {
   backend: FieldBackendName;
   field: WasmArtifacts;
   scalar: WasmArtifacts;
@@ -78,12 +70,12 @@ const curves: (
   | {
       module: Weierstraß;
       create: typeof createWeierstraß;
-      wasm: WeierstraßWasm;
+      wasm: CurveWasm;
     }
   | {
       module: TwistedEdwards;
       create: typeof createTwistedEdwards;
-      wasm: TwistedEdwardsWasm;
+      wasm: CurveWasm;
     }
 )[] = [];
 
@@ -103,18 +95,21 @@ const curves: (
  *
  * Only curves with `a = 0` and a GLV endomorphism are supported.
  */
-async function createWeierstraß(params: CurveParams, wasm: WeierstraßWasm) {
-  let { modulus: p, endomorphism, a, b, label, cofactor: h } = params;
+async function createWeierstraß(params: CurveParams, wasm: CurveWasm) {
+  let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
   let { backend } = wasm;
   assert(a === 0n, "only curves with a = 0 are supported");
   assert(endomorphism !== undefined, "endomorphism required");
-  let { beta } = endomorphism;
+  let { beta, lambda } = endomorphism;
 
   const Field = await createMsmField(
     { p, beta, backend, localRatio: 0.25 },
     wasm.field,
   );
-  const Scalar = await createGlvScalar(wasm.glv, wasm.scalar);
+  const Scalar = await createGlvScalar(
+    glvScalarParams(q, lambda, 29),
+    wasm.scalar,
+  );
   const Projective = createCurveProjective(Field, params);
   const Affine = createCurveAffine(Field, Projective, b);
   const Inputs = { params, Field, Scalar, Affine, Projective };
@@ -266,7 +261,7 @@ async function createWeierstraß(params: CurveParams, wasm: WeierstraßWasm) {
  */
 async function createTwistedEdwards(
   params: TwistedEdwardsParams,
-  wasm: TwistedEdwardsWasm,
+  wasm: CurveWasm,
 ) {
   let { modulus: p, order: q, label } = params;
   let { backend } = wasm;

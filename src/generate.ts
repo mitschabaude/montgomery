@@ -24,15 +24,13 @@ import { montgomeryParams } from "./bigint/field-util.ts";
 import { resolveFieldBackend } from "./field-layout.ts";
 import { fieldMemory, scalarMemory, type SharedMemory } from "./memories.ts";
 import { type MsmFieldParams } from "./field-msm.ts";
-import { type GlvScalarParams } from "./scalar-glv.ts";
 import { type ScalarParams } from "./scalar-simple.ts";
 import { type WasmArtifacts } from "./types.ts";
 import {
   createWeierstraß,
   createTwistedEdwards,
   type CurveOptions,
-  type TwistedEdwardsWasm,
-  type WeierstraßWasm,
+  type CurveWasm,
   type Weierstraß as WeierstraßCurve,
   type TwistedEdwards as TwistedEdwardsCurve,
 } from "./parallel.ts";
@@ -89,22 +87,21 @@ const TwistedEdwards = {
 async function compileWeierstraß(
   { modulus: p, order: q, endomorphism }: CurveParams,
   { backend = "auto" }: CurveOptions = {}
-): Promise<WeierstraßWasm> {
+): Promise<CurveWasm> {
   assert(endomorphism !== undefined, "endomorphism required");
   let { beta, lambda } = endomorphism;
   let name = resolveFieldBackend(backend);
-  let glv = glvScalarModule({ q, lambda, w: 29 });
   let [field, scalar] = await Promise.all([
     compileField({ p, beta, backend: name }),
-    compile(glv.wasm),
+    compile(glvScalarModule({ q, lambda, w: 29 })),
   ]);
-  return { backend: name, field, scalar, glv: glv.params };
+  return { backend: name, field, scalar };
 }
 
 async function compileTwistedEdwards(
   { modulus: p, order: q }: TwistedEdwardsParams,
   { backend = "auto" }: CurveOptions = {}
-): Promise<TwistedEdwardsWasm> {
+): Promise<CurveWasm> {
   let name = resolveFieldBackend(backend);
   let [field, scalar] = await Promise.all([
     compileField({ p, beta: 1n, backend: name }),
@@ -198,7 +195,7 @@ function glvScalarModule({
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
   let wasmMemory = importSharedMemory(scalarMemory);
 
-  let wasm = Module({
+  return Module({
     exports: {
       decompose,
       decomposeAndSlice: decomposeAndSlice(decompose, w, n, n0),
@@ -210,9 +207,6 @@ function glvScalarModule({
       dataOffset: global(constant(() => i32.const(0))),
     },
   });
-
-  let params: GlvScalarParams = { q, lambda, w, n, n0, maxBits };
-  return { wasm, params };
 }
 
 function scalarModule({ q, w }: { q: bigint; w: number }) {

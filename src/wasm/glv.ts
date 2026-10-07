@@ -17,17 +17,9 @@ import {
   local,
   unreachable,
 } from "wasmati";
-import {
-  abs,
-  assert,
-  bigintToLimbs,
-  divide,
-  log2,
-  max,
-  scale,
-} from "../util.ts";
+import { assert, bigintToLimbs, log2 } from "../util.ts";
 import { barrettError, barrettReduction } from "./barrett.ts";
-import { egcdStopEarly } from "../glv/glv.ts";
+import { glvParams } from "../glv/glv.ts";
 import { createField } from "./field-helpers.ts";
 
 export { glvSpecial as glv, glvGeneral };
@@ -35,24 +27,12 @@ export { glvSpecial as glv, glvGeneral };
 function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
   let Field = createField(q, w, n);
   let wn = BigInt(w);
-  // n0 is the number of limbs we need for scalar halves and intermediate values
-  let n0 = Math.ceil(n / 2);
-  let m = BigInt(n0 * w);
-  let k = BigInt((n - n0) * w);
-  assert(k <= m);
-
-  // constants
-  let [[v00, v01], [v10, v11]] = egcdStopEarly(lambda, q);
-  let det = v00 * v11 - v10 * v01;
-  let m0 = ((1n << (m + k)) * -v11) / det;
-  let m1 = ((1n << (m + k)) * v10) / det;
-
-  // check that these fit into our halved number of limbs
-  let maxV = max(max(v00, v01), max(v10, v11));
-  let limbMax = 1n << m;
-  assert(maxV < limbMax);
-  assert(m0 < limbMax);
-  assert(m1 < limbMax);
+  let { n0, m, k, v00, v01, v10, v11, m0, m1, maxBits } = glvParams(
+    q,
+    lambda,
+    w,
+    n
+  );
 
   // TODO make these work with an n0 limb representation
   let [m0Sign, M0] = bigintToLimbsPositive(m0, w, n);
@@ -210,18 +190,6 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
     }
     local.set(Z[n - 1]);
   }
-
-  // compute s0, s1 upper bounds
-  // s0, s1 upper bounds
-  let m0Residual = ((1n << (m + k)) * -v11) % det;
-  let m1Residual = ((1n << (m + k)) * v10) % det;
-  let m0Error = Math.abs(divide(m0Residual, det));
-  let m1Error = Math.abs(divide(m1Residual, det));
-  let x0Error = 0.5 + divide(m0, 1n << m) + m0Error * divide(q, 1n << (m + k));
-  let x1Error = 0.5 + divide(m1, 1n << m) + m1Error * divide(q, 1n << (m + k));
-  let maxS0 = scale(x0Error, abs(v00)) + scale(x1Error, abs(v01));
-  let maxS1 = scale(x0Error, abs(v10)) + scale(x1Error, abs(v11));
-  let maxBits = Math.max(log2(maxS0), log2(maxS1));
 
   return { decompose, maxBits, n0 };
 }
