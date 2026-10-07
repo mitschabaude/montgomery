@@ -1,13 +1,27 @@
 /**
- * Test the curves with prebuilt Wasm modules (run `node scripts/build/prebuild.ts`
- * first): their MSMs against bigint, and that neither their entry points nor the
- * workers load wasmati, or the modules of other curves.
+ * Test the curves with prebuilt Wasm modules: that the committed modules are up
+ * to date, their MSMs against bigint, and that neither their entry points nor
+ * the workers load wasmati, or the modules of other curves.
  */
 import * as esbuild from "esbuild";
 import { Pallas, startThreads, stopThreads } from "./pallas.ts";
 import { BLS12377 } from "./bls12-377.ts";
 import { supportsWideArithmetic } from "../field-layout.ts";
 import { assert } from "../util.ts";
+import { readFileSync } from "node:fs";
+import {
+  prebuiltDirectory,
+  prebuiltSources,
+} from "../../scripts/build/prebuild.ts";
+
+// the committed modules are what the code generator produces now
+for (let [file, source] of prebuiltSources()) {
+  let committed = readFileSync(new URL(file, prebuiltDirectory), "utf8");
+  assert(
+    committed === source,
+    `src/prebuilt/wasm/${file} is out of date, run npm run prebuilt`
+  );
+}
 
 // the prebuilt entry points and the worker source, parallel.ts, don't import
 // wasmati, the code generator, or the modules of other curves
