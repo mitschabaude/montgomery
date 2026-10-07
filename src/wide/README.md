@@ -34,9 +34,9 @@ Nanoseconds per operation, 29-bit → wide, measured with `taskset -c 6 npm run 
 
 | Field | Multiply | Square | Add | Subtract | Affine addition | Fast inverse | Kaliski inverse |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Pallas | 36 → 17 | 28 → 16 | 13 → 7 | 8 → 6 | 164 → 85 | 2629 → 681 | 5344 → 3117 |
-| BLS12-377 | 99 → 39 | 77 → 38 | 16 → 10 | 10 → 8 | 372 → 165 | 4338 → 1214 | 10774 → 6056 |
-| BN254 scalar | 52 → 18 | 41 → 18 | 13 → 7 | 8 → 6 | 221 → 91 | 2582 → 692 | 5393 → 3113 |
+| Pallas | 36 → 17 | 28 → 16 | 13 → 7 | 8 → 6 | 165 → 90 | 2629 → 681 | 5344 → 3117 |
+| BLS12-377 | 99 → 39 | 77 → 38 | 16 → 10 | 10 → 8 | 370 → 165 | 4338 → 1214 | 10774 → 6056 |
+| BN254 scalar | 52 → 18 | 41 → 18 | 13 → 7 | 8 → 6 | 227 → 93 | 2582 → 692 | 5393 → 3113 |
 
 End-to-end MSMs with `scripts/run-msm-*.ts <n> <threads> --evaluate --backend=<29-bit|wide>`, median of 10 runs, on the same machine under moderate load:
 
