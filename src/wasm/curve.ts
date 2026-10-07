@@ -251,8 +251,9 @@ function curveOps(
    * Like {@link batchAddUnsafe}, but handles zero points and G_i = +-H_i.
    * Equal points are doubled within the same batch inversion: only the slope
    * changes, to 3x^2 / 2y. The rare cases are branches off the common path.
+   * G_i and H_i may be at the same address.
    *
-   * scratch: 13 field elements; kinds: n bytes
+   * scratch: 14 field elements; kinds: n bytes
    */
   const batchAdd = func(
     {
@@ -296,6 +297,34 @@ function curveOps(
           loadPair();
           local.set(kind, SKIP);
           block(null, (classified) => {
+            // with G and H at the same address, the batch would overwrite the
+            // y of H, so G is doubled on its own
+            i32.eq(g, h);
+            if_(null, () => {
+              isZero(g);
+              br_if(classified);
+              f.load(Y, g, S);
+              f.reduce(Y);
+              f.isEqual(Y, ZERO);
+              if_(null, () => {
+                i32.store8({ offset: 2 * S }, g, 0);
+                br(classified);
+              });
+              f.add(DX, Y, Y);
+              f.store(inv, 0, DX);
+              call(inverse, {
+                scratch: i32.add(inv, 2 * S),
+                r: i32.add(inv, S),
+                a: inv,
+              });
+              call(doubleAffine, {
+                scratch: i32.add(inv, 2 * S),
+                xOut: g,
+                x: g,
+                d: i32.add(inv, S),
+              });
+              br(classified);
+            });
             // G = 0: G + H = H
             isZero(g);
             if_(null, () => {
@@ -315,6 +344,14 @@ function curveOps(
                 f.isEqual(M, ZERO);
                 // G = -H: G + H = 0
                 i32.eqz();
+                if_(null, () => {
+                  i32.store8({ offset: 2 * S }, g, 0);
+                  br(classified);
+                });
+                // G = H with y = 0 has order 2: G + H = 0
+                f.load(Y, h, S);
+                f.reduce(Y);
+                f.isEqual(Y, ZERO);
                 if_(null, () => {
                   i32.store8({ offset: 2 * S }, g, 0);
                   br(classified);
