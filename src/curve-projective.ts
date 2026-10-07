@@ -45,120 +45,8 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
     memoryBytes[pointer + 3 * sizeField] = 0;
   }
 
-  /**
-   * Base method for projective point addition which supports mixed addition and subtraction.
-   * Allows P1 and P3 to be the same memory address.
-   */
-  function addOrSubtract(
-    scratch: number[],
-    P3: number,
-    P1: number,
-    P2: number,
-    // whether P2 should be negated
-    isSubtract: boolean,
-    // whether we can assume Z2 = 1
-    isMixed: boolean
-  ) {
-    let { subtract, multiply, square, isEqual, reduce } = Field;
-    if (isZero(P1)) {
-      copyPoint(P3, P2);
-      if (isSubtract) negateInPlace(P3);
-      return;
-    }
-    if (isZero(P2)) {
-      if (P1 !== P3) copyPoint(P3, P1);
-      return;
-    }
-    setNonZero(P3);
-
-    // coordinates
-    let X1 = P1;
-    let Y1 = X1 + sizeField;
-    let Z1 = Y1 + sizeField;
-    let X2 = P2;
-    let Y2 = X2 + sizeField;
-    let Z2 = Y2 + sizeField;
-    let X3 = P3;
-    let Y3 = X3 + sizeField;
-    let Z3 = Y3 + sizeField;
-
-    let [Y2Z1, Y1Z2, X2Z1, X1Z2, Z1Z2, u, uu, v, vv, vvv, R] = scratch;
-    let y2: number;
-    if (isSubtract) {
-      y2 = u;
-      Field.subtract(y2, constants.zero, Y2);
-    } else {
-      y2 = Y2;
-    }
-
-    // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#addition-add-1998-cmo-2
-    // Y1Z2 = Y1*Z2
-    if (isMixed) {
-      copyPoint(Y1Z2, Y1);
-    } else {
-      multiply(Y1Z2, Y1, Z2);
-    }
-    // Y2Z1 = Y2*Z1
-    multiply(Y2Z1, y2, Z1);
-    // X1Z2 = X1*Z2
-    if (isMixed) {
-      copyPoint(X1Z2, X1);
-    } else {
-      multiply(X1Z2, X1, Z2);
-    }
-    // X2Z1 = X2*Z1
-    multiply(X2Z1, X2, Z1);
-
-    // double if the points are equal
-    // x1*z2 = x2*z1 and y1*z2 = y2*z1
-    // <==>  x1/z1 = x2/z2 and y1/z1 = y2/z2
-    reduce(X1Z2);
-    reduce(X2Z1);
-    if (isEqual(X1Z2, X2Z1)) {
-      reduce(Y1Z2);
-      reduce(Y2Z1);
-      if (isEqual(Y1Z2, Y2Z1)) {
-        double(scratch, P3, P1);
-        return;
-      } else {
-        setZero(P3);
-        return;
-      }
-    }
-    // Z1Z2 = Z1*Z2
-    if (isMixed) {
-      copyPoint(Z1Z2, Z1);
-    } else {
-      multiply(Z1Z2, Z1, Z2);
-    }
-    // u = Y2Z1-Y1Z2
-    subtract(u, Y2Z1, Y1Z2);
-    // uu = u^2
-    square(uu, u);
-    // v = X2Z1-X1Z2
-    subtract(v, X2Z1, X1Z2);
-    // vv = v^2
-    square(vv, v);
-    // vvv = v*vv
-    multiply(vvv, v, vv);
-    // R = vv*X1Z2
-    multiply(R, vv, X1Z2);
-    // A = uu*Z1Z2-vvv-2*R
-    let A = uu;
-    multiply(A, uu, Z1Z2);
-    subtract(A, A, vvv);
-    subtract(A, A, R);
-    subtract(A, A, R);
-    // X3 = v*A
-    multiply(X3, v, A);
-    // Y3 = u*(R-A)-vvv*Y1Z2
-    subtract(R, R, A);
-    multiply(Y3, u, R);
-    multiply(Y1Z2, vvv, Y1Z2);
-    subtract(Y3, Y3, Y1Z2);
-    // Z3 = vvv*Z1Z2
-    multiply(Z3, vvv, Z1Z2);
-  }
+  // The formulas run in wasm: see src/wasm/curve.ts. scratch must be
+  // contiguous field elements, 11 for additions and 8 for doubling.
 
   /**
    * projective point addition, P3 = P1 + P2.
@@ -166,33 +54,33 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
    * Allows P1 and P3 to be the same memory address, i.e. doing P1 += P2.
    */
   function add(scratch: number[], P3: number, P1: number, P2: number) {
-    addOrSubtract(scratch, P3, P1, P2, false, false);
+    Field.addProjective(scratch[0], P3, P1, P2);
   }
 
   function sub(scratch: number[], P3: number, P1: number, P2: number) {
-    addOrSubtract(scratch, P3, P1, P2, true, false);
+    Field.subProjective(scratch[0], P3, P1, P2);
   }
 
   function addMixed(scratch: number[], P3: number, P1: number, P2: number) {
-    addOrSubtract(scratch, P3, P1, P2, false, true);
+    Field.addMixedProjective(scratch[0], P3, P1, P2);
   }
 
   function subMixed(scratch: number[], P3: number, P1: number, P2: number) {
-    addOrSubtract(scratch, P3, P1, P2, true, true);
+    Field.subMixedProjective(scratch[0], P3, P1, P2);
   }
 
   /**
    * projective point addition with assignment, P1 += P2
    */
   function addAssign(scratch: number[], P1: number, P2: number) {
-    addOrSubtract(scratch, P1, P1, P2, false, false);
+    Field.addProjective(scratch[0], P1, P1, P2);
   }
 
   /**
    * projective point doubling with assignment, P *= 2
    */
   function doubleInPlace(scratch: number[], P: number) {
-    double(scratch, P, P);
+    Field.doubleProjective(scratch[0], P, P);
   }
 
   /**
@@ -201,56 +89,7 @@ function createCurveProjective(Field: MsmField, params: CurveParams) {
    * works with P1 and P3 being the same memory address.
    */
   function double(scratch: number[], P3: number, P1: number) {
-    let { add, subtract, multiply, square } = Field;
-
-    // handle zero
-    if (isZero(P1)) {
-      setZero(P3);
-      return;
-    }
-    setNonZero(P3);
-
-    // coordinates
-    let X1 = P1;
-    let Y1 = X1 + sizeField;
-    let Z1 = Y1 + sizeField;
-    let X3 = P3;
-    let Y3 = X3 + sizeField;
-    let Z3 = Y3 + sizeField;
-
-    let [tmp, w, s, ss, sss, Rx2, Bx4, h] = scratch;
-    // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html#doubling-dbl-1998-cmo-2
-    // w = 3*X1^2
-    square(w, X1);
-    add(tmp, w, w); // TODO efficient doubling
-    add(w, tmp, w);
-    // s = Y1*Z1
-    multiply(s, Y1, Z1);
-    // ss = s^2
-    square(ss, s);
-    // sss = s*ss
-    multiply(sss, ss, s);
-    // R = Y1*s, Rx2 = R + R
-    multiply(Rx2, Y1, s);
-    add(Rx2, Rx2, Rx2);
-    // 2*B (= X1*R), Bx4 = 2*B+2*B
-    multiply(Bx4, X1, Rx2);
-    add(Bx4, Bx4, Bx4);
-    // h = w^2-8*B = w^2 - Bx4 - Bx4
-    square(h, w);
-    subtract(h, h, Bx4); // TODO efficient doubling
-    subtract(h, h, Bx4);
-    // X3 = 2*h*s
-    multiply(X3, h, s);
-    add(X3, X3, X3);
-    // Y3 = w*(4*B-h)-8*R^2 = (Bx4 - h)*w - (Rx2^2 + Rx2^2)
-    subtract(Y3, Bx4, h);
-    multiply(Y3, Y3, w);
-    square(tmp, Rx2);
-    add(tmp, tmp, tmp); // TODO efficient doubling
-    subtract(Y3, Y3, tmp);
-    // Z3 = 8*sss
-    multiply(Z3, sss, constants.mg8); // TODO efficient doubling
+    Field.doubleProjective(scratch[0], P3, P1);
   }
 
   function negateInPlace(P: number) {

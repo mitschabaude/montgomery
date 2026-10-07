@@ -11,7 +11,7 @@ import {
 import type { FieldBase } from "./field-base.ts";
 import { assert } from "../util.ts";
 
-export { multiplyMontgomery };
+export { multiplyMontgomery, montgomeryKernel };
 
 /**
  * Pushes (lo, hi) of a * b + sum(adds) onto the stack. Each addend is a 64-bit
@@ -51,7 +51,18 @@ function isPowerOfTwo(b: bigint) {
   return u !== 0n && (u & (u - 1n)) === 0n;
 }
 
-function multiplyMontgomery(F: FieldBase) {
+type MultiplyLocals = {
+  mA: Local<i64>;
+  mC: Local<i64>;
+  mM: Local<i64>;
+  mT: Local<i64>[];
+};
+
+/**
+ * Montgomery multiplication on locals, Z = X Y / R. Z may alias X or Y.
+ * Callers declare `locals` in the function that uses the kernel.
+ */
+function montgomeryKernel(F: FieldBase) {
   // T < p + limit throughout CIOS. With this headroom there is no extra
   // carry limb, and product and reduction can share one pass per row.
   const noOverflow = F.p + F.limit <= F.R;
@@ -65,14 +76,10 @@ function multiplyMontgomery(F: FieldBase) {
   //   (A, T[j]) = x[j] y[i] + T[j] + A
   //   (C, T[j-1]) = m p[j] + T[j] + C
   // The new top word A + C cannot overflow because T < R after every row.
-  function mergedKernel(
-    xy: Local<i32>,
+  function merged(
     X: Local<i64>[],
     Y: Local<i64>[],
-    T: Local<i64>[],
-    A: Local<i64>,
-    C: Local<i64>,
-    m: Local<i64>
+    { mA: A, mC: C, mM: m, mT: T }: MultiplyLocals
   ) {
     for (let i = 0; i < F.n; i++) {
       // In the first row T = 0, so its additions are skipped.
@@ -97,18 +104,14 @@ function multiplyMontgomery(F: FieldBase) {
       local.set(T[F.n - 1], i64.add(A, C));
     }
     if (finalReduce) F.reduceLocals(T, 0n, C, F.Limit);
-    F.store(xy, T);
   }
 
   // CIOS with separate product and reduction passes and an extra carry limb,
   // for moduli close to R (e.g. secp256k1).
-  function carryKernel(
-    xy: Local<i32>,
+  function withCarry(
     X: Local<i64>[],
     Y: Local<i64>[],
-    T: Local<i64>[],
-    carry: Local<i64>,
-    m: Local<i64>
+    { mA: carry, mM: m, mT: T }: MultiplyLocals
   ) {
     const n = F.n;
     for (let i = 0; i < n; i++) {
@@ -141,64 +144,54 @@ function multiplyMontgomery(F: FieldBase) {
       local.set(T[n - 1], $);
     }
     F.reduceLocals(T.slice(0, n), T[n], carry, F.Limit);
-    F.store(xy, T.slice(0, n));
-  }
-
-  if (noOverflow) {
-    const locals = {
-      A: i64,
-      C: i64,
-      m: i64,
-      X: localArray(i64, F.n),
-      T: localArray(i64, F.n),
-    };
-    const multiply = func(
-      {
-        in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
-        locals: { ...locals, Y: localArray(i64, F.n) },
-        out: [],
-      },
-      ({ xy, x, y }, { A, C, m, X, Y, T }) => {
-        F.load(X, x);
-        F.load(Y, y);
-        mergedKernel(xy, X, Y, T, A, C, m);
-      }
-    );
-    // Same kernel, loading the input once. Symmetric squaring needs fewer
-    // multiplications but more additions, and measured slower.
-    const square = func(
-      { in: [{ xy: i32 }, { x: i32 }], locals, out: [] },
-      ({ xy, x }, { A, C, m, X, T }) => {
-        F.load(X, x);
-        mergedKernel(xy, X, X, T, A, C, m);
-      }
-    );
-    return { multiply, square };
   }
 
   const locals = {
-    carry: i64,
-    m: i64,
-    X: localArray(i64, F.n),
-    T: localArray(i64, F.n + 2),
+    mA: i64,
+    mC: i64,
+    mM: i64,
+    mT: localArray(i64, noOverflow ? F.n : F.n + 2),
   };
+  function multiply(
+    L: MultiplyLocals,
+    Z: Local<i64>[],
+    X: Local<i64>[],
+    Y: Local<i64>[]
+  ) {
+    if (noOverflow) merged(X, Y, L);
+    else withCarry(X, Y, L);
+    for (let j = 0; j < F.n; j++) local.set(Z[j], L.mT[j]);
+  }
+  return { locals, multiply };
+}
+
+function multiplyMontgomery(F: FieldBase) {
+  const K = montgomeryKernel(F);
   const multiply = func(
     {
       in: [{ xy: i32 }, { x: i32 }, { y: i32 }],
-      locals: { ...locals, Y: localArray(i64, F.n) },
+      locals: { ...K.locals, X: localArray(i64, F.n), Y: localArray(i64, F.n) },
       out: [],
     },
-    ({ xy, x, y }, { carry, m, X, Y, T }) => {
-      F.load(X, x);
-      F.load(Y, y);
-      carryKernel(xy, X, Y, T, carry, m);
+    ({ xy, x, y }, L) => {
+      F.load(L.X, x);
+      F.load(L.Y, y);
+      K.multiply(L, L.X, L.X, L.Y);
+      F.store(xy, L.X);
     }
   );
+  // Same kernel, loading the input once. Symmetric squaring needs fewer
+  // multiplications but more additions, and measured slower.
   const square = func(
-    { in: [{ xy: i32 }, { x: i32 }], locals, out: [] },
-    ({ xy, x }, { carry, m, X, T }) => {
-      F.load(X, x);
-      carryKernel(xy, X, X, T, carry, m);
+    {
+      in: [{ xy: i32 }, { x: i32 }],
+      locals: { ...K.locals, X: localArray(i64, F.n) },
+      out: [],
+    },
+    ({ xy, x }, L) => {
+      F.load(L.X, x);
+      K.multiply(L, L.X, L.X, L.X);
+      F.store(xy, L.X);
     }
   );
   return { multiply, square };

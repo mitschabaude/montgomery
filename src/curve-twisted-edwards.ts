@@ -71,98 +71,9 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
     copyPoint(P, zero);
   }
 
-  /**
-   * projective point addition, P3 = P1 + P2
-   *
-   * - strongly unified addition
-   * - handles if P3 is the same pointer as P1 and/or P2
-   * - uses 2 full MULs for k*T1*T2
-   * - 9M
-   *
-   * TODO: dedicated mixed addition and doubling
-   */
-  function addOrSubtract(
-    [tmp, A, B, C, D, E, F, G, H]: number[],
-    P3: number,
-    P1: number,
-    P2: number,
-    // whether P2 should be negated
-    subtract: boolean,
-    // whether we can assume Z2 = 1
-    mixed: boolean
-  ) {
-    // get coordinates
-    let X1 = P1;
-    let Y1 = X1 + sizeField;
-    let Z1 = Y1 + sizeField;
-    let T1 = Z1 + sizeField;
-
-    let X2 = P2;
-    let Y2 = X2 + sizeField;
-    let Z2 = Y2 + sizeField;
-    let T2 = Z2 + sizeField;
-
-    let X3 = P3;
-    let Y3 = X3 + sizeField;
-    let Z3 = Y3 + sizeField;
-    let T3 = Z3 + sizeField;
-
-    // http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
-    // Assumptions: k=2*d.
-
-    // A = (Y1-X1)*(Y2-X2)
-    Field.subtractPositive(A, Y1, X1);
-    if (subtract) {
-      Field.addNoReduce(tmp, Y2, X2);
-    } else {
-      Field.subtractPositive(tmp, Y2, X2);
-    }
-    Field.multiply(A, A, tmp);
-
-    // B = (Y1+X1)*(Y2+X2)
-    Field.addNoReduce(B, Y1, X1);
-    if (subtract) {
-      Field.subtractPositive(tmp, Y2, X2);
-    } else {
-      Field.addNoReduce(tmp, Y2, X2);
-    }
-    Field.multiply(B, B, tmp);
-
-    // C = T1*k*T2
-    if (subtract) {
-      Field.subtractPositive(D, Field.constants.zero, T2);
-      Field.multiply(C, T1, D);
-    } else {
-      Field.multiply(C, T1, T2);
-    }
-    Field.multiply(C, C, k);
-
-    // D = Z1*2*Z2
-    if (mixed) {
-      Field.addNoReduce(D, Z1, Z1);
-    } else {
-      Field.multiply(D, Z1, Z2);
-      Field.addNoReduce(D, D, D);
-    }
-
-    // E = B-A
-    Field.subtractPositive(E, B, A);
-    // F = D-C
-    Field.subtractPositive(F, D, C);
-    // G = D+C
-    Field.addNoReduce(G, D, C);
-    // H = B+A
-    Field.addNoReduce(H, B, A);
-
-    // X3 = E*F
-    Field.multiply(X3, E, F);
-    // Y3 = G*H
-    Field.multiply(Y3, G, H);
-    // T3 = E*H
-    Field.multiply(T3, E, H);
-    // Z3 = F*G
-    Field.multiply(Z3, F, G);
-  }
+  // Additions are strongly unified and run in wasm (src/wasm/curve.ts): 9M,
+  // P3 may alias P1 and P2, and scratch must be 9 contiguous field elements.
+  // TODO: dedicated doubling
 
   function negateInPlace(P: number) {
     // get coordinates to negate
@@ -183,28 +94,28 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * addition, P3 = P1 + P2
    */
   function add(scratch: number[], P3: number, P1: number, P2: number) {
-    addOrSubtract(scratch, P3, P1, P2, false, false);
+    Field.addEdwards(scratch[0], P3, P1, P2, k);
   }
 
   /**
    * addition with assignment, P += Q
    */
   function addAssign(scratch: number[], P: number, Q: number) {
-    addOrSubtract(scratch, P, P, Q, false, false);
+    Field.addEdwards(scratch[0], P, P, Q, k);
   }
 
   /**
    * subtraction or addition with assignment, depending on the subtract flag
    */
   function addMixed(scratch: number[], R: number, P: number, Q: number) {
-    addOrSubtract(scratch, R, P, Q, false, true);
+    Field.addMixedEdwards(scratch[0], R, P, Q, k);
   }
 
   /**
    * subtraction or addition with assignment, depending on the subtract flag
    */
   function subMixed(scratch: number[], R: number, P: number, Q: number) {
-    addOrSubtract(scratch, R, P, Q, true, true);
+    Field.subMixedEdwards(scratch[0], R, P, Q, k);
   }
 
   /**
@@ -213,7 +124,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * TODO: dedicated doubling, saves some operations compared to add
    */
   function double(scratch: number[], P3: number, P1: number) {
-    addOrSubtract(scratch, P3, P1, P1, false, false);
+    Field.addEdwards(scratch[0], P3, P1, P1, k);
   }
 
   /**
@@ -223,7 +134,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * squares instead of multiplies etc
    */
   function doubleInPlace(scratch: number[], P: number) {
-    addOrSubtract(scratch, P, P, P, false, false);
+    Field.addEdwards(scratch[0], P, P, P, k);
   }
 
   /**
@@ -478,9 +389,7 @@ function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
    * Allocate a fresh pointer for the input points and write them to it.
    * Thin wrapper around {@link writeAffineBigints}.
    */
-  function fromAffineBigints(
-    inputPoints: { x: bigint; y: bigint }[]
-  ): number {
+  function fromAffineBigints(inputPoints: { x: bigint; y: bigint }[]): number {
     let ptr = Field.global.getPointer(inputPoints.length * size);
     writeAffineBigints(ptr, inputPoints);
     return ptr;
