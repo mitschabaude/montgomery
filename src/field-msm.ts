@@ -55,19 +55,13 @@ async function createFieldWasm({
     w,
     minExtraBits,
   });
-  let { addAffine, addAffinePacked, endomorphism } = curveOps(
-    implicitMemory,
-    Field,
-    beta
-  );
+  let curve = curveOps(implicitMemory, Field, beta);
 
   let module = Module({
     exports: {
       ...implicitMemory.getExports(),
       // curve ops
-      addAffine,
-      addAffinePacked,
-      endomorphism,
+      ...curve,
       // multiplication
       multiply: Field.multiply,
       square: Field.square,

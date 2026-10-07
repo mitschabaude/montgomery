@@ -4,7 +4,7 @@
  * Assumes a=0 and that the curve has an endomorphism based on cube roots of 1.
  */
 import { type CurveParams } from "./bigint/affine-weierstrass.ts";
-import { type CurveAffine, batchAddNew, batchAddUnsafeNew } from "./curve-affine.ts";
+import { type CurveAffine } from "./curve-affine.ts";
 import { type CurveProjective } from "./curve-projective.ts";
 import { type MsmField } from "./field-msm.ts";
 import { type GlvScalar } from "./scalar-glv.ts";
@@ -224,9 +224,20 @@ function createMsm({
 
     // first large computation stage - bucket accumulation
     tic("bucket accumulation");
-    let nPairsMax = N * K; // maximum number of pairs = half the number of points, times K partitions
-    let G = new Uint32Array(nPairsMax); // holds first summands
-    let H = new Uint32Array(nPairsMax); // holds second summands
+    // pair pointers live in wasm memory, so a whole batch is added in wasm.
+    // this thread has at most half of its points as pairs.
+    let nPointsThread = 0;
+    for (let { k, lstart, length } of chunksPerThread[thread]) {
+      nPointsThread +=
+        (buckets[k][lstart + length - 1] - buckets[k][lstart - 1]) / sizeAffine;
+    }
+    let nPairsMax = nPointsThread >> 1;
+    let gPtr = Field.local.getPointer(4 * nPairsMax);
+    let G = new Uint32Array(memoryBytes.buffer, gPtr, nPairsMax); // first summands
+    // scratch for safe additions
+    let tmp = Field.local.getPointer(nPairsMax * sizeField);
+    let d = Field.local.getPointer(nPairsMax * sizeField);
+    let kinds = Field.local.getPointer(nPairsMax);
 
     // batch-add buckets into their first point, in `maxBucketSize` iterations
     for (let m = 1; m < maxBucketSize; m *= 2) {
@@ -234,7 +245,8 @@ function createMsm({
       let sizeAffineM = m * sizeAffine;
       let sizeAffine2M = 2 * m * sizeAffine;
 
-      // walk over this thread's buckets to identify point-pairs to add
+      // walk over this thread's buckets to identify point-pairs to add;
+      // the second summand of each pair is at G[p] + sizeAffineM
       for (let { k, lstart, length } of chunksPerThread[thread]) {
         for (let l = lstart; l < lstart + length; l++) {
           let bucketsK = buckets[k];
@@ -243,7 +255,6 @@ function createMsm({
 
           for (; bucket + sizeAffineM < nextBucket; bucket += sizeAffine2M) {
             G[p] = bucket;
-            H[p] = bucket + sizeAffineM;
             p++;
           }
         }
@@ -252,12 +263,12 @@ function createMsm({
       let nPairs = p;
       if (nPairs === 0) continue;
 
-      // now (G,H) represents a big array of independent additions, which we batch-add
+      // now G represents a big array of independent additions, which we batch-add
       tic();
       if (useSafeAdditions) {
-        batchAddNew(Field, Affine, scratch, G, G, H, nPairs);
+        Field.batchAdd(scratch[0], tmp, d, kinds, gPtr, sizeAffineM, nPairs);
       } else {
-        batchAddUnsafeNew(Field, G, G, H, nPairs);
+        Field.batchAddUnsafe(scratch[0], gPtr, sizeAffineM, nPairs);
       }
       let t = toc();
       if (t > 0)

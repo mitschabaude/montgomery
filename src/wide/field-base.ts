@@ -5,7 +5,6 @@ import {
   i32,
   i64,
   local,
-  select as select_,
   type Input,
   type Local,
 } from "wasmati";
@@ -94,22 +93,6 @@ function createField(p: bigint) {
     }
   }
 
-  // Store condition ? X : Y without branching.
-  function select(
-    x: Local<i32>,
-    X: Local<i64>[],
-    Y: Local<i64>[],
-    condition: Local<i32>
-  ) {
-    for (let i = 0; i < n; i++) {
-      local.get(X[i]);
-      local.get(Y[i]);
-      local.get(condition);
-      select_(i64);
-      storeLimb(x, i, $);
-    }
-  }
-
   return {
     p,
     n,
@@ -127,6 +110,5 @@ function createField(p: bigint) {
     store,
     reduceLocals,
     subtractConstant,
-    select,
   };
 }

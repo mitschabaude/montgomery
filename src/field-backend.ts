@@ -1,4 +1,14 @@
-import { Module, func, i64, type Func, type Local } from "wasmati";
+import {
+  Module,
+  func,
+  i64,
+  type Func,
+  type Input,
+  type Local,
+  type LocalArray,
+  type Type,
+  type ValueType,
+} from "wasmati";
 import { FieldWithArithmetic } from "./wasm/field-arithmetic.ts";
 import { multiplyMontgomery } from "./wasm/multiply-montgomery.ts";
 import { fieldInverse } from "./wasm/inverse.ts";
@@ -8,6 +18,7 @@ import { ImplicitMemory } from "./wasm/wasm-util.ts";
 import { montgomeryParams } from "./bigint/field-util.ts";
 import { createField as createWideField } from "./wide/field-base.ts";
 import { wideOps } from "./wide/field.ts";
+import { fieldKernels } from "./wide/kernels.ts";
 import { log2 } from "./util.ts";
 
 export {
@@ -18,6 +29,7 @@ export {
   type FieldBackend,
   type FieldBackendName,
   type FieldBackendOption,
+  type FieldKernels,
   type FieldLayout,
 };
 
@@ -91,6 +103,29 @@ type FieldBackend = FieldLayout & {
   exp: Func<[{ x: "i32" }, { z: "i32" }, { xIn: "i32" }, { n: "i32" }], []>;
   fromPackedBytes: Func<[{ x: "i32" }, { bytes: "i32" }], []>;
   toPackedBytes: Func<[{ bytes: "i32" }, { x: "i32" }], []>;
+
+  /** arithmetic on locals for fused functions, if the backend has it */
+  kernels?: FieldKernels;
+};
+
+type Element = Local<"i64">[];
+/**
+ * Field arithmetic on locals. A function using the kernels declares `locals`
+ * and one `element()` per field element it holds, and passes its locals object
+ * as `L`. Outputs may alias inputs.
+ */
+type FieldKernels = {
+  locals: Record<string, Type<ValueType> | LocalArray>;
+  element(): LocalArray<"i64">;
+  load(X: Element, ptr: Input<"i32">, offset?: number): void;
+  store(ptr: Input<"i32">, X: Element, offset?: number): void;
+  multiply(L: any, Z: Element, X: Element, Y: Element): void;
+  square(L: any, Z: Element, X: Element): void;
+  add(L: any, Z: Element, X: Element, Y: Element): void;
+  subtract(L: any, Z: Element, X: Element, Y: Element): void;
+  reduce(L: any, X: Element): void;
+  /** pushes X == Y (raw representations) */
+  isEqual(X: Element, Y: Element): void;
 };
 
 function fieldLayout(
@@ -129,6 +164,7 @@ function createFieldBackend(
       // There are no spare bits to skip reductions with.
       addNoReduce: ops.add,
       subtractPositive: ops.subtract,
+      kernels: fieldKernels(F),
     };
   }
   let { w, n } = layout;

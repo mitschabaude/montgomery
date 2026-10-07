@@ -36,6 +36,18 @@ await testMsm(bls12381Params);
 await testMsm(bn254Params);
 await testMsm(secp256k1Params);
 
+// safe additions: doublings, cancellations and zero points within buckets
+for (let params of [
+  pallasParams,
+  vestaParams,
+  bls12377Params,
+  bls12381Params,
+  bn254Params,
+  secp256k1Params,
+]) {
+  await testMsmEdgeCases(params);
+}
+
 await stopThreads();
 
 async function testMsm(curveParams: CurveParams) {
@@ -45,6 +57,39 @@ async function testMsm(curveParams: CurveParams) {
   for (let n = 0; n < 14; n += 2) {
     await testOneMsm(Curve, n);
   }
+}
+
+// Few distinct points and scalars, with each point also negated, so identical
+// summands meet in buckets: P + P doubles, P + (-P) cancels to zero, and zero
+// points are added to nonzero ones.
+async function testMsmEdgeCases(curveParams: CurveParams) {
+  console.log("testing msm edge cases", curveParams.label);
+  const Curve = await Weierstraß.create(curveParams);
+  const { Field, Affine, Projective, Scalar, Parallel, Bigint } = Curve;
+  let N = 1 << 10;
+  using _ = Field.local.atCurrentOffset;
+
+  let pointsPtrs = await Parallel.randomPointsFast(N);
+  let scalarPtrs = await Parallel.randomScalars(N);
+  let base = pointsPtrs.slice(0, 4).map((g) => Affine.toBigint(g));
+  let baseScalars = scalarPtrs.slice(0, 3).map((s) => Scalar.readBigint(s));
+
+  let points = pointsPtrs.map((g, i) => {
+    let P = base[(i >> 1) % base.length];
+    let point = i % 2 === 0 ? P : { ...P, y: Field.p - P.y };
+    Affine.writeBigint(g, point);
+    return Bigint.Projective.fromAffine(point);
+  });
+  let scalars = scalarPtrs.map((s, i) => {
+    let scalar = baseScalars[(i >> 3) % baseScalars.length];
+    Scalar.writeBigint(s, scalar);
+    return scalar;
+  });
+
+  let { result } = await Parallel.msm(scalarPtrs[0], pointsPtrs[0], N);
+  let s = Projective.toBigint(result);
+  let sBigint = Bigint.Projective.msm(scalars, points);
+  assert(Bigint.Projective.isEqual(s, sBigint), "msm edge cases failed");
 }
 
 async function testOneMsm(Curve: Weierstraß, n: number) {
