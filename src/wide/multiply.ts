@@ -7,8 +7,6 @@ import {
   i64,
   local,
   type Local,
-  type LocalArray,
-  type Type,
 } from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 import { assert } from "../util.ts";
@@ -148,12 +146,7 @@ function montgomeryKernel(F: FieldBase) {
     F.reduceLocals(T.slice(0, n), T[n], carry, F.Limit);
   }
 
-  const locals: {
-    mA: Type<"i64">;
-    mC: Type<"i64">;
-    mM: Type<"i64">;
-    mT: LocalArray<"i64">;
-  } = {
+  const locals = {
     mA: i64,
     mC: i64,
     mM: i64,

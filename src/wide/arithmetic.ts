@@ -11,8 +11,6 @@ import {
   select,
   type Input,
   type Local,
-  type LocalArray,
-  type Type,
 } from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 
@@ -39,13 +37,7 @@ function additionKernels(F: FieldBase) {
   const n = F.n;
   // The modulus guarantees that the full sum fits in the layout.
   const sumFits = 2n * F.limit <= F.R;
-  const locals: {
-    aCarry: Type<"i64">;
-    aBorrow: Type<"i64">;
-    aKeep: Type<"i32">;
-    aT: LocalArray<"i64">;
-    aD: LocalArray<"i64">;
-  } = {
+  const locals = {
     aCarry: i64,
     aBorrow: i64,
     aKeep: i32,
