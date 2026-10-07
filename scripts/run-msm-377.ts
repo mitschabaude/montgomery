@@ -1,10 +1,8 @@
 import { CurveParams } from "../src/index.ts";
 import { benchmarkMsm, runMsm } from "./msm-weierstrass.ts";
+import { parseMsmArgs } from "./msm-args.ts";
 
-console.log(process.argv.slice(2));
-let n = Number(process.argv[2] ?? 16);
-let nThreads = Number(process.argv[3] ?? 16);
-let doEvaluate = process.argv[4] === "--evaluate";
+let { n, nThreads, doEvaluate, options } = parseMsmArgs();
 
-if (doEvaluate) await benchmarkMsm(CurveParams.bls12377, n, nThreads);
-else await runMsm(CurveParams.bls12377, n, nThreads);
+if (doEvaluate) await benchmarkMsm(CurveParams.bls12377, n, nThreads, options);
+else await runMsm(CurveParams.bls12377, n, nThreads, options);

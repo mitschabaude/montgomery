@@ -16,6 +16,7 @@ import {
   TwistedEdwards,
   startThreads,
   stopThreads,
+  type CurveOptions,
 } from "./parallel.ts";
 import { pallasParams, vestaParams } from "./concrete/pasta.params.ts";
 import { curveParams as bls12377Params } from "./concrete/bls12-377.params.ts";
@@ -49,6 +50,7 @@ export {
   stopThreads,
   CurveParams,
   TwistedEdwardsParams,
+  type CurveOptions,
   type AffinePoint,
   type ProjectivePoint,
   type TwistedEdwardsPoint,
@@ -86,34 +88,34 @@ const TwistedEdwardsParams = {
 };
 
 /** Factory for the Pallas curve (Halo 2 / Mina). */
-function Pallas() {
-  return Weierstraß.create(pallasParams);
+function Pallas(options?: CurveOptions): Promise<Weierstraß> {
+  return Weierstraß.create(pallasParams, options);
 }
 /** Factory for Vesta, Pallas' sister curve. */
-function Vesta() {
-  return Weierstraß.create(vestaParams);
+function Vesta(options?: CurveOptions): Promise<Weierstraß> {
+  return Weierstraß.create(vestaParams, options);
 }
 /** Factory for the BLS12-377 curve (Aleo). */
-function BLS12377() {
-  return Weierstraß.create(bls12377Params);
+function BLS12377(options?: CurveOptions): Promise<Weierstraß> {
+  return Weierstraß.create(bls12377Params, options);
 }
 /** Factory for the BLS12-381 curve (Ethereum / Zcash Sapling). */
-function BLS12381() {
-  return Weierstraß.create(bls12381Params);
+function BLS12381(options?: CurveOptions): Promise<Weierstraß> {
+  return Weierstraß.create(bls12381Params, options);
 }
 /** Factory for the BN254 (aka alt_bn128) curve, G1 (Ethereum EIP-196/197). */
-function BN254() {
-  return Weierstraß.create(bn254Params);
+function BN254(options?: CurveOptions): Promise<Weierstraß> {
+  return Weierstraß.create(bn254Params, options);
 }
 /** Factory for the secp256k1 curve (Bitcoin, Ethereum signatures). */
-function Secp256k1() {
-  return Weierstraß.create(secp256k1Params);
+function Secp256k1(options?: CurveOptions): Promise<Weierstraß> {
+  return Weierstraß.create(secp256k1Params, options);
 }
 /** Factory for the Edwards-on-BLS12-377 twisted edwards curve (Aleo). */
-function Ed377() {
-  return TwistedEdwards.create(ed377Params);
+function Ed377(options?: CurveOptions): Promise<TwistedEdwards> {
+  return TwistedEdwards.create(ed377Params, options);
 }
 /** Factory for the Ed25519 twisted edwards curve (signatures, Curve25519 birational twin). */
-function Ed25519() {
-  return TwistedEdwards.create(ed25519Params);
+function Ed25519(options?: CurveOptions): Promise<TwistedEdwards> {
+  return TwistedEdwards.create(ed25519Params, options);
 }

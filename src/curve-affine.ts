@@ -73,8 +73,7 @@ function createCurveAffine(
   const { sizeField, square, multiply, add, subtract, copy, memoryBytes, p } =
     Field;
 
-  // an affine point is 2 field elements + 1 int32 for isNonZero flag
-  let size = 2 * sizeField + 4;
+  let size = getSizeAffine(Field);
 
   /**
    * affine EC doubling, H = 2*G
@@ -372,8 +371,16 @@ function createCurveAffine(
   };
 }
 
-function getSizeAffine(sizeField: number) {
-  return 2 * sizeField + 4;
+// an affine point is 2 field elements + 1 limb for the isNonZero flag,
+// which keeps points aligned to the limb size
+function getSizeAffine({
+  sizeField,
+  limbBytes,
+}: {
+  sizeField: number;
+  limbBytes: number;
+}) {
+  return 2 * sizeField + limbBytes;
 }
 
 type BigintPoint = { x: bigint; y: bigint; isZero: boolean };

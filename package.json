@@ -41,7 +41,7 @@
     "benchmark-381": "node scripts/field-benchmarks/381.ts",
     "prepublishOnly": "npm run clean && npm run build && node scripts/build/bundle-dist-web.ts",
     "clean": "rm -rf build",
-    "test-wide": "node --wasm-wide-arithmetic --test src/wide/*.unit-test.ts",
+    "test-wide": "node --wasm-wide-arithmetic --test src/wide/*.unit-test.ts 'src/**/*.test.ts'",
     "benchmark-wide": "node --wasm-wide-arithmetic scripts/field-benchmarks/wide.ts"
   },
   "keywords": [],

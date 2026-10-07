@@ -27,6 +27,8 @@ Browsers additionally need the page to be **cross-origin isolated** for `SharedA
 
 `using` declarations are used internally but compiled away in the web bundle, so browser support doesn't depend on them. If there is demand, we could do that for the Node.js build as well.
 
+Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 1.3–1.7x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
+
 ## Quick start
 
 ```ts
@@ -80,6 +82,8 @@ Lazy factories, all in `montgomery`:
 Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(params)` are also exported if you want to plug in your own curve parameters.
 
 Under the hood, these constructors build a dedicated Wasm module on-the-fly based on the provided parameters, and distribute the module to Workers with memory sharing when parallelism is enabled.
+
+All factories accept options. `backend` selects the base field arithmetic: `"wide"` for 64-bit limbs with Wasm wide arithmetic, `"29-bit"` for the portable layout, or `"auto"` (default) to use wide arithmetic when the runtime supports it. For example, `await Pallas({ backend: "29-bit" })`.
 
 ## Threads
 
@@ -149,6 +153,7 @@ A few highlights:
 - **29×9 limb layout** for 256-bit fields. 29-bit limbs packed into 9 i64 lanes let the Montgomery multiplication use i64 multiplies with enough headroom in the upper bits to accumulate partial products before carrying — a sweet spot for wasm, which has no native 64×64→128 multiply. Bain Capital Crypto's [_Optimizing Montgomery Multiplication in WebAssembly_](https://baincapitalcrypto.com/optimizing-montgomery-multiplication-in-webassembly/) benchmarks several wasm multiplication variants against each other and finds this one (which they call "Mitscha-Baude's method", referencing this repo) the fastest.
 - **Fast modular inverse** at **< 30 × MUL** cost, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). Much faster than the usual `exp(x, p-2)` Fermat trick.
 - **Fast square root** via Tonelli–Shanks optimized after Daniel Bernstein's ["Faster square roots in annoying finite fields"](http://cr.yp.to/papers/sqroot.pdf): the discrete-log phase caches roots-of-unity windows so it drops to a handful of multiplications, leaving the `x^((t−1)/2)` exponentiation as the dominant cost.
+- **64-bit limbs with Wasm wide arithmetic** where available. `i64.mul_wide_u` and `i64.add128` make full-width Montgomery multiplication about 2–2.6x faster than the 29-bit layout, and a branchless batched binary GCD inverts 256-bit field elements in about 0.7 µs. See [`src/wide/README.md`](src/wide/README.md).
 
 ## Constant-time: not a design goal
 
@@ -167,4 +172,4 @@ If your threat model does include timing side channels (server-side key operatio
 - Scripts in `scripts/` illustrate end-to-end use of each curve: `run-msm-pallas.ts`, `run-msm-377.ts`, `run-msm-ed-377.ts`, plus field-level benchmarks under `scripts/field-benchmarks/`.
 - `doc/zprize23/` - ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
 - `doc/zprize22.md` - ZPrize 2022 write-up explaining some of the algorithms underlying the MSM.
-- `src/wide/` — experimental field arithmetic using Wasm wide arithmetic; see its [notes and benchmarks](src/wide/README.md).
+- `src/wide/` — field arithmetic of the wide backend using Wasm wide arithmetic; see its [notes and benchmarks](src/wide/README.md). `src/field-backend.ts` defines the interface both backends implement.

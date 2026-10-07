@@ -6,23 +6,41 @@ import { Spec, throwError } from "./testing/equivalent.ts";
 import { test } from "node:test";
 import { Random, sample, sampleOne } from "./testing/random.ts";
 import { batchInverse } from "./curve-affine.ts";
+import { resolveFieldBackend } from "./field-backend.ts";
 
 Error.stackTraceLimit = 1000;
 
+// The wide backend runs where Wasm wide arithmetic is enabled (npm run test-wide).
+const backend = resolveFieldBackend("auto");
+
 for (let label in exampleFields) {
   let BigintField = exampleFields[label as keyof typeof exampleFields];
+  if (backend === "wide") {
+    await test(`${label} wide`, async () => {
+      await testField(`${label} wide`, { backend }, BigintField);
+    });
+    continue;
+  }
   if (BigintField.sizeInBits < 33) continue; // parts of our code assume at least 2 limbs
 
   for (let w of [26, 27, 28, 29, 30, 31]) {
     let l = `${label} w=${w}`;
     await test(l, async () => {
-      await testField(l, w, BigintField);
+      await testField(l, { backend, w }, BigintField);
     });
   }
 }
 
-async function testField(label: string, w: number, BigintField: BigintField) {
-  const Field = await createMsmField({ p: BigintField.modulus, w, beta: 1n });
+async function testField(
+  label: string,
+  options: { backend: "29-bit" | "wide"; w?: number },
+  BigintField: BigintField
+) {
+  const Field = await createMsmField({
+    p: BigintField.modulus,
+    beta: 1n,
+    ...options,
+  });
   const equiv = createEquivalentWasm(Field);
 
   const field = WasmSpec.fieldUnreduced(Field);
@@ -62,13 +80,20 @@ async function testField(label: string, w: number, BigintField: BigintField) {
     `${label} subtract`
   );
 
+  // the 29-bit backend skips the reduction, the wide one has no spare bits
   equiv(
     {
       from: [fieldUntransformedReduced, fieldUntransformedReduced],
       to: fieldUntransformedReduced,
     },
-    (x, y) => x - y + 2n * Field.p,
-    Field.subtractPositive,
+    (x, y) =>
+      Field.backend === "wide"
+        ? BigintField.subtract(x, y)
+        : x - y + 2n * Field.p,
+    (out, x, y) => {
+      Field.subtractPositive(out, x, y);
+      if (Field.backend === "wide") Field.reduce(out);
+    },
     `${label} subtractPositive`
   );
 

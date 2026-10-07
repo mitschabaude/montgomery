@@ -3,6 +3,7 @@ import {
   startThreads,
   stopThreads,
   type TwistedEdwardsParams as CurveParams,
+  type CurveOptions,
 } from "../src/index.ts";
 import { tic, toc } from "../src/testing/tictoc.ts";
 import { assert } from "../src/util.ts";
@@ -10,11 +11,16 @@ import { median, standardDev } from "./evaluate-util.ts";
 
 export { benchmarkMsm, runMsm };
 
-async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
+async function benchmarkMsm(
+  params: CurveParams,
+  n: number,
+  nThreads?: number,
+  options?: CurveOptions,
+) {
   let N = 1 << n;
   await startThreads(nThreads);
 
-  const { Parallel } = await TwistedEdwards.create(params);
+  const { Parallel } = await TwistedEdwards.create(params, options);
 
   tic("random points");
   let points = await Parallel.randomPointsFast(N);
@@ -51,9 +57,14 @@ async function benchmarkMsm(params: CurveParams, n: number, nThreads?: number) {
   await stopThreads();
 }
 
-async function runMsm(params: CurveParams, n: number, nThreads?: number) {
+async function runMsm(
+  params: CurveParams,
+  n: number,
+  nThreads?: number,
+  options?: CurveOptions,
+) {
   let N = 1 << n;
-  const Curve = await TwistedEdwards.create(params);
+  const Curve = await TwistedEdwards.create(params, options);
   await startThreads(nThreads);
 
   tic("random points");
@@ -85,7 +96,7 @@ async function runMsm(params: CurveParams, n: number, nThreads?: number) {
   let { result, log } = await Curve.Parallel.msm(
     scalarPtrs[0],
     pointsPtrs[0],
-    N
+    N,
   );
   let s = Curve.Curve.toBigint(result);
 
