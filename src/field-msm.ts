@@ -1,32 +1,33 @@
 import type * as W from "wasmati"; // for type names
 import { Module, importMemory } from "wasmati";
-import { FieldWithArithmetic } from "./wasm/field-arithmetic.ts";
-import { fieldInverse } from "./wasm/inverse.ts";
-import { multiplyMontgomery } from "./wasm/multiply-montgomery.ts";
 import { ImplicitMemory } from "./wasm/wasm-util.ts";
-import { mod, montgomeryParams } from "./bigint/field-util.ts";
+import { mod } from "./bigint/field-util.ts";
 import { curveOps } from "./wasm/curve.ts";
 import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
-import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
-import { fieldExp } from "./wasm/exp.ts";
 import { createSqrt } from "./field-sqrt.ts";
-import { assert } from "./util.ts";
+import { assert, log2 } from "./util.ts";
 import { isMain } from "./threads/threads.ts";
+import {
+  createFieldBackend,
+  fieldLayout,
+  type FieldBackendName,
+} from "./field-backend.ts";
 
-export { createMsmField, type MsmField };
+export { createMsmField, type MsmField, type MsmFieldParams };
 export { createConstants };
 
-async function createMsmField(
-  params: {
-    p: bigint;
-    beta: bigint;
-    w: number;
-    minExtraBits?: number;
-    localRatio?: number;
-  },
-  wasm?: WasmArtifacts
-) {
+type MsmFieldParams = {
+  p: bigint;
+  beta: bigint;
+  backend?: FieldBackendName;
+  /** limb size of the 29-bit backend */
+  w?: number;
+  minExtraBits?: number;
+  localRatio?: number;
+};
+
+async function createMsmField(params: MsmFieldParams, wasm?: WasmArtifacts) {
   if (wasm !== undefined) {
     return await createFieldFromWasm(params, wasm);
   }
@@ -42,46 +43,23 @@ type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 async function createFieldWasm({
   p,
   beta,
+  backend = "29-bit",
   w,
   minExtraBits,
-}: {
-  p: bigint;
-  beta: bigint;
-  w: number;
-  minExtraBits?: number;
-}) {
-  let { n, nPackedBytes } = montgomeryParams(p, w, minExtraBits);
-
+}: MsmFieldParams) {
   let memSize = 1 << 16;
   let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
   let implicitMemory = new ImplicitMemory(wasmMemory);
 
-  let Field_ = FieldWithArithmetic(p, w, n);
-  let { multiply, square, leftShift } = multiplyMontgomery(p, w, n, {
-    countMultiplications: false,
+  let Field = createFieldBackend(backend, p, implicitMemory, {
+    w,
+    minExtraBits,
   });
-  const Field = Object.assign(Field_, { multiply, square, leftShift });
-
-  let { inverse, makeOdd, batchInverse } = fieldInverse(implicitMemory, Field);
-  let exp = fieldExp(Field);
   let { addAffine, addAffinePacked, endomorphism } = curveOps(
     implicitMemory,
     Field,
-    inverse,
     beta
   );
-
-  let {
-    isEqual,
-    isGreater,
-    isZero,
-    add,
-    addNoReduce,
-    subtract,
-    subtractPositive,
-    reduce,
-    copy,
-  } = Field;
 
   let module = Module({
     exports: {
@@ -91,13 +69,12 @@ async function createFieldWasm({
       addAffinePacked,
       endomorphism,
       // multiplication
-      multiply,
-      square,
-      leftShift,
-      exp,
+      multiply: Field.multiply,
+      square: Field.square,
+      leftShift: Field.leftShift,
+      exp: Field.exp,
       // inverse
-      inverse,
-      makeOdd,
+      inverse: Field.inverse,
       /**
        * batch inversion, using 4 field elements of scratch space
        * @param scratch
@@ -105,20 +82,20 @@ async function createFieldWasm({
        * @param xs
        * @param n
        */
-      batchInverse,
+      batchInverse: Field.batchInverse,
       // arithmetic
-      add,
-      addNoReduce,
-      subtract,
-      subtractPositive,
-      reduce,
-      copy,
+      add: Field.add,
+      addNoReduce: Field.addNoReduce,
+      subtract: Field.subtract,
+      subtractPositive: Field.subtractPositive,
+      reduce: Field.reduce,
+      copy: Field.copy,
       // helpers
-      isEqual,
-      isGreater,
-      isZero,
-      fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
-      toPackedBytes: toPackedBytes(w, n, nPackedBytes),
+      isEqual: Field.isEqual,
+      isGreater: Field.isGreater,
+      isZero: Field.isZero,
+      fromPackedBytes: Field.fromPackedBytes,
+      toPackedBytes: Field.toPackedBytes,
     },
   });
 
@@ -133,12 +110,7 @@ async function createFieldWasm({
 }
 
 async function createFieldFromWasm(
-  {
-    p,
-    w,
-    minExtraBits,
-    localRatio,
-  }: { p: bigint; w: number; minExtraBits?: number; localRatio?: number },
+  { p, backend = "29-bit", w, minExtraBits, localRatio }: MsmFieldParams,
   wasmArtifacts: WasmArtifacts,
   instance?: MsmFieldWasm
 ) {
@@ -157,8 +129,9 @@ async function createFieldFromWasm(
   }
   let wasm = instance.exports;
 
-  let { R, K, n, lengthP: N } = montgomeryParams(p, w, minExtraBits);
-  let helpers = memoryHelpers(p, w, n, wasm, localRatio);
+  let layout = fieldLayout(backend, p, { w, minExtraBits });
+  let { R, n, limit } = layout;
+  let helpers = memoryHelpers(p, layout.w, n, wasm, localRatio);
 
   // put some constants in wasm memory
 
@@ -168,7 +141,6 @@ async function createFieldFromWasm(
     p,
     R: mod(R, p),
     R2: mod(R * R, p),
-    R2corr: mod(1n << BigInt(4 * K - 2 * N + 1), p),
     // common numbers in montgomery representation
     mg1: mod(1n * R, p),
     mg2: mod(2n * R, p),
@@ -189,7 +161,10 @@ async function createFieldFromWasm(
 
   return {
     p,
-    w,
+    w: layout.w,
+    backend,
+    /** field elements passed between operations are in [0, limit) */
+    limit,
     t,
     wasmArtifacts,
     ...wasm,
@@ -228,7 +203,7 @@ async function createFieldFromWasm(
     fromMontgomery,
     sqrt,
 
-    sizeInBits: N,
+    sizeInBits: log2(p),
 
     fromBigint(xPtr: number, x: bigint) {
       helpers.writeBigint(xPtr, x);

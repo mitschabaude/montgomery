@@ -1,0 +1,188 @@
+import { Module, func, i64, type Func, type Local } from "wasmati";
+import { FieldWithArithmetic } from "./wasm/field-arithmetic.ts";
+import { multiplyMontgomery } from "./wasm/multiply-montgomery.ts";
+import { fieldInverse } from "./wasm/inverse.ts";
+import { fieldExp } from "./wasm/exp.ts";
+import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.ts";
+import { ImplicitMemory } from "./wasm/wasm-util.ts";
+import { montgomeryParams } from "./bigint/field-util.ts";
+import { createField as createWideField } from "./wide/field-base.ts";
+import { wideOps } from "./wide/field.ts";
+import { log2 } from "./util.ts";
+
+export {
+  createFieldBackend,
+  fieldLayout,
+  resolveFieldBackend,
+  supportsWideArithmetic,
+  type FieldBackend,
+  type FieldBackendName,
+  type FieldBackendOption,
+  type FieldLayout,
+};
+
+/**
+ * - `"29-bit"`: w-bit limbs (w = 29 by default) in 32-bit words, with spare
+ *   bits that let curve formulas skip reductions.
+ * - `"wide"`: full 64-bit limbs using Wasm wide arithmetic
+ *   (`--wasm-wide-arithmetic`), about 2x faster arithmetic.
+ */
+type FieldBackendName = "29-bit" | "wide";
+/** `"auto"` picks `"wide"` if the runtime supports Wasm wide arithmetic. */
+type FieldBackendOption = FieldBackendName | "auto";
+
+type MultiplyFunc = Func<[{ xy: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+type AddFunc = Func<[{ out: "i32" }, { x: "i32" }, { y: "i32" }], []>;
+type Predicate = Func<[{ x: "i32" }, { y: "i32" }], ["i32"]>;
+
+type FieldLayout = {
+  name: FieldBackendName;
+  p: bigint;
+  /** bits per limb */
+  w: number;
+  /** number of limbs */
+  n: number;
+  /** bytes per field element */
+  size: number;
+  /** Montgomery radix */
+  R: bigint;
+  /** field elements passed between operations are in [0, limit) */
+  limit: bigint;
+};
+
+/**
+ * Wasm field arithmetic in Montgomery form, which the generic Wasm curve code
+ * and the JS curve and MSM layers are written against.
+ *
+ * Operations take and return values in [0, limit). `addNoReduce` and
+ * `subtractPositive` may skip reductions where a backend has spare bits: their
+ * results are only valid as inputs to multiply and square.
+ */
+type FieldBackend = FieldLayout & {
+  /** raw limbs of x, for data segments */
+  bigintToData(x: bigint): number[];
+  /** inline x = y */
+  copyInline(x: Local<"i32">, y: Local<"i32">): void;
+
+  multiply: MultiplyFunc;
+  square: Func<[{ xy: "i32" }, { x: "i32" }], []>;
+  /** xy = y * 2^k / R, for 0 <= k < bitLength(p) */
+  leftShift: Func<[{ xy: "i32" }, { y: "i32" }, { k: "i32" }], []>;
+  add: AddFunc;
+  subtract: AddFunc;
+  addNoReduce: AddFunc;
+  subtractPositive: AddFunc;
+  /** canonical representative in [0, p) */
+  reduce: Func<[{ x: "i32" }], []>;
+  /** x = y */
+  copy: Func<[{ x: "i32" }, { y: "i32" }], []>;
+  /** raw comparisons of the stored representation */
+  isEqual: Predicate;
+  isGreater: Predicate;
+  isZero: Func<[{ x: "i32" }], ["i32"]>;
+  /** Montgomery inverse with three field elements of scratch */
+  inverse: Func<[{ scratch: "i32" }, { r: "i32" }, { a: "i32" }], []>;
+  /** batch Montgomery inverse with four field elements of scratch */
+  batchInverse: Func<
+    [{ scratch: "i32" }, { z: "i32" }, { x: "i32" }, { $n: "i32" }],
+    []
+  >;
+  /** z = xIn^n for a raw exponent n, with x as one field element of scratch */
+  exp: Func<[{ x: "i32" }, { z: "i32" }, { xIn: "i32" }, { n: "i32" }], []>;
+  fromPackedBytes: Func<[{ x: "i32" }, { bytes: "i32" }], []>;
+  toPackedBytes: Func<[{ bytes: "i32" }, { x: "i32" }], []>;
+};
+
+function fieldLayout(
+  name: FieldBackendName,
+  p: bigint,
+  { w = 29, minExtraBits }: { w?: number; minExtraBits?: number } = {}
+): FieldLayout {
+  if (name === "29-bit") {
+    let { n, R } = montgomeryParams(p, w, minExtraBits);
+    return { name, p, w, n, size: 4 * n, R, limit: 2n * p };
+  }
+  let F = createWideField(p);
+  return { name, p, w: 64, n: F.n, size: F.size, R: F.R, limit: F.limit };
+}
+
+function createFieldBackend(
+  name: FieldBackendName,
+  p: bigint,
+  implicitMemory: ImplicitMemory,
+  options: { w?: number; minExtraBits?: number } = {}
+): FieldBackend {
+  let layout = fieldLayout(name, p, options);
+  if (name === "wide") {
+    let F = createWideField(p);
+    let ops = wideOps(F, implicitMemory);
+    return {
+      ...layout,
+      bigintToData: (x) =>
+        Array.from({ length: F.size }, (_, i) =>
+          Number((x >> BigInt(8 * i)) & 255n)
+        ),
+      copyInline(x, y) {
+        for (let i = 0; i < F.n; i++) F.storeLimb(x, i, F.loadLimb(y, i));
+      },
+      ...ops,
+      // There are no spare bits to skip reductions with.
+      addNoReduce: ops.add,
+      subtractPositive: ops.subtract,
+    };
+  }
+  let { w, n } = layout;
+  let Field = FieldWithArithmetic(p, w, n);
+  let { multiply, square, leftShift } = multiplyMontgomery(p, w, n, {
+    countMultiplications: false,
+  });
+  let FieldWithMultiply = Object.assign(Field, { multiply, square, leftShift });
+  let { inverse, batchInverse } = fieldInverse(
+    implicitMemory,
+    FieldWithMultiply
+  );
+  let packedSize = Math.ceil(log2(p) / 8);
+  return {
+    ...layout,
+    bigintToData: Field.bigintToData,
+    copyInline: Field.copyInline,
+    multiply,
+    square,
+    leftShift,
+    add: Field.add,
+    subtract: Field.subtract,
+    addNoReduce: Field.addNoReduce,
+    subtractPositive: Field.subtractPositive,
+    reduce: Field.reduce,
+    copy: Field.copy,
+    isEqual: Field.isEqual,
+    isGreater: Field.isGreater,
+    isZero: Field.isZero,
+    inverse,
+    batchInverse,
+    exp: fieldExp(FieldWithMultiply),
+    fromPackedBytes: fromPackedBytes(w, n, packedSize),
+    toPackedBytes: toPackedBytes(w, n, packedSize),
+  };
+}
+
+function resolveFieldBackend(option: FieldBackendOption): FieldBackendName {
+  if (option !== "auto") return option;
+  return supportsWideArithmetic() ? "wide" : "29-bit";
+}
+
+let wideSupport: boolean | undefined;
+
+function supportsWideArithmetic() {
+  wideSupport ??= WebAssembly.validate(
+    Module({
+      exports: {
+        probe: func(
+          { in: [{ x: i64 }, { y: i64 }], out: [i64, i64] },
+          ({ x, y }) => i64.mul_wide_u(x, y)
+        ),
+      },
+    }).toBytes()
+  );
+  return wideSupport;
+}

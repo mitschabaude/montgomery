@@ -56,10 +56,13 @@ const WasmSpec = {
       montgomeryTransform
     );
   },
+  // unreduced inputs in [0, limit), where limit is 2p or p
   fieldUnreduced(Field: MsmField, { montgomeryTransform = true } = {}) {
     return WasmSpec.fieldWithRng(
       Field,
-      Random.fieldx2(Field.p),
+      Field.limit === 2n * Field.p
+        ? Random.fieldx2(Field.p)
+        : Random.field(Field.p),
       montgomeryTransform
     );
   },

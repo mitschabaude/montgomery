@@ -28,8 +28,24 @@ import {
 } from "./bigint/twisted-edwards.ts";
 import { createMsmBasic, msmBasic } from "./msm-basic.ts";
 import { barrier, range } from "./threads/threads.ts";
+import {
+  resolveFieldBackend,
+  type FieldBackendOption,
+} from "./field-backend.ts";
 
-export { startThreads, stopThreads, Weierstraß, TwistedEdwards };
+export {
+  startThreads,
+  stopThreads,
+  Weierstraß,
+  TwistedEdwards,
+  type CurveOptions,
+};
+
+/**
+ * - `backend`: base field arithmetic, see {@link FieldBackendOption}.
+ *   Defaults to `"auto"`, which uses Wasm wide arithmetic when available.
+ */
+type CurveOptions = { backend?: FieldBackendOption };
 
 // pool.register calls are at the bottom of this file — not here. They rely on
 // `createWeierstraß.name` / `createTwistedEdwards.name`, which under esbuild's
@@ -73,16 +89,19 @@ const curves: (
  *
  * Only curves with `a = 0` and a GLV endomorphism are supported.
  *
+ * @param options see {@link CurveOptions}
  * @param fieldWasm / @param scalarWasm are used internally when the main
  * thread broadcasts a curve to workers, so workers reuse the main thread's
  * compiled wasm instead of recompiling.
  */
 async function createWeierstraß(
   params: CurveParams,
+  options: CurveOptions = {},
   fieldWasm?: WasmArtifacts,
   scalarWasm?: { wasm: WasmArtifacts; fullParams: GlvScalarParams },
 ) {
   let { modulus: p, order: q, endomorphism, a, b, label, cofactor: h } = params;
+  let backend = resolveFieldBackend(options.backend ?? "auto");
   assert(a === 0n, "only curves with a = 0 are supported");
   assert(endomorphism !== undefined, "endomorphism required");
   let { beta, lambda } = endomorphism;
@@ -91,7 +110,7 @@ async function createWeierstraß(
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
-    { p, beta, w: 29, localRatio: 0.25 },
+    { p, beta, backend, localRatio: 0.25 },
     fieldWasm,
   );
   const Scalar = await createGlvScalar({ q, lambda, w: 29 }, scalarWasm);
@@ -188,7 +207,7 @@ async function createWeierstraß(
     }
   }
 
-  const Parallel = pool.register(`Weierstraß, ${label}`, {
+  const Parallel = pool.register(`Weierstraß, ${label}, ${backend}`, {
     randomPointsFast,
     randomScalars,
     msmUnsafe,
@@ -229,6 +248,7 @@ async function createWeierstraß(
     await pool.callWorkers(
       createWeierstraß,
       Curve.params,
+      { backend },
       Curve.Field.wasmArtifacts,
       Curve.Scalar.wasmArtifacts,
     );
@@ -251,22 +271,25 @@ async function createWeierstraß(
  *   later `startThreads` call will pick it up and segment its memory for the
  *   new thread count.
  *
+ * @param options see {@link CurveOptions}
  * @param fieldWasm / @param scalarWasm are used internally when the main
  * thread broadcasts a curve to workers, so workers reuse the main thread's
  * compiled wasm instead of recompiling.
  */
 async function createTwistedEdwards(
   params: TwistedEdwardsParams,
+  options: CurveOptions = {},
   fieldWasm?: WasmArtifacts,
   scalarWasm?: WasmArtifacts,
 ) {
   let { modulus: p, order: q, label } = params;
+  let backend = resolveFieldBackend(options.backend ?? "auto");
 
   // create modules
   // note: if wasm is not provided, it will be created
   // so workers have to be called with the wasm from the main thread
   const Field = await createMsmField(
-    { p, beta: 1n, w: 29, localRatio: 0.8 },
+    { p, beta: 1n, backend, localRatio: 0.8 },
     fieldWasm,
   );
   const Scalar = await createScalar({ q, w: 29 }, scalarWasm);
@@ -342,7 +365,7 @@ async function createTwistedEdwards(
     }
   }
 
-  const Parallel = pool.register(`Twisted Edwards, ${label}`, {
+  const Parallel = pool.register(`Twisted Edwards, ${label}, ${backend}`, {
     randomPointsFast,
     randomScalars,
     msm,
@@ -377,6 +400,7 @@ async function createTwistedEdwards(
     await pool.callWorkers(
       createTwistedEdwards,
       Module.params,
+      { backend },
       Module.Field.wasmArtifacts,
       Module.Scalar.wasmArtifacts,
     );
@@ -410,6 +434,7 @@ async function startThreads(n?: number) {
       pool.callWorkers(
         create,
         module.params as any,
+        { backend: module.Field.backend },
         module.Field.wasmArtifacts,
         module.Scalar.wasmArtifacts as any,
       ),

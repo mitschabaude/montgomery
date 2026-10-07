@@ -13,9 +13,10 @@ type CurveProjective = ReturnType<typeof createCurveProjective>;
 function createCurveProjective(Field: MsmField, params: CurveParams) {
   const CurveBigint = createBigint(params);
   let { cofactor, b } = params;
-  const { sizeField, constants, memoryBytes } = Field;
+  const { sizeField, constants, memoryBytes, limbBytes } = Field;
 
-  let size = 3 * sizeField + 4;
+  // 3 field elements + 1 limb for the isNonZero flag
+  let size = 3 * sizeField + limbBytes;
 
   // write b to memory
   // write d to memory

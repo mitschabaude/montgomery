@@ -4,38 +4,43 @@ import { inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
 import { MemorySection } from "../wasm/memory-helpers.ts";
 import { ImplicitMemory } from "../wasm/wasm-util.ts";
-import { createField, mask64 } from "./field-base.ts";
+import { createField, mask64, type FieldBase } from "./field-base.ts";
 import { arithmetic } from "./arithmetic.ts";
 import { multiplyMontgomery } from "./multiply.ts";
 import { helpers } from "./helpers.ts";
 import { fieldInverse } from "./inverse.ts";
 
-export { Field, createWasm };
+export { Field, createWasm, wideOps };
 
 const Field = { create: createWasm };
+
+// All Wasm functions of the wide backend, sharing the given memory.
+function wideOps(F: FieldBase, mem: ImplicitMemory) {
+  const baseOps = { ...arithmetic(F), ...multiplyMontgomery(F) };
+  return {
+    ...baseOps,
+    ...fieldInverse(F, baseOps, mem),
+    ...helpers(F, baseOps, mem),
+  };
+}
 
 async function createWasm(p: bigint, { memSize = 100 } = {}) {
   const F = createField(p);
   const wasmMemory = memory({ min: memSize, max: memSize });
   const implicitMemory = new ImplicitMemory(wasmMemory);
-  const baseOps = { ...arithmetic(F), ...multiplyMontgomery(F) };
-  const ops = {
-    ...baseOps,
-    ...fieldInverse(F, baseOps, implicitMemory),
-    ...helpers(F, baseOps, implicitMemory),
-  };
+  const ops = wideOps(F, implicitMemory);
   const module = Module({
     memory: wasmMemory,
     exports: { ...ops, memory: wasmMemory },
   });
   const { instance } = await module.instantiate();
   const Wasm = instance.exports;
-  // MemorySection's default allocation size is expressed in 32-bit words.
+  const start = Math.ceil(implicitMemory.dataOffset / 8) * 8;
   const local = new MemorySection(
     Wasm.memory,
-    implicitMemory.dataOffset,
-    memSize * 65536 - implicitMemory.dataOffset,
-    2 * F.n,
+    start,
+    memSize * 65536 - start,
+    F.size,
     false
   );
   const view = new DataView(Wasm.memory.buffer);

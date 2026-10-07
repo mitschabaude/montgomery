@@ -1,16 +1,6 @@
 // import type * as W from "wasmati"; // for type names
-import {
-  call,
-  func,
-  i32,
-  local,
-  if_,
-  return_,
-  type Func,
-  loop,
-  br_if,
-} from "wasmati";
-import { type FieldWithMultiply } from "./multiply-montgomery.ts";
+import { call, func, i32, local, if_, return_, loop, br_if } from "wasmati";
+import { type FieldBackend } from "../field-backend.ts";
 import { mod } from "../bigint/field-util.ts";
 import { ImplicitMemory } from "./wasm-util.ts";
 
@@ -25,10 +15,10 @@ export { curveOps };
  */
 function curveOps(
   implicitMemory: ImplicitMemory,
-  Field: FieldWithMultiply,
-  inverse: Func<[{ scratch: "i32" }, { r: "i32" }, { a: "i32" }], []>,
+  Field: FieldBackend,
   beta: bigint
 ) {
+  const { inverse } = Field;
   const addAffine = func(
     {
       in: [{ m: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }, { d: i32 }],

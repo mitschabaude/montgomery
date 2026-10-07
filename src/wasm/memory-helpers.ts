@@ -13,7 +13,8 @@ type MemoryHelpers = ReturnType<typeof memoryHelpers>;
  * helpers for writing to and reading from wasm memory from JS
  *
  * @param p modulus
- * @param w word size
+ * @param w bits per limb; limbs are stored in 4 bytes for w <= 32, otherwise 8
+ * @param n number of limbs
  * @param module wasm module
  */
 function memoryHelpers(
@@ -35,20 +36,22 @@ function memoryHelpers(
 ) {
   let wn = BigInt(w);
   let wordMax = (1n << wn) - 1n;
+  let limbBytes = w <= 32 ? 4 : 8;
+  let sizeField = limbBytes * n;
   let lengthP = log2(p);
   let R = 1n << BigInt(n * w);
   let packedSizeField = Math.ceil(lengthP / 8);
   let memoryBytes = new Uint8Array(memory.buffer);
-  let initialOffset = dataOffset?.valueOf() ?? 0;
+  let initialOffset = ceilToMultipleOf8(dataOffset?.valueOf() ?? 0);
 
   let totalLength = memoryBytes.length;
-  let localLength = floorToMultipleOf4(totalLength * localRatio);
+  let localLength = floorToMultipleOf8(totalLength * localRatio);
   let [global, local] = MemorySection.createGlobalAndLocal(
     memory,
     initialOffset,
     localLength,
     totalLength,
-    n
+    sizeField
   );
 
   let obj = {
@@ -57,13 +60,13 @@ function memoryHelpers(
 
     updateThreads() {
       assert(isMain(), "updateThreads must be called from main thread");
-      let localLength = floorToMultipleOf4(totalLength * localRatio);
+      let localLength = floorToMultipleOf8(totalLength * localRatio);
       let [global, local] = MemorySection.createGlobalAndLocal(
         memory,
         initialOffset,
         localLength,
         totalLength,
-        n
+        sizeField
       );
       let globalOffset = obj.global.offset;
       obj.global = global;
@@ -76,16 +79,17 @@ function memoryHelpers(
     memoryBytes,
     n,
     R,
-    // a field element has n limbs, each of which is an int32 (= 4 bytes)
-    sizeField: 4 * n,
+    // a field element has n limbs of limbBytes each
+    limbBytes,
+    sizeField,
     packedSizeField,
     bitLength: lengthP,
 
     writeBigint(x: number, x0: bigint, length = n) {
-      let arr = new Uint32Array(memory.buffer, x, length);
-      for (let i = 0; i < length; i++) {
-        arr[i] = Number(x0 & wordMax);
-        x0 >>= wn;
+      let view = new DataView(memory.buffer, x, length * limbBytes);
+      for (let i = 0; i < length; i++, x0 >>= wn) {
+        if (limbBytes === 4) view.setUint32(4 * i, Number(x0 & wordMax), true);
+        else view.setBigUint64(8 * i, x0 & wordMax, true);
       }
     },
 
@@ -96,20 +100,22 @@ function memoryHelpers(
      * elements.
      */
     fromBigints(values: bigint[]): number {
-      let ptr = obj.global.getPointer(values.length * 4 * n);
-      for (let i = 0, pi = ptr; i < values.length; i++, pi += 4 * n) {
+      let ptr = obj.global.getPointer(values.length * sizeField);
+      for (let i = 0, pi = ptr; i < values.length; i++, pi += sizeField) {
         this.writeBigint(pi, values[i]);
       }
       return ptr;
     },
 
     readBigint(x: number, length = n) {
-      let arr = new Uint32Array(memory.buffer.slice(x, x + 4 * length));
+      let view = new DataView(memory.buffer, x, length * limbBytes);
       let x0 = 0n;
-      let bitPosition = 0n;
-      for (let i = 0; i < arr.length; i++) {
-        x0 += BigInt(arr[i]) << bitPosition;
-        bitPosition += wn;
+      for (let i = length - 1; i >= 0; i--) {
+        let limb =
+          limbBytes === 4
+            ? BigInt(view.getUint32(4 * i, true))
+            : view.getBigUint64(8 * i, true);
+        x0 = (x0 << wn) + limb;
       }
       return x0;
     },
@@ -117,7 +123,7 @@ function memoryHelpers(
     /**
      * @param size size of pointer (default: one field element)
      */
-    getPointer(size = n * 4) {
+    getPointer(size = sizeField) {
       return obj.global.getPointer(size);
     },
 
@@ -125,14 +131,14 @@ function memoryHelpers(
      * @param N
      * @param size size per pointer (default: one field element)
      */
-    getPointers(N: number, size = n * 4) {
+    getPointers(N: number, size = sizeField) {
       return obj.global.getPointers(N, size);
     },
 
     /**
      * @param size size of pointer (default: one field element)
      */
-    getZeroPointer(size = n * 4) {
+    getZeroPointer(size = sizeField) {
       return obj.global.getZeroPointers(1, size)[0];
     },
 
@@ -140,7 +146,7 @@ function memoryHelpers(
      * @param N
      * @param size size per pointer (default: one field element)
      */
-    getZeroPointers(N: number, size = n * 4) {
+    getZeroPointers(N: number, size = sizeField) {
       return obj.global.getZeroPointers(N, size);
     },
 
@@ -150,7 +156,7 @@ function memoryHelpers(
      * @param N
      * @param size size per pointer (default: one field element)
      */
-    getPointersInMemory(N: number, size = n * 4): [Uint32Array, number] {
+    getPointersInMemory(N: number, size = sizeField): [Uint32Array, number] {
       let offset = obj.global.offset;
       // memory addresses must be multiples of 8 for BigInt64Arrays
       let length = ((N + 1) >> 1) << 1;
@@ -191,7 +197,7 @@ function memoryHelpers(
      * write field element from packed bytes representation
      */
     writeBytes([bytesPtr]: number[], pointer: number, bytes: Uint8Array) {
-      let arr = new Uint8Array(memory.buffer, bytesPtr, 4 * n);
+      let arr = new Uint8Array(memory.buffer, bytesPtr, sizeField);
       arr.fill(0);
       arr.set(bytes);
       fromPackedBytes!(pointer, bytesPtr);
@@ -224,8 +230,8 @@ class MemorySection {
   length: number;
   memory: WebAssembly.Memory;
 
-  // default pointer size (= 1 field element) in uint32s
-  n: number;
+  // default pointer size (= 1 field element) in bytes
+  size: number;
 
   // whether we have to take care of multiple threads operating on this memory section
   isShared: boolean;
@@ -257,14 +263,14 @@ class MemorySection {
     memory: WebAssembly.Memory,
     initialOffset: number,
     length: number,
-    n: number,
+    size: number,
     isShared: boolean
   ) {
     this.memory = memory;
     this.initial = initialOffset;
     this.end = initialOffset + length;
     this.length = length;
-    this.n = n;
+    this.size = size;
     this.isShared = isShared;
 
     this._offset = initialOffset;
@@ -304,12 +310,12 @@ class MemorySection {
     offset: number,
     localLength: number,
     totalLength: number,
-    n: number
+    size: number
   ) {
-    let lengthPerThread = floorToMultipleOf4(localLength / THREADS);
+    let lengthPerThread = floorToMultipleOf8(localLength / THREADS);
     let lengthFirstThread = lengthPerThread + (localLength % lengthPerThread);
     assert(lengthFirstThread + (THREADS - 1) * lengthPerThread === localLength);
-    assert(lengthFirstThread % 4 === 0);
+    assert(lengthFirstThread % 8 === 0);
 
     let globalLength = totalLength - localLength - offset;
     // log(`global section: ${offset} - ${offset + globalLength}`);
@@ -317,7 +323,7 @@ class MemorySection {
       memory,
       offset,
       globalLength,
-      n,
+      size,
       true
     );
 
@@ -331,7 +337,7 @@ class MemorySection {
       memory,
       localOffset,
       localSectionLength,
-      n,
+      size,
       false
     );
 
@@ -341,7 +347,7 @@ class MemorySection {
   /**
    * @param size size of pointer in bytes (default: one field element)
    */
-  getPointer(size = this.n * 4) {
+  getPointer(size = this.size) {
     let pointer = this.offset;
     this.offset += size;
     return pointer;
@@ -351,7 +357,7 @@ class MemorySection {
    * @param N
    * @param size size per pointer (default: one field element)
    */
-  getPointers(N: number, size = this.n * 4) {
+  getPointers(N: number, size = this.size) {
     let pointers: number[] = Array(N);
     let offset = this.offset;
     for (let i = 0; i < N; i++) {
@@ -366,7 +372,7 @@ class MemorySection {
    * @param N
    * @param size size per pointer (default: one field element)
    */
-  getZeroPointers(N: number, size = this.n * 4) {
+  getZeroPointers(N: number, size = this.size) {
     let offset = this.offset;
     assert(
       !this.isShared || !isParallel(),
@@ -379,13 +385,16 @@ class MemorySection {
   /**
    * @param N
    */
-  getStablePointers(N: number, size = this.n * 4) {
+  getStablePointers(N: number, size = this.size) {
     let pointers = this.getPointers(N, size);
     this.initial = this.offset;
     return pointers;
   }
 }
 
-function floorToMultipleOf4(x: number) {
-  return Math.floor(x / 4) * 4;
+function floorToMultipleOf8(x: number) {
+  return Math.floor(x / 8) * 8;
+}
+function ceilToMultipleOf8(x: number) {
+  return Math.ceil(x / 8) * 8;
 }

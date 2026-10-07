@@ -704,12 +704,10 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmCurve) {
   };
 }
 
-function bigintPointsToMemory(
-  { getPointer, sizeField, writeBigint, memoryBytes, toMontgomery }: MsmField,
-  inputPoints: BigintPoint[]
-) {
+function bigintPointsToMemory(Field: MsmField, inputPoints: BigintPoint[]) {
+  let { getPointer, sizeField, writeBigint, memoryBytes, toMontgomery } = Field;
   let N = inputPoints.length;
-  let sizeAffine = getSizeAffine(sizeField);
+  let sizeAffine = getSizeAffine(Field);
   let pointPtr = getPointer(N * sizeAffine);
 
   for (let i = 0, point = pointPtr; i < N; i++, point += sizeAffine) {

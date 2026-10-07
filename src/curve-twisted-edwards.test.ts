@@ -4,6 +4,7 @@ import { createRandomPointsFastSingleCurve } from "./curve-random.ts";
 import { createCurveTwistedEdwards } from "./curve-twisted-edwards.ts";
 import { tic, toc } from "./testing/tictoc.ts";
 import { createMsmField } from "./field-msm.ts";
+import { resolveFieldBackend } from "./field-backend.ts";
 import {
   WasmSpec,
   createEquivalentWasm,
@@ -13,7 +14,12 @@ import { Spec, spec, throwError } from "./testing/equivalent.ts";
 import { Random } from "./testing/random.ts";
 import { assert, bigintToBits } from "./util.ts";
 
-const Field = await createMsmField({ p, w: 29, beta: 1n });
+// The wide backend runs where Wasm wide arithmetic is enabled (npm run test-wide).
+const Field = await createMsmField({
+  p,
+  beta: 1n,
+  backend: resolveFieldBackend("auto"),
+});
 
 const Curve = createCurveTwistedEdwards(Field, curveParams);
 const CurveBigint = Curve.Bigint;
