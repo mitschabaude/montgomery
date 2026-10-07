@@ -79,7 +79,7 @@ type Chunk = {
 };
 
 /**
- * Split buckets among threads
+ * Split buckets into `nUnits` units of about equal work, which threads claim
  *
  * Note: this takes into account
  * - bucket sizes not being distributed evenly in the final partition
@@ -99,7 +99,7 @@ function splitBuckets(
     K: number;
     L: number;
   },
-  THREADS: number
+  nUnits: number
 ) {
   let { b, c, K, L } = params;
   // Ll = (upper bound on) number of non-empty buckets in final partition
@@ -110,35 +110,32 @@ function splitBuckets(
   let wl = overlapBits === 0 ? L / Ll / 2 ** 5 : L / Ll; // reduced weight in the 1 bit overflow case
 
   let totalWork = (K - 1) * L + Ll * wl; // = K*L except in the overflow case
-  let workPerThread = Math.ceil(totalWork / THREADS);
+  let workPerUnit = Math.ceil(totalWork / nUnits);
 
-  let chunksPerThread: Chunk[][] = [];
+  let chunksPerUnit: Chunk[][] = [];
   let nChunksPerPartition: number[] = Array(K);
 
-  for (let thread = 0; thread < THREADS; thread++) {
-    chunksPerThread[thread] = [];
+  for (let unit = 0; unit < nUnits; unit++) {
+    chunksPerUnit[unit] = [];
   }
 
-  let thread = 0;
-  let remainingForCurrentThread = workPerThread;
+  let unit = 0;
+  let remainingForCurrentUnit = workPerUnit;
 
   for (let k = 0; k < K - 1; k++) {
     let j = 0;
     let remainingInThisPartition = L;
     let lstart = 1;
     while (remainingInThisPartition > 0) {
-      let length = Math.min(
-        remainingInThisPartition,
-        remainingForCurrentThread
-      );
-      chunksPerThread[thread].push({ k, j, lstart, length });
+      let length = Math.min(remainingInThisPartition, remainingForCurrentUnit);
+      chunksPerUnit[unit].push({ k, j, lstart, length });
       j++;
       remainingInThisPartition -= length;
-      remainingForCurrentThread -= length;
+      remainingForCurrentUnit -= length;
       lstart += length;
-      if (remainingForCurrentThread <= 0) {
-        thread++;
-        remainingForCurrentThread = workPerThread;
+      if (remainingForCurrentUnit <= 0) {
+        unit++;
+        remainingForCurrentUnit = workPerUnit;
       }
     }
     nChunksPerPartition[k] = j;
@@ -151,24 +148,24 @@ function splitBuckets(
     let lstart = 1;
     while (remainingWorkInThisPartition > 0) {
       let length = Math.min(
-        Math.ceil(remainingForCurrentThread / wl),
+        Math.ceil(remainingForCurrentUnit / wl),
         remainingBucketsInThisPartition
       );
-      chunksPerThread[thread].push({ k, j, lstart, length });
+      chunksPerUnit[unit].push({ k, j, lstart, length });
       j++;
       remainingWorkInThisPartition -= wl * length;
       remainingBucketsInThisPartition -= length;
-      remainingForCurrentThread -= wl * length;
+      remainingForCurrentUnit -= wl * length;
       lstart += length;
       if (remainingWorkInThisPartition <= 0) {
         assert(lstart > Ll);
       }
-      if (remainingForCurrentThread <= 0) {
-        thread++;
-        remainingForCurrentThread = workPerThread;
+      if (remainingForCurrentUnit <= 0) {
+        unit++;
+        remainingForCurrentUnit = workPerUnit;
       }
     }
-    assert(thread <= THREADS);
+    assert(unit <= nUnits);
 
     nChunksPerPartition[k] = j;
   }
@@ -178,13 +175,13 @@ function splitBuckets(
   let chunkSumsPerPartition: Uint32Array[] = Array(K);
   for (let k = 0; k < K; k++) {
     let nChunks = nChunksPerPartition[k];
-    // note: each thread must compute these pointers independently in the same way
+    // note: each unit must compute these pointers independently in the same way
     chunkSumsPerPartition[k] = Uint32Array.from(
       Field.global.getPointers(nChunks, Curve.size)
     );
   }
 
-  return { chunksPerThread, chunkSumsPerPartition };
+  return { chunksPerUnit, chunkSumsPerPartition };
 }
 
 // timing/logging helpers

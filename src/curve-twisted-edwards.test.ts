@@ -12,6 +12,7 @@ import {
 } from "./testing/equivalent-wasm.ts";
 import { Spec, spec, throwError } from "./testing/equivalent.ts";
 import { Random } from "./testing/random.ts";
+import { createField } from "./bigint/field.ts";
 import { assert, bigintToBits } from "./util.ts";
 
 // The wide backend runs where Wasm wide arithmetic is enabled (npm run test-wide).
@@ -68,16 +69,111 @@ equiv(
 // addition
 
 equiv(
-  { from: [point, point], to: pointStrict, scratch: 9 },
+  { from: [point, point], to: point, scratch: 9 },
   CurveBigint.add,
   Curve.add,
   "add"
 );
 
+// equal points take the fallback of the dedicated addition formulas
+equiv(
+  { from: [point], to: point, scratch: 9 },
+  (P) => CurveBigint.add(P, P),
+  (scratch, out, P) => Curve.add(scratch, out, P, P),
+  "add equal points"
+);
+
+// mixed addition and subtraction, with Z2 = 1
+const pointAffine = wasmSpec(
+  Field,
+  Random.map(Random(CurveBigint.random), (P) =>
+    CurveBigint.fromAffine(CurveBigint.toAffine(P))
+  ),
+  { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
+);
+equiv(
+  { from: [point, pointAffine], to: point, scratch: 9 },
+  CurveBigint.add,
+  Curve.addMixed,
+  "add mixed"
+);
+equiv(
+  { from: [point, pointAffine], to: point, scratch: 9 },
+  (P, Q) => CurveBigint.add(P, CurveBigint.negate(Q)),
+  Curve.subMixed,
+  "subtract mixed"
+);
+equiv(
+  { from: [pointAffine], to: point, scratch: 9 },
+  (P) => CurveBigint.add(P, P),
+  (scratch, out, P) => Curve.addMixed(scratch, out, P, P),
+  "add mixed equal points"
+);
+
+// points of small order, and sums with them, are exceptions of the dedicated
+// addition formulas: the identity, (0, -1) of order 2, (+-sqrt(-1), 0) of order 4
+const i = createField(p).sqrt(p - 1n)!;
+const smallOrder = [
+  CurveBigint.zero,
+  CurveBigint.fromAffine({ x: 0n, y: p - 1n }),
+  CurveBigint.fromAffine({ x: i, y: 0n }),
+  CurveBigint.fromAffine({ x: p - i, y: 0n }),
+];
+const smallOrderPoint = wasmSpec(Field, Random.oneOf(...smallOrder), {
+  size: Curve.size,
+  there: Curve.fromBigint,
+  back: Curve.toBigint,
+});
+const torsion = Random.oneOf(...smallOrder);
+equiv(
+  { from: [smallOrderPoint, smallOrderPoint], to: point, scratch: 9 },
+  CurveBigint.add,
+  Curve.add,
+  "add points of small order"
+);
+equiv(
+  { from: [smallOrderPoint, smallOrderPoint], to: point, scratch: 9 },
+  CurveBigint.add,
+  Curve.addMixed,
+  "add mixed points of small order"
+);
+const pointPlusTorsion = wasmSpec(
+  Field,
+  Random.map(Random(CurveBigint.random), torsion, (P, T) =>
+    CurveBigint.fromAffine(CurveBigint.toAffine(CurveBigint.add(P, T)))
+  ),
+  { size: Curve.size, there: Curve.fromBigint, back: Curve.toBigint }
+);
+equiv(
+  { from: [pointPlusTorsion, pointPlusTorsion], to: point, scratch: 9 },
+  CurveBigint.add,
+  Curve.addMixed,
+  "add mixed points with torsion"
+);
+equiv(
+  { from: [point, smallOrderPoint], to: point, scratch: 9 },
+  (P, T) => CurveBigint.add(P, CurveBigint.add(P, T)),
+  (scratch, out, P, T) => {
+    Curve.add(scratch, out, P, T);
+    Curve.add(scratch, out, P, out);
+  },
+  "add P and P + T for T of small order"
+);
+equiv(
+  { from: [point, smallOrderPoint], to: point, scratch: 9 },
+  (P, T) => CurveBigint.add(P, CurveBigint.negate(CurveBigint.add(P, T))),
+  (scratch, out, P, T) => {
+    Curve.add(scratch, out, P, T);
+    Curve.negate(out, out);
+    Curve.add(scratch, out, P, out);
+  },
+  "add P and -(P + T) for T of small order"
+);
+
 // adding zero
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: point, scratch: 9 },
   (P) => CurveBigint.add(P, CurveBigint.zero),
   (scratch, out, P) => Curve.add(scratch, out, P, Curve.zero),
   "add zero"
@@ -104,7 +200,7 @@ equiv(
 // adding the negation
 
 equiv(
-  { from: [point], to: pointStrict, scratch: 9 },
+  { from: [point], to: point, scratch: 9 },
   (P) => CurveBigint.add(P, CurveBigint.negate(P)),
   (scratch, out, P) => {
     Curve.negate(out, P);

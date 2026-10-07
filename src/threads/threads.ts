@@ -17,6 +17,7 @@ export {
   logMain,
   sharedArray,
   range,
+  claim,
   barrier,
   lock,
   unlock,
@@ -350,6 +351,24 @@ function range(n: number, nThreads = THREADS) {
   let start = Math.min(n, thread * nt);
   let end = Math.min(n, thread === nThreads - 1 ? n : start + nt);
   return [start, end];
+}
+
+/**
+ * Distributes `n` work items across threads dynamically: each step claims the
+ * next `chunkSize` items `[start, end)` from a shared counter, so faster threads
+ * take more work. All threads must claim from the same counter, initially 0.
+ */
+function* claim(
+  counters: Int32Array,
+  index: number,
+  n: number,
+  chunkSize = 1
+): Generator<[number, number]> {
+  while (true) {
+    let start = Atomics.add(counters, index, chunkSize);
+    if (start >= n) return;
+    yield [start, Math.min(start + chunkSize, n)];
+  }
 }
 
 function shareOf(n: number) {

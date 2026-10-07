@@ -596,6 +596,106 @@ function curveOps(
     );
   }
 
+  /**
+   * P3 = P1 +- P2, with Z2 = 1 if mixed: dedicated addition for a = -1,
+   * http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
+   * and #addition-madd-2008-hwcd-4. 7M mixed, 8M otherwise, no curve constant.
+   *
+   * The formula degenerates exactly when F = H = 0, i.e. P1 = +-P2 doubles;
+   * then it falls back to the unified addition, which gets k = 2d.
+   * P3 may alias P1 and P2.
+   * scratch: 9 field elements
+   */
+  function edwardsDedicatedAddition({
+    isSubtract,
+    isMixed,
+    unified,
+  }: {
+    isSubtract: boolean;
+    isMixed: boolean;
+    unified: ReturnType<typeof edwardsAddition>;
+  }) {
+    return func(
+      {
+        in: [
+          { scratch: i32 },
+          { p3: i32 },
+          { p1: i32 },
+          { p2: i32 },
+          { k: i32 },
+        ],
+        locals,
+        out: [],
+      },
+      ({ scratch, p3, p1, p2, k }, L) => {
+        let f = context(L, scratch, 9);
+        let X1 = f.input(p1);
+        let Y1 = f.input(p1, S);
+        let Z1 = f.input(p1, 2 * S);
+        let T1 = f.input(p1, 3 * S);
+        let X2 = f.input(p2);
+        let Y2 = f.input(p2, S);
+        let Z2 = isMixed ? undefined : f.input(p2, 2 * S);
+        let T2 = f.input(p2, 3 * S);
+        let [tmp, A, B, C, D, E, F, G, H] = Array.from({ length: 9 }, () =>
+          f.element()
+        );
+        // with P2 negated, X2 -> -X2 and T2 -> -T2
+        // A = (Y1 - X1)(Y2 + X2)
+        f.subtractLoose(A, Y1, X1);
+        if (isSubtract) f.subtractLoose(tmp, Y2, X2);
+        else f.addLoose(tmp, Y2, X2);
+        f.multiply(A, A, tmp);
+        // B = (Y1 + X1)(Y2 - X2)
+        f.addLoose(B, Y1, X1);
+        if (isSubtract) f.addLoose(tmp, Y2, X2);
+        else f.subtractLoose(tmp, Y2, X2);
+        f.multiply(B, B, tmp);
+        // C = 2 Z1 T2
+        f.add(tmp, T2, T2);
+        if (isSubtract) f.negate(tmp, tmp);
+        f.multiply(C, Z1, tmp);
+        // D = 2 T1 Z2
+        f.add(D, T1, T1);
+        if (Z2 !== undefined) f.multiply(D, D, Z2);
+        // F = B - A, G = B + A. the result is (EF, GH, EH, FG), which is
+        // correct iff Z3 = FG is nonzero. this excludes equal points, and
+        // some sums with points of small order
+        f.subtract(F, B, A);
+        f.add(G, B, A);
+        f.reduce(F);
+        f.reduce(G);
+        let zero = f.input(formulas.zeroPtr);
+        f.isEqual(F, zero);
+        f.isEqual(G, zero);
+        i32.or();
+        if_(null, () => {
+          call(unified, { scratch, p3, p1, p2, k });
+          return_();
+        });
+        // E = D + C, H = D - C
+        f.addLoose(E, D, C);
+        f.subtract(H, D, C);
+        let X3 = f.output(p3);
+        let Y3 = f.output(p3, S);
+        let Z3 = f.output(p3, 2 * S);
+        let T3 = f.output(p3, 3 * S);
+        f.multiply(X3, E, F);
+        f.multiply(Y3, G, H);
+        f.multiply(T3, E, H);
+        f.multiply(Z3, F, G);
+        f.commit(X3, Y3, Z3, T3);
+      }
+    );
+  }
+
+  const unifiedEdwards = {
+    add: edwardsAddition({ isSubtract: false, isMixed: false }),
+    sub: edwardsAddition({ isSubtract: true, isMixed: false }),
+    addMixed: edwardsAddition({ isSubtract: false, isMixed: true }),
+    subMixed: edwardsAddition({ isSubtract: true, isMixed: true }),
+  };
+
   return {
     addAffine,
     doubleAffine,
@@ -610,9 +710,26 @@ function curveOps(
       isMixed: true,
     }),
     subMixedProjective: projectiveAddition({ isSubtract: true, isMixed: true }),
-    addEdwards: edwardsAddition({ isSubtract: false, isMixed: false }),
-    subEdwards: edwardsAddition({ isSubtract: true, isMixed: false }),
-    addMixedEdwards: edwardsAddition({ isSubtract: false, isMixed: true }),
-    subMixedEdwards: edwardsAddition({ isSubtract: true, isMixed: true }),
+    addEdwards: edwardsDedicatedAddition({
+      isSubtract: false,
+      isMixed: false,
+      unified: unifiedEdwards.add,
+    }),
+    subEdwards: edwardsDedicatedAddition({
+      isSubtract: true,
+      isMixed: false,
+      unified: unifiedEdwards.sub,
+    }),
+    addMixedEdwards: edwardsDedicatedAddition({
+      isSubtract: false,
+      isMixed: true,
+      unified: unifiedEdwards.addMixed,
+    }),
+    subMixedEdwards: edwardsDedicatedAddition({
+      isSubtract: true,
+      isMixed: true,
+      unified: unifiedEdwards.subMixed,
+    }),
+    doubleEdwards: unifiedEdwards.add,
   };
 }

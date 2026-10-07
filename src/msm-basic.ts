@@ -8,8 +8,14 @@ import type { MsmField } from "./field-msm.ts";
 import type { MemorySection } from "./wasm/memory-helpers.ts";
 import { createLog, splitBuckets, windowSize } from "./msm-common.ts";
 import { log2 } from "./util.ts";
-import { THREADS, barrier, isMain, range, thread } from "./threads/threads.ts";
+import { THREADS, barrier, claim, isMain } from "./threads/threads.ts";
 import { broadcastFromMain } from "./threads/global-pool.ts";
+
+// work counters, and sizes of dynamically claimed units of work
+const SLICE = 0;
+const ACCUMULATE = 1;
+const UNITS_PER_THREAD = 4;
+const POINTS_PER_CLAIM = 1024;
 
 export { createMsmBasic, msmBasic };
 
@@ -68,42 +74,57 @@ async function msmBasic(
   let scratch = Field.local.getPointers(40);
 
   tic("points to bucket map");
-  let pointsToBucket = await broadcastFromMain("pointsToBucket", () => {
-    // K x N -> l in [0, L-1]
-    let pointsToBucket: Uint32Array[] = Array(K);
-    for (let k = 0; k < K; k++) {
-      pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
-    }
-    return pointsToBucket;
-  });
-
-  let [i, iend] = range(N);
-
-  for (let si = scalarPtr + i * sizeScalar; i < iend; i++, si += sizeScalar) {
-    for (let k = 0, carry = 0; k < K; k++) {
-      let l = Scalar.extractBitSlice(si, k * c, c) + carry;
-      if (l > L) {
-        l = 2 * L - l;
-        carry = 1;
-      } else {
-        carry = 0;
+  let { pointsToBucket, counters } = await broadcastFromMain(
+    "pointsToBucket",
+    () => {
+      // K x N -> l in [0, L-1]
+      let pointsToBucket: Uint32Array[] = Array(K);
+      for (let k = 0; k < K; k++) {
+        pointsToBucket[k] = new Uint32Array(new SharedArrayBuffer(4 * N));
       }
-      pointsToBucket[k][i] = l | (carry << 31);
+      // work counters for the phases below, see `claim()`
+      let counters = new Int32Array(new SharedArrayBuffer(4 * 2));
+      return { pointsToBucket, counters };
+    }
+  );
+
+  for (let [i0, iend] of claim(counters, SLICE, N, POINTS_PER_CLAIM)) {
+    for (
+      let i = i0, si = scalarPtr + i * sizeScalar;
+      i < iend;
+      i++, si += sizeScalar
+    ) {
+      for (let k = 0, carry = 0; k < K; k++) {
+        let l = Scalar.extractBitSlice(si, k * c, c) + carry;
+        if (l > L) {
+          l = 2 * L - l;
+          carry = 1;
+        } else {
+          carry = 0;
+        }
+        pointsToBucket[k][i] = l | (carry << 31);
+      }
     }
   }
   await barrier();
   toc();
 
   tic("compute work split");
-  let { chunksPerThread, chunkSumsPerPartition } = splitBuckets(
+  // more units of work than threads, which threads claim dynamically
+  let nUnits = UNITS_PER_THREAD * THREADS;
+  let { chunksPerUnit, chunkSumsPerPartition } = splitBuckets(
     inputs,
     params,
-    THREADS
+    nUnits
   );
   toc();
 
   tic("accumulate and reduce");
-  for (let { j, k, lstart, length } of chunksPerThread[thread]) {
+  let chunks = (function* () {
+    for (let [unit] of claim(counters, ACCUMULATE, nUnits))
+      yield* chunksPerUnit[unit];
+  })();
+  for (let { j, k, lstart, length } of chunks) {
     tic();
     using _l = Field.local.atCurrentOffset;
     let buckets = Uint32Array.from(Field.local.getPointers(length, Curve.size));
