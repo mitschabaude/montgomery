@@ -4,7 +4,7 @@ _by Gregor Mitscha-Baude_
 
 **2nd place in the Wasm/MSM ZPrize in both 2022 and 2023.**
 
-A fast, multi-threaded implementation of elliptic curve multi-scalar multiplication (MSM) in WebAssembly. Works in Node.js and the browser. The Wasm is generated at runtime from TypeScript via [wasmati](https://github.com/zksecurity/wasmati), so adding a new curve is a matter of plugging in its parameters.
+A fast, multi-threaded implementation of elliptic curve multi-scalar multiplication (MSM) in WebAssembly. Works in Node.js and the browser. The Wasm is generated from TypeScript via [wasmati](https://github.com/zksecurity/wasmati), at runtime, so adding a new curve is a matter of plugging in its parameters. Pallas and BLS12-377 also come prebuilt.
 
 ## Install
 
@@ -27,7 +27,7 @@ Browsers additionally need the page to be **cross-origin isolated** for `SharedA
 
 `using` declarations are used internally but compiled away in the web bundle, so browser support doesn't depend on them. If there is demand, we could do that for the Node.js build as well.
 
-Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 1.9–2.2x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
+Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 2–2.5x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
 
 ## Quick start
 
@@ -152,7 +152,7 @@ Underneath the MSM, every curve exposes its full wasm field/scalar/curve arithme
 - `curve.Field` / `curve.Scalar` — `add`, `subtract`, `multiply`, `square`, `inverse`, `exp`, `sqrt`, `isEqual`, `isZero`, `reduce`, `toMontgomery`/`fromMontgomery`, `fromPackedBytes`/`toPackedBytes`, `writeBigint`/`readBigint`, …
 - `curve.Affine` / `curve.Projective` (Weierstrass) or `curve.Curve` (twisted edwards) — `add`, `double`, `negate`, `scale`, `isOnCurve`, `batchNormalize`, `toBigint`/`writeBigint`, …
 
-These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~510 lines of pure TS) and `msm-basic.ts` (~240 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Scalar` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
+These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~530 lines of pure TS) and `msm-basic.ts` (~240 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Scalar` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
 
 A few highlights:
 
@@ -180,3 +180,4 @@ If your threat model does include timing side channels (server-side key operatio
 - `doc/zprize23/` - ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
 - `doc/zprize22.md` - ZPrize 2022 write-up explaining some of the algorithms underlying the MSM.
 - `src/wide/` — field arithmetic of the wide backend using Wasm wide arithmetic; see its [notes and benchmarks](src/wide/README.md). `src/field-backend.ts` defines the interface both backends implement.
+- `src/generate.ts` — the only code that generates Wasm with wasmati; curves run from the compiled modules, also in workers. `src/prebuilt/` loads the modules that `scripts/build/prebuild.ts` writes ahead of time.
