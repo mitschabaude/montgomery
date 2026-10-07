@@ -40,7 +40,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       Field.forEachReversed((i) => {
         local.set(xi, Field.i32.loadLimb(x, i));
         let isNonZero = i32.ne(xi, 0);
-        if_(null, () => {
+        if_(() => {
           let lengthLimb = i32.sub(32, i32.clz(xi));
           let length = i32.add(lengthLimb, i * w);
           return_();
@@ -156,7 +156,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     tmp: Local<i64>
   ) {
     i64.lt_s(X[n - 1], 0n);
-    if_(null, () => {
+    if_(() => {
       for (let j = 0; j < n - 1; j++) {
         i64.add(X[j], P[j]);
         if (j > 0) i64.add($, carry);
@@ -255,13 +255,13 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
       Field.copyInline(v, a);
       call(Field.reduce, { x: v });
       call(Field.isZero, { x: v });
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       Field.i32.store(u, Field.i32.P);
       Field.i32.store(r, Field.i32.Zero);
       Field.i32.store(s, Field.i32.One);
 
-      block(null, (done) => {
-        loop(null, (again) => {
+      block((done) => {
+        loop((again) => {
           local.set(f0g0, v128.const("i64x2", [1n, 0n]));
           local.set(f1g1, v128.const("i64x2", [0n, 1n]));
 
@@ -285,7 +285,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
             // if ((ulo & 1n) === 0n)
             i64.eqz(i64.and(ulo, 1n));
             if_(
-              null,
               () => {
                 local.set(uhi, i64.shr_s(uhi, 1n));
                 local.set(ulo, i64.shr_s(ulo, 1n));
@@ -295,7 +294,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
                 // if ((vlo & 1n) === 0n)
                 i64.eqz(i64.and(vlo, 1n));
                 if_(
-                  null,
                   () => {
                     local.set(vhi, i64.shr_s(vhi, 1n));
                     local.set(vlo, i64.shr_s(vlo, 1n));
@@ -304,7 +302,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
                   () => {
                     i64.le_s(vhi, uhi);
                     if_(
-                      null,
                       () => {
                         local.set(uhi, i64.shr_s(i64.sub(uhi, vhi), 1n));
                         local.set(ulo, i64.shr_s(i64.sub(ulo, vlo), 1n));
@@ -331,13 +328,13 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           // u = (u*f0 - v*g0) / 2^w, v = (v*g1 - u*f1) / 2^w
           linearPair(u, v, matrix, X, Y, temps);
           i64.lt_s(X[n - 1], 0n);
-          if_(null, () => {
+          if_(() => {
             negate(X, carryX, tmp);
             local.set(f0, i64.sub(0n, f0));
             local.set(g0, i64.sub(0n, g0));
           });
           i64.lt_s(Y[n - 1], 0n);
-          if_(null, () => {
+          if_(() => {
             negate(Y, carryY, tmp);
             local.set(f1, i64.sub(0n, f1));
             local.set(g1, i64.sub(0n, g1));
@@ -355,7 +352,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           br_if(done);
           // v = 0 => u = gcd and a*r = u
           call(Field.isZero, { x: v });
-          if_(null, () => {
+          if_(() => {
             Field.copyInline(s, r);
             Field.copyInline(v, u);
             br(done);
@@ -369,7 +366,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         i64.ne(Field.loadLimb(v, j), 0n);
         i32.or();
       }
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       call(Field.multiply, { xy: s, x: s, y: correctionPtr });
     }
   );
@@ -383,7 +380,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     assert(hiBits > 50);
     local.set(hiStart, i32.sub(ulen, hiBits));
     i32.lt_s(hiStart, 0);
-    if_(null, () => {
+    if_(() => {
       local.set(hiStart, 0);
     });
     call(extractBits, { x: u, startBit: hiStart, bitLength: 25 });

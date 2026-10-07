@@ -51,14 +51,14 @@ function fieldInverse(
       local.tee(k, i64.ctz(ui));
       i64.eqz();
       // if (k === 0) return; (the most common case)
-      if_(null, () => {
+      if_(() => {
         i32.const(0);
         return_();
       });
       // while k === 64 (i.e., u[0] === 0), shift by whole words
       // (note: u is not supposed to be 0, so u[0] = 0 implies that u is divisible by 2^w)
-      block(null, (block) => {
-        loop(null, (loop) => {
+      block((block) => {
+        loop((loop) => {
           i64.ne(k, 64n);
           br_if(block);
 
@@ -159,11 +159,10 @@ function fieldInverse(
       call(makeOdd, { u: v, s: r });
       local.set(k, i32.add());
 
-      block(null, (block) => {
-        loop(null, (loop) => {
+      block((block) => {
+        loop((loop) => {
           call(Field.isGreater, { x: u, y: v });
           if_(
-            null,
             () => {
               call(Field.subtractNoReduce, { out: u, x: u, y: v });
               call(Field.addNoReduce, { out: r, x: r, y: s });
@@ -208,7 +207,7 @@ function fieldInverse(
 
       // error if input is zero
       call(Field.isZero, { x: a });
-      if_(null, () => unreachable());
+      if_(() => unreachable());
 
       call(almostInverse, { u: scratch, r, a });
       local.set(k);
@@ -241,9 +240,9 @@ function fieldInverse(
       local.set($N, i32.mul($n, Field.size));
       // return early if n = 0 or 1
       i32.eqz($n);
-      if_(null, () => return_());
+      if_(() => return_());
       i32.eq($n, 1);
-      if_(null, () => {
+      if_(() => {
         call(inverse, { scratch, r: z, a: x });
         return_();
       });
@@ -254,14 +253,14 @@ function fieldInverse(
         y: x,
       });
       i32.eq($n, 2);
-      if_(null, () => {
+      if_(() => {
         call(inverse, { scratch, r: I, a: i32.add(z, Field.size) });
         call(multiply, { xy: i32.add(z, Field.size), x, y: I }),
           call(multiply, { xy: z, x: i32.add(x, Field.size), y: I }),
           return_();
       });
       local.set($i, i32.const(2 * Field.size));
-      loop(null, () => {
+      loop(() => {
         call(multiply, {
           xy: i32.add(z, $i),
           x: i32.add(z, i32.sub($i, Field.size)),
@@ -274,7 +273,7 @@ function fieldInverse(
       call(inverse, { scratch, r: I, a: i32.add(z, i32.sub($N, Field.size)) });
       // create inverses 1/x(n-1), ..., 1/x2
       local.set($i, i32.sub($N, Field.size));
-      loop(null, () => {
+      loop(() => {
         call(multiply, {
           xy: i32.add(z, $i),
           x: i32.add(z, i32.sub($i, Field.size)),

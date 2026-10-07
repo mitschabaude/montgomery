@@ -50,7 +50,7 @@ function arithmetic(Field: Field) {
         drop();
         if (!doReduce) return;
         // second loop: check if we overflowed by checking x + y < 2p
-        block(null, () => {
+        block(() => {
           Field.forEachReversed((i) => {
             // if (out[i] < 2p[i]) return
             local.set(tmp, Field.loadLimb(out, i));
@@ -98,7 +98,7 @@ function arithmetic(Field: Field) {
         if (!doReduce) return drop();
         // check if we underflowed by checking carry === 0 (in that case, we didn't and can return)
         i64.eq($, 0n);
-        if_(null, () => return_());
+        if_(() => return_());
         // second loop
         // if we're here, y > x and out = x - y + R, while we want x - y + 2p
         // so do (out += 2p) and ignore the known overflow of R
@@ -155,7 +155,7 @@ function arithmetic(Field: Field) {
     { in: [{ x: i32 }], locals: { tmp: i64 }, out: [] },
     ({ x }, { tmp }) => {
       // check if x < p
-      block(null, () => {
+      block(() => {
         Field.forEachReversed((i) => {
           // if (x[i] < p[i]) return
           Field.loadLimb(x, i);
@@ -204,7 +204,7 @@ function fieldHelpers(Field: Field) {
         let xi = Field.loadLimb(x, i);
         let yi = Field.loadLimb(y, i);
         i64.ne(xi, yi);
-        if_(null, () => {
+        if_(() => {
           i32.const(0);
           return_();
         });
@@ -220,7 +220,7 @@ function fieldHelpers(Field: Field) {
       // if (x[i] !== 0) return false;
       let xi = Field.loadLimb(x, i);
       i64.ne(xi, 0n);
-      if_(null, () => {
+      if_(() => {
         i32.const(0);
         return_();
       });
@@ -237,7 +237,7 @@ function fieldHelpers(Field: Field) {
       out: [i32],
     },
     ({ x, y }, { xi, yi }) => {
-      block(null, () => {
+      block(() => {
         Field.forEachReversed((i) => {
           // if (x[i] > y[i]) return true;
           Field.loadLimb(x, i);
@@ -245,7 +245,7 @@ function fieldHelpers(Field: Field) {
           Field.loadLimb(y, i);
           local.tee(yi);
           i64.gt_u();
-          if_(null, () => {
+          if_(() => {
             i32.const(1);
             return_();
           });

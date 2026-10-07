@@ -108,7 +108,6 @@ function fastInverse(
   function canonicalize(X: Local<i64>[], high: Local<i64>, carry: Local<i64>) {
     i64.lt_s(high, 0n);
     if_(
-      null,
       () => {
         for (let j = 0; j < F.n; j++) {
           i64.add128(X[j], 0n, F.P[j], 0n);
@@ -313,14 +312,14 @@ function fastInverse(
       call(ops.copy, { x: a, y: input });
       call(ops.reduce, { x: a });
       call(ops.isZero, { x: a });
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       for (let j = 0; j < F.n; j++) {
         F.storeLimb(b, j, F.P[j]);
         F.storeLimb(ca, j, j === 0 ? 1n : 0n);
         F.storeLimb(cb, j, 0n);
       }
-      block(null, (done) => {
-        loop(null, (again) => {
+      block((done) => {
+        loop((again) => {
           // length = max(bitLength(a), bitLength(b)) = bitLength(a | b)
           local.set(length, 0);
           for (let j = 0; j < F.n; j++) {
@@ -371,8 +370,8 @@ function fastInverse(
           local.set(ahi, i64.shr_s(ahi, k));
           local.set(FB, i64x2.shl(FB, i32.wrap_i64(k)));
           local.set(rem, i64.shr_u(rem, k));
-          block(null, (stepsDone) => {
-            loop(null, (step) => {
+          block((stepsDone) => {
+            loop((step) => {
               i64.eq(rem, 1n);
               br_if(stepsDone);
               // a, b odd: d = a - b. |d| has the trailing zeros of d, so the
@@ -424,13 +423,13 @@ function fastInverse(
           shift(X, carryA);
           shift(Y, carryB);
           i64.lt_s(carryA, 0n);
-          if_(null, () => {
+          if_(() => {
             negate(X, lo);
             local.set(fa, i64.sub(0n, fa));
             local.set(ga, i64.sub(0n, ga));
           });
           i64.lt_s(carryB, 0n);
-          if_(null, () => {
+          if_(() => {
             negate(Y, lo);
             local.set(fb, i64.sub(0n, fb));
             local.set(gb, i64.sub(0n, gb));
@@ -452,7 +451,7 @@ function fastInverse(
         i64.ne(F.loadLimb(b, j), 0n);
         i32.or();
       }
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       call(ops.multiply, { xy: cb, x: cb, y: correctionPtr });
     }
   );

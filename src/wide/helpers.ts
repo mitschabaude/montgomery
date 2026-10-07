@@ -44,7 +44,7 @@ function helpers(
     { in: [{ xy: i32 }, { y: i32 }, { k: i32 }], out: [] },
     ({ xy, y, k }) => {
       i32.ge_u(k, bitLength);
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       call(ops.multiply, {
         xy,
         x: y,
@@ -73,7 +73,7 @@ function helpers(
         forLoop1(j, 0, 64, () => {
           call(ops.square, { xy: z, x: z });
           i64.ne(i64.and(ni, mask), 0n);
-          if_(null, () => {
+          if_(() => {
             call(ops.multiply, { xy: z, x: z, y: x });
           });
           local.set(mask, i64.shr_u(mask, 1n));

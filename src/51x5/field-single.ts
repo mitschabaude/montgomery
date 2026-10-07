@@ -37,7 +37,7 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(x, i);
         Field.loadLimb(y, i);
         i64.ne();
-        if_(null, () => {
+        if_(() => {
           i32.const(0);
           return_();
         });
@@ -52,7 +52,7 @@ function fieldMethods(Field: FieldBase) {
       // if (x[i] !== 0) return false;
       Field.loadLimb(x, i);
       i64.ne($, 0n);
-      if_(null, () => {
+      if_(() => {
         i32.const(0);
         return_();
       });
@@ -68,7 +68,7 @@ function fieldMethods(Field: FieldBase) {
       out: [i32],
     },
     ({ x, y }, { xi, yi }) => {
-      block(null, () => {
+      block(() => {
         Field.forEachReversed((i) => {
           // if (x[i] > y[i]) return true;
           Field.loadLimb(x, i);
@@ -76,7 +76,7 @@ function fieldMethods(Field: FieldBase) {
           Field.loadLimb(y, i);
           local.tee(yi);
           i64.gt_s();
-          if_(null, () => {
+          if_(() => {
             i32.const(1);
             return_();
           });
@@ -120,7 +120,7 @@ function fieldMethods(Field: FieldBase) {
    * both inputs back into [0, pU)
    */
   function reduceInline(x: Local<i32>, carry_?: Local<i64>) {
-    block(null, ($return) => {
+    block(($return) => {
       // return if x4 <= p4
       // if not, x4 > p4 implies x > p
       i64.le_s(Field.loadLimb(x, 4), Field.P[4]);
@@ -285,7 +285,7 @@ function fieldMethods(Field: FieldBase) {
     { in: [{ x: i32 }], locals: { tmp: i64 }, out: [] },
     ({ x }, { tmp }) => {
       // check if x < p
-      block(null, () => {
+      block(() => {
         Field.forEachReversed((i) => {
           // if (x[i] < p[i]) return
           Field.loadLimb(x, i);

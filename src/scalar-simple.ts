@@ -1,6 +1,13 @@
 import type * as W from "wasmati";
-import { Const, Module, global, importMemory } from "wasmati";
-import { assert, log2 } from "./util.ts";
+import {
+  constant,
+  i32,
+  Module,
+  global,
+  importMemory,
+  type ModuleInstance,
+} from "wasmati";
+import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
 import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.ts";
 import { montgomeryParams } from "./bigint/field-util.ts";
@@ -15,61 +22,45 @@ type ScalarParams = { q: bigint; w: number };
  * scalar module for basic MSM
  */
 async function createScalar(params: ScalarParams, wasm?: WasmArtifacts) {
-  if (wasm !== undefined) {
-    return await createScalarFromWasm(params, wasm);
-  }
-  let { wasmArtifacts, instance } = await createScalarWasm(params);
-  return await createScalarFromWasm(params, wasmArtifacts, instance);
+  wasm ??= await compileScalar(params);
+  return await createScalarFromWasm(params, wasm);
 }
 
 /**
  * scalar module for basic MSM
  */
-async function createScalarWasm({ q, w }: { q: bigint; w: number }) {
+function scalarModule({ q, w }: { q: bigint; w: number }) {
   const { n, nPackedBytes } = montgomeryParams(q, w, 1);
   let memSize = 1 << 14;
   let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
 
-  let module = Module({
+  return Module({
     exports: {
       fromPackedBytes: fromPackedBytes(w, n, nPackedBytes),
       extractBitSlice: extractBitSlice(w, n),
       memory: wasmMemory,
-      dataOffset: global(Const.i32(0)),
+      dataOffset: global(constant(() => i32.const(0))),
     },
   });
-
-  let { instance, module: wasmModule } = await module.instantiate();
-  return {
-    wasmArtifacts: { module: wasmModule, memory: wasmMemory.value },
-    instance,
-  };
 }
 
-type ScalarWasm = UnwrapPromise<
-  ReturnType<typeof createScalarWasm>
->["instance"];
+async function compileScalar(params: ScalarParams): Promise<WasmArtifacts> {
+  let wasm = scalarModule(params);
+  return { module: await wasm.compile(), importMap: wasm.importMap };
+}
+
+type ScalarInstance = ModuleInstance<ReturnType<typeof scalarModule>>;
 
 async function createScalarFromWasm(
   params: ScalarParams,
-  wasmArtifacts: WasmArtifacts,
-  instance?: ScalarWasm
+  wasmArtifacts: WasmArtifacts
 ) {
   let { q, w } = params;
   const { n } = montgomeryParams(q, w, 1);
-  if (instance === undefined) {
-    let imports = WebAssembly.Module.imports(wasmArtifacts.module);
-    // TODO abstraction leak - we have to know that there is no other import to do this
-    // should work with any number of other imports, possibly by making memory import lazy and
-    // add a module method to create the import object, with an override for the memory
-    assert(imports.length === 1 && imports[0].kind === "memory");
-    let { module, name } = imports[0];
-    let importObject = { [module]: { [name]: wasmArtifacts.memory } };
-    instance = (await WebAssembly.instantiate(
-      wasmArtifacts.module,
-      importObject
-    )) as ScalarWasm;
-  }
+  let instance = (await WebAssembly.instantiate(
+    wasmArtifacts.module,
+    wasmArtifacts.importMap
+  )) as ScalarInstance;
   const wasm = instance.exports;
   const helpers = memoryHelpers(q, w, n, wasm);
 

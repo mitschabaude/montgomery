@@ -55,17 +55,18 @@ function createField(p: bigint) {
     threshold = P,
     subtrahend = P
   ) {
-    block(null, (done) => {
-      block(null, (needsSubtract) => {
+    block((done) => {
+      block((needsSubtract) => {
+        // the subtraction is rarely needed
         if (high !== 0n) {
           i64.ne(high, 0n);
-          br_if(needsSubtract);
+          br_if(needsSubtract, { likely: false });
         }
         for (let i = n - 1; i >= 0; i--) {
           i64.lt_u(X[i], threshold[i]);
-          br_if(done);
+          br_if(done, { likely: true });
           i64.ne(X[i], threshold[i]);
-          br_if(needsSubtract);
+          br_if(needsSubtract, { likely: false });
         }
       });
       subtractConstant(X, X, subtrahend, borrow);

@@ -2,7 +2,7 @@ import type * as W from "wasmati";
 import {
   localArray,
   $,
-  Const,
+  constant,
   type Input,
   type Local,
   type Func,
@@ -47,7 +47,10 @@ function multiplyMontgomery(
   let nSafeSteps = 2 ** (64 - 2 * w - 1);
   let nSafeStepsSquare = Math.floor(2 ** (64 - 2 * w) / 3); // three terms per step
 
-  const multiplyCount = global(Const.i32(0), { mutable: true });
+  const multiplyCount = global(
+    constant(() => i32.const(0)),
+    { mutable: true }
+  );
 
   const resetMultiplyCount = func({ in: [], locals: {}, out: [] }, () => {
     global.set(multiplyCount, 0);

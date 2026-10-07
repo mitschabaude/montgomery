@@ -1,5 +1,5 @@
 import {
-  Const,
+  constant,
   Module,
   call,
   func,
@@ -151,7 +151,9 @@ async function benchmark(
         exp: fieldExp(Field),
 
         memory: implicitMemory.memory,
-        dataOffset: global(Const.i32(implicitMemory.dataOffset)),
+        dataOffset: global(
+          constant(() => i32.const(implicitMemory.dataOffset))
+        ),
 
         // stuff needed for sqrt
         copy: Field.copy,

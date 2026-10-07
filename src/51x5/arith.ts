@@ -62,7 +62,7 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
    * Also, this does not perform a carry!
    */
   function reduceLaneLocals(lane: 0 | 1, X: Local<v128>[]) {
-    block(null, ($outer) => {
+    block(($outer) => {
       // return if x4 <= p4
       // if not, x4 > p4 implies x > p
       i64x2.extract_lane(lane, X[4]);
@@ -106,7 +106,7 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
   }
 
   function reduceLocalsSingle(X: Local<i64>[]) {
-    block(null, ($outer) => {
+    block(($outer) => {
       // return if x4 <= p4
       // if not, x4 > p4 implies x > p
       i64.le_s(X[4], PI[4]);
@@ -120,9 +120,9 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
   }
 
   function fullyReduceLane(lane: 0 | 1, x: Local<i32>, xi: Local<i64>) {
-    block(null, ($outer) => {
+    block(($outer) => {
       // check if x < p
-      block(null, ($inner) => {
+      block(($inner) => {
         FieldPair.forEachReversed((i) => {
           // if (x[i] < p[i]) return
           local.tee(xi, FieldPair.i64.loadLane(x, i, lane));
@@ -156,9 +156,9 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
     xi: Local<i64>,
     tmp: Local<v128>
   ) {
-    block(null, ($outer) => {
+    block(($outer) => {
       // check if x < p
-      block(null, ($inner) => {
+      block(($inner) => {
         FieldPair.forEachReversed((i) => {
           // if (x[i] < p[i]) return
           local.get(X[i]);

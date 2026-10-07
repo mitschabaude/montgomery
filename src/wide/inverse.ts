@@ -56,12 +56,12 @@ function fieldInverse(
     ({ u, s }, { k, l, tmp, total }) => {
       local.set(k, i64.ctz(F.loadLimb(u, 0)));
       i64.eqz(k);
-      if_(null, () => {
+      if_(() => {
         i32.const(0);
         return_();
       });
-      block(null, (done) => {
-        loop(null, (again) => {
+      block((done) => {
+        loop((again) => {
           i64.ne(k, 64n);
           br_if(done);
           local.get(u);
@@ -81,7 +81,7 @@ function fieldInverse(
       });
       // Whole-word shifts can leave an odd low word: do not shift by 64.
       i64.ne(k, 0n);
-      if_(null, () => {
+      if_(() => {
         local.set(l, i64.sub(64n, k));
         local.set(tmp, F.loadLimb(u, 0));
         for (let i = 0; i < n; i++) {
@@ -121,7 +121,7 @@ function fieldInverse(
       call(ops.copy, { x: v, y: a });
       call(ops.reduce, { x: v });
       call(ops.isZero, { x: v });
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       call(ops.copy, { x: scratch, y: pPtr });
       for (let i = 0; i < n; i++) {
         F.storeLimb(r, i, 0n);
@@ -129,11 +129,10 @@ function fieldInverse(
       }
       call(makeOdd, { u: v, s: r });
       local.set(k, $);
-      block(null, (done) => {
-        loop(null, (again) => {
+      block((done) => {
+        loop((again) => {
           call(ops.isGreater, { x: scratch, y: v });
           if_(
-            null,
             () => {
               call(ops.subtractNoReduce, { out: scratch, x: scratch, y: v });
               call(ops.addNoReduce, { out: r, x: r, y: s });
@@ -159,7 +158,7 @@ function fieldInverse(
         i64.ne(F.loadLimb(scratch, i), 0n);
         i32.or();
       }
-      if_(null, () => unreachable());
+      if_(() => unreachable());
       call(ops.subtractNoReduce, { out: r, x: pPtr, y: r });
       call(ops.multiply, {
         xy: r,
@@ -181,11 +180,11 @@ function fieldInverse(
     },
     ({ scratch, z, x, $n }, { i, inv }) => {
       i32.eqz($n);
-      if_(null, () => return_());
+      if_(() => return_());
       local.set(inv, scratch);
       local.set(scratch, i32.add(scratch, size));
       i32.eq($n, 1);
-      if_(null, () => {
+      if_(() => {
         call(inverse, { scratch, r: z, a: x });
         return_();
       });
@@ -202,9 +201,9 @@ function fieldInverse(
         r: inv,
         a: i32.add(z, i32.mul(i32.sub($n, 1), size)),
       });
-      block(null, (done) => {
+      block((done) => {
         local.set(i, i32.sub($n, 1));
-        loop(null, (again) => {
+        loop((again) => {
           i32.eqz(i);
           br_if(done);
           call(ops.multiply, {

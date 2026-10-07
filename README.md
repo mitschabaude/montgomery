@@ -27,7 +27,7 @@ Browsers additionally need the page to be **cross-origin isolated** for `SharedA
 
 `using` declarations are used internally but compiled away in the web bundle, so browser support doesn't depend on them. If there is demand, we could do that for the Node.js build as well.
 
-Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 1.9–2.2x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
+Where the runtime supports [Wasm wide arithmetic](https://github.com/WebAssembly/wide-arithmetic), base field arithmetic uses 64-bit limbs, which makes MSMs about 2–2.5x faster. Node.js currently needs the `--wasm-wide-arithmetic` flag for this. Without it, the library falls back to 29-bit limbs automatically.
 
 ## Quick start
 
@@ -146,7 +146,7 @@ Underneath the MSM, every curve exposes its full wasm field/scalar/curve arithme
 - `curve.Field` / `curve.Scalar` — `add`, `subtract`, `multiply`, `square`, `inverse`, `exp`, `sqrt`, `isEqual`, `isZero`, `reduce`, `toMontgomery`/`fromMontgomery`, `fromPackedBytes`/`toPackedBytes`, `writeBigint`/`readBigint`, …
 - `curve.Affine` / `curve.Projective` (Weierstrass) or `curve.Curve` (twisted edwards) — `add`, `double`, `negate`, `scale`, `isOnCurve`, `batchNormalize`, `toBigint`/`writeBigint`, …
 
-These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~510 lines of pure TS) and `msm-basic.ts` (~240 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Scalar` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
+These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~530 lines of pure TS) and `msm-basic.ts` (~240 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Scalar` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
 
 A few highlights:
 

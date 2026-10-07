@@ -339,13 +339,13 @@ function extractBitSlice(w: number, n: number) {
       // check for overflow of endLimb
       i32.gt_u(endLimb, n - 1);
 
-      control.if({}, () => {
+      control.if(() => {
         // in that case, truncate endBit = w and endLimb = startLimb = n-1
         local.set(endBit, w);
         local.set(endLimb, n - 1);
       });
       i32.eq(startLimb, endLimb);
-      control.if({}, () => {
+      control.if(() => {
         // load scalar limb
         i32.load({}, i32.add(local.get(x), i32.shl(startLimb, 2)));
         // take bits < endBit

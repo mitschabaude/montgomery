@@ -32,7 +32,7 @@ function fieldExp(Field: FieldWithMultiply) {
         local.set(ni, Field.i32.loadLimb(n, i));
         forLoop1(j, 0, w, () => {
           i32.and(ni, i32.shl(1, j));
-          if_(null, () => {
+          if_(() => {
             call(multiply, { xy: z, x: z, y: x });
           });
           call(square, { xy: x, x });

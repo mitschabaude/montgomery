@@ -1,12 +1,12 @@
 import type * as W from "wasmati"; // for type names
-import { Module, importMemory } from "wasmati";
+import { Module, importMemory, type ModuleInstance } from "wasmati";
 import { ImplicitMemory } from "./wasm/wasm-util.ts";
 import { mod } from "./bigint/field-util.ts";
 import { curveOps } from "./wasm/curve.ts";
 import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 import { createSqrt } from "./field-sqrt.ts";
-import { assert, log2 } from "./util.ts";
+import { log2 } from "./util.ts";
 import { isMain } from "./threads/threads.ts";
 import {
   createFieldBackend,
@@ -28,19 +28,14 @@ type MsmFieldParams = {
 };
 
 async function createMsmField(params: MsmFieldParams, wasm?: WasmArtifacts) {
-  if (wasm !== undefined) {
-    return await createFieldFromWasm(params, wasm);
-  }
-  let { instance, wasmArtifacts } = await createFieldWasm(params);
-  return await createFieldFromWasm(params, wasmArtifacts, instance);
+  wasm ??= await compileField(params);
+  return await createFieldFromWasm(params, wasm);
 }
 
-type MsmFieldWasm = UnwrapPromise<
-  ReturnType<typeof createFieldWasm>
->["instance"];
+type MsmFieldInstance = ModuleInstance<ReturnType<typeof fieldModule>>;
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
-async function createFieldWasm({
+function fieldModule({
   p,
   beta,
   backend = "29-bit",
@@ -57,7 +52,7 @@ async function createFieldWasm({
   });
   let curve = curveOps(implicitMemory, Field, beta);
 
-  let module = Module({
+  return Module({
     exports: {
       ...implicitMemory.getExports(),
       // curve ops
@@ -92,35 +87,21 @@ async function createFieldWasm({
       toPackedBytes: Field.toPackedBytes,
     },
   });
+}
 
-  // TODO: wasmati function which doesn't create the instance
-  // also, this function still needs to carry the type, for example by returning the wasmati module,
-  // and then we need a generic type from wasmati which infers the instance type from the module
-  let { instance, module: wasmModule } = await module.instantiate();
-  return {
-    wasmArtifacts: { module: wasmModule, memory: wasmMemory.value },
-    instance,
-  };
+async function compileField(params: MsmFieldParams): Promise<WasmArtifacts> {
+  let wasm = fieldModule(params);
+  return { module: await wasm.compile(), importMap: wasm.importMap };
 }
 
 async function createFieldFromWasm(
   { p, backend = "29-bit", w, minExtraBits, localRatio }: MsmFieldParams,
-  wasmArtifacts: WasmArtifacts,
-  instance?: MsmFieldWasm
+  wasmArtifacts: WasmArtifacts
 ) {
-  if (instance === undefined) {
-    let imports = WebAssembly.Module.imports(wasmArtifacts.module);
-    // TODO abstraction leak - we have to know that there is no other import to do this
-    // should work with any number of other imports, possibly by making memory import lazy and
-    // add a module method to create the import object, with an override for the memory
-    assert(imports.length === 1 && imports[0].kind === "memory");
-    let { module, name } = imports[0];
-    let importObject = { [module]: { [name]: wasmArtifacts.memory } };
-    instance = (await WebAssembly.instantiate(
-      wasmArtifacts.module,
-      importObject
-    )) as MsmFieldWasm;
-  }
+  let instance = (await WebAssembly.instantiate(
+    wasmArtifacts.module,
+    wasmArtifacts.importMap
+  )) as MsmFieldInstance;
   let wasm = instance.exports;
 
   let layout = fieldLayout(backend, p, { w, minExtraBits });

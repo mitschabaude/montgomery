@@ -1,7 +1,14 @@
 import type * as W from "wasmati";
-import { Const, Module, global, importMemory } from "wasmati";
+import {
+  constant,
+  i32,
+  Module,
+  global,
+  importMemory,
+  type ModuleInstance,
+} from "wasmati";
 import { glvGeneral } from "./wasm/glv.ts";
-import { assert, log2 } from "./util.ts";
+import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
 import {
   decomposeAndSlice,
@@ -24,25 +31,21 @@ async function createGlvScalar(
   params: Params,
   wasmAndFullParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
 ) {
-  if (wasmAndFullParams !== undefined) {
-    let { wasm, fullParams } = wasmAndFullParams;
-    return await createGlvScalarFromWasm(fullParams, wasm);
-  }
-  let { wasmArtifacts, instance, fullParams } =
-    await createGlvScalarWasm(params);
-  return await createGlvScalarFromWasm(fullParams, wasmArtifacts, instance);
+  let { wasm, fullParams } =
+    wasmAndFullParams ?? (await compileGlvScalar(params));
+  return await createGlvScalarFromWasm(fullParams, wasm);
 }
 
 /**
  * scalar module for MSM with GLV
  */
-async function createGlvScalarWasm({ q, lambda, w }: Params) {
+function glvScalarModule({ q, lambda, w }: Params) {
   const { n, nPackedBytes } = montgomeryParams(q, w, 1);
   const { decompose, n0, maxBits } = glvGeneral(q, lambda, w, n);
   let memSize = 1 << 14;
   let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
 
-  let module = Module({
+  let wasm = Module({
     exports: {
       decompose,
       decomposeAndSlice: decomposeAndSlice(decompose, w, n, n0),
@@ -51,41 +54,35 @@ async function createGlvScalarWasm({ q, lambda, w }: Params) {
       extractBitSlice: extractBitSlice(w, n0),
       extractBitSliceNoGlv: extractBitSlice(w, n),
       memory: wasmMemory,
-      dataOffset: global(Const.i32(0)),
+      dataOffset: global(constant(() => i32.const(0))),
     },
   });
 
-  let { instance, module: wasmModule } = await module.instantiate();
-  return {
-    wasmArtifacts: { module: wasmModule, memory: wasmMemory.value },
-    instance,
-    fullParams: { q, lambda, w, n, n0, maxBits },
-  };
+  return { wasm, fullParams: { q, lambda, w, n, n0, maxBits } };
 }
 
-type GlvScalarWasm = UnwrapPromise<
-  ReturnType<typeof createGlvScalarWasm>
->["instance"];
+async function compileGlvScalar(params: Params) {
+  let { wasm, fullParams } = glvScalarModule(params);
+  let artifacts: WasmArtifacts = {
+    module: await wasm.compile(),
+    importMap: wasm.importMap,
+  };
+  return { wasm: artifacts, fullParams };
+}
+
+type GlvScalarInstance = ModuleInstance<
+  ReturnType<typeof glvScalarModule>["wasm"]
+>;
 
 async function createGlvScalarFromWasm(
   params: GlvScalarParams,
-  wasmArtifacts: WasmArtifacts,
-  instance?: GlvScalarWasm
+  wasmArtifacts: WasmArtifacts
 ) {
   let { q, lambda, w, n, n0, maxBits } = params;
-  if (instance === undefined) {
-    let imports = WebAssembly.Module.imports(wasmArtifacts.module);
-    // TODO abstraction leak - we have to know that there is no other import to do this
-    // should work with any number of other imports, possibly by making memory import lazy and
-    // add a module method to create the import object, with an override for the memory
-    assert(imports.length === 1 && imports[0].kind === "memory");
-    let { module, name } = imports[0];
-    let importObject = { [module]: { [name]: wasmArtifacts.memory } };
-    instance = (await WebAssembly.instantiate(
-      wasmArtifacts.module,
-      importObject
-    )) as GlvScalarWasm;
-  }
+  let instance = (await WebAssembly.instantiate(
+    wasmArtifacts.module,
+    wasmArtifacts.importMap
+  )) as GlvScalarInstance;
   const glvWasm = instance.exports;
   const glvHelpers = memoryHelpers(q, w, n, glvWasm);
 

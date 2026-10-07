@@ -1,5 +1,5 @@
 import {
-  Const,
+  constant,
   Dependency,
   type Local,
   br_if,
@@ -23,19 +23,16 @@ class ImplicitMemory {
   }
 
   data(bytes: Uint8Array | number[]) {
-    let offset = Const.i32(this.dataOffset);
+    let offset = this.dataOffset;
     let dataSegment = data({ offset, memory: this.memory }, bytes);
     this.dataSegments.push(dataSegment);
     this.dataOffset += bytes.length;
-    return global(offset);
+    return global(constant(() => i32.const(offset)));
   }
 
   dataToOffset(bytes: Uint8Array | number[]) {
     let offset = this.dataOffset;
-    let dataSegment = data(
-      { offset: Const.i32(offset), memory: this.memory },
-      bytes
-    );
+    let dataSegment = data({ offset, memory: this.memory }, bytes);
     this.dataSegments.push(dataSegment);
     this.dataOffset += bytes.length;
     return offset;
@@ -44,7 +41,7 @@ class ImplicitMemory {
   getExports() {
     return {
       memory: this.memory,
-      dataOffset: global(Const.i32(this.dataOffset)),
+      dataOffset: global(constant(() => i32.const(this.dataOffset))),
     };
   }
 }
@@ -67,7 +64,7 @@ function forLoop(
   if (typeof start === "number") i32.const(start);
   else local.get(start);
   local.set(i);
-  loop({}, () => {
+  loop(() => {
     callback();
     // i += incr
     i32.add(i, incr);

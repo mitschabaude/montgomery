@@ -126,7 +126,7 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
         { out: [i32] },
         () => {
           i64.ne(tmp, -1n);
-          if_(null, () => unreachable());
+          if_(() => unreachable());
           flipSign(s0, tmp, n);
           i32.const(1); // return isNegative flag
         },
@@ -153,7 +153,7 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
         { out: [i32] },
         () => {
           i64.ne(tmp, -1n);
-          if_(null, () => unreachable());
+          if_(() => unreachable());
           flipSign(s1, tmp, n);
           i32.const(1); // return isNegative flag
         },
@@ -275,7 +275,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
       local.set(l, i32.add(r, sizeScalar));
 
       // check if r < lambda
-      block({}, () => {
+      block(() => {
         for (let i = n - 1; i >= 0; i--) {
           // if (r[i] < lambda[i]) return
           local.set(tmp, i64.extend_i32_u(i32.load({ offset: 4 * i }, r)));
@@ -386,7 +386,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
         Number(lambdaShifted[2 * n - 2])
       );
       local.tee(flagNegateBoth);
-      control.if({}, () => {
+      control.if(() => {
         call(negateNoReduceDouble, { x: s });
       });
 
@@ -403,7 +403,7 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
       // test msb in highest limb
       i32.shr_u(i32.load({ offset: 4 * (n - 1) }, s), msbInHighestLimb);
       local.tee(flagNegateFirst);
-      control.if({}, () => {
+      control.if(() => {
         call(negateFirstHalfNoReduce, { s0: s });
       });
 

@@ -188,11 +188,11 @@ function curveOps(
       let M = f.element();
 
       i32.eqz(n);
-      if_(null, () => return_());
+      if_(() => return_());
       // y1_i := (y2_i - y1_i) prod_{j<i} dx_j, ACC = prod_{j<=i} dx_j
       local.set(i, 0);
-      block(null, (done) => {
-        loop(null, (next) => {
+      block((done) => {
+        loop((next) => {
           i32.ge_u(i, n);
           br_if(done);
           loadPair();
@@ -202,7 +202,6 @@ function curveOps(
           f.store(dxi, 0, DX);
           i32.eqz(i);
           if_(
-            null,
             () => {
               f.store(g, S, M);
               f.copy(ACC, DX);
@@ -226,8 +225,8 @@ function curveOps(
       });
       f.load(ACC, inv, S);
       // walk back: m_i = y1_i ACC, add, ACC *= dx_i
-      block(null, (done) => {
-        loop(null, (next) => {
+      block((done) => {
+        loop((next) => {
           local.set(i, i32.sub(i, 1));
           loadPair();
           local.set(dxi, i32.add(dx, i32.mul(i, S)));
@@ -299,27 +298,27 @@ function curveOps(
       let ZERO = f.input(formulas.zeroPtr);
 
       i32.eqz(n);
-      if_(null, () => return_());
+      if_(() => return_());
       f.load(ACC, onePtr);
       // y1_i := (numerator of slope_i) prod_{j<i} dx_j, ACC = prod_{j<=i} dx_j
       local.set(i, 0);
-      block(null, (done) => {
-        loop(null, (next) => {
+      block((done) => {
+        loop((next) => {
           i32.ge_u(i, n);
           br_if(done);
           loadPair();
           local.set(kind, SKIP);
-          block(null, (classified) => {
+          block((classified) => {
             // with G and H at the same address, the batch would overwrite the
             // y of H, so G is doubled on its own
             i32.eq(g, h);
-            if_(null, () => {
+            if_({ likely: false }, () => {
               isZero(g);
               br_if(classified);
               f.load(Y, g, S);
               f.reduce(Y);
               f.isEqual(Y, ZERO);
-              if_(null, () => {
+              if_(() => {
                 i32.store8({ offset: 2 * S }, g, 0);
                 br(classified);
               });
@@ -340,24 +339,24 @@ function curveOps(
             });
             // G = 0: G + H = H
             isZero(g);
-            if_(null, () => {
+            if_({ likely: false }, () => {
               copyBytes(g, h, 2 * S + 1);
               br(classified);
             });
             isZero(h);
-            br_if(classified);
+            br_if(classified, { likely: false });
             f.subtract(DX, f.input(h), f.input(g));
             f.reduce(DX);
             f.isEqual(DX, ZERO);
             if_(
-              null,
+              { likely: false },
               () => {
                 f.subtract(M, f.input(h, S), f.input(g, S));
                 f.reduce(M);
                 f.isEqual(M, ZERO);
                 // G = -H: G + H = 0
                 i32.eqz();
-                if_(null, () => {
+                if_(() => {
                   i32.store8({ offset: 2 * S }, g, 0);
                   br(classified);
                 });
@@ -365,7 +364,7 @@ function curveOps(
                 f.load(Y, h, S);
                 f.reduce(Y);
                 f.isEqual(Y, ZERO);
-                if_(null, () => {
+                if_(() => {
                   i32.store8({ offset: 2 * S }, g, 0);
                   br(classified);
                 });
@@ -402,14 +401,14 @@ function curveOps(
       });
       f.load(ACC, inv, S);
       // walk back: slope_i = y1_i ACC, add, ACC *= dx_i
-      block(null, (done) => {
-        loop(null, (next) => {
+      block((done) => {
+        loop((next) => {
           i32.eqz(i);
           br_if(done);
           local.set(i, i32.sub(i, 1));
           local.set(kind, i32.load8_u({}, i32.add(kinds, i)));
           i32.eq(kind, SKIP);
-          br_if(next);
+          br_if(next, { likely: false });
           loadPair();
           local.set(dxi, i32.add(dx, i32.mul(i, S)));
           f.load(DX, dxi);
@@ -504,7 +503,7 @@ function curveOps(
     { in: [{ scratch: i32 }, { p3: i32 }, { p1: i32 }], locals, out: [] },
     ({ scratch, p3, p1 }, L) => {
       isZeroProjective(p1);
-      if_(null, () => {
+      if_(() => {
         setNonZeroProjective(p3, 0);
         return_();
       });
@@ -576,7 +575,7 @@ function curveOps(
       ({ scratch, p3, p1, p2 }, L) => {
         let { y3 } = L;
         isZeroProjective(p1);
-        if_(null, () => {
+        if_(() => {
           copyBytes(p3, p2, 3 * S + 1);
           if (isSubtract) {
             local.set(y3, i32.add(p3, S));
@@ -585,7 +584,7 @@ function curveOps(
           return_();
         });
         isZeroProjective(p2);
-        if_(null, () => {
+        if_(() => {
           copyBytes(p3, p1, 3 * S + 1);
           return_();
         });
@@ -617,12 +616,11 @@ function curveOps(
         f.reduce(X1Z2);
         f.reduce(X2Z1);
         f.isEqual(X1Z2, X2Z1);
-        if_(null, () => {
+        if_(() => {
           f.reduce(Y1Z2);
           f.reduce(Y2Z1);
           f.isEqual(Y1Z2, Y2Z1);
           if_(
-            null,
             () => call(doubleProjective, { scratch, p3, p1 }),
             () => setNonZeroProjective(p3, 0)
           );
@@ -817,7 +815,7 @@ function curveOps(
         f.isEqual(F, zero);
         f.isEqual(G, zero);
         i32.or();
-        if_(null, () => {
+        if_({ likely: false }, () => {
           call(unified, { scratch, p3, p1, p2, k });
           return_();
         });

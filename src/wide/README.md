@@ -42,8 +42,8 @@ End-to-end MSMs with `scripts/run-msm-*.ts <n> <threads> --evaluate --backend=<2
 
 | Curve | Points | Threads | 29-bit | Wide |
 | --- | ---: | ---: | ---: | ---: |
-| Pallas | 2^16 | 1 | 410 ms | 190 ms |
-| Pallas | 2^18 | 16 | 210 ms | 112 ms |
-| BN254 | 2^18 | 16 | 239 ms | 115 ms |
-| BLS12-377 | 2^18 | 16 | 454 ms | 219 ms |
-| Edwards-on-BLS12-377 | 2^18 | 16 | 350 ms | 183 ms |
+| Pallas | 2^16 | 1 | 394 ms | 180 ms |
+| Pallas | 2^18 | 16 | 192 ms | 97 ms |
+| BN254 | 2^18 | 16 | 237 ms | 108 ms |
+| BLS12-377 | 2^18 | 16 | 486 ms | 197 ms |
+| Edwards-on-BLS12-377 | 2^18 | 16 | 341 ms | 173 ms |
