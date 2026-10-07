@@ -28,11 +28,8 @@ type MsmFieldParams = {
 };
 
 async function createMsmField(params: MsmFieldParams, wasm?: WasmArtifacts) {
-  if (wasm !== undefined) {
-    return await createFieldFromWasm(params, wasm);
-  }
-  let { instance, wasmArtifacts } = await createFieldWasm(params);
-  return await createFieldFromWasm(params, wasmArtifacts, instance);
+  wasm ??= await compileField(params);
+  return await createFieldFromWasm(params, wasm);
 }
 
 type MsmFieldInstance = Instance<ReturnType<typeof fieldModule>>;
@@ -92,21 +89,16 @@ function fieldModule({
   });
 }
 
-async function createFieldWasm(params: MsmFieldParams) {
+async function compileField(params: MsmFieldParams): Promise<WasmArtifacts> {
   let wasm = fieldModule(params);
-  let { instance, module } = await wasm.instantiate();
-  return {
-    wasmArtifacts: { module, importMap: wasm.importMap },
-    instance,
-  };
+  return { module: await wasm.compile(), importMap: wasm.importMap };
 }
 
 async function createFieldFromWasm(
   { p, backend = "29-bit", w, minExtraBits, localRatio }: MsmFieldParams,
-  wasmArtifacts: WasmArtifacts,
-  instance?: MsmFieldInstance
+  wasmArtifacts: WasmArtifacts
 ) {
-  instance ??= (await WebAssembly.instantiate(
+  let instance = (await WebAssembly.instantiate(
     wasmArtifacts.module,
     wasmArtifacts.importMap
   )) as MsmFieldInstance;

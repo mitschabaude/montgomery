@@ -22,11 +22,8 @@ type ScalarParams = { q: bigint; w: number };
  * scalar module for basic MSM
  */
 async function createScalar(params: ScalarParams, wasm?: WasmArtifacts) {
-  if (wasm !== undefined) {
-    return await createScalarFromWasm(params, wasm);
-  }
-  let { wasmArtifacts, instance } = await createScalarWasm(params);
-  return await createScalarFromWasm(params, wasmArtifacts, instance);
+  wasm ??= await compileScalar(params);
+  return await createScalarFromWasm(params, wasm);
 }
 
 /**
@@ -47,25 +44,20 @@ function scalarModule({ q, w }: { q: bigint; w: number }) {
   });
 }
 
-async function createScalarWasm(params: ScalarParams) {
+async function compileScalar(params: ScalarParams): Promise<WasmArtifacts> {
   let wasm = scalarModule(params);
-  let { instance, module } = await wasm.instantiate();
-  return {
-    wasmArtifacts: { module, importMap: wasm.importMap },
-    instance,
-  };
+  return { module: await wasm.compile(), importMap: wasm.importMap };
 }
 
 type ScalarInstance = Instance<ReturnType<typeof scalarModule>>;
 
 async function createScalarFromWasm(
   params: ScalarParams,
-  wasmArtifacts: WasmArtifacts,
-  instance?: ScalarInstance
+  wasmArtifacts: WasmArtifacts
 ) {
   let { q, w } = params;
   const { n } = montgomeryParams(q, w, 1);
-  instance ??= (await WebAssembly.instantiate(
+  let instance = (await WebAssembly.instantiate(
     wasmArtifacts.module,
     wasmArtifacts.importMap
   )) as ScalarInstance;

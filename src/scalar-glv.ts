@@ -31,13 +31,9 @@ async function createGlvScalar(
   params: Params,
   wasmAndFullParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
 ) {
-  if (wasmAndFullParams !== undefined) {
-    let { wasm, fullParams } = wasmAndFullParams;
-    return await createGlvScalarFromWasm(fullParams, wasm);
-  }
-  let { wasmArtifacts, instance, fullParams } =
-    await createGlvScalarWasm(params);
-  return await createGlvScalarFromWasm(fullParams, wasmArtifacts, instance);
+  let { wasm, fullParams } =
+    wasmAndFullParams ?? (await compileGlvScalar(params));
+  return await createGlvScalarFromWasm(fullParams, wasm);
 }
 
 /**
@@ -65,25 +61,23 @@ function glvScalarModule({ q, lambda, w }: Params) {
   return { wasm, fullParams: { q, lambda, w, n, n0, maxBits } };
 }
 
-async function createGlvScalarWasm(params: Params) {
+async function compileGlvScalar(params: Params) {
   let { wasm, fullParams } = glvScalarModule(params);
-  let { instance, module } = await wasm.instantiate();
-  return {
-    wasmArtifacts: { module, importMap: wasm.importMap },
-    instance,
-    fullParams,
+  let artifacts: WasmArtifacts = {
+    module: await wasm.compile(),
+    importMap: wasm.importMap,
   };
+  return { wasm: artifacts, fullParams };
 }
 
 type GlvScalarInstance = Instance<ReturnType<typeof glvScalarModule>["wasm"]>;
 
 async function createGlvScalarFromWasm(
   params: GlvScalarParams,
-  wasmArtifacts: WasmArtifacts,
-  instance?: GlvScalarInstance
+  wasmArtifacts: WasmArtifacts
 ) {
   let { q, lambda, w, n, n0, maxBits } = params;
-  instance ??= (await WebAssembly.instantiate(
+  let instance = (await WebAssembly.instantiate(
     wasmArtifacts.module,
     wasmArtifacts.importMap
   )) as GlvScalarInstance;
