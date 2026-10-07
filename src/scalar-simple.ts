@@ -5,7 +5,7 @@ import {
   Module,
   global,
   importMemory,
-  type Instance,
+  type ModuleInstance,
 } from "wasmati";
 import { log2 } from "./util.ts";
 import { memoryHelpers } from "./wasm/memory-helpers.ts";
@@ -49,7 +49,7 @@ async function compileScalar(params: ScalarParams): Promise<WasmArtifacts> {
   return { module: await wasm.compile(), importMap: wasm.importMap };
 }
 
-type ScalarInstance = Instance<ReturnType<typeof scalarModule>>;
+type ScalarInstance = ModuleInstance<ReturnType<typeof scalarModule>>;
 
 async function createScalarFromWasm(
   params: ScalarParams,

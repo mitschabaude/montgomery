@@ -5,7 +5,7 @@ import {
   Module,
   global,
   importMemory,
-  type Instance,
+  type ModuleInstance,
 } from "wasmati";
 import { glvGeneral } from "./wasm/glv.ts";
 import { log2 } from "./util.ts";
@@ -70,7 +70,9 @@ async function compileGlvScalar(params: Params) {
   return { wasm: artifacts, fullParams };
 }
 
-type GlvScalarInstance = Instance<ReturnType<typeof glvScalarModule>["wasm"]>;
+type GlvScalarInstance = ModuleInstance<
+  ReturnType<typeof glvScalarModule>["wasm"]
+>;
 
 async function createGlvScalarFromWasm(
   params: GlvScalarParams,

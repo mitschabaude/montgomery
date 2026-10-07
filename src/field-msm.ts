@@ -1,5 +1,5 @@
 import type * as W from "wasmati"; // for type names
-import { Module, importMemory, type Instance } from "wasmati";
+import { Module, importMemory, type ModuleInstance } from "wasmati";
 import { ImplicitMemory } from "./wasm/wasm-util.ts";
 import { mod } from "./bigint/field-util.ts";
 import { curveOps } from "./wasm/curve.ts";
@@ -32,7 +32,7 @@ async function createMsmField(params: MsmFieldParams, wasm?: WasmArtifacts) {
   return await createFieldFromWasm(params, wasm);
 }
 
-type MsmFieldInstance = Instance<ReturnType<typeof fieldModule>>;
+type MsmFieldInstance = ModuleInstance<ReturnType<typeof fieldModule>>;
 type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
 
 function fieldModule({
