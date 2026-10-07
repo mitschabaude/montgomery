@@ -427,13 +427,15 @@ function createMsm({
     let sizeAffine2 = 2 * sizeAffine;
     let hasPoints = true;
     while (hasPoints || retry.length > 0) {
-      // retries first, then new points until the batch is full
+      // retries first, then new points until the batch is full. with few
+      // buckets, it may never be full, so we also stop when there are as
+      // many retries as fit in a batch
       if (retry.length > 0) {
         let old = retry;
         retry = [];
         for (let r = 0; r < old.length; r += 2) add(old[r], old[r + 1]);
       }
-      while (hasPoints && nPairs < B) {
+      while (hasPoints && nPairs < B && retry.length < 2 * B) {
         if (h === hEnd) {
           chunk = chunks.next();
           if (chunk.done) hasPoints = false;

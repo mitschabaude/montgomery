@@ -31,7 +31,7 @@ function windowSizeAffine(Field: { sizeInBits: number }, n: number) {
  * tables of the form `n: c`, which has msm window sizes for different n.
  * n is the log-size of scalar and point inputs.
  *
- * table was optimized with 16 threads on my laptop, with two different types of curves:
+ * tables were optimized with 16 threads, on my laptop (projective) and on an 8-core Ryzen 7 3700X (affine), with two different types of curves:
  * - 'large' (~384 bit base field)
  * - 'small' (~256 bit base field)
  *
@@ -46,20 +46,34 @@ const windowSizeTable: {
   // TODO
   large: {},
   "large-affine": {
+    12: 12,
+    13: 12,
     14: 13,
-    15: 14,
-    16: 14,
-    17: 14,
-    18: 14,
-    19: 18,
-    20: 18,
+    15: 13,
+    16: 15,
+    17: 16,
+    18: 16,
+    19: 16,
+    20: 16,
+    21: 16,
+    22: 16,
   },
   // TODO
   small: {
     16: 14,
   },
   "small-affine": {
-    16: 12,
+    12: 12,
+    13: 12,
+    14: 12,
+    15: 13,
+    16: 15,
+    17: 15,
+    18: 16,
+    19: 16,
+    20: 15,
+    21: 16,
+    22: 16,
   },
 };
 
