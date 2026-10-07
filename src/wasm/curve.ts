@@ -163,16 +163,18 @@ function curveOps(
    * Unsafe: assumes no point is zero and G_i != +-H_i, which holds with
    * overwhelming probability for independent random inputs.
    *
-   * scratch: 12 field elements
+   * The denominators x2 - x1 are kept in `dx` for the walk back.
+   *
+   * scratch: 12 field elements; dx: n field elements
    */
   const batchAddUnsafe = func(
     {
-      in: [{ scratch: i32 }, { pairs: i32 }, { n: i32 }],
-      locals: { ...locals, g: i32, h: i32, i: i32, inv: i32 },
+      in: [{ scratch: i32 }, { dx: i32 }, { pairs: i32 }, { n: i32 }],
+      locals: { ...locals, g: i32, h: i32, i: i32, inv: i32, dxi: i32 },
       out: [],
     },
-    ({ scratch, pairs, n }, L) => {
-      let { g, h, i, inv } = L;
+    ({ scratch, dx, pairs, n }, L) => {
+      let { g, h, i, inv, dxi } = L;
       // formula elements first, then the inversion's input, output and scratch
       let f = context(L, scratch, 7);
       local.set(inv, i32.add(scratch, 7 * S));
@@ -196,6 +198,8 @@ function curveOps(
           loadPair();
           f.subtractLoose(M, f.input(h, S), f.input(g, S));
           f.subtractLoose(DX, f.input(h), f.input(g));
+          local.set(dxi, i32.add(dx, i32.mul(i, S)));
+          f.store(dxi, 0, DX);
           i32.eqz(i);
           if_(
             null,
@@ -226,7 +230,8 @@ function curveOps(
         loop(null, (next) => {
           local.set(i, i32.sub(i, 1));
           loadPair();
-          f.subtractLoose(DX, f.input(h), f.input(g));
+          local.set(dxi, i32.add(dx, i32.mul(i, S)));
+          f.load(DX, dxi);
           f.load(M, g, S);
           f.multiply(M, M, ACC);
           addAffineGivenSlope(f, g, g, h, M);
@@ -242,26 +247,39 @@ function curveOps(
   const onePtr = implicitMemory.dataToOffset(
     Field.bigintToData(mod(Field.R, Field.p))
   );
-  // kinds of additions in a safe batch
+  // whether a safe batch adds a pair, which includes doubling
   const SKIP = 0;
   const ADD = 1;
-  const DOUBLE = 2;
 
   /**
    * Like {@link batchAddUnsafe}, but handles zero points and G_i = +-H_i.
    * Equal points are doubled within the same batch inversion: only the slope
    * changes, to 3x^2 / 2y. The rare cases are branches off the common path.
    *
-   * scratch: 13 field elements; kinds: n bytes
+   * scratch: 13 field elements; dx: n field elements; kinds: n bytes
    */
   const batchAdd = func(
     {
-      in: [{ scratch: i32 }, { kinds: i32 }, { pairs: i32 }, { n: i32 }],
-      locals: { ...locals, g: i32, h: i32, i: i32, inv: i32, kind: i32 },
+      in: [
+        { scratch: i32 },
+        { dx: i32 },
+        { kinds: i32 },
+        { pairs: i32 },
+        { n: i32 },
+      ],
+      locals: {
+        ...locals,
+        g: i32,
+        h: i32,
+        i: i32,
+        inv: i32,
+        kind: i32,
+        dxi: i32,
+      },
       out: [],
     },
-    ({ scratch, kinds, pairs, n }, L) => {
-      let { g, h, i, inv, kind } = L;
+    ({ scratch, dx, kinds, pairs, n }, L) => {
+      let { g, h, i, inv, kind, dxi } = L;
       // formula elements first, then the inversion's input, output and scratch
       let f = context(L, scratch, 8);
       local.set(inv, i32.add(scratch, 8 * S));
@@ -278,11 +296,6 @@ function curveOps(
       let T = f.element();
       let Y = f.element();
       let ZERO = f.input(formulas.zeroPtr);
-      // 2y, the slope's denominator for doubling
-      let twoY = () => {
-        f.load(Y, h, S);
-        f.add(DX, Y, Y);
-      };
 
       i32.eqz(n);
       if_(null, () => return_());
@@ -324,8 +337,9 @@ function curveOps(
                 f.square(T, T);
                 f.add(M, T, T);
                 f.add(M, M, T);
-                twoY();
-                local.set(kind, DOUBLE);
+                f.load(Y, h, S);
+                f.add(DX, Y, Y);
+                local.set(kind, ADD);
               },
               () => {
                 f.subtractLoose(M, f.input(h, S), f.input(g, S));
@@ -335,6 +349,8 @@ function curveOps(
             f.multiply(M, ACC, M);
             f.store(g, S, M);
             f.multiply(ACC, ACC, DX);
+            local.set(dxi, i32.add(dx, i32.mul(i, S)));
+            f.store(dxi, 0, DX);
           });
           i32.store8({}, i32.add(kinds, i), kind);
           local.set(i, i32.add(i, 1));
@@ -359,12 +375,8 @@ function curveOps(
           i32.eq(kind, SKIP);
           br_if(next);
           loadPair();
-          i32.eq(kind, ADD);
-          if_(
-            null,
-            () => f.subtractLoose(DX, f.input(h), f.input(g)),
-            () => twoY()
-          );
+          local.set(dxi, i32.add(dx, i32.mul(i, S)));
+          f.load(DX, dxi);
           f.load(M, g, S);
           f.multiply(M, M, ACC);
           // with x1 = x2 and y1 = y2, this is the doubling formula

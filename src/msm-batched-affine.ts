@@ -358,6 +358,7 @@ function createMsm({
     let pairsPtr = Field.local.getPointer(8 * B);
     // scratch for safe additions
     let kinds = Field.local.getPointer(B);
+    let dx = Field.local.getPointer(B * sizeField);
     let pairs = new Uint32Array(memoryBytes.buffer, pairsPtr, 2 * B);
     let nPairs = 0;
     // the last batch that added into each bucket
@@ -409,9 +410,9 @@ function createMsm({
         h++;
       }
       if (useSafeAdditions) {
-        Field.batchAdd(scratch[0], kinds, pairsPtr, nPairs);
+        Field.batchAdd(scratch[0], dx, kinds, pairsPtr, nPairs);
       } else {
-        Field.batchAddUnsafe(scratch[0], pairsPtr, nPairs);
+        Field.batchAddUnsafe(scratch[0], dx, pairsPtr, nPairs);
       }
       nPairs = 0;
       batch++;
@@ -457,6 +458,7 @@ function createMsm({
     }
     let pairsPtr = Field.local.getPointer(8 * J);
     let kinds = Field.local.getPointer(J);
+    let dx = Field.local.getPointer(J * sizeField);
     let pairs = new Uint32Array(memoryBytes.buffer, pairsPtr, 2 * J);
 
     // empty buckets are common, so we need safe additions
@@ -465,7 +467,7 @@ function createMsm({
         pairs[2 * j] = triangles[j];
         pairs[2 * j + 1] = rows[j];
       }
-      Field.batchAdd(scratch[0], kinds, pairsPtr, J);
+      Field.batchAdd(scratch[0], dx, kinds, pairsPtr, J);
     };
     for (let i = m - 1; i >= 0; i--) {
       if (i < m - 1) addRows();
@@ -476,7 +478,7 @@ function createMsm({
           pairs[2 * p] = rows[j];
           pairs[2 * p + 1] = buckets + l * sizeAffine;
         }
-        Field.batchAdd(scratch[0], kinds, pairsPtr, p);
+        Field.batchAdd(scratch[0], dx, kinds, pairsPtr, p);
       }
     }
     addRows();
