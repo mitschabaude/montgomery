@@ -19,3 +19,16 @@ jobs:
       - run: npm test
       - run: node doc/zprize23/submission-test.ts
       - run: node doc/zprize23/submission-test-bls377.ts
+
+  wide:
+    # Wasm wide arithmetic needs --wasm-wide-arithmetic, which only Node nightlies support.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "27-nightly"
+          cache: npm
+      - run: npm ci
+      - run: npm run test-wide

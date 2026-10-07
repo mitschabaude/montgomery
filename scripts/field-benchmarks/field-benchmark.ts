@@ -1,4 +1,13 @@
-import { Const, Module, call, drop, func, global, i32, memory } from "wasmati";
+import {
+  Const,
+  Module,
+  call,
+  func,
+  global,
+  i32,
+  memory,
+  type Local,
+} from "wasmati";
 import { tic, toc } from "../../src/testing/tictoc.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { memoryHelpers } from "../../src/wasm/memory-helpers.ts";
@@ -12,7 +21,7 @@ import { fieldExp } from "../../src/wasm/exp.ts";
 import { createSqrt } from "../../src/field-sqrt.ts";
 import { createConstants } from "../../src/field-msm.ts";
 import { mod, montgomeryParams } from "../../src/bigint/field-util.ts";
-import { fastInverse } from "../../src/inverse/faster-inverse-wasm.ts";
+import { benchmarkInverses } from "./wide-inverse.ts";
 import {
   bigintFromBytes,
   bigintFromBytes32,
@@ -23,17 +32,37 @@ import {
 } from "../../src/util.ts";
 import { randomGenerators } from "../../src/bigint/field-random.ts";
 import { createWasmWithBenches } from "../../src/51x5/field.ts";
+import { createField as createWideField } from "../../src/wide/field-base.ts";
+import { arithmetic as wideArithmetic } from "../../src/wide/arithmetic.ts";
+import { multiplyMontgomery as wideMultiply } from "../../src/wide/multiply.ts";
 
 export { benchmark };
 
 async function benchmark(
   { p, t }: { p: bigint; t: bigint },
-  { doWrite = false, onlyQuick = false } = {}
+  { doWrite = false, onlyQuick = false, wide = false } = {}
 ) {
   let { randomField, randomFieldx2 } = randomGenerators(p);
+  const initial = randomField();
   let N = 1e7;
   let Ninv = 5e5;
   let Npow = 5e4;
+
+  if (wide) {
+    const { F, W, x, z, write } = await createWideBenches(p);
+    console.log(
+      `wide: ${F.n} x 64 bits, ${F.lazy ? "lazy [0, 2p)" : "canonical [0, p)"}`
+    );
+    write(x, initial);
+    bench("multiply wide", W.multiply, { x, z, N });
+    write(x, initial);
+    bench("square wide", W.square, { x, z, N });
+    write(x, initial);
+    bench("add wide", W.add, { x, z, N }, 3);
+    write(x, initial);
+    write(z, 0n);
+    bench("sub wide", W.subtract, { x, z, N }, 3);
+  }
 
   if (p < 1n << 255n) {
     let Fp = await createWasmWithBenches(p);
@@ -93,44 +122,23 @@ async function benchmark(
       }
     );
 
+    const benchSub = func(
+      {
+        in: [{ x: i32 }, { z: i32 }, { N: i32 }],
+        locals: { i: i32 },
+        out: [],
+      },
+      ({ x, z, N }, { i }) => {
+        forLoop1(i, 0, N, () => {
+          for (let j = 0; j < 3; j++)
+            call(Field.subtract, { out: z, x: z, y: x });
+        });
+      }
+    );
+
     let implicitMemory = new ImplicitMemory(memory({ min: 100 }));
 
     let { inverse } = fieldInverse(implicitMemory, Field);
-
-    const benchInverse = func(
-      {
-        in: [{ scratch: i32 }, { x: i32 }, { y: i32 }, { N: i32 }],
-        locals: { i: i32 },
-        out: [],
-      },
-      ({ scratch, x, y, N }, { i }) => {
-        forLoop1(i, 0, N, () => {
-          // x <- x + y
-          call(Field.add, { out: x, x, y });
-          // y <- 1/x
-          call(inverse, { scratch, r: y, a: x });
-        });
-      }
-    );
-
-    let { almostInverse } = fastInverse(implicitMemory, Field);
-
-    const benchFastAlmostInverse = func(
-      {
-        in: [{ scratch: i32 }, { x: i32 }, { y: i32 }, { N: i32 }],
-        locals: { i: i32 },
-        out: [],
-      },
-      ({ scratch, x, y, N }, { i }) => {
-        forLoop1(i, 0, N, () => {
-          // x <- x + y
-          call(Field.add, { out: x, x, y });
-          // y <- 1/x
-          call(almostInverse, { v: scratch, s: y, a: x });
-          drop();
-        });
-      }
-    );
 
     let module = Module({
       exports: {
@@ -139,8 +147,7 @@ async function benchmark(
         benchBarrett,
         benchSquare,
         benchAdd,
-        benchInverse,
-        benchFastAlmostInverse,
+        benchSub,
         exp: fieldExp(Field),
 
         memory: implicitMemory.memory,
@@ -204,36 +211,33 @@ async function benchmark(
       return x;
     }
 
-    let [scratch] = getPointers(2);
-    let x = getPointer();
+    let x = getPointer(2 * helpers.sizeField); // Schoolbook writes a double-width product.
     let y = getPointer();
-    writeBigint(x, randomFieldx2());
-    writeBigint(y, randomFieldx2());
-
     console.log(`w=${w}, n=${n}, nw=${n * w}, op x ${N}\n`);
 
+    writeBigint(x, initial);
     let tMul = bench("multiply montgomery", wasm.benchMontgomery, { x, N });
+    writeBigint(x, initial);
     bench("multiply barrett", wasm.benchBarrett, { x, N });
+    writeBigint(x, initial);
     bench("multiply schoolbook", wasm.benchSchoolbook, { x, N });
+    writeBigint(x, initial);
     bench("multiply square", wasm.benchSquare, { x, N });
 
     // bench("multiply bigint", benchMultiplyBigint, { x, N });
+    writeBigint(x, initial);
     bench("add", wasm.benchAdd, { x, N }, 3);
+    writeBigint(x, initial);
+    writeBigint(y, 0n);
+    bench("sub", wasm.benchSub, { x, z: y, N }, 3);
 
     if (onlyQuick) continue;
+
+    await benchmarkInverses(p, { wide: false });
 
     writeBigint(x, randomFieldx2());
     writeBigint(y, randomFieldx2());
 
-    bench2("inverse", () => wasm.benchInverse(scratch, x, y, Ninv), {
-      N: Ninv,
-      tMul,
-    });
-    bench2(
-      "fast inverse",
-      () => wasm.benchFastAlmostInverse(scratch, x, y, Ninv),
-      { N: Ninv, tMul }
-    );
     bench2("pow", () => benchPow(x, Npow), { N: Npow, tMul });
     bench2("sqrt", () => benchSqrt(x, y, Npow), { N: Npow, tMul });
 
@@ -340,4 +344,37 @@ function bench2(
     ).toFixed(0)}ns`
   );
   console.log();
+}
+
+// Dependent chains of wide arithmetic, x <- op(x, x) (or z <- z - x), in Wasm.
+async function createWideBenches(p: bigint) {
+  const F = createWideField(p);
+  const wasmMemory = memory({ min: 1 });
+  const ops = { ...wideArithmetic(F), ...wideMultiply(F) };
+  const loop = (op: (x: Local<i32>, z: Local<i32>) => void) =>
+    func(
+      { in: [{ x: i32 }, { z: i32 }, { N: i32 }], locals: { i: i32 }, out: [] },
+      ({ x, z, N }, { i }) => forLoop1(i, 0, N, () => op(x, z))
+    );
+  const module = Module({
+    memory: wasmMemory,
+    exports: {
+      memory: wasmMemory,
+      multiply: loop((x) => call(ops.multiply, { xy: x, x, y: x })),
+      square: loop((x) => call(ops.square, { xy: x, x })),
+      add: loop((x) => {
+        for (let j = 0; j < 3; j++) call(ops.add, { out: x, x, y: x });
+      }),
+      subtract: loop((x, z) => {
+        for (let j = 0; j < 3; j++) call(ops.subtract, { out: z, x: z, y: x });
+      }),
+    },
+  });
+  const W = (await module.instantiate()).instance.exports;
+  const view = new DataView(W.memory.buffer);
+  function write(ptr: number, value: bigint) {
+    for (let i = 0; i < F.n; i++, value >>= 64n)
+      view.setBigUint64(ptr + 8 * i, BigInt.asUintN(64, value), true);
+  }
+  return { F, W, x: 0, z: F.size, write };
 }

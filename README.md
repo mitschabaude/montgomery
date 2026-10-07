@@ -167,3 +167,4 @@ If your threat model does include timing side channels (server-side key operatio
 - Scripts in `scripts/` illustrate end-to-end use of each curve: `run-msm-pallas.ts`, `run-msm-377.ts`, `run-msm-ed-377.ts`, plus field-level benchmarks under `scripts/field-benchmarks/`.
 - `doc/zprize23/` - ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
 - `doc/zprize22.md` - ZPrize 2022 write-up explaining some of the algorithms underlying the MSM.
+- `src/wide/` — experimental field arithmetic using Wasm wide arithmetic; see its [notes and benchmarks](src/wide/README.md).

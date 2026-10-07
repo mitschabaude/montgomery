@@ -1,4 +1,5 @@
 import {
+  localArray,
   func,
   type Func,
   type JSFunction,
@@ -6,22 +7,26 @@ import {
   i64,
   local,
   block,
+  loop,
   if_,
   return_,
   call,
   type Local,
   $,
   drop,
+  br,
   br_if,
   importFunc,
   select,
-  memory,
   v128,
+  unreachable,
   i64x2,
 } from "wasmati";
 import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
 import { type FieldWithMultiply } from "../wasm/multiply-montgomery.ts";
 import { extractBitSlice } from "../wasm/field-helpers.ts";
+import { inverse as bigintInverse } from "../bigint/field.ts";
+import { mod } from "../bigint/field-util.ts";
 import { assert } from "../util.ts";
 
 export { fastInverse };
@@ -45,74 +50,9 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     }
   );
 
-  // assumes input is n limbs, and we shift by at most 1 limb
-  // also assumes that shifted result + additional hi limb again fits in n limbs
-  const makeOdd = func(
-    {
-      in: [{ u: i32 }, { uhi: i64 }],
-      locals: { k: i64, l: i64, tmp: i64 },
-      out: [i32],
-    },
-    ({ u, uhi }, { k, l, tmp }) => {
-      // k = count_trailing_zeros(u[0])
-      local.tee(tmp, Field.loadLimb(u, 0));
-      local.tee(k, i64.ctz($));
-      i64.eqz();
-      // if (k === 0) return; (the most common case)
-      if_(null, () => {
-        i32.const(0);
-        return_();
-      });
-
-      // if k === 64, shift by a whole limb
-      i64.eq(k, 64n);
-      if_(null, () => {
-        // copy u[1],...,u[n-1] --> u[0],...,u[n-2]
-        local.get(u);
-        i32.add(u, 4);
-        i32.const((n - 1) * 4);
-        memory.copy();
-
-        // u[n-1] = uhi
-        Field.storeLimb(u, n - 1, uhi);
-
-        i32.const(w);
-        return_();
-      });
-
-      // here we know that k \in 0,...,w-1
-      // l = w - k
-      local.set(l, i64.sub(Field.wn, k));
-
-      // u >> k
-
-      // for (let i = 0; i < n; i++) {
-      //   u[i] = (u[i] >> k) | ((u[i + 1] << l) & wordMax);
-      // }
-      // u[n] = u[n] >> k;
-      for (let i = 0; i < n - 1; i++) {
-        i64.shr_u(tmp, k);
-        local.tee(tmp, Field.loadLimb(u, i + 1));
-        i64.shl($, l);
-        i64.and($, Field.wordMax);
-        i64.or();
-        Field.storeLimb(u, i, $);
-      }
-      i64.shr_u(tmp, k);
-      i64.shl(uhi, l);
-      i64.and($, Field.wordMax);
-      i64.or();
-      Field.storeLimb(u, n - 1, $);
-
-      // return k
-      i32.wrap_i64(k);
-    }
-  );
-
   const extractBits = extractBitSlice(w, n);
 
   const hiBits = 63;
-  const resultMaxLimbs = n + 1;
 
   const logHex = (...args: bigint[]) => console.log(...args.map(hex));
   const logBin = (...args: bigint[]) => console.log(...args.map(bin));
@@ -146,22 +86,114 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     logBin
   );
 
+  const { wn, wordMax, P, size } = Field;
+  const mu = bigintInverse(-Field.p, 1n << wn);
+  // For an input xR, REDC((xR)^-1 * R^3) = x^-1 * R is the Montgomery inverse.
+  const correctionPtr = implicitMemory.dataToOffset(
+    Field.bigintToData(mod(Field.R ** 3n, Field.p))
+  );
+
+  // One limb of X = (x*f - y*g) / 2^w. For remainders the low limb is zero;
+  // for coefficients, m*p is added first to make the division exact mod p.
+  // Matrix rows satisfy |f| + |g| <= 2^w, so every limb sum stays below 2^60.
+  function linearLimb(
+    j: number,
+    xj: Local<i64>,
+    yj: Local<i64>,
+    f: Local<i64>,
+    g: Local<i64>,
+    X: Local<i64>[],
+    carry: Local<i64>,
+    tmp: Local<i64>,
+    m?: Local<i64>
+  ) {
+    i64.sub(i64.mul(xj, f), i64.mul(yj, g));
+    if (j > 0) i64.add($, carry);
+    if (m !== undefined) {
+      local.set(tmp, $);
+      if (j === 0) local.set(m, i64.and(i64.mul(tmp, mu), wordMax));
+      i64.add(tmp, i64.mul(m, P[j]));
+    }
+    Field.carrySigned($, tmp);
+    if (j > 0) local.set(X[j - 1], $);
+    else drop();
+    local.set(carry, $);
+  }
+  // X = (x*f0 - y*g0) / 2^w, Y = (y*g1 - x*f1) / 2^w. The top limbs hold
+  // signed carries.
+  function linearPair(
+    x: Local<i32>,
+    y: Local<i32>,
+    [f0, g0, f1, g1]: Local<i64>[],
+    X: Local<i64>[],
+    Y: Local<i64>[],
+    [xj, yj, carryX, carryY, tmp]: Local<i64>[],
+    m?: [Local<i64>, Local<i64>]
+  ) {
+    for (let j = 0; j < n; j++) {
+      local.set(xj, Field.loadLimb(x, j));
+      local.set(yj, Field.loadLimb(y, j));
+      linearLimb(j, xj, yj, f0, g0, X, carryX, tmp, m?.[0]);
+      linearLimb(j, yj, xj, g1, f1, Y, carryY, tmp, m?.[1]);
+    }
+    local.set(X[n - 1], carryX);
+    local.set(Y[n - 1], carryY);
+  }
+  function negate(X: Local<i64>[], carry: Local<i64>, tmp: Local<i64>) {
+    for (let j = 0; j < n - 1; j++) {
+      i64.sub(j === 0 ? 0n : carry, X[j]);
+      Field.carrySigned($, tmp);
+      local.set(X[j], $);
+      local.set(carry, $);
+    }
+    local.set(X[n - 1], i64.sub(n > 1 ? carry : 0n, X[n - 1]));
+  }
+  // Coefficients are in (-p, 2p) after an update; store them canonically.
+  function storeCoefficient(
+    x: Local<i32>,
+    X: Local<i64>[],
+    carry: Local<i64>,
+    tmp: Local<i64>
+  ) {
+    i64.lt_s(X[n - 1], 0n);
+    if_(null, () => {
+      for (let j = 0; j < n - 1; j++) {
+        i64.add(X[j], P[j]);
+        if (j > 0) i64.add($, carry);
+        Field.carrySigned($, tmp);
+        local.set(X[j], $);
+        local.set(carry, $);
+      }
+      i64.add(X[n - 1], P[n - 1]);
+      if (n > 1) i64.add($, carry);
+      local.set(X[n - 1], $);
+    });
+    Field.store(x, X);
+    call(Field.reduce, { x });
+  }
+
   /**
-   * input: pointers for
-   * - v + u + r (scratch space - 3 field elements)
-   * - s (output - 1 field element)
-   * - a (input - 1 field element)
+   * Montgomery inverse, xR -> x^-1 R.
+   *
+   * Binary GCD on (u, v) = (p, a), accumulating w steps at a time in a 2x2
+   * matrix using high/low approximations of u and v, then applying the
+   * matrix to the full remainders and coefficients. A negative remainder
+   * is negated together with its matrix row. Coefficients are divided by 2^w
+   * modulo p in every batch, which keeps a*r = u and a*s = v (mod p).
+   *
+   * Needs three field elements of scratch, disjoint from input and output.
+   * Output may alias the input. Traps on zero and nonunits. The output
+   * parameter r holds the coefficient s; local r is the other one.
    */
-  const almostInverse = func(
+  const inverse = func(
     {
-      in: [{ v: i32 }, { s: i32 }, { a: i32 }],
+      in: [{ scratch: i32 }, { r: i32 }, { a: i32 }],
       locals: {
+        v: i32,
         u: i32,
         r: i32,
-        i: i32,
-        tmp32: i32,
-        k: i32,
         ulen: i32,
+        tmp32: i32,
         uhi: i64,
         vhi: i64,
         ulo: i64,
@@ -172,23 +204,26 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         g0: i64,
         f1: i64,
         g1: i64,
-        uj: i64,
-        vj: i64,
-        carryu: i64,
-        carryv: i64,
+        xj: i64,
+        yj: i64,
+        carryX: i64,
+        carryY: i64,
         tmp: i64,
+        mX: i64,
+        mY: i64,
+        X: localArray(i64, n),
+        Y: localArray(i64, n),
       },
-      out: [i32],
+      out: [],
     },
     (
-      { v, s, a },
+      { scratch, r: s, a },
       {
+        v,
         u,
         r,
-        i,
-        tmp32,
-        k,
         ulen,
+        tmp32,
         uhi,
         vhi,
         ulo,
@@ -199,36 +234,42 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         g0,
         f1,
         g1,
-        uj,
-        vj,
-        carryu,
-        carryv,
+        xj,
+        yj,
+        carryX,
+        carryY,
         tmp,
+        mX,
+        mY,
+        X,
+        Y,
       }
     ) => {
-      // setup locals
-      local.set(u, i32.add(v, Field.size));
-      local.set(r, i32.add(u, Field.size));
-      let [rj, sj, carryr, carrys] = [uj, vj, carryu, carryv]; // reused locals
+      const matrix = [f0, g0, f1, g1];
+      const temps = [xj, yj, carryX, carryY, tmp];
+      local.set(v, scratch);
+      local.set(u, i32.add(scratch, size));
+      local.set(r, i32.add(scratch, 2 * size));
 
-      // u = p, v = a, r = 0, s = 1
-      Field.i32.store(u, Field.i32.P);
+      // v = a, u = p, r = 0, s = 1
       Field.copyInline(v, a);
+      call(Field.reduce, { x: v });
+      call(Field.isZero, { x: v });
+      if_(null, () => unreachable());
+      Field.i32.store(u, Field.i32.P);
       Field.i32.store(r, Field.i32.Zero);
       Field.i32.store(s, Field.i32.One);
 
-      block(null, ($break) => {
-        forLoop1(i, 0, 2 * n, () => {
-          // initialize local variables
+      block(null, (done) => {
+        loop(null, (again) => {
           local.set(f0g0, v128.const("i64x2", [1n, 0n]));
           local.set(f1g1, v128.const("i64x2", [0n, 1n]));
 
           local.set(ulo, Field.loadLimb(u, 0));
           local.set(vlo, Field.loadLimb(v, 0));
 
-          let vlen = tmp32;
-
           // max(len(u), len(v))
+          let vlen = tmp32;
           call(getBitLength, { x: u });
           local.tee(ulen);
           call(getBitLength, { x: v });
@@ -240,7 +281,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
           local.set(uhi, extractHiBits(u, ulen, hiBits, tmp32));
           local.set(vhi, extractHiBits(v, ulen, hiBits, tmp32));
 
-          // inner loop
           for (let j = 0; j < w; j++) {
             // if ((ulo & 1n) === 0n)
             i64.eqz(i64.and(ulo, 1n));
@@ -282,85 +322,55 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
                 );
               }
             );
-            local.set(k, i32.add(k, 1));
           }
-          local.get(f0g0);
-          local.set(f0, i64x2.extract_lane(0));
-          local.get(f0g0);
-          local.set(g0, i64x2.extract_lane(1));
+          local.set(f0, i64x2.extract_lane(0, f0g0));
+          local.set(g0, i64x2.extract_lane(1, f0g0));
+          local.set(f1, i64x2.extract_lane(0, f1g1));
+          local.set(g1, i64x2.extract_lane(1, f1g1));
 
-          local.get(f1g1);
-          local.set(f1, i64x2.extract_lane(0));
-          local.get(f1g1);
-          local.set(g1, i64x2.extract_lane(1));
+          // u = (u*f0 - v*g0) / 2^w, v = (v*g1 - u*f1) / 2^w
+          linearPair(u, v, matrix, X, Y, temps);
+          i64.lt_s(X[n - 1], 0n);
+          if_(null, () => {
+            negate(X, carryX, tmp);
+            local.set(f0, i64.sub(0n, f0));
+            local.set(g0, i64.sub(0n, g0));
+          });
+          i64.lt_s(Y[n - 1], 0n);
+          if_(null, () => {
+            negate(Y, carryY, tmp);
+            local.set(f1, i64.sub(0n, f1));
+            local.set(g1, i64.sub(0n, g1));
+          });
+          Field.store(u, X);
+          Field.store(v, Y);
 
-          // update u, v
-          // u = (u * f0 - v * g0) >> w
-          // v = (v * g1 - u * f1) >> w
-          // note that we store j result at j-1 location, which is the shift
-          let uIsZero = tmp32;
-          local.set(uIsZero, 1);
+          // r = (r*f0 - s*g0) / 2^w, s = (s*g1 - r*f1) / 2^w (mod p)
+          linearPair(r, s, matrix, X, Y, temps, [mX, mY]);
+          storeCoefficient(r, X, carryX, tmp);
+          storeCoefficient(s, Y, carryY, tmp);
 
-          for (let j = 0; j < n; j++) {
-            local.set(uj, Field.loadLimb(u, j));
-            local.set(vj, Field.loadLimb(v, j));
-
-            i64.sub(i64.mul(uj, f0), i64.mul(vj, g0));
-            if (j > 0) i64.add($, carryu);
-            Field.carrySigned($, tmp);
-            local.tee(tmp);
-            if (j > 0) Field.storeLimb(u, j - 1, $);
-            else drop();
-            local.set(carryu);
-
-            // remember if u=0
-            local.set(uIsZero, i32.and(uIsZero, i64.eqz(tmp)));
-
-            i64.sub(i64.mul(vj, g1), i64.mul(uj, f1));
-            if (j > 0) i64.add($, carryv);
-            Field.carrySigned($, tmp);
-            if (j > 0) Field.storeLimb(v, j - 1, $);
-            else drop();
-            local.set(carryv);
-          }
-          Field.storeLimb(u, n - 1, carryu);
-          Field.storeLimb(v, n - 1, carryv);
-          local.set(uIsZero, i32.and(uIsZero, i64.eqz(carryu)));
-
-          // TODO handle sign flip
-
-          // update r, s
-          // r = r * f0 + s * g0
-          // s = r * f1 + s * g1
-          // assumes that r, s will only ever need n+1 limbs (TODO: proof)
-          // we store s as n limbs plus a high carry limb which only gets shifted in at the end
-
-          for (let j = 0; j < resultMaxLimbs - 1; j++) {
-            local.set(rj, Field.loadLimb(r, j));
-            local.set(sj, Field.loadLimb(s, j));
-
-            i64.add(i64.mul(rj, f0), i64.mul(sj, g0));
-            if (j > 0) i64.add($, carryr);
-            Field.carrySigned($, tmp);
-            Field.storeLimb(r, j, $);
-            local.set(carryr);
-
-            i64.add(i64.mul(rj, f1), i64.mul(sj, g1));
-            if (j > 0) i64.add($, carrys);
-            Field.carrySigned($, tmp);
-            Field.storeLimb(s, j, $);
-            local.set(carrys);
-          }
-
-          // break if u = 0 (=> s holds output)
-          local.get(uIsZero);
-          br_if($break);
+          // u = 0 => v = gcd and a*s = v
+          call(Field.isZero, { x: u });
+          br_if(done);
+          // v = 0 => u = gcd and a*r = u
+          call(Field.isZero, { x: v });
+          if_(null, () => {
+            Field.copyInline(s, r);
+            Field.copyInline(v, u);
+            br(done);
+          });
+          br(again);
         });
       });
-
-      local.get(k);
-      call(makeOdd, { u: s, uhi: carrys });
-      i32.sub();
+      // gcd must be one. This also rejects nonunits of an odd composite modulus.
+      i64.ne(Field.loadLimb(v, 0), 1n);
+      for (let j = 1; j < n; j++) {
+        i64.ne(Field.loadLimb(v, j), 0n);
+        i32.or();
+      }
+      if_(null, () => unreachable());
+      call(Field.multiply, { xy: s, x: s, y: correctionPtr });
     }
   );
 
@@ -390,7 +400,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     return i64.or();
   }
 
-  return { almostInverse, getBitLength, makeOdd };
+  return { inverse, getBitLength };
 }
 
 function hex(m: bigint) {
