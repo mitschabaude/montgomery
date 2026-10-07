@@ -340,8 +340,6 @@ function createMsm({
     let B = BATCH_SIZE;
     let pairsPtr = Field.local.getPointer(8 * B);
     // scratch for safe additions
-    let tmp = Field.local.getPointer(B * sizeField);
-    let d = Field.local.getPointer(B * sizeField);
     let kinds = Field.local.getPointer(B);
     let pairs = new Uint32Array(memoryBytes.buffer, pairsPtr, 2 * B);
     let nPairs = 0;
@@ -394,7 +392,7 @@ function createMsm({
         h++;
       }
       if (useSafeAdditions) {
-        Field.batchAdd(scratch[0], tmp, d, kinds, pairsPtr, nPairs);
+        Field.batchAdd(scratch[0], kinds, pairsPtr, nPairs);
       } else {
         Field.batchAddUnsafe(scratch[0], pairsPtr, nPairs);
       }
@@ -441,8 +439,6 @@ function createMsm({
       Affine.setIsNonZero(rows[j], false);
     }
     let pairsPtr = Field.local.getPointer(8 * J);
-    let tmp = Field.local.getPointer(J * sizeField);
-    let d = Field.local.getPointer(J * sizeField);
     let kinds = Field.local.getPointer(J);
     let pairs = new Uint32Array(memoryBytes.buffer, pairsPtr, 2 * J);
 
@@ -452,7 +448,7 @@ function createMsm({
         pairs[2 * j] = triangles[j];
         pairs[2 * j + 1] = rows[j];
       }
-      Field.batchAdd(scratch[0], tmp, d, kinds, pairsPtr, J);
+      Field.batchAdd(scratch[0], kinds, pairsPtr, J);
     };
     for (let i = m - 1; i >= 0; i--) {
       if (i < m - 1) addRows();
@@ -463,7 +459,7 @@ function createMsm({
           pairs[2 * p] = rows[j];
           pairs[2 * p + 1] = buckets + l * sizeAffine;
         }
-        Field.batchAdd(scratch[0], tmp, d, kinds, pairsPtr, p);
+        Field.batchAdd(scratch[0], kinds, pairsPtr, p);
       }
     }
     addRows();
