@@ -17,13 +17,21 @@ export { arithmetic };
 // when two residues do not fit. Output may alias either input.
 // reduce canonicalizes a stored value below min(2p, R).
 function arithmetic(F: FieldBase) {
+  // Add and subtract select their result without branches: the reduction
+  // condition is data dependent and mispredicts on random field elements.
   const add = func(
     {
       in: [{ out: i32 }, { x: i32 }, { y: i32 }],
-      locals: { carry: i64, borrow: i64, X: localArray(i64, F.n) },
+      locals: {
+        carry: i64,
+        borrow: i64,
+        keep: i32,
+        X: localArray(i64, F.n),
+        D: localArray(i64, F.n),
+      },
       out: [],
     },
-    ({ out, x, y }, { carry, borrow, X }) => {
+    ({ out, x, y }, { carry, borrow, keep, X, D }) => {
       // The modulus guarantees that the full sum fits in the layout.
       const sumFits = 2n * F.limit <= F.R;
       for (let i = 0; i < F.n; i++) {
@@ -39,33 +47,39 @@ function arithmetic(F: FieldBase) {
           local.set(X[i], $);
         }
       }
-      F.reduceLocals(X, sumFits ? 0n : carry, borrow, F.Limit, F.Limit);
-      F.store(out, X);
+      // D = X - limit; keep X iff X + carry*R < limit, i.e. borrow > carry
+      F.subtractConstant(D, X, F.Limit, borrow);
+      if (sumFits) local.set(keep, i32.wrap_i64(borrow));
+      else local.set(keep, i64.gt_u(borrow, carry));
+      F.select(out, X, D, keep);
     }
   );
   const subtract = func(
     {
       in: [{ out: i32 }, { x: i32 }, { y: i32 }],
-      locals: { borrow: i64, X: localArray(i64, F.n) },
+      locals: { borrow: i64, mask: i64, X: localArray(i64, F.n) },
       out: [],
     },
-    ({ out, x, y }, { borrow, X }) => {
+    ({ out, x, y }, { borrow, mask, X }) => {
       for (let i = 0; i < F.n; i++) {
         i64.sub128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
         if (i !== 0) i64.sub128($, $, borrow, 0n);
         local.set(borrow, i64.and($, 1n));
         local.set(X[i], $);
       }
-      i64.ne(borrow, 0n);
-      if_(null, () => {
-        local.set(borrow, 0n);
-        for (let i = 0; i < F.n; i++) {
-          i64.add128(X[i], 0n, F.Limit[i], 0n);
-          i64.add128($, $, borrow, 0n);
+      // X += limit if x < y; the final carry cancels the borrow modulo R
+      local.set(mask, i64.sub(0n, borrow));
+      for (let i = 0; i < F.n; i++) {
+        const limb = i64.and(mask, F.Limit[i]);
+        if (i === F.n - 1) {
+          local.set(X[i], i64.add(i64.add(X[i], limb), i === 0 ? 0n : borrow));
+        } else {
+          i64.add128(X[i], 0n, limb, 0n);
+          if (i !== 0) i64.add128($, $, borrow, 0n);
           local.set(borrow, $);
           local.set(X[i], $);
         }
-      });
+      }
       F.store(out, X);
     }
   );

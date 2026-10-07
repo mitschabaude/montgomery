@@ -5,6 +5,7 @@ import {
   i32,
   i64,
   local,
+  select as select_,
   type Input,
   type Local,
 } from "wasmati";
@@ -68,21 +69,45 @@ function createField(p: bigint) {
           br_if(needsSubtract);
         }
       });
-      local.set(borrow, 0n);
-      for (let i = 0; i < n; i++) {
-        // A constant limb other than UINT64_MAX can absorb the borrow
-        // without overflowing, so only one widening subtraction is needed.
-        if (i === 0) i64.sub128(X[i], 0n, subtrahend[i], 0n);
-        else if (subtrahend[i] !== -1n) {
-          i64.sub128(X[i], 0n, i64.add(subtrahend[i], borrow), 0n);
-        } else {
-          i64.sub128(X[i], 0n, subtrahend[i], 0n);
-          i64.sub128($, $, borrow, 0n);
-        }
-        local.set(borrow, i64.and($, 1n));
-        local.set(X[i], $);
-      }
+      subtractConstant(X, X, subtrahend, borrow);
     });
+  }
+
+  // D = X - C for a constant C, with the final borrow (0 or 1) in borrow.
+  // A constant limb other than UINT64_MAX can absorb the incoming borrow
+  // without overflowing, so only one widening subtraction is needed.
+  function subtractConstant(
+    D: Local<i64>[],
+    X: Local<i64>[],
+    C: bigint[],
+    borrow: Local<i64>
+  ) {
+    for (let i = 0; i < n; i++) {
+      if (i === 0) i64.sub128(X[i], 0n, C[i], 0n);
+      else if (C[i] !== -1n) i64.sub128(X[i], 0n, i64.add(C[i], borrow), 0n);
+      else {
+        i64.sub128(X[i], 0n, C[i], 0n);
+        i64.sub128($, $, borrow, 0n);
+      }
+      local.set(borrow, i64.and($, 1n));
+      local.set(D[i], $);
+    }
+  }
+
+  // Store condition ? X : Y without branching.
+  function select(
+    x: Local<i32>,
+    X: Local<i64>[],
+    Y: Local<i64>[],
+    condition: Local<i32>
+  ) {
+    for (let i = 0; i < n; i++) {
+      local.get(X[i]);
+      local.get(Y[i]);
+      local.get(condition);
+      select_(i64);
+      storeLimb(x, i, $);
+    }
   }
 
   return {
@@ -101,5 +126,7 @@ function createField(p: bigint) {
     load,
     store,
     reduceLocals,
+    subtractConstant,
+    select,
   };
 }

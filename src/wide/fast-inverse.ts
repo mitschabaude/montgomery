@@ -12,7 +12,6 @@ import {
   if_,
   local,
   loop,
-  return_,
   select,
   unreachable,
   v128,
@@ -26,12 +25,20 @@ import { mod } from "../bigint/field-util.ts";
 
 export { fastInverse };
 
-// Port of inverse/faster-inverse-wasm.ts: accumulate binary steps in a
-// 2x2 matrix using high/low approximations, then apply it to full integers.
-// A batch is 62 bits, independently of the 64-bit memory limb size: matrix
-// entries fit signed i64 and wide products retain every carry. Coefficients
-// are divided by 2^62 modulo p each batch, keeping them canonical even for
-// moduli close to R. Negative approximate remainders are corrected exactly.
+/**
+ * Binary GCD of (a, b) = (x, p) in batches of 62 steps, after Pornin,
+ * "Optimized Binary GCD for Modular Inversion" (2020).
+ *
+ * b stays odd. A step subtracts b from an odd a, swapping them if the
+ * difference is negative, and halves a. Each batch runs on 63 high and 64 low
+ * bits of a and b, accumulating a 2x2 matrix of signed i64 entries, then
+ * applies it to the full values with wide products. The steps are branchless:
+ * all trailing zeros of a are removed at once, and swaps are selects.
+ *
+ * Coefficients with x*ca = a, x*cb = b (mod p) get the same matrix, divided by
+ * 2^62 modulo p. When a reaches zero, b = gcd = 1 and cb = x^-1. A negative
+ * full result, caused by an approximation, is negated with its matrix row.
+ */
 function fastInverse(
   F: FieldBase,
   ops: ReturnType<typeof arithmetic> & ReturnType<typeof multiplyMontgomery>,
@@ -39,88 +46,45 @@ function fastInverse(
 ) {
   const batch = 62;
   const mask = (1n << BigInt(batch)) - 1n;
+  // For an input xR, REDC((xR)^-1 * R^3) = x^-1 * R is the Montgomery inverse.
   const correction = mod(F.R ** 3n, F.p);
   const correctionPtr = mem.dataToOffset(
     Array.from({ length: F.size }, (_, i) =>
       Number((correction >> BigInt(8 * i)) & 255n)
     )
   );
-  const bitLength = func(
-    { in: [{ x: i32 }], locals: { xi: i64 }, out: [i32] },
-    ({ x }, { xi }) => {
-      for (let j = F.n - 1; j >= 0; j--) {
-        local.set(xi, F.loadLimb(x, j));
-        i64.ne(xi, 0n);
-        if_(null, () => {
-          i32.sub(64 * (j + 1), i32.wrap_i64(i64.clz(xi)));
-          return_();
-        });
-      }
-      i32.const(0);
-    }
-  );
-  const highBits = func(
-    {
-      in: [{ x: i32 }, { length: i32 }],
-      locals: { start: i32, shift: i64, hi: i64 },
-      out: [i64],
-    },
-    ({ x, length }, { start, shift, hi }) => {
-      // At most 63 significant bits, so signed comparisons have headroom.
-      local.set(start, i32.sub(length, 63));
-      i32.lt_s(start, 0);
-      if_(null, () => local.set(start, 0));
-      local.set(shift, i64.extend_i32_u(i32.and(start, 63)));
-      local.set(x, i32.add(x, i32.shl(i32.shr_u(start, 6), 3)));
-      local.set(hi, i64.shr_u(i64.load({}, x), shift));
-      i64.ne(shift, 0n);
-      if_(null, () => {
-        // A smaller operand may not have a limb above the selected position.
-        // Check against its own layout rather than reading adjacent scratch.
-        i32.lt_u(i32.shr_u(start, 6), F.n - 1);
-        if_(null, () =>
-          local.set(
-            hi,
-            i64.or(hi, i64.shl(i64.load({ offset: 8 }, x), i64.sub(64n, shift)))
-          )
-        );
-      });
-      local.get(hi);
-    }
-  );
 
-  // Unsigned limb times signed coefficient: mul_wide_s needs a high-word
-  // correction when the limb's sign bit is set.
+  // (lo, hi) = x * c for an unsigned limb x and a signed coefficient c with
+  // sign mask cSign = c >> 63: the unsigned product overshoots by x * 2^64.
   function product(
     x: Local<i64>,
-    coefficient: Local<i64>,
+    c: Local<i64>,
+    cSign: Local<i64>,
     lo: Local<i64>,
     hi: Local<i64>
   ) {
-    i64.mul_wide_s(x, coefficient);
+    i64.mul_wide_u(x, c);
     local.set(hi, $);
     local.set(lo, $);
-    local.set(hi, i64.add(hi, i64.and(coefficient, i64.shr_s(x, 63n))));
+    local.set(hi, i64.sub(hi, i64.and(x, cSign)));
   }
+  // lo = limb j of f*x + g*y, with the signed carry from limb j-1 in carry
   function linear(
     x: Local<i64>,
     y: Local<i64>,
-    f: Local<i64>,
-    g: Local<i64>,
+    [f, fSign, g, gSign]: Local<i64>[],
     carry: Local<i64>,
-    lo: Local<i64>,
-    hi: Local<i64>,
-    otherLo: Local<i64>,
-    otherHi: Local<i64>,
+    [lo, hi, otherLo, otherHi]: Local<i64>[],
     first: boolean
   ) {
-    product(x, f, lo, hi);
-    product(y, g, otherLo, otherHi);
-    i64.sub128(lo, hi, otherLo, otherHi);
+    product(x, f, fSign, lo, hi);
+    product(y, g, gSign, otherLo, otherHi);
+    i64.add128(lo, hi, otherLo, otherHi);
     if (!first) i64.add128($, $, carry, i64.shr_s(carry, 63n));
     local.set(carry, $);
     local.set(lo, $);
   }
+  // X = (X + high*R) / 2^62, high is signed
   function shift(X: Local<i64>[], high: Local<i64>) {
     for (let j = 0; j < F.n; j++)
       local.set(
@@ -133,7 +97,6 @@ function fastInverse(
     local.set(high, i64.shr_s(high, BigInt(batch)));
   }
   function negate(X: Local<i64>[], borrow: Local<i64>) {
-    local.set(borrow, 0n);
     for (let j = 0; j < F.n; j++) {
       i64.sub128(0n, 0n, X[j], 0n);
       if (j > 0) i64.sub128($, $, borrow, 0n);
@@ -141,12 +104,12 @@ function fastInverse(
       local.set(X[j], $);
     }
   }
+  // X + high*R in (-p, 2p) -> [0, p)
   function canonicalize(X: Local<i64>[], high: Local<i64>, carry: Local<i64>) {
     i64.lt_s(high, 0n);
     if_(
       null,
       () => {
-        local.set(carry, 0n);
         for (let j = 0; j < F.n; j++) {
           i64.add128(X[j], 0n, F.P[j], 0n);
           if (j > 0) i64.add128($, $, carry, 0n);
@@ -157,83 +120,143 @@ function fastInverse(
       () => F.reduceLocals(X, high, carry)
     );
   }
+  // (lo, hi) = m * c for a constant c, without the multiplier when possible
+  function productConstant(m: Local<i64>, c: bigint) {
+    const u = BigInt.asUintN(64, c);
+    if (u === 0n) {
+      i64.const(0n);
+      i64.const(0n);
+    } else if ((u & (u - 1n)) === 0n) {
+      const k = BigInt(u.toString(2).length - 1);
+      if (k === 0n) {
+        local.get(m);
+        i64.const(0n);
+      } else {
+        i64.shl(m, k);
+        i64.shr_u(m, 64n - k);
+      }
+    } else i64.mul_wide_u(m, c);
+  }
+  // ca, cb = (fa ca + ga cb) / 2^62, (fb ca + gb cb) / 2^62 (mod p)
   const updateCoefficients = func(
     {
       in: [
-        { r: i32 },
-        { s: i32 },
-        { f0: i64 },
-        { g0: i64 },
-        { f1: i64 },
-        { g1: i64 },
+        { ca: i32 },
+        { cb: i32 },
+        { fa: i64 },
+        { ga: i64 },
+        { fb: i64 },
+        { gb: i64 },
       ],
       locals: {
-        rj: i64,
-        sj: i64,
-        carryR: i64,
-        carryS: i64,
+        faSign: i64,
+        gaSign: i64,
+        fbSign: i64,
+        gbSign: i64,
+        aj: i64,
+        bj: i64,
+        carryA: i64,
+        carryB: i64,
         lo: i64,
         hi: i64,
         otherLo: i64,
         otherHi: i64,
-        mR: i64,
-        mS: i64,
+        mA: i64,
+        mB: i64,
         X: localArray(i64, F.n),
         Y: localArray(i64, F.n),
       },
       out: [],
     },
     (
-      { r, s, f0, g0, f1, g1 },
-      { rj, sj, carryR, carryS, lo, hi, otherLo, otherHi, mR, mS, X, Y }
+      { ca, cb, fa, ga, fb, gb },
+      {
+        faSign,
+        gaSign,
+        fbSign,
+        gbSign,
+        aj,
+        bj,
+        carryA,
+        carryB,
+        lo,
+        hi,
+        otherLo,
+        otherHi,
+        mA,
+        mB,
+        X,
+        Y,
+      }
     ) => {
+      local.set(faSign, i64.shr_s(fa, 63n));
+      local.set(gaSign, i64.shr_s(ga, 63n));
+      local.set(fbSign, i64.shr_s(fb, 63n));
+      local.set(gbSign, i64.shr_s(gb, 63n));
+      const temps = [lo, hi, otherLo, otherHi];
       for (let j = 0; j < F.n; j++) {
-        local.set(rj, F.loadLimb(r, j));
-        local.set(sj, F.loadLimb(s, j));
-        linear(rj, sj, f0, g0, carryR, lo, hi, otherLo, otherHi, j === 0);
-        if (j === 0) local.set(mR, i64.and(i64.mul(lo, F.mu), mask));
-        i64.mul_wide_u(F.P[j], mR);
-        i64.add128($, $, lo, carryR);
-        local.set(carryR, $);
+        local.set(aj, F.loadLimb(ca, j));
+        local.set(bj, F.loadLimb(cb, j));
+        // Adding m*p, with m chosen from the low 62 bits, makes the division exact.
+        linear(aj, bj, [fa, faSign, ga, gaSign], carryA, temps, j === 0);
+        if (j === 0) local.set(mA, i64.and(i64.mul(lo, F.mu), mask));
+        productConstant(mA, F.P[j]);
+        i64.add128($, $, lo, carryA);
+        local.set(carryA, $);
         local.set(X[j], $);
-        linear(sj, rj, g1, f1, carryS, lo, hi, otherLo, otherHi, j === 0);
-        if (j === 0) local.set(mS, i64.and(i64.mul(lo, F.mu), mask));
-        i64.mul_wide_u(F.P[j], mS);
-        i64.add128($, $, lo, carryS);
-        local.set(carryS, $);
+        linear(aj, bj, [fb, fbSign, gb, gbSign], carryB, temps, j === 0);
+        if (j === 0) local.set(mB, i64.and(i64.mul(lo, F.mu), mask));
+        productConstant(mB, F.P[j]);
+        i64.add128($, $, lo, carryB);
+        local.set(carryB, $);
         local.set(Y[j], $);
       }
-      shift(X, carryR);
-      shift(Y, carryS);
-      canonicalize(X, carryR, lo);
-      canonicalize(Y, carryS, lo);
-      F.store(r, X);
-      F.store(s, Y);
+      shift(X, carryA);
+      shift(Y, carryB);
+      canonicalize(X, carryA, lo);
+      canonicalize(Y, carryB, lo);
+      F.store(ca, X);
+      F.store(cb, Y);
     }
   );
-  // The output parameter r holds the coefficient s; local r is the other one.
+
+  // Three scratch elements (a, b, ca); the output holds cb. The output may
+  // alias the input. Zero or a nonunit input traps.
   const inverse = func(
     {
       in: [{ scratch: i32 }, { r: i32 }, { a: i32 }],
       locals: {
-        u: i32,
-        r: i32,
+        b: i32,
+        ca: i32,
         length: i32,
-        vLength: i32,
-        ulo: i64,
-        vlo: i64,
-        uhi: i64,
-        vhi: i64,
-        f0g0: v128,
-        f1g1: v128,
-        f0: i64,
-        g0: i64,
-        f1: i64,
-        g1: i64,
-        uj: i64,
-        vj: i64,
-        carryU: i64,
-        carryV: i64,
+        offset: i32,
+        bitShift: i64,
+        nextMask: i64,
+        alo: i64,
+        ahi: i64,
+        blo: i64,
+        bhi: i64,
+        k: i64,
+        rem: i64,
+        sign: i64,
+        dlo: i64,
+        dhi: i64,
+        FA: v128,
+        FB: v128,
+        S: v128,
+        D: v128,
+        fa: i64,
+        ga: i64,
+        fb: i64,
+        gb: i64,
+        faSign: i64,
+        gaSign: i64,
+        fbSign: i64,
+        gbSign: i64,
+        aj: i64,
+        bj: i64,
+        carryA: i64,
+        carryB: i64,
         lo: i64,
         hi: i64,
         otherLo: i64,
@@ -244,26 +267,39 @@ function fastInverse(
       out: [],
     },
     (
-      { scratch: v, r: s, a },
+      { scratch: a, r: cb, a: input },
       {
-        u,
-        r,
+        b,
+        ca,
         length,
-        vLength,
-        ulo,
-        vlo,
-        uhi,
-        vhi,
-        f0g0,
-        f1g1,
-        f0,
-        g0,
-        f1,
-        g1,
-        uj,
-        vj,
-        carryU,
-        carryV,
+        offset,
+        bitShift,
+        nextMask,
+        alo,
+        ahi,
+        blo,
+        bhi,
+        k,
+        rem,
+        sign,
+        dlo,
+        dhi,
+        FA,
+        FB,
+        S,
+        D,
+        fa,
+        ga,
+        fb,
+        gb,
+        faSign,
+        gaSign,
+        fbSign,
+        gbSign,
+        aj,
+        bj,
+        carryA,
+        carryB,
         lo,
         hi,
         otherLo,
@@ -272,123 +308,152 @@ function fastInverse(
         Y,
       }
     ) => {
-      local.set(u, i32.add(v, F.size));
-      local.set(r, i32.add(v, 2 * F.size));
-      call(ops.copy, { x: v, y: a });
-      call(ops.reduce, { x: v });
-      call(ops.isZero, { x: v });
+      local.set(b, i32.add(a, F.size));
+      local.set(ca, i32.add(a, 2 * F.size));
+      call(ops.copy, { x: a, y: input });
+      call(ops.reduce, { x: a });
+      call(ops.isZero, { x: a });
       if_(null, () => unreachable());
       for (let j = 0; j < F.n; j++) {
-        F.storeLimb(u, j, F.P[j]);
-        F.storeLimb(r, j, 0n);
-        F.storeLimb(s, j, j === 0 ? 1n : 0n);
+        F.storeLimb(b, j, F.P[j]);
+        F.storeLimb(ca, j, j === 0 ? 1n : 0n);
+        F.storeLimb(cb, j, 0n);
       }
       block(null, (done) => {
         loop(null, (again) => {
-          local.set(f0g0, v128.const("i64x2", [1n, 0n]));
-          local.set(f1g1, v128.const("i64x2", [0n, 1n]));
-          local.set(ulo, F.loadLimb(u, 0));
-          local.set(vlo, F.loadLimb(v, 0));
-          call(bitLength, { x: u });
-          local.set(length, $);
-          call(bitLength, { x: v });
-          local.set(vLength, $);
-          local.get(vLength);
-          local.get(length);
-          i32.gt_u(vLength, length);
-          select(i32);
-          local.set(length, $);
-          call(highBits, { x: u, length });
-          local.set(uhi, $);
-          call(highBits, { x: v, length });
-          local.set(vhi, $);
-          for (let j = 0; j < batch; j++) {
-            i64.eqz(i64.and(ulo, 1n));
-            if_(
-              null,
-              () => {
-                local.set(uhi, i64.shr_s(uhi, 1n));
-                local.set(ulo, i64.shr_s(ulo, 1n));
-                local.set(f1g1, i64x2.shl(f1g1, 1));
-              },
-              () => {
-                i64.eqz(i64.and(vlo, 1n));
-                if_(
-                  null,
-                  () => {
-                    local.set(vhi, i64.shr_s(vhi, 1n));
-                    local.set(vlo, i64.shr_s(vlo, 1n));
-                    local.set(f0g0, i64x2.shl(f0g0, 1));
-                  },
-                  () => {
-                    i64.le_s(vhi, uhi);
-                    if_(
-                      null,
-                      () => {
-                        local.set(uhi, i64.shr_s(i64.sub(uhi, vhi), 1n));
-                        local.set(ulo, i64.shr_s(i64.sub(ulo, vlo), 1n));
-                        local.set(f0g0, i64x2.add(f0g0, f1g1));
-                        local.set(f1g1, i64x2.shl(f1g1, 1));
-                      },
-                      () => {
-                        local.set(vhi, i64.shr_s(i64.sub(vhi, uhi), 1n));
-                        local.set(vlo, i64.shr_s(i64.sub(vlo, ulo), 1n));
-                        local.set(f1g1, i64x2.add(f0g0, f1g1));
-                        local.set(f0g0, i64x2.shl(f0g0, 1));
-                      }
-                    );
-                  }
-                );
-              }
-            );
-          }
-          local.set(f0, i64x2.extract_lane(0, f0g0));
-          local.set(g0, i64x2.extract_lane(1, f0g0));
-          local.set(f1, i64x2.extract_lane(0, f1g1));
-          local.set(g1, i64x2.extract_lane(1, f1g1));
+          // length = max(bitLength(a), bitLength(b)) = bitLength(a | b)
+          local.set(length, 0);
           for (let j = 0; j < F.n; j++) {
-            local.set(uj, F.loadLimb(u, j));
-            local.set(vj, F.loadLimb(v, j));
-            linear(uj, vj, f0, g0, carryU, lo, hi, otherLo, otherHi, j === 0);
+            local.set(lo, i64.or(F.loadLimb(a, j), F.loadLimb(b, j)));
+            i32.sub(64 * (j + 1), i32.wrap_i64(i64.clz(lo)));
+            local.get(length);
+            i64.ne(lo, 0n);
+            select(i32);
+            local.set(length, $);
+          }
+          // high approximations: 63 bits from start = max(length - 63, 0)
+          local.set(offset, i32.sub(length, 63));
+          local.set(
+            offset,
+            i32.and(offset, i32.xor(i32.shr_s(offset, 31), -1))
+          );
+          local.set(bitShift, i64.extend_i32_u(i32.and(offset, 63)));
+          // bits from the next limb exist unless the shift is 0 or this is the top limb
+          i32.and(
+            i64.ne(bitShift, 0n),
+            i32.lt_u(i32.shr_u(offset, 6), F.n - 1)
+          );
+          local.set(nextMask, i64.sub(0n, i64.extend_i32_u($)));
+          local.set(offset, i32.shl(i32.shr_u(offset, 6), 3));
+          for (const [x, out] of [
+            [a, ahi],
+            [b, bhi],
+          ] as const) {
+            i64.shr_u(i64.load({}, i32.add(x, offset)), bitShift);
+            i64.shl(
+              i64.load({ offset: 8 }, i32.add(x, offset)),
+              i64.sub(64n, bitShift)
+            );
+            local.set(out, i64.or($, i64.and($, nextMask)));
+          }
+          local.set(alo, F.loadLimb(a, 0));
+          local.set(blo, F.loadLimb(b, 0));
+
+          // FA = (fa, ga), FB = (fb, gb): a' = fa a + ga b, b' = fb a + gb b,
+          // both scaled by 2^62. rem is a sentinel bit at the number of
+          // remaining steps, so ctz(x | rem) is at most that number.
+          local.set(FA, v128.const("i64x2", [1n, 0n]));
+          local.set(FB, v128.const("i64x2", [0n, 1n]));
+          local.set(rem, 1n << BigInt(batch));
+          // a may start even
+          local.set(k, i64.ctz(i64.or(alo, rem)));
+          local.set(alo, i64.shr_u(alo, k));
+          local.set(ahi, i64.shr_s(ahi, k));
+          local.set(FB, i64x2.shl(FB, i32.wrap_i64(k)));
+          local.set(rem, i64.shr_u(rem, k));
+          block(null, (stepsDone) => {
+            loop(null, (step) => {
+              i64.eq(rem, 1n);
+              br_if(stepsDone);
+              // a, b odd: d = a - b. |d| has the trailing zeros of d, so the
+              // shift does not wait for the sign.
+              local.set(dlo, i64.sub(alo, blo));
+              local.set(dhi, i64.sub(ahi, bhi));
+              local.set(k, i64.ctz(i64.or(dlo, rem)));
+              local.set(sign, i64.shr_s(dhi, 63n));
+              // b = min(a, b), a = |d| / 2^k
+              local.get(ahi);
+              local.get(bhi);
+              i32.wrap_i64(sign);
+              select(i64);
+              local.set(bhi, $);
+              local.get(alo);
+              local.get(blo);
+              i32.wrap_i64(sign);
+              select(i64);
+              local.set(blo, $);
+              local.set(ahi, i64.shr_s(i64.sub(i64.xor(dhi, sign), sign), k));
+              local.set(alo, i64.shr_u(i64.sub(i64.xor(dlo, sign), sign), k));
+              local.set(rem, i64.shr_u(rem, k));
+              // rows: FB = sign ? FA : FB, FA = |FA - FB|, then FB *= 2^k
+              local.set(S, i64x2.splat(sign));
+              local.set(D, i64x2.sub(FA, FB));
+              local.set(FB, v128.xor(FB, v128.and(v128.xor(FA, FB), S)));
+              local.set(FB, i64x2.shl(FB, i32.wrap_i64(k)));
+              local.set(FA, i64x2.sub(v128.xor(D, S), S));
+              br(step);
+            });
+          });
+          local.set(fa, i64x2.extract_lane(0, FA));
+          local.set(ga, i64x2.extract_lane(1, FA));
+          local.set(fb, i64x2.extract_lane(0, FB));
+          local.set(gb, i64x2.extract_lane(1, FB));
+          local.set(faSign, i64.shr_s(fa, 63n));
+          local.set(gaSign, i64.shr_s(ga, 63n));
+          local.set(fbSign, i64.shr_s(fb, 63n));
+          local.set(gbSign, i64.shr_s(gb, 63n));
+          const temps = [lo, hi, otherLo, otherHi];
+          for (let j = 0; j < F.n; j++) {
+            local.set(aj, F.loadLimb(a, j));
+            local.set(bj, F.loadLimb(b, j));
+            linear(aj, bj, [fa, faSign, ga, gaSign], carryA, temps, j === 0);
             local.set(X[j], lo);
-            linear(vj, uj, g1, f1, carryV, lo, hi, otherLo, otherHi, j === 0);
+            linear(aj, bj, [fb, fbSign, gb, gbSign], carryB, temps, j === 0);
             local.set(Y[j], lo);
           }
-          shift(X, carryU);
-          shift(Y, carryV);
-          i64.lt_s(carryU, 0n);
+          shift(X, carryA);
+          shift(Y, carryB);
+          i64.lt_s(carryA, 0n);
           if_(null, () => {
             negate(X, lo);
-            local.set(f0, i64.sub(0n, f0));
-            local.set(g0, i64.sub(0n, g0));
+            local.set(fa, i64.sub(0n, fa));
+            local.set(ga, i64.sub(0n, ga));
           });
-          i64.lt_s(carryV, 0n);
+          i64.lt_s(carryB, 0n);
           if_(null, () => {
             negate(Y, lo);
-            local.set(f1, i64.sub(0n, f1));
-            local.set(g1, i64.sub(0n, g1));
+            local.set(fb, i64.sub(0n, fb));
+            local.set(gb, i64.sub(0n, gb));
           });
-          F.store(u, X);
-          F.store(v, Y);
-          call(updateCoefficients, { r, s, f0, g0, f1, g1 });
-          call(ops.isZero, { x: u });
+          F.store(a, X);
+          F.store(b, Y);
+          call(updateCoefficients, { ca, cb, fa, ga, fb, gb });
+          // b stays odd; a = 0 means b = gcd and x*cb = b
+          i64.or(X[0], X[1 % F.n]);
+          for (let j = 2; j < F.n; j++) i64.or($, X[j]);
+          i64.eqz($);
           br_if(done);
-          call(ops.isZero, { x: v });
-          if_(null, () => {
-            call(ops.copy, { x: s, y: r });
-            call(ops.copy, { x: v, y: u });
-            br(done);
-          });
           br(again);
         });
       });
-      i64.ne(F.loadLimb(v, 0), 1n);
+      // gcd must be one. This also rejects nonunits of an odd composite modulus.
+      i64.ne(F.loadLimb(b, 0), 1n);
       for (let j = 1; j < F.n; j++) {
-        i64.ne(F.loadLimb(v, j), 0n);
+        i64.ne(F.loadLimb(b, j), 0n);
         i32.or();
       }
       if_(null, () => unreachable());
-      call(ops.multiply, { xy: s, x: s, y: correctionPtr });
+      call(ops.multiply, { xy: cb, x: cb, y: correctionPtr });
     }
   );
   return inverse;
