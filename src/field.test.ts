@@ -38,7 +38,6 @@ async function testField(
 ) {
   const Field = await createMsmField({
     p: BigintField.modulus,
-    beta: 1n,
     ...options,
   });
   const equiv = createEquivalentWasm(Field);
@@ -109,17 +108,6 @@ async function testField(
     BigintField.square,
     Field.square,
     `${label} square`
-  );
-  equiv(
-    {
-      from: [fieldReduced, Spec.numberLessThan(Field.bitLength)],
-      to: field,
-    },
-    // 2^k is not in montgomery form, so this ends up with a R^-1 factor
-    (x, k) =>
-      BigintField.multiply(x << BigInt(k), BigintField.inverse(Field.R)),
-    Field.leftShift,
-    `${label} left shift`
   );
 
   // is equal, is zero

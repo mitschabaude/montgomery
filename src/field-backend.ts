@@ -81,8 +81,6 @@ type FieldBackend = FieldLayout & {
 
   multiply: MultiplyFunc;
   square: Func<[{ xy: "i32" }, { x: "i32" }], []>;
-  /** xy = y * 2^k / R, for 0 <= k < bitLength(p) */
-  leftShift: Func<[{ xy: "i32" }, { y: "i32" }, { k: "i32" }], []>;
   add: AddFunc;
   subtract: AddFunc;
   addNoReduce: AddFunc;
@@ -187,7 +185,6 @@ function createFieldBackend(
     copyInline: Field.copyInline,
     multiply,
     square,
-    leftShift,
     add: Field.add,
     subtract: Field.subtract,
     addNoReduce: Field.addNoReduce,

@@ -8,7 +8,7 @@ import { createField, mask64, type FieldBase } from "./field-base.ts";
 import { arithmetic } from "./arithmetic.ts";
 import { multiplyMontgomery } from "./multiply.ts";
 import { helpers } from "./helpers.ts";
-import { fieldInverse } from "./inverse.ts";
+import { fieldInverse, inverseKaliski } from "./inverse.ts";
 
 export { Field, createWasm, wideOps };
 
@@ -31,7 +31,11 @@ async function createWasm(p: bigint, { memSize = 100 } = {}) {
   const ops = wideOps(F, implicitMemory);
   const module = Module({
     memory: wasmMemory,
-    exports: { ...ops, memory: wasmMemory },
+    exports: {
+      ...ops,
+      inverseKaliski: inverseKaliski(F, ops, implicitMemory),
+      memory: wasmMemory,
+    },
   });
   const { instance } = await module.instantiate();
   const Wasm = instance.exports;

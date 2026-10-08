@@ -1,16 +1,18 @@
 import type * as W from "wasmati"; // for type names
 import { Module, importMemory, type ModuleInstance } from "wasmati";
-import { ImplicitMemory } from "./wasm/wasm-util.ts";
+import { ImplicitMemory, copyMemory } from "./wasm/wasm-util.ts";
 import { mod } from "./bigint/field-util.ts";
-import { curveOps } from "./wasm/curve.ts";
+import { weierstraßOps } from "./wasm/curve-weierstrass.ts";
+import { twistedEdwardsOps } from "./wasm/curve-twisted-edwards.ts";
 import { type MemoryHelpers, memoryHelpers } from "./wasm/memory-helpers.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 import { createSqrt } from "./field-sqrt.ts";
-import { log2 } from "./util.ts";
+import { assert, log2 } from "./util.ts";
 import { isMain } from "./threads/threads.ts";
 import {
   createFieldBackend,
   fieldLayout,
+  type FieldBackend,
   type FieldBackendName,
 } from "./field-backend.ts";
 
@@ -20,12 +22,18 @@ export {
   createFieldFromWasm,
   type MsmField,
   type MsmFieldParams,
+  type CurveType,
 };
 export { createConstants };
 
-type MsmFieldParams = {
+type CurveType = "weierstraß" | "twisted-edwards";
+
+type MsmFieldParams<C extends CurveType | undefined = CurveType | undefined> = {
   p: bigint;
-  beta: bigint;
+  /** the type of curve whose operations the module includes, if any */
+  curve?: C;
+  /** cube root of unity for the endomorphism of a Weierstraß curve */
+  beta?: bigint;
   backend?: FieldBackendName;
   /** limb size of the 29-bit backend */
   w?: number;
@@ -33,20 +41,35 @@ type MsmFieldParams = {
   localRatio?: number;
 };
 
-async function createMsmField(params: MsmFieldParams) {
+async function createMsmField<C extends CurveType | undefined = undefined>(
+  params: MsmFieldParams<C>
+): Promise<MsmField<C>> {
   return await createFieldFromWasm(params, await compileField(params));
 }
 
-type MsmFieldInstance = ModuleInstance<ReturnType<typeof fieldModule>>;
-type MsmField = UnwrapPromise<ReturnType<typeof createMsmField>>;
+type MsmFieldInstance<C extends CurveType | undefined> = ModuleInstance<
+  ReturnType<typeof fieldModule<C>>
+>;
+/** the field, with the Wasm operations of curves of type C */
+type MsmField<C extends CurveType | undefined = undefined> = ReturnType<
+  typeof fieldFromInstance
+> &
+  MsmFieldInstance<C>["exports"];
 
-function fieldModule({
+type CurveOps<C extends CurveType | undefined> = C extends "weierstraß"
+  ? ReturnType<typeof weierstraßOps>
+  : C extends "twisted-edwards"
+    ? ReturnType<typeof twistedEdwardsOps>
+    : {};
+
+function fieldModule<C extends CurveType | undefined = undefined>({
   p,
+  curve,
   beta,
   backend = "29-bit",
   w,
   minExtraBits,
-}: MsmFieldParams) {
+}: MsmFieldParams<C>): FieldModule<C> {
   let memSize = 1 << 16;
   let wasmMemory = importMemory({ min: memSize, max: memSize, shared: true });
   let implicitMemory = new ImplicitMemory(wasmMemory);
@@ -55,43 +78,56 @@ function fieldModule({
     w,
     minExtraBits,
   });
-  let curve = curveOps(implicitMemory, Field, beta);
-
+  let curveOps = {} as CurveOps<C>;
+  if (curve === "weierstraß") {
+    assert(beta !== undefined, "Weierstraß curves need beta");
+    curveOps = weierstraßOps(implicitMemory, Field, beta) as CurveOps<C>;
+  }
+  if (curve === "twisted-edwards") {
+    curveOps = twistedEdwardsOps(implicitMemory, Field) as CurveOps<C>;
+  }
   return Module({
-    exports: {
-      ...implicitMemory.getExports(),
-      // curve ops
-      ...curve,
-      // multiplication
-      multiply: Field.multiply,
-      square: Field.square,
-      leftShift: Field.leftShift,
-      exp: Field.exp,
-      // inverse
-      inverse: Field.inverse,
-      /**
-       * batch inversion, using 4 field elements of scratch space
-       * @param scratch
-       * @param xInvs
-       * @param xs
-       * @param n
-       */
-      batchInverse: Field.batchInverse,
-      // arithmetic
-      add: Field.add,
-      addNoReduce: Field.addNoReduce,
-      subtract: Field.subtract,
-      subtractPositive: Field.subtractPositive,
-      reduce: Field.reduce,
-      copy: Field.copy,
-      // helpers
-      isEqual: Field.isEqual,
-      isGreater: Field.isGreater,
-      isZero: Field.isZero,
-      fromPackedBytes: Field.fromPackedBytes,
-      toPackedBytes: Field.toPackedBytes,
-    },
+    exports: { ...fieldExports(implicitMemory, Field), ...curveOps },
   });
+}
+
+// annotated, because declarations can't name the inferred type
+type FieldModule<C extends CurveType | undefined> = ReturnType<
+  typeof Module<ReturnType<typeof fieldExports> & CurveOps<C>>
+>;
+
+function fieldExports(implicitMemory: ImplicitMemory, Field: FieldBackend) {
+  return {
+    ...implicitMemory.getExports(),
+    copyMemory: copyMemory(),
+    // multiplication
+    multiply: Field.multiply,
+    square: Field.square,
+    exp: Field.exp,
+    // inverse
+    inverse: Field.inverse,
+    /**
+     * batch inversion, using 4 field elements of scratch space
+     * @param scratch
+     * @param xInvs
+     * @param xs
+     * @param n
+     */
+    batchInverse: Field.batchInverse,
+    // arithmetic
+    add: Field.add,
+    addNoReduce: Field.addNoReduce,
+    subtract: Field.subtract,
+    subtractPositive: Field.subtractPositive,
+    reduce: Field.reduce,
+    copy: Field.copy,
+    // helpers
+    isEqual: Field.isEqual,
+    isGreater: Field.isGreater,
+    isZero: Field.isZero,
+    fromPackedBytes: Field.fromPackedBytes,
+    toPackedBytes: Field.toPackedBytes,
+  };
 }
 
 async function compileField(params: MsmFieldParams): Promise<WasmArtifacts> {
@@ -99,16 +135,27 @@ async function compileField(params: MsmFieldParams): Promise<WasmArtifacts> {
   return { module: await wasm.compile(), importMap: wasm.importMap };
 }
 
-async function createFieldFromWasm(
-  params: Omit<MsmFieldParams, "beta">,
+async function createFieldFromWasm<C extends CurveType | undefined = undefined>(
+  params: Omit<MsmFieldParams<C>, "beta">,
   wasmArtifacts: WasmArtifacts
-) {
-  let { p, backend = "29-bit", w, minExtraBits, localRatio } = params;
+): Promise<MsmField<C>> {
   let instance = (await WebAssembly.instantiate(
     wasmArtifacts.module,
     wasmArtifacts.importMap
-  )) as MsmFieldInstance;
-  let wasm = instance.exports;
+  )) as MsmFieldInstance<C>;
+  return fieldFromInstance(
+    params,
+    instance.exports,
+    wasmArtifacts
+  ) as MsmField<C>;
+}
+
+function fieldFromInstance(
+  params: Omit<MsmFieldParams, "beta">,
+  wasm: MsmFieldInstance<undefined>["exports"],
+  wasmArtifacts: WasmArtifacts
+) {
+  let { p, backend = "29-bit", w, minExtraBits, localRatio } = params;
 
   let layout = fieldLayout(backend, p, { w, minExtraBits });
   let { R, n, limit } = layout;
@@ -149,20 +196,6 @@ async function createFieldFromWasm(
     t,
     wasmArtifacts,
     ...wasm,
-    /**
-     * affine EC addition, G3 = G1 + G2
-     *
-     * assuming d = 1/(x2 - x1) is given, and inputs aren't zero, and x1 !== x2
-     * (edge cases are handled one level higher, before batching)
-     *
-     * this supports addition with assignment where G3 === G1 (but not G3 === G2)
-     * @param scratch
-     * @param G3 (x3, y3)
-     * @param G1 (x1, y1)
-     * @param G2 (x2, y2)
-     * @param d 1/(x2 - x1)
-     */
-    addAffine: wasm.addAffine,
     /**
      * montgomery inverse, a 2^K -> a^(-1) 2^K (mod p)
      *

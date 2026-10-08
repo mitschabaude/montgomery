@@ -59,7 +59,7 @@ type CurveAffine = ReturnType<typeof createCurveAffine>;
  * over the `Field`
  */
 function createCurveAffine(
-  Field: MsmField,
+  Field: MsmField<"weierstraß">,
   CurveProjective: CurveProjective,
   b: bigint
 ) {
@@ -400,7 +400,7 @@ const BigintPoint = {
  * @param {number} n
  */
 function batchAdd(
-  Field: MsmField,
+  Field: MsmField<"weierstraß">,
   Curve: CurveAffine,
   scratch: number[],
   tmp: Uint32Array,
@@ -490,7 +490,7 @@ function batchAdd(
  * @param n
  */
 function batchAddUnsafe(
-  Field: MsmField,
+  Field: MsmField<"weierstraß">,
   scratch: number[],
   tmp: number,
   d: number,
@@ -522,7 +522,7 @@ function batchAddUnsafe(
  * @param {number} n
  */
 function batchDoubleInPlace(
-  Field: MsmField,
+  Field: MsmField<"weierstraß">,
   Curve: CurveAffine,
   scratch: number[],
   tmp: Uint32Array,

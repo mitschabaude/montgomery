@@ -10,7 +10,10 @@ export { createCurveProjective, type CurveProjective };
 
 type CurveProjective = ReturnType<typeof createCurveProjective>;
 
-function createCurveProjective(Field: MsmField, params: CurveParams) {
+function createCurveProjective(
+  Field: MsmField<"weierstraß">,
+  params: CurveParams
+) {
   const CurveBigint = createBigint(params);
   let { cofactor, b } = params;
   const { sizeField, constants, memoryBytes, limbBytes } = Field;

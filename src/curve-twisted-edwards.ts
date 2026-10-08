@@ -22,7 +22,10 @@ type CurveTwistedEdwards = ReturnType<typeof createCurveTwistedEdwards>;
  * y = Y/Z
  * T = XY/Z
  */
-function createCurveTwistedEdwards(Field: MsmField, params: CurveParams) {
+function createCurveTwistedEdwards(
+  Field: MsmField<"twisted-edwards">,
+  params: CurveParams
+) {
   const CurveBigint = createBigint(params);
   let { cofactor, d } = params;
   const { sizeField, memoryBytes, p } = Field;
