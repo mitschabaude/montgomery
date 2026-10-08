@@ -2,11 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Module, memory } from "wasmati";
 import { exampleFields } from "../concrete/example-fields.ts";
-import { FieldWithArithmetic } from "../wasm/field-arithmetic.ts";
-import { multiplyMontgomery } from "../wasm/multiply-montgomery.ts";
-import { fastInverse } from "../inverse/faster-inverse-wasm.ts";
-import { ImplicitMemory } from "../wasm/wasm-util.ts";
-import { memoryHelpers } from "../wasm/memory-helpers.ts";
+import { FieldWithArithmetic } from "./field-arithmetic.ts";
+import { multiplyMontgomery } from "./multiply-montgomery.ts";
+import { fastInverse } from "./fast-inverse.ts";
+import { inverseKaliski } from "./inverse.ts";
+import { ImplicitMemory } from "./wasm-util.ts";
+import { memoryHelpers } from "./memory-helpers.ts";
 import { montgomeryParams, mod } from "../bigint/field-util.ts";
 import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.ts";
 import { Random } from "../testing/random.ts";
@@ -29,7 +30,11 @@ for (const [label, B] of [
     };
     const { inverse } = fastInverse(mem, F);
     const module = Module({
-      exports: { ...mem.getExports(), inverse },
+      exports: {
+        ...mem.getExports(),
+        inverse,
+        inverseKaliski: inverseKaliski(mem, F),
+      },
     });
     const W = (await module.instantiate()).instance.exports;
     const H = memoryHelpers(B.p, w, n, W);
@@ -54,6 +59,15 @@ for (const [label, B] of [
       },
       "inverse in place"
     );
+    // the reference that the fast inverse replaced
+    if (label !== "composite15") {
+      equiv(
+        { from: [raw], to: raw, scratch: 3 },
+        (a) => mod(B.inverse(a) * F.R * F.R, B.p),
+        ([scratch], out, a) => W.inverseKaliski(scratch, out, a),
+        "Kaliski reference"
+      );
+    }
     // Boundary input that needs a negative remainder correction.
     if (label === "pastaFp") {
       const [a, out] = H.local.getPointers(2);

@@ -4,7 +4,7 @@ import { mod } from "../bigint/field-util.ts";
 import { inverse as inverseMod } from "../bigint/field.ts";
 import { assert, log2 } from "../util.ts";
 import { ImplicitMemory } from "../wasm/wasm-util.ts";
-import { fastInverse } from "./faster-inverse-wasm.ts";
+import { fastInverse } from "../wasm/fast-inverse.ts";
 import { FieldWithArithmetic } from "../wasm/field-arithmetic.ts";
 import { multiplyMontgomery } from "../wasm/multiply-montgomery.ts";
 import { memoryHelpers } from "../wasm/memory-helpers.ts";

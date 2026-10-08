@@ -1,8 +1,6 @@
 import {
   localArray,
   func,
-  type Func,
-  type JSFunction,
   i32,
   i64,
   local,
@@ -16,15 +14,14 @@ import {
   drop,
   br,
   br_if,
-  importFunc,
   select,
   v128,
   unreachable,
   i64x2,
 } from "wasmati";
-import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
-import { type FieldWithMultiply } from "../wasm/multiply-montgomery.ts";
-import { extractBitSlice } from "../wasm/field-helpers.ts";
+import { ImplicitMemory } from "./wasm-util.ts";
+import { type FieldWithMultiply } from "./multiply-montgomery.ts";
+import { extractBitSlice } from "./field-helpers.ts";
 import { inverse as bigintInverse } from "../bigint/field.ts";
 import { mod } from "../bigint/field-util.ts";
 import { assert } from "../util.ts";
@@ -53,38 +50,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const extractBits = extractBitSlice(w, n);
 
   const hiBits = 63;
-
-  const logHex = (...args: bigint[]) => console.log(...args.map(hex));
-  const logBin = (...args: bigint[]) => console.log(...args.map(bin));
-
-  const log64 = importFunc({ in: [{ value: i64 }], out: [] }, console.log);
-  const log64Hex = importFunc({ in: [{ value: i64 }], out: [] }, logHex);
-  const log64Bin = importFunc({ in: [{ value: i64 }], out: [] }, logBin);
-  const log64x2 = importFunc(
-    { in: [{ value0: i64 }, { value1: i64 }], out: [] },
-    console.log
-  );
-  const log64x4 = importFunc(
-    {
-      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
-      out: [],
-    },
-    console.log
-  );
-  const log64x4Hex = importFunc(
-    {
-      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
-      out: [],
-    },
-    logHex
-  );
-  const log64x4Bin = importFunc(
-    {
-      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
-      out: [],
-    },
-    logBin
-  );
 
   const { wn, wordMax, P, size } = Field;
   const mu = bigintInverse(-Field.p, 1n << wn);
@@ -402,11 +367,4 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   }
 
   return { inverse, getBitLength };
-}
-
-function hex(m: bigint) {
-  return "0x" + m.toString(16);
-}
-function bin(m: bigint) {
-  return "0b" + m.toString(2);
 }
