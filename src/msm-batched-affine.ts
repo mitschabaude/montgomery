@@ -44,7 +44,7 @@ export { createMsm, createMsmShared, type MsmInputCurve };
 
 type MsmInputCurve = {
   params: CurveParams;
-  Field: MsmField;
+  Field: MsmField<"weierstraß">;
   Scalar: GlvScalar;
   Affine: CurveAffine;
   Projective: CurveProjective;

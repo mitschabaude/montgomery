@@ -18,7 +18,7 @@ import { assert, bigintToBits } from "./util.ts";
 // The wide backend runs where Wasm wide arithmetic is enabled (npm run test-wide).
 const Field = await createMsmField({
   p,
-  beta: 1n,
+  curve: "twisted-edwards",
   backend: resolveFieldBackend("auto"),
 });
 

@@ -106,7 +106,12 @@ async function createWeierstraß(
   assert(endomorphism !== undefined, "endomorphism required");
   let { beta, lambda } = endomorphism;
 
-  let fieldWasm = await compileField({ p, beta, backend });
+  let fieldWasm = await compileField({
+    p,
+    curve: "weierstraß",
+    beta,
+    backend,
+  });
   let scalarWasm = await compileGlvScalar({ q, lambda, w: 29 });
   return await createWeierstraßFromWasm(params, backend, fieldWasm, scalarWasm);
 }
@@ -127,7 +132,7 @@ async function createWeierstraßFromWasm(
   let { modulus: p, b, label } = params;
 
   const Field = await createFieldFromWasm(
-    { p, backend, localRatio: 0.25 },
+    { p, curve: "weierstraß", backend, localRatio: 0.25 },
     fieldWasm,
   );
   const Scalar = await createGlvScalarFromWasm(
@@ -308,7 +313,7 @@ async function createTwistedEdwards(
   let { modulus: p, order: q } = params;
   let backend = resolveFieldBackend(options.backend ?? "auto");
 
-  let fieldWasm = await compileField({ p, beta: 1n, backend });
+  let fieldWasm = await compileField({ p, curve: "twisted-edwards", backend });
   let scalarWasm = await compileScalar({ q, w: 29 });
   return await createTwistedEdwardsFromWasm(
     params,
@@ -331,7 +336,7 @@ async function createTwistedEdwardsFromWasm(
   let { modulus: p, order: q, label } = params;
 
   const Field = await createFieldFromWasm(
-    { p, backend, localRatio: 0.8 },
+    { p, curve: "twisted-edwards", backend, localRatio: 0.8 },
     fieldWasm,
   );
   const Scalar = await createScalarFromWasm({ q, w: 29 }, scalarWasm);

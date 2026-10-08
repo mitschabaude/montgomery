@@ -12,6 +12,7 @@ import {
 import { type CurveProjective } from "./curve-projective.ts";
 import { type MsmField } from "./field-msm.ts";
 import { type GlvScalar } from "./scalar-glv.ts";
+import { type CurveParams } from "./bigint/affine-weierstrass.ts";
 import { log2 } from "./util.ts";
 
 export { createMsm, type MsmCurve, type BigintPoint, type BytesPoint };
@@ -19,7 +20,8 @@ export { createMsm, type MsmCurve, type BigintPoint, type BytesPoint };
 export { bigintPointsToMemory, bigintScalarsToMemory };
 
 type MsmCurve = {
-  Field: MsmField;
+  params: CurveParams;
+  Field: MsmField<"weierstraß">;
   Scalar: GlvScalar;
   Affine: CurveAffine;
   Projective: CurveProjective;
@@ -100,13 +102,12 @@ type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
  * @param options optional msm parameters `c`, `c0` (this is only needed when trying out different parameters
  * than our well-optimized, hard-coded ones; see {@link cTable})
  */
-function createMsm({ Field, Scalar, Affine, Projective }: MsmCurve) {
+function createMsm({ params, Field, Scalar, Affine, Projective }: MsmCurve) {
   const {
     multiply,
     copy,
     subtract,
     inverse,
-    endomorphism,
     getPointers,
     sizeField,
     memoryBytes,
@@ -119,6 +120,14 @@ function createMsm({ Field, Scalar, Affine, Projective }: MsmCurve) {
     getPointersInMemory,
     getEmptyPointersInMemory,
   } = Field;
+
+  // the endomorphism (x, y) -> (beta x, y)
+  let beta = getPointer(sizeField);
+  Field.fromBigint(beta, params.endomorphism!.beta);
+  function endomorphism(xOut: number, x: number) {
+    multiply(xOut, x, beta);
+    copy(xOut + sizeField, x + sizeField);
+  }
 
   let {
     decompose,

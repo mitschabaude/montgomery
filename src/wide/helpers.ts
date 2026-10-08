@@ -1,14 +1,4 @@
-import {
-  localArray,
-  $,
-  call,
-  func,
-  i32,
-  i64,
-  if_,
-  local,
-  unreachable,
-} from "wasmati";
+import { localArray, $, call, func, i32, i64, if_, local } from "wasmati";
 import type { FieldBase } from "./field-base.ts";
 import type { arithmetic } from "./arithmetic.ts";
 import type { multiplyMontgomery } from "./multiply.ts";
@@ -31,27 +21,6 @@ function helpers(
   );
   const bitLength = F.p.toString(2).length;
   const packedSize = Math.ceil(bitLength / 8);
-  const powers: number[] = [];
-  for (let k = 0; k < bitLength; k++) {
-    const x = 1n << BigInt(k);
-    for (let i = 0; i < F.size; i++)
-      powers.push(Number((x >> BigInt(8 * i)) & 255n));
-  }
-  const powersPtr = mem.dataToOffset(powers);
-  // Match the production leftShift contract: raw multiplication by 2^k
-  // through REDC, so the result includes R^-1. 0 <= k < bitLength(p).
-  const leftShift = func(
-    { in: [{ xy: i32 }, { y: i32 }, { k: i32 }], out: [] },
-    ({ xy, y, k }) => {
-      i32.ge_u(k, bitLength);
-      if_(() => unreachable());
-      call(ops.multiply, {
-        xy,
-        x: y,
-        y: i32.add(powersPtr, i32.mul(k, F.size)),
-      });
-    }
-  );
   // z = xIn^n. x is one scratch element, disjoint from all inputs/output.
   // Output may alias xIn.
   // The exponent uses the ordinary little-endian 64-bit limb representation.
@@ -115,5 +84,5 @@ function helpers(
       F.store(x, X);
     }
   );
-  return { negate, leftShift, exp, toPackedBytes, fromPackedBytes };
+  return { negate, exp, toPackedBytes, fromPackedBytes };
 }

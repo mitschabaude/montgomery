@@ -21,15 +21,17 @@ type Pointer = Local<"i32"> | number;
  * in place, and every operation is a call: outputs must then be written after
  * the last read of any input they may alias.
  *
- * A function using formulas with up to `nElements` field elements in locals
- * declares `locals` and passes its locals object to `context()`.
+ * Kernels are used with `fuse`, if the backend has them. They make code much
+ * larger, so they are for hot paths only. A function using fused formulas with
+ * up to `nElements` field elements in locals declares `locals`. Every function
+ * passes its locals object to `context()`.
  */
 function fieldFormulas(
   Field: FieldBackend,
   implicitMemory: ImplicitMemory,
-  nElements: number
+  { fuse, nElements = 0 }: { fuse: boolean; nElements?: number }
 ) {
-  const K = Field.kernels;
+  const K = fuse ? Field.kernels : undefined;
   const names = Array.from({ length: nElements }, (_, i) => `fe${i}`);
   const locals = K
     ? {

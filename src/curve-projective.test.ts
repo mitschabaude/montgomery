@@ -18,7 +18,8 @@ import { createScalar } from "./scalar-simple.ts";
 // The wide backend runs where Wasm wide arithmetic is enabled (npm run test-wide).
 const Field = await createMsmField({
   p: curveParams.modulus,
-  beta: 1n,
+  curve: "weierstraß",
+  beta: curveParams.endomorphism!.beta,
   backend: resolveFieldBackend("auto"),
 });
 const Scalar = await createScalar({ q: curveParams.order, w: 29 });

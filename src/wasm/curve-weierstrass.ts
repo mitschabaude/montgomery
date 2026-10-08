@@ -20,32 +20,34 @@ import { mod } from "../bigint/field-util.ts";
 import { ImplicitMemory, forLoop1 } from "./wasm-util.ts";
 import { fieldFormulas, type Fe, type FormulaContext } from "./formula.ts";
 
-export { curveOps };
+export { weierstraßOps };
 
 /**
- * Wasm curve operations on pointers, written once against the field backend.
- * With field kernels, each operation is a single function with its field
- * elements in locals; otherwise it calls the field functions.
+ * Wasm operations on points of a short Weierstrass curve with a = 0, written
+ * once against the field backend.
  *
- * Points: affine (x, y, isNonZero byte), projective (x, y, z, isNonZero byte),
- * and extended twisted Edwards (x, y, z, t).
+ * Points: affine (x, y, isNonZero byte) and projective (x, y, z, isNonZero
+ * byte).
  *
- * Without kernels, `scratch` is contiguous memory for the field elements a
- * formula needs; the counts are given for each operation.
+ * The batch additions are the hot path of the MSM. With field kernels, each of
+ * them is a single function with its field elements in locals. All other
+ * operations call the field functions, with `scratch` as contiguous memory for
+ * the field elements a formula needs; the counts are given for each operation.
  *
  * @param beta cube root in the base field for the endomorphism
  */
-function curveOps(
+function weierstraßOps(
   implicitMemory: ImplicitMemory,
   Field: FieldBackend,
   beta: bigint
 ) {
   const S = Field.size;
   const { inverse } = Field;
-  const formulas = fieldFormulas(Field, implicitMemory, 24);
-  const { locals } = formulas;
-  const context = (L: any, scratch: Local<"i32">, maxScratch: number) =>
-    formulas.context(L, scratch, maxScratch);
+  const fused = fieldFormulas(Field, implicitMemory, {
+    fuse: true,
+    nElements: 24,
+  });
+  const unfused = fieldFormulas(Field, implicitMemory, { fuse: false });
   const copyBytes = (
     target: Input<"i32">,
     source: Input<"i32">,
@@ -57,34 +59,23 @@ function curveOps(
     memory.copy();
   };
 
-  /**
-   * copy `length` bytes from source to target. this is much faster than
-   * `copyWithin` on the shared memory from JS
-   */
-  const copyMemory = func(
-    { in: [{ target: i32 }, { source: i32 }, { length: i32 }], out: [] },
-    ({ target, source, length }) => {
-      local.get(target);
-      local.get(source);
-      local.get(length);
-      memory.copy();
-    }
-  );
-
   // affine
 
   /**
-   * affine addition G3 = G1 + G2, given d = 1/(x2 - x1). G3 may alias G1.
+   * affine addition G3 = G1 + G2, given d = 1/(x2 - x1).
+   *
+   * assumes that inputs aren't zero, and x1 !== x2 (edge cases are handled one
+   * level higher, before batching). G3 may alias G1, but not G2.
+   *
    * scratch: 3 field elements
    */
   const addAffine = func(
     {
       in: [{ scratch: i32 }, { x3: i32 }, { x1: i32 }, { x2: i32 }, { d: i32 }],
-      locals,
       out: [],
     },
     ({ scratch, x3, x1, x2, d }, L) => {
-      let f = context(L, scratch, 3);
+      let f = unfused.context(L, scratch, 3);
       let M = f.element();
       // m = (y2 - y1) d
       f.subtractLoose(M, f.input(x2, S), f.input(x1, S));
@@ -126,11 +117,10 @@ function curveOps(
   const doubleAffine = func(
     {
       in: [{ scratch: i32 }, { xOut: i32 }, { x: i32 }, { d: i32 }],
-      locals,
       out: [],
     },
     ({ scratch, xOut, x, d }, L) => {
-      let f = context(L, scratch, 4);
+      let f = unfused.context(L, scratch, 4);
       let X = f.input(x);
       let Y = f.input(x, S);
       let M = f.element();
@@ -170,13 +160,13 @@ function curveOps(
   const batchAddUnsafe = func(
     {
       in: [{ scratch: i32 }, { dx: i32 }, { pairs: i32 }, { n: i32 }],
-      locals: { ...locals, g: i32, h: i32, i: i32, inv: i32, dxi: i32 },
+      locals: { ...fused.locals, g: i32, h: i32, i: i32, inv: i32, dxi: i32 },
       out: [],
     },
     ({ scratch, dx, pairs, n }, L) => {
       let { g, h, i, inv, dxi } = L;
       // formula elements first, then the inversion's input, output and scratch
-      let f = context(L, scratch, 7);
+      let f = fused.context(L, scratch, 7);
       local.set(inv, i32.add(scratch, 7 * S));
       let loadPair = () => {
         local.set(h, i32.add(pairs, i32.shl(i, 3)));
@@ -268,7 +258,7 @@ function curveOps(
         { n: i32 },
       ],
       locals: {
-        ...locals,
+        ...fused.locals,
         g: i32,
         h: i32,
         i: i32,
@@ -281,7 +271,7 @@ function curveOps(
     ({ scratch, dx, kinds, pairs, n }, L) => {
       let { g, h, i, inv, kind, dxi } = L;
       // formula elements first, then the inversion's input, output and scratch
-      let f = context(L, scratch, 8);
+      let f = fused.context(L, scratch, 8);
       local.set(inv, i32.add(scratch, 8 * S));
       let loadPair = () => {
         local.set(h, i32.add(pairs, i32.shl(i, 3)));
@@ -295,7 +285,7 @@ function curveOps(
       let M = f.element();
       let T = f.element();
       let Y = f.element();
-      let ZERO = f.input(formulas.zeroPtr);
+      let ZERO = f.input(fused.zeroPtr);
 
       i32.eqz(n);
       if_(() => return_());
@@ -426,21 +416,6 @@ function curveOps(
   const betaPtr = implicitMemory.dataToOffset(
     Field.bigintToData(mod(beta * Field.R, Field.p))
   );
-  const endomorphism = func(
-    {
-      in: [{ xOut: i32 }, { x: i32 }],
-      locals: { yOut: i32, y: i32 },
-      out: [],
-    },
-    ({ xOut, x }, { yOut, y }) => {
-      local.set(y, i32.add(x, S));
-      local.set(yOut, i32.add(xOut, S));
-      // x_out = x * beta, y_out = y
-      call(Field.multiply, { xy: xOut, x, y: betaPtr });
-      Field.copyInline(yOut, y);
-    }
-  );
-
   /**
    * for n affine points G_i, writes G_i, -G_i, endo(G_i), -endo(G_i) to
    * consecutive points at out + 4i. the byte at flags + i says which point of
@@ -482,7 +457,7 @@ function curveOps(
           local.set(yNeg, i32.add(p, 2 * pair * A + S));
           local.set(yNeg, i32.sub(i32.add(yNeg, i32.add(yNeg, A)), y));
           copyBytes(y, x, S);
-          call(Field.subtract, { out: yNeg, x: formulas.zeroPtr, y: x });
+          call(Field.subtract, { out: yNeg, x: unfused.zeroPtr, y: x });
         }
       });
     }
@@ -500,7 +475,7 @@ function curveOps(
    * scratch: 8 field elements
    */
   const doubleProjective = func(
-    { in: [{ scratch: i32 }, { p3: i32 }, { p1: i32 }], locals, out: [] },
+    { in: [{ scratch: i32 }, { p3: i32 }, { p1: i32 }], out: [] },
     ({ scratch, p3, p1 }, L) => {
       isZeroProjective(p1);
       if_(() => {
@@ -508,7 +483,7 @@ function curveOps(
         return_();
       });
       setNonZeroProjective(p3, 1);
-      let f = context(L, scratch, 8);
+      let f = unfused.context(L, scratch, 8);
       let X1 = f.input(p1);
       let Y1 = f.input(p1, S);
       let Z1 = f.input(p1, 2 * S);
@@ -569,7 +544,7 @@ function curveOps(
     return func(
       {
         in: [{ scratch: i32 }, { p3: i32 }, { p1: i32 }, { p2: i32 }],
-        locals: { ...locals, y3: i32 },
+        locals: { y3: i32 },
         out: [],
       },
       ({ scratch, p3, p1, p2 }, L) => {
@@ -579,7 +554,7 @@ function curveOps(
           copyBytes(p3, p2, 3 * S + 1);
           if (isSubtract) {
             local.set(y3, i32.add(p3, S));
-            call(Field.subtract, { out: y3, x: formulas.zeroPtr, y: y3 });
+            call(Field.subtract, { out: y3, x: unfused.zeroPtr, y: y3 });
           }
           return_();
         });
@@ -589,7 +564,7 @@ function curveOps(
           return_();
         });
 
-        let f = context(L, scratch, 11);
+        let f = unfused.context(L, scratch, 11);
         let X1 = f.input(p1);
         let Y1 = f.input(p1, S);
         let Z1 = f.input(p1, 2 * S);
@@ -662,194 +637,11 @@ function curveOps(
     );
   }
 
-  // twisted Edwards, extended coordinates
-
-  /**
-   * P3 = P1 +- P2, with Z2 = 1 if mixed, given k = 2d. Complete formula; P3
-   * may alias P1 and P2.
-   * scratch: 9 field elements
-   */
-  function edwardsAddition({
-    isSubtract,
-    isMixed,
-  }: {
-    isSubtract: boolean;
-    isMixed: boolean;
-  }) {
-    return func(
-      {
-        in: [
-          { scratch: i32 },
-          { p3: i32 },
-          { p1: i32 },
-          { p2: i32 },
-          { k: i32 },
-        ],
-        locals,
-        out: [],
-      },
-      ({ scratch, p3, p1, p2, k }, L) => {
-        let f = context(L, scratch, 9);
-        let X1 = f.input(p1);
-        let Y1 = f.input(p1, S);
-        let Z1 = f.input(p1, 2 * S);
-        let T1 = f.input(p1, 3 * S);
-        let X2 = f.input(p2);
-        let Y2 = f.input(p2, S);
-        let Z2 = isMixed ? undefined : f.input(p2, 2 * S);
-        let T2 = f.input(p2, 3 * S);
-        let [tmp, A, B, C, D, E, F, G, H] = Array.from({ length: 9 }, () =>
-          f.element()
-        );
-        // http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-3
-        // A = (Y1 - X1)(Y2 -+ X2)
-        f.subtractLoose(A, Y1, X1);
-        if (isSubtract) f.addLoose(tmp, Y2, X2);
-        else f.subtractLoose(tmp, Y2, X2);
-        f.multiply(A, A, tmp);
-        // B = (Y1 + X1)(Y2 +- X2)
-        f.addLoose(B, Y1, X1);
-        if (isSubtract) f.subtractLoose(tmp, Y2, X2);
-        else f.addLoose(tmp, Y2, X2);
-        f.multiply(B, B, tmp);
-        // C = T1 k (+-T2)
-        if (isSubtract) {
-          f.negate(D, T2);
-          f.multiply(C, T1, D);
-        } else f.multiply(C, T1, T2);
-        f.multiply(C, C, f.input(k));
-        // D = 2 Z1 Z2
-        if (Z2 === undefined) f.addLoose(D, Z1, Z1);
-        else {
-          f.multiply(D, Z1, Z2);
-          f.addLoose(D, D, D);
-        }
-        // E = B - A, F = D - C, G = D + C, H = B + A
-        f.subtractLoose(E, B, A);
-        f.subtractLoose(F, D, C);
-        f.addLoose(G, D, C);
-        f.addLoose(H, B, A);
-        let X3 = f.output(p3);
-        let Y3 = f.output(p3, S);
-        let Z3 = f.output(p3, 2 * S);
-        let T3 = f.output(p3, 3 * S);
-        f.multiply(X3, E, F);
-        f.multiply(Y3, G, H);
-        f.multiply(T3, E, H);
-        f.multiply(Z3, F, G);
-        f.commit(X3, Y3, Z3, T3);
-      }
-    );
-  }
-
-  /**
-   * P3 = P1 +- P2, with Z2 = 1 if mixed: dedicated addition for a = -1,
-   * http://hyperelliptic.org/EFD/g1p/auto-twisted-extended-1.html#addition-add-2008-hwcd-4
-   * and #addition-madd-2008-hwcd-4. 7M mixed, 8M otherwise, no curve constant.
-   *
-   * The formula degenerates exactly when F = H = 0, i.e. P1 = +-P2 doubles;
-   * then it falls back to the unified addition, which gets k = 2d.
-   * P3 may alias P1 and P2.
-   * scratch: 9 field elements
-   */
-  function edwardsDedicatedAddition({
-    isSubtract,
-    isMixed,
-    unified,
-  }: {
-    isSubtract: boolean;
-    isMixed: boolean;
-    unified: ReturnType<typeof edwardsAddition>;
-  }) {
-    return func(
-      {
-        in: [
-          { scratch: i32 },
-          { p3: i32 },
-          { p1: i32 },
-          { p2: i32 },
-          { k: i32 },
-        ],
-        locals,
-        out: [],
-      },
-      ({ scratch, p3, p1, p2, k }, L) => {
-        let f = context(L, scratch, 9);
-        let X1 = f.input(p1);
-        let Y1 = f.input(p1, S);
-        let Z1 = f.input(p1, 2 * S);
-        let T1 = f.input(p1, 3 * S);
-        let X2 = f.input(p2);
-        let Y2 = f.input(p2, S);
-        let Z2 = isMixed ? undefined : f.input(p2, 2 * S);
-        let T2 = f.input(p2, 3 * S);
-        let [tmp, A, B, C, D, E, F, G, H] = Array.from({ length: 9 }, () =>
-          f.element()
-        );
-        // with P2 negated, X2 -> -X2 and T2 -> -T2
-        // A = (Y1 - X1)(Y2 + X2)
-        f.subtractLoose(A, Y1, X1);
-        if (isSubtract) f.subtractLoose(tmp, Y2, X2);
-        else f.addLoose(tmp, Y2, X2);
-        f.multiply(A, A, tmp);
-        // B = (Y1 + X1)(Y2 - X2)
-        f.addLoose(B, Y1, X1);
-        if (isSubtract) f.addLoose(tmp, Y2, X2);
-        else f.subtractLoose(tmp, Y2, X2);
-        f.multiply(B, B, tmp);
-        // C = 2 Z1 T2
-        f.add(tmp, T2, T2);
-        if (isSubtract) f.negate(tmp, tmp);
-        f.multiply(C, Z1, tmp);
-        // D = 2 T1 Z2
-        f.add(D, T1, T1);
-        if (Z2 !== undefined) f.multiply(D, D, Z2);
-        // F = B - A, G = B + A. the result is (EF, GH, EH, FG), which is
-        // correct iff Z3 = FG is nonzero. this excludes equal points, and
-        // some sums with points of small order
-        f.subtract(F, B, A);
-        f.add(G, B, A);
-        f.reduce(F);
-        f.reduce(G);
-        let zero = f.input(formulas.zeroPtr);
-        f.isEqual(F, zero);
-        f.isEqual(G, zero);
-        i32.or();
-        if_({ likely: false }, () => {
-          call(unified, { scratch, p3, p1, p2, k });
-          return_();
-        });
-        // E = D + C, H = D - C
-        f.addLoose(E, D, C);
-        f.subtract(H, D, C);
-        let X3 = f.output(p3);
-        let Y3 = f.output(p3, S);
-        let Z3 = f.output(p3, 2 * S);
-        let T3 = f.output(p3, 3 * S);
-        f.multiply(X3, E, F);
-        f.multiply(Y3, G, H);
-        f.multiply(T3, E, H);
-        f.multiply(Z3, F, G);
-        f.commit(X3, Y3, Z3, T3);
-      }
-    );
-  }
-
-  const unifiedEdwards = {
-    add: edwardsAddition({ isSubtract: false, isMixed: false }),
-    sub: edwardsAddition({ isSubtract: true, isMixed: false }),
-    addMixed: edwardsAddition({ isSubtract: false, isMixed: true }),
-    subMixed: edwardsAddition({ isSubtract: true, isMixed: true }),
-  };
-
   return {
-    copyMemory,
     preparePoints,
     addAffine,
-    doubleAffine,
     batchAdd,
     batchAddUnsafe,
-    endomorphism,
     doubleProjective,
     addProjective: projectiveAddition({ isSubtract: false, isMixed: false }),
     subProjective: projectiveAddition({ isSubtract: true, isMixed: false }),
@@ -858,26 +650,5 @@ function curveOps(
       isMixed: true,
     }),
     subMixedProjective: projectiveAddition({ isSubtract: true, isMixed: true }),
-    addEdwards: edwardsDedicatedAddition({
-      isSubtract: false,
-      isMixed: false,
-      unified: unifiedEdwards.add,
-    }),
-    subEdwards: edwardsDedicatedAddition({
-      isSubtract: true,
-      isMixed: false,
-      unified: unifiedEdwards.sub,
-    }),
-    addMixedEdwards: edwardsDedicatedAddition({
-      isSubtract: false,
-      isMixed: true,
-      unified: unifiedEdwards.addMixed,
-    }),
-    subMixedEdwards: edwardsDedicatedAddition({
-      isSubtract: true,
-      isMixed: true,
-      unified: unifiedEdwards.subMixed,
-    }),
-    doubleEdwards: unifiedEdwards.add,
   };
 }

@@ -4,13 +4,15 @@ import {
   type Local,
   br_if,
   data,
+  func,
   global,
   i32,
   local,
   loop,
+  memory,
 } from "wasmati";
 
-export { ImplicitMemory, forLoop, forLoop1, forLoop4 };
+export { ImplicitMemory, forLoop, forLoop1, forLoop4, copyMemory };
 
 // collect memory + data segments together
 class ImplicitMemory {
@@ -107,4 +109,20 @@ function forLoop1(
   callback: () => void
 ) {
   forLoop({ incr: 1, i, start, end }, callback);
+}
+
+/**
+ * copy `length` bytes from source to target. this is much faster than
+ * `copyWithin` on the shared memory from JS
+ */
+function copyMemory() {
+  return func(
+    { in: [{ target: i32 }, { source: i32 }, { length: i32 }], out: [] },
+    ({ target, source, length }) => {
+      local.get(target);
+      local.get(source);
+      local.get(length);
+      memory.copy();
+    }
+  );
 }

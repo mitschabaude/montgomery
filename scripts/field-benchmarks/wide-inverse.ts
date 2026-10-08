@@ -8,7 +8,10 @@ import { ImplicitMemory, forLoop1 } from "../../src/wasm/wasm-util.ts";
 import { createField } from "../../src/wide/field-base.ts";
 import { arithmetic } from "../../src/wide/arithmetic.ts";
 import { multiplyMontgomery as wideMultiply } from "../../src/wide/multiply.ts";
-import { fieldInverse as wideInverse } from "../../src/wide/inverse.ts";
+import {
+  fieldInverse as wideInverse,
+  inverseKaliski as wideInverseKaliski,
+} from "../../src/wide/inverse.ts";
 import { inverse } from "../../src/bigint/field.ts";
 import { montgomeryParams, mod } from "../../src/bigint/field-util.ts";
 import { Random, sample } from "../../src/testing/random.ts";
@@ -177,9 +180,8 @@ async function createWide(p: bigint) {
   const F = createField(p);
   const mem = new ImplicitMemory(memory({ min: 100 }));
   const ops = { ...arithmetic(F), ...wideMultiply(F) };
-  const I = wideInverse(F, ops, mem);
   return build(p, 64, F.n, F.R, mem, {
-    fast: I.inverse,
-    kaliski: I.inverseKaliski,
+    fast: wideInverse(F, ops, mem).inverse,
+    kaliski: wideInverseKaliski(F, ops, mem),
   });
 }

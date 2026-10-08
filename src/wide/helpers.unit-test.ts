@@ -4,7 +4,6 @@ import { Field } from "./field.ts";
 import { exampleFields } from "../concrete/example-fields.ts";
 import { createEquivalentWasm, wasmSpec } from "../testing/equivalent-wasm.ts";
 import { Random } from "../testing/random.ts";
-import { Spec } from "../testing/equivalent.ts";
 
 for (const [label, BigintField] of Object.entries(exampleFields)) {
   test(`wide helpers: ${label}`, async () => {
@@ -45,12 +44,6 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
         W.copy(out, k);
       },
       "exp aliases exponent"
-    );
-    equiv(
-      { from: [field, Spec.numberLessThan(F.p.toString(2).length)], to: field },
-      (x, k) => BigintField.multiply(x << BigInt(k), BigintField.inverse(F.R)),
-      W.leftShift,
-      "leftShift"
     );
     const packedInput = wasmSpec(F.Memory, Random.field(F.p), {
       size: F.sizeField,
@@ -107,9 +100,5 @@ for (const [label, BigintField] of Object.entries(exampleFields)) {
     F.writeBigint(zero, 0n);
     W.exp(scratch, out, zero, zero);
     assert.equal(F.toBigint(out), 1n);
-    assert.throws(
-      () => W.leftShift(out, zero, F.p.toString(2).length),
-      WebAssembly.RuntimeError
-    );
   });
 }

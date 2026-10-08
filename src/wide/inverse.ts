@@ -22,9 +22,77 @@ import { mod } from "../bigint/field-util.ts";
 
 import { fastInverse } from "./fast-inverse.ts";
 
-export { fieldInverse };
+export { fieldInverse, inverseKaliski };
 
 function fieldInverse(
+  F: FieldBase,
+  ops: ReturnType<typeof arithmetic> & ReturnType<typeof multiplyMontgomery>,
+  mem: ImplicitMemory
+) {
+  const { size } = F;
+  const inverse = fastInverse(F, ops, mem);
+
+  // Four scratch elements. As in the production backend, batch output must
+  // not overlap input: output is used for prefix products before inversion.
+  const batchInverse = func(
+    {
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
+      locals: { i: i32, inv: i32 },
+      out: [],
+    },
+    ({ scratch, z, x, $n }, { i, inv }) => {
+      i32.eqz($n);
+      if_(() => return_());
+      local.set(inv, scratch);
+      local.set(scratch, i32.add(scratch, size));
+      i32.eq($n, 1);
+      if_(() => {
+        call(inverse, { scratch, r: z, a: x });
+        return_();
+      });
+      call(ops.copy, { x: z, y: x });
+      forLoop1(i, 1, $n, () => {
+        call(ops.multiply, {
+          xy: i32.add(z, i32.mul(i, size)),
+          x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
+          y: i32.add(x, i32.mul(i, size)),
+        });
+      });
+      call(inverse, {
+        scratch,
+        r: inv,
+        a: i32.add(z, i32.mul(i32.sub($n, 1), size)),
+      });
+      block((done) => {
+        local.set(i, i32.sub($n, 1));
+        loop((again) => {
+          i32.eqz(i);
+          br_if(done);
+          call(ops.multiply, {
+            xy: i32.add(z, i32.mul(i, size)),
+            x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
+            y: inv,
+          });
+          call(ops.multiply, {
+            xy: inv,
+            x: inv,
+            y: i32.add(x, i32.mul(i, size)),
+          });
+          local.set(i, i32.sub(i, 1));
+          br(again);
+        });
+      });
+      call(ops.copy, { x: z, y: inv });
+    }
+  );
+  return { inverse, batchInverse };
+}
+
+/**
+ * Kaliski's inverse, which the fast inverse replaced: a reference for tests
+ * and benchmarks. Its table of corrections is not part of production modules.
+ */
+function inverseKaliski(
   F: FieldBase,
   ops: ReturnType<typeof arithmetic> & ReturnType<typeof multiplyMontgomery>,
   mem: ImplicitMemory
@@ -168,60 +236,5 @@ function fieldInverse(
     }
   );
 
-  const inverse = fastInverse(F, ops, mem);
-
-  // Four scratch elements. As in the production backend, batch output must
-  // not overlap input: output is used for prefix products before inversion.
-  const batchInverse = func(
-    {
-      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
-      locals: { i: i32, inv: i32 },
-      out: [],
-    },
-    ({ scratch, z, x, $n }, { i, inv }) => {
-      i32.eqz($n);
-      if_(() => return_());
-      local.set(inv, scratch);
-      local.set(scratch, i32.add(scratch, size));
-      i32.eq($n, 1);
-      if_(() => {
-        call(inverse, { scratch, r: z, a: x });
-        return_();
-      });
-      call(ops.copy, { x: z, y: x });
-      forLoop1(i, 1, $n, () => {
-        call(ops.multiply, {
-          xy: i32.add(z, i32.mul(i, size)),
-          x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
-          y: i32.add(x, i32.mul(i, size)),
-        });
-      });
-      call(inverse, {
-        scratch,
-        r: inv,
-        a: i32.add(z, i32.mul(i32.sub($n, 1), size)),
-      });
-      block((done) => {
-        local.set(i, i32.sub($n, 1));
-        loop((again) => {
-          i32.eqz(i);
-          br_if(done);
-          call(ops.multiply, {
-            xy: i32.add(z, i32.mul(i, size)),
-            x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
-            y: inv,
-          });
-          call(ops.multiply, {
-            xy: inv,
-            x: inv,
-            y: i32.add(x, i32.mul(i, size)),
-          });
-          local.set(i, i32.sub(i, 1));
-          br(again);
-        });
-      });
-      call(ops.copy, { x: z, y: inv });
-    }
-  );
-  return { inverse, inverseKaliski, batchInverse };
+  return inverseKaliski;
 }
