@@ -36,6 +36,7 @@
     "evaluate": "node scripts/run-msm-pallas.ts 16 16 --evaluate",
     "test": "node --test 'src/**/*.test.ts'",
     "test-msm": "node --test src/msm.test.ts",
+    "test-browser": "node scripts/browser-test/run.ts",
     "benchmark": "node scripts/field-benchmarks/pallas.ts",
     "benchmark-377": "node scripts/field-benchmarks/377.ts",
     "benchmark-381": "node scripts/field-benchmarks/381.ts",
@@ -53,6 +54,7 @@
   "devDependencies": {
     "@types/node": "^25.6.0",
     "esbuild": "^0.28.0",
+    "playwright": "^1.62.1",
     "prettier": "^3.1.1",
     "typescript": "^6.0.3",
     "wabt": "^1.0.29"
