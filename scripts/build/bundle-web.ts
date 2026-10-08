@@ -92,9 +92,10 @@ function inlineUrl({ minify = false }: { minify?: boolean } = {}) {
         )}], { type: 'application/javascript' }))`;
 
         // replace any `import.meta.url` with `createsBlobUrl`, but only in lines with the `INLINE_META_URL` label
+        // (with a replacer function, because the source code contains `$` patterns that a replacement string would expand)
         let replacementValue = inlineUrlMatch[0].replace(
           /import.meta.url/g,
-          newUrlSourceCode,
+          () => newUrlSourceCode,
         );
         contents =
           contents.slice(0, inlineUrlMatch.index) +
