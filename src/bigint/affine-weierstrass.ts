@@ -1,14 +1,21 @@
 import { assert, bigintToBits } from "../util.ts";
-import { createField } from "./field.ts";
+import { createField, exp, inverse } from "./field.ts";
+import { mod } from "./field-util.ts";
 
-export { createCurveAffine, type BigintPoint, type CurveParams };
+export {
+  createCurveAffine,
+  computeEndomorphism,
+  type BigintPoint,
+  type CurveParams,
+};
 
 type BigintPoint = { x: bigint; y: bigint; isZero: boolean };
 
 /**
  * Parameters defining a short Weierstrass curve `y^2 = x^3 + a*x + b` over
- * a prime field of size `modulus`. An optional GLV endomorphism (`beta`,
- * `lambda`) enables faster scalar multiplication.
+ * a prime field of size `modulus`. Curves with a = 0 have a GLV endomorphism
+ * (`beta`, `lambda`), which enables faster scalar multiplication. If it is
+ * left out, it is computed with {@link computeEndomorphism}.
  */
 type CurveParams = {
   label: string;
@@ -177,4 +184,34 @@ function createCurveAffine(params: CurveParams) {
     isZero,
     random,
   };
+}
+
+/**
+ * The GLV endomorphism of a curve with a = 0: a primitive cube root of unity
+ * `lambda` modulo the group order, and the cube root of unity `beta` modulo p
+ * such that lambda * (x, y) = (beta * x, y) on the prime-order subgroup.
+ *
+ * This costs a scalar multiplication, so predefined curves hard-code it.
+ */
+function computeEndomorphism(params: CurveParams) {
+  let { modulus: p, order: q, a, generator: G } = params;
+  assert(a === 0n, "only curves with a = 0 have this endomorphism");
+  assert(G.x !== 0n, "generator must have x != 0");
+  let lambda = primitiveCubeRoot(q);
+  let lambdaG = createCurveAffine(params).scale(lambda, {
+    ...G,
+    isZero: false,
+  });
+  assert(lambdaG.y === G.y, "lambda * G = (beta * x, y) for some beta");
+  let beta = mod(lambdaG.x * inverse(G.x, p), p);
+  assert(beta !== 1n && exp(beta, 3n, p) === 1n, "beta is a cube root of 1");
+  return { beta, lambda };
+}
+
+function primitiveCubeRoot(m: bigint): bigint {
+  for (let g = 2n; g < 1000n; g++) {
+    let r = exp(g, (m - 1n) / 3n, m);
+    if (r !== 1n) return r;
+  }
+  throw Error("no non-cube found");
 }
