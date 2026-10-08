@@ -4,7 +4,7 @@ _by Gregor Mitscha-Baude_
 
 **2nd place in the Wasm/MSM ZPrize in both 2022 and 2023.**
 
-A fast, multi-threaded implementation of elliptic curve multi-scalar multiplication (MSM) in WebAssembly. Works in Node.js and the browser. The Wasm is generated at runtime from TypeScript via [wasmati](https://github.com/zksecurity/wasmati), so adding a new curve is a matter of plugging in its parameters.
+A fast, multi-threaded implementation of elliptic curve multi-scalar multiplication (MSM) in WebAssembly. Works in Node.js and the browser. The Wasm is generated from TypeScript via [wasmati](https://github.com/zksecurity/wasmati), at runtime, so adding a new curve is a matter of plugging in its parameters. Pallas and BLS12-377 also come prebuilt.
 
 ## Install
 
@@ -84,6 +84,12 @@ Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(par
 Under the hood, these constructors build a dedicated Wasm module on-the-fly based on the provided parameters, and distribute the module to Workers with memory sharing when parallelism is enabled.
 
 All factories accept options. `backend` selects the base field arithmetic: `"wide"` for 64-bit limbs with Wasm wide arithmetic, `"29-bit"` for the portable layout, or `"auto"` (default) to use wide arithmetic when the runtime supports it. For example, `await Pallas({ backend: "29-bit" })`.
+
+Pallas and BLS12-377 also come with prebuilt Wasm modules, in `montgomery/pallas` and `montgomery/bls12-377`. They export the same factory, `startThreads` and `stopThreads`, and load in a few milliseconds instead of generating their modules, which takes up to ~400 ms with wide arithmetic. Their modules are included as base64, so the browser builds are single files that need no bundler support for Wasm.
+
+```ts
+import { Pallas, startThreads } from "montgomery/pallas";
+```
 
 ## Threads
 
@@ -174,4 +180,4 @@ If your threat model does include timing side channels (server-side key operatio
 - `doc/zprize23/` - ZPrize 2023 submission sources (twisted edwards + BLS12-377) and README, preserved as a reference.
 - `doc/zprize22.md` - ZPrize 2022 write-up explaining some of the algorithms underlying the MSM.
 - `src/wide/` — field arithmetic of the wide backend using Wasm wide arithmetic; see its [notes and benchmarks](src/wide/README.md). `src/field-backend.ts` defines the interface both backends implement.
-- `src/generate.ts` — the only code that generates Wasm with wasmati; curves run from the compiled modules, also in workers.
+- `src/generate.ts` — the only code that generates Wasm with wasmati; curves run from the compiled modules, also in workers. `src/prebuilt/` loads the modules that `scripts/build/prebuild.ts` writes ahead of time.

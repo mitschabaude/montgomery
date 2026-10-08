@@ -10,6 +10,16 @@
       "types": "./build/src/index.d.ts",
       "browser": "./build/web/index.js",
       "default": "./build/src/index.js"
+    },
+    "./pallas": {
+      "types": "./build/src/prebuilt/pallas.d.ts",
+      "browser": "./build/web/pallas.js",
+      "default": "./build/src/prebuilt/pallas.js"
+    },
+    "./bls12-377": {
+      "types": "./build/src/prebuilt/bls12-377.d.ts",
+      "browser": "./build/web/bls12-377.js",
+      "default": "./build/src/prebuilt/bls12-377.js"
     }
   },
   "repository": {
@@ -20,8 +30,8 @@
     "build/src",
     "!build/src/**/*.test.*",
     "!build/src/**/*.unit-test.*",
-    "build/web/index.js",
-    "build/web/index.js.map",
+    "build/web/*.js",
+    "build/web/*.js.map",
     "src",
     "!src/**/*.test.ts",
     "!src/**/*.unit-test.ts",
@@ -31,6 +41,7 @@
   "scripts": {
     "watch": "tsc -w",
     "build": "tsc",
+    "prebuilt": "node scripts/build/prebuild.ts",
     "start": "node scripts/run-msm-pallas.ts",
     "start-web": "./run-in-browser scripts/run-msm-pallas.ts",
     "evaluate": "node scripts/run-msm-pallas.ts 16 16 --evaluate",
