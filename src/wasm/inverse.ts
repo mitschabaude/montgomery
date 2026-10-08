@@ -19,14 +19,106 @@ import { mod } from "../bigint/field-util.ts";
 import { ImplicitMemory } from "./wasm-util.ts";
 import { type FieldWithMultiply } from "./multiply-montgomery.ts";
 import { log2 } from "../util.ts";
+import { fastInverse } from "./fast-inverse.ts";
 
-export { fieldInverse };
+export { fieldInverse, inverseKaliski };
 
+/**
+ * Montgomery inverse and batch inverse of the 29-bit backend. The inverse is
+ * the binary GCD in ./fast-inverse.ts.
+ */
 function fieldInverse(
   implicitMemory: ImplicitMemory,
   Field: FieldWithMultiply
 ) {
-  const { n, w, p, multiply } = Field;
+  const { multiply } = Field;
+  const { inverse } = fastInverse(implicitMemory, Field);
+
+  const batchInverse = func(
+    {
+      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
+      locals: { $i: i32, I: i32, $N: i32 },
+      out: [],
+    },
+    ({ scratch, z, x, $n }, { $i, I, $N }) => {
+      local.set(I, scratch);
+      local.set(scratch, i32.add(scratch, Field.size));
+      local.set($N, i32.mul($n, Field.size));
+      // return early if n = 0 or 1
+      i32.eqz($n);
+      if_(() => return_());
+      i32.eq($n, 1);
+      if_(() => {
+        call(inverse, { scratch, r: z, a: x });
+        return_();
+      });
+      // create products x0*x1, ..., x0*...*x(n-1)
+      call(multiply, {
+        xy: i32.add(z, Field.size),
+        x: i32.add(x, Field.size),
+        y: x,
+      });
+      i32.eq($n, 2);
+      if_(() => {
+        call(inverse, {
+          scratch: local.get(scratch),
+          r: local.get(I),
+          a: i32.add(z, Field.size),
+        });
+        call(multiply, { xy: i32.add(z, Field.size), x, y: I }),
+          call(multiply, { xy: local.get(z), x: i32.add(x, Field.size), y: I }),
+          return_();
+      });
+      local.set($i, i32.const(2 * Field.size));
+      loop(() => {
+        call(multiply, {
+          xy: i32.add(z, $i),
+          x: i32.add(i32.sub($i, Field.size), z),
+          y: i32.add(x, $i),
+        });
+        i32.ne(local.tee($i, i32.add($i, Field.size)), $N);
+        br_if(0);
+      });
+      // inverse I = 1/(x0*...*x(n-1))
+      call(inverse, {
+        scratch: local.get(scratch),
+        r: local.get(I),
+        a: i32.add(i32.sub($N, Field.size), z),
+      });
+      // create inverses 1/x(n-1), ..., 1/x2
+      local.set($i, i32.sub($N, Field.size));
+      loop(() => {
+        call(multiply, {
+          xy: i32.add(z, $i),
+          x: i32.add(i32.sub($i, Field.size), z),
+          y: I,
+        });
+        call(multiply, {
+          xy: local.get(I),
+          x: local.get(I),
+          y: i32.add(x, $i),
+        });
+        i32.ne(local.tee($i, i32.sub($i, Field.size)), Field.size);
+        br_if(0);
+      });
+      // 1/x1, 1/x0
+      call(multiply, { xy: i32.add(z, Field.size), x, y: I });
+      call(multiply, { xy: local.get(z), x: i32.add(x, Field.size), y: I });
+    }
+  );
+
+  return { inverse, batchInverse };
+}
+
+/**
+ * Kaliski's inverse, which the fast inverse replaced: a reference for tests
+ * and benchmarks. It modifies its input, by reducing it.
+ */
+function inverseKaliski(
+  implicitMemory: ImplicitMemory,
+  Field: FieldWithMultiply
+) {
+  const { n, w, p } = Field;
 
   /**
    * a core building block for montgomery inversion
@@ -235,78 +327,5 @@ function fieldInverse(
     }
   );
 
-  const batchInverse = func(
-    {
-      in: [{ scratch: i32 }, { z: i32 }, { x: i32 }, { $n: i32 }],
-      locals: { $i: i32, I: i32, $N: i32 },
-      out: [],
-    },
-    ({ scratch, z, x, $n }, { $i, I, $N }) => {
-      local.set(I, scratch);
-      local.set(scratch, i32.add(scratch, Field.size));
-      local.set($N, i32.mul($n, Field.size));
-      // return early if n = 0 or 1
-      i32.eqz($n);
-      if_(() => return_());
-      i32.eq($n, 1);
-      if_(() => {
-        call(inverse, { scratch, r: z, a: x });
-        return_();
-      });
-      // create products x0*x1, ..., x0*...*x(n-1)
-      call(multiply, {
-        xy: i32.add(z, Field.size),
-        x: i32.add(x, Field.size),
-        y: x,
-      });
-      i32.eq($n, 2);
-      if_(() => {
-        call(inverse, {
-          scratch: local.get(scratch),
-          r: local.get(I),
-          a: i32.add(z, Field.size),
-        });
-        call(multiply, { xy: i32.add(z, Field.size), x, y: I }),
-          call(multiply, { xy: local.get(z), x: i32.add(x, Field.size), y: I }),
-          return_();
-      });
-      local.set($i, i32.const(2 * Field.size));
-      loop(() => {
-        call(multiply, {
-          xy: i32.add(z, $i),
-          x: i32.add(i32.sub($i, Field.size), z),
-          y: i32.add(x, $i),
-        });
-        i32.ne(local.tee($i, i32.add($i, Field.size)), $N);
-        br_if(0);
-      });
-      // inverse I = 1/(x0*...*x(n-1))
-      call(inverse, {
-        scratch: local.get(scratch),
-        r: local.get(I),
-        a: i32.add(i32.sub($N, Field.size), z),
-      });
-      // create inverses 1/x(n-1), ..., 1/x2
-      local.set($i, i32.sub($N, Field.size));
-      loop(() => {
-        call(multiply, {
-          xy: i32.add(z, $i),
-          x: i32.add(i32.sub($i, Field.size), z),
-          y: I,
-        });
-        call(multiply, {
-          xy: local.get(I),
-          x: local.get(I),
-          y: i32.add(x, $i),
-        });
-        i32.ne(local.tee($i, i32.sub($i, Field.size)), Field.size);
-        br_if(0);
-      });
-      // 1/x1, 1/x0
-      call(multiply, { xy: i32.add(z, Field.size), x, y: I });
-      call(multiply, { xy: local.get(z), x: i32.add(x, Field.size), y: I });
-    }
-  );
-
-  return { makeOdd, inverse, batchInverse };
+  return inverse;
 }
