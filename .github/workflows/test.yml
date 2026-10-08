@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -44,3 +47,34 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium-headless-shell
       - run: npm run test-browser
+
+  publish:
+    name: Publish version bump to npm
+    needs: [test, browser]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: npm-publish-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+      - name: Check for an unpublished version bump
+        id: release
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node .github/scripts/check-release.ts
+      - name: Install dependencies
+        if: steps.release.outputs.publish == 'true'
+        run: npm ci
+      - name: Publish with npm trusted publishing
+        if: steps.release.outputs.publish == 'true'
+        run: npm publish --access public --tag "${{ steps.release.outputs.tag }}"
