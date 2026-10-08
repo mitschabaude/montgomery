@@ -196,6 +196,11 @@ function createCurveAffine(params: CurveParams) {
 function computeEndomorphism(params: CurveParams) {
   let { modulus: p, order: q, a, generator: G } = params;
   assert(a === 0n, "only curves with a = 0 have this endomorphism");
+  // cube roots of unity other than 1 exist mod p and mod q
+  assert(
+    p % 3n === 1n && q % 3n === 1n,
+    "the endomorphism needs p = q = 1 (mod 3)"
+  );
   assert(G.x !== 0n, "generator must have x != 0");
   let lambda = primitiveCubeRoot(q);
   let lambdaG = createCurveAffine(params).scale(lambda, {

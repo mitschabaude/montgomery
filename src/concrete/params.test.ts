@@ -35,6 +35,14 @@ for (let params of Object.values(CurveParams)) {
   });
 }
 
+test("computeEndomorphism needs p = q = 1 (mod 3)", () => {
+  let { endomorphism, ...pallas } = CurveParams.pallas;
+  assert.throws(
+    () => computeEndomorphism({ ...pallas, order: 11n }),
+    /p = q = 1 \(mod 3\)/
+  );
+});
+
 test("curve without a given endomorphism", async () => {
   let { endomorphism, ...params } = CurveParams.pallas;
   let Curve = await Weierstraß.create(params);
