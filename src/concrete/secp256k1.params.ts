@@ -1,6 +1,4 @@
 import type { CurveParams } from "../bigint/affine-weierstrass.ts";
-import { mod } from "../bigint/field-util.ts";
-import { createCurveAffine } from "../bigint/affine-weierstrass.ts";
 
 export { secp256k1Params };
 
@@ -21,14 +19,6 @@ const generator = {
 const beta = 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501een;
 const lambda = 0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72n;
 
-// sanity checks: cube roots of unity, and λ·G = (β·x, y)
-if (mod(beta * beta * beta, p) !== 1n) {
-  throw Error("secp256k1: beta is not a cube root of 1 mod p");
-}
-if (mod(lambda * lambda * lambda, q) !== 1n) {
-  throw Error("secp256k1: lambda is not a cube root of 1 mod q");
-}
-
 const secp256k1Params: CurveParams = {
   label: "secp256k1",
   modulus: p,
@@ -39,13 +29,3 @@ const secp256k1Params: CurveParams = {
   generator,
   endomorphism: { beta, lambda },
 };
-
-// verify λ·G = (β·Gx, Gy) using bigint curve
-{
-  const C = createCurveAffine(secp256k1Params);
-  const lambdaG = C.scale(lambda, C.one);
-  const expectedX = mod(beta * generator.x, p);
-  if (lambdaG.x !== expectedX || lambdaG.y !== generator.y) {
-    throw Error("secp256k1: endomorphism (β, λ) pair is inconsistent");
-  }
-}

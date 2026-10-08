@@ -21,7 +21,10 @@ import {
 } from "./scalar-glv.ts";
 import { createMsm, createMsmShared } from "./msm-batched-affine.ts";
 import { pool } from "./threads/global-pool.ts";
-import { type CurveParams } from "./bigint/affine-weierstrass.ts";
+import {
+  type CurveParams,
+  computeEndomorphism,
+} from "./bigint/affine-weierstrass.ts";
 import { type CurveParams as TwistedEdwardsParams } from "./bigint/twisted-edwards.ts";
 import { assert } from "./util.ts";
 import { compileScalar, createScalarFromWasm } from "./scalar-simple.ts";
@@ -92,7 +95,8 @@ const curves: (
  *   later `startThreads` call will pick it up and segment its memory for the
  *   new thread count.
  *
- * Only curves with `a = 0` and a GLV endomorphism are supported.
+ * Only curves with `a = 0` are supported, which have a GLV endomorphism. If
+ * `params` leave it out, it is computed, which costs a scalar multiplication.
  *
  * @param options see {@link CurveOptions}
  */
@@ -100,10 +104,11 @@ async function createWeierstraß(
   params: CurveParams,
   options: CurveOptions = {},
 ) {
-  let { modulus: p, order: q, endomorphism, a } = params;
+  let { modulus: p, order: q, a } = params;
   let backend = resolveFieldBackend(options.backend ?? "auto");
   assert(a === 0n, "only curves with a = 0 are supported");
-  assert(endomorphism !== undefined, "endomorphism required");
+  let endomorphism = params.endomorphism ?? computeEndomorphism(params);
+  params = { ...params, endomorphism };
   let { beta, lambda } = endomorphism;
 
   let fieldWasm = await compileField({

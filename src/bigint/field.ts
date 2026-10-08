@@ -10,7 +10,9 @@ export { createField, type BigintField, inverse, exp };
 type BigintField = ReturnType<typeof createField>;
 
 function createField(p: bigint) {
-  let roots = rootsOfUnity(p);
+  // only sqrt needs roots of unity, so they are computed on first use
+  let roots: ReturnType<typeof rootsOfUnity> | undefined;
+  const getRoots = () => (roots ??= rootsOfUnity(p));
 
   let sizeInBits = log2(p);
   let sizeInBytes = Math.ceil(sizeInBits / 8);
@@ -23,9 +25,15 @@ function createField(p: bigint) {
     sizeInBits,
     sizeInBytes,
 
-    roots: roots.roots,
-    t: roots.t,
-    M: roots.M,
+    get roots() {
+      return getRoots().roots;
+    },
+    get t() {
+      return getRoots().t;
+    },
+    get M() {
+      return getRoots().M;
+    },
 
     mod(x: bigint) {
       return mod(x, p);
@@ -61,7 +69,7 @@ function createField(p: bigint) {
       return mod(x, p) === 0n || exp(x, (p - 1n) / 2n, p) === 1n;
     },
     sqrt(x: bigint) {
-      return sqrt(x, p, roots);
+      return sqrt(x, p, getRoots());
     },
     random() {
       return randomField(p, sizeInBytes, msbMask);
