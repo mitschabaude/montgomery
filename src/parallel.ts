@@ -34,7 +34,7 @@ import {
   type BigintPoint as TwistedEdwardsPoint,
 } from "./bigint/twisted-edwards.ts";
 import { createMsmBasic, msmBasic } from "./msm-basic.ts";
-import { barrier, range } from "./threads/threads.ts";
+import { barrier, isMain, range } from "./threads/threads.ts";
 import {
   resolveFieldBackend,
   type FieldBackendName,
@@ -172,7 +172,20 @@ async function createWeierstraßFromWasm(
       Projective.fromAffine(pi, ai);
     }
     await barrier();
-    return await msmBasic(InputsProjective, scalars, pointsProj, N, options);
+    let { result, log } = await msmBasic(
+      InputsProjective,
+      scalars,
+      pointsProj,
+      N,
+      options,
+    );
+    // return an affine point, like the batched-affine MSM. global memory is
+    // allocated the same way on all threads
+    let affine = Field.global.getPointer(Affine.size);
+    if (!isMain()) return { result: affine, log };
+    using _ = Field.local.atCurrentOffset;
+    Projective.toAffine(Field.local.getPointers(5), affine, result);
+    return { result: affine, log };
   }
 
   function getPointer(size: number) {

@@ -105,6 +105,57 @@ function createCurveAffine(
     copy(yOut, y2);
   }
 
+  /**
+   * affine EC addition, G3 = G1 + G2, which handles zero, equal and opposite
+   * points. G3 may alias G1 or G2.
+   */
+  function addPoints(G3: number, G1: number, G2: number) {
+    // the Wasm addition may write G3 = G1, but not G3 = G2
+    if (G3 === G2) [G1, G2] = [G2, G1];
+    if (isZero(G1)) return copyAffine(G3, G2);
+    if (isZero(G2)) return copyAffine(G3, G1);
+    using _ = Field.local.atCurrentOffset;
+    let [d, x1, x2, y1, y2, ...scratch] = Field.local.getPointers(9);
+    // compare canonical coordinates
+    let [x1In, y1In] = coords(G1);
+    let [x2In, y2In] = coords(G2);
+    copy(x1, x1In);
+    copy(x2, x2In);
+    Field.reduce(x1);
+    Field.reduce(x2);
+    if (Field.isEqual(x1, x2)) {
+      copy(y1, y1In);
+      copy(y2, y2In);
+      Field.reduce(y1);
+      Field.reduce(y2);
+      // G1 = -G2, including points of order 2: the sum is zero
+      if (!Field.isEqual(y1, y2) || Field.isZero(y1)) {
+        setIsNonZero(G3, false);
+        return;
+      }
+      // G1 = G2: double with d = 1/(2y)
+      add(d, y1, y1);
+      Field.inverse(scratch[0], d, d);
+      double(scratch, G3, G1, d);
+      setIsNonZero(G3, true);
+      return;
+    }
+    // d = 1/(x2 - x1)
+    subtract(d, x2, x1);
+    Field.inverse(scratch[0], d, d);
+    Field.addAffine(scratch[0], G3, G1, G2, d);
+  }
+
+  /**
+   * affine EC negation, H = -G. H may alias G.
+   */
+  function negate(H: number, G: number) {
+    if (H !== G) copyAffine(H, G);
+    if (isZero(H)) return;
+    let y = H + sizeField;
+    subtract(y, Field.constants.zero, y);
+  }
+
   function scale(
     [
       resultProj,
@@ -351,6 +402,8 @@ function createCurveAffine(
   return {
     b,
     size,
+    add: addPoints,
+    negate,
     double,
     scale,
     toSubgroupInPlace,
