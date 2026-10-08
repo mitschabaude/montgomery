@@ -4,7 +4,6 @@ import { startThreads } from "../../src/parallel.ts";
 export { compute_msm };
 
 await startThreads();
-let scratch = BLS12377.Field.local.getPointers(20);
 let nMax = 1 << 20;
 
 // pointers for data used by msm
@@ -57,9 +56,7 @@ async function compute_msm(
   }
 
   // return as affine bigint point
-  let resultAffine = BLS12377.Field.local.getPointer(BLS12377.Affine.size);
-  BLS12377.Projective.toAffine(scratch, resultAffine, result);
-  let resultBigint = BLS12377.Affine.toBigint(resultAffine);
+  let resultBigint = BLS12377.Affine.toBigint(result);
 
   return resultBigint;
 }

@@ -67,7 +67,8 @@ type MsmInputCurve = {
  * computation proceeds in **three main steps:**
  * 1. each bucket is accumulated into a single point, the _bucket sum_ `B_(l,k)`, which is simply the sum of all points in the bucket.
  * 2. the bucket sums of each partition k are reduced into a partition sum `P_k = 1*B_(k, 1) + 2*B_(k, 2) + ... + L*B_(k, L)`.
- * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c_0*P_1 + ... + 2^(c_0 + ... + c_(K-2))*P_(K-1)`
+ * 3. the partition sums are reduced into the final result, `S = P_0 + 2^c_0*P_1 + ... + 2^(c_0 + ... + c_(K-2))*P_(K-1)`,
+ *    which is returned as an affine point
  *
  * threads add points into their own copies of a partition's buckets, so that buckets stay in a core's cache and need no
  * locks. the copies are summed up in the reduction.
@@ -110,7 +111,7 @@ function createMsm({
     let { tic, toc, log, getLog } = createLog(verboseTiming && isMain());
     tic("msm total");
 
-    let result = Field.global.getPointer(sizeProjective);
+    let result = Field.global.getPointer(sizeAffine);
     using _g = Field.global.atCurrentOffset;
     using _l = Field.local.atCurrentOffset;
     using _s = Scalar.global.atCurrentOffset;
@@ -310,7 +311,7 @@ function createMsm({
       }
       Projective.addAssign(scratch, finalSum, partialSums[k]);
     }
-    Projective.copy(result, finalSum);
+    Projective.toAffine(scratch, result, finalSum);
     toc();
 
     log(Field.global.printMaxSizeUsed());

@@ -87,9 +87,11 @@ async function testMsmEdgeCases(curveParams: CurveParams) {
   });
 
   let { result } = await Parallel.msm(scalarPtrs[0], pointsPtrs[0], N);
-  let s = Projective.toBigint(result);
-  let sBigint = Bigint.Projective.msm(scalars, points);
-  assert(Bigint.Projective.isEqual(s, sBigint), "msm edge cases failed");
+  let s = Affine.toBigint(result);
+  let sBigint = Bigint.Projective.toAffine(
+    Bigint.Projective.msm(scalars, points)
+  );
+  assert(Bigint.Affine.isEqual(s, sBigint), "msm edge cases failed");
 }
 
 async function testOneMsm(Curve: Weierstraß, n: number) {
@@ -114,11 +116,13 @@ async function testOneMsm(Curve: Weierstraß, n: number) {
   assert(scalars.length === N);
 
   let { result } = await Parallel.msmUnsafe(scalarPtrs[0], pointsPtrs[0], N);
-  let s = Projective.toBigint(result);
+  let s = Affine.toBigint(result);
 
-  let sBigint = Bigint.Projective.msm(scalars, points);
+  let sBigint = Bigint.Projective.toAffine(
+    Bigint.Projective.msm(scalars, points)
+  );
 
-  assert(Bigint.Projective.isEqual(s, sBigint), `msm 2^${n} failed`);
+  assert(Bigint.Affine.isEqual(s, sBigint), `msm 2^${n} failed`);
 
   // projective msm
   let { result: resultProjective } = await Parallel.msmProjective(
@@ -126,11 +130,8 @@ async function testOneMsm(Curve: Weierstraß, n: number) {
     pointsPtrs[0],
     N
   );
-  let sProjective = Projective.toBigint(resultProjective);
-  assert(
-    Bigint.Projective.isEqual(s, sProjective),
-    `msmProjective 2^${n} failed`
-  );
+  let sProjective = Affine.toBigint(resultProjective);
+  assert(Bigint.Affine.isEqual(s, sProjective), `msmProjective 2^${n} failed`);
 }
 
 async function testMsmTE(curveParams: TwistedEdwardsParams) {

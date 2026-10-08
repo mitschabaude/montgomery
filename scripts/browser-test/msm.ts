@@ -29,10 +29,7 @@ let scalarPtrs = await Curve.Parallel.randomScalars(N);
 let { result } = await Curve.Parallel.msm(scalarPtrs[0], pointPtrs[0], N);
 await stopThreads();
 
-let { Field, Scalar, Affine, Projective, Bigint } = Curve;
-let scratch = Field.local.getPointers(5);
-let resultAffine = Field.getPointer(Affine.size);
-Projective.toAffine(scratch, resultAffine, result);
+let { Scalar, Affine, Bigint } = Curve;
 let scalars = scalarPtrs.map((s) => Scalar.readBigint(s));
 let points = pointPtrs.map((g) =>
   Bigint.Projective.fromAffine(Affine.toBigint(g)),
@@ -40,7 +37,7 @@ let points = pointPtrs.map((g) =>
 let expected = Bigint.Projective.toAffine(
   Bigint.Projective.msm(scalars, points),
 );
-assertDeepEqual(Affine.toBigint(resultAffine), expected, "consistent results");
+assertDeepEqual(Affine.toBigint(result), expected, "consistent results");
 console.log(`${Curve.params.label}: results are consistent!`);
 
 (globalThis as any).browserTestDone = true;

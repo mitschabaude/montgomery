@@ -6,6 +6,17 @@ _by Gregor Mitscha-Baude_
 
 A fast, multi-threaded implementation of elliptic curve multi-scalar multiplication (MSM) in WebAssembly. Works in Node.js and the browser. The Wasm is generated at runtime from TypeScript via [wasmati](https://github.com/zksecurity/wasmati), so adding a new curve is a matter of plugging in its parameters.
 
+## Performance
+
+MSM timings for 2^20 points with 8 threads on an AMD Ryzen 7 3700X (8 cores), from `node scripts/run-msm-<curve>.ts 20 8 --evaluate`:
+
+| Curve                    | Node LTS | Node 27 with `--wasm-wide-arithmetic` |
+| ------------------------ | -------- | ------------------------------------- |
+| BN254                    | 1218 ms  | 448 ms                                |
+| Pallas                   | 960 ms   | 422 ms                                |
+| BLS12-377                | 1782 ms  | 750 ms                                |
+| Ed-377 (twisted Edwards) | 1608 ms  | 850 ms                                |
+
 ## Install
 
 ```sh
@@ -36,7 +47,7 @@ import { Pallas, startThreads, stopThreads, type AffinePoint } from "montgomery"
 
 // lazy factory: instantiates the Pallas curve on first call
 const pallas = await Pallas();
-b
+
 // optional: spin up worker threads to parallelize large MSMs
 await startThreads(4);
 
@@ -51,11 +62,8 @@ const pointPtr = pallas.Affine.fromBigints(points);
 // compute msm
 const { result } = await pallas.Parallel.msm(scalarPtr, pointPtr, scalars.length);
 
-// read back the affine bigint result
-const scratch = pallas.Field.local.getPointers(5);
-const affinePtr = pallas.Field.getPointer(pallas.Affine.size);
-pallas.Projective.toAffine(scratch, affinePtr, result);
-const { x, y } = pallas.Affine.toBigint(affinePtr);
+// the result is an affine point in wasm memory; read it back as bigints
+const { x, y } = pallas.Affine.toBigint(result);
 
 await stopThreads();
 ```
@@ -151,16 +159,15 @@ These are the same primitives the library's MSMs are built on: `msm-batched-affi
 A few highlights:
 
 - **29×9 limb layout** for 256-bit fields. 29-bit limbs packed into 9 i64 lanes let the Montgomery multiplication use i64 multiplies with enough headroom in the upper bits to accumulate partial products before carrying — a sweet spot for wasm, which has no native 64×64→128 multiply. Bain Capital Crypto's [_Optimizing Montgomery Multiplication in WebAssembly_](https://baincapitalcrypto.com/optimizing-montgomery-multiplication-in-webassembly/) benchmarks several wasm multiplication variants against each other and finds this one (which they call "Mitscha-Baude's method", referencing this repo) the fastest.
-- **Fast modular inverse** at **< 30 × MUL** cost, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). Much faster than the usual `exp(x, p-2)` Fermat trick.
+- **Fast modular inverse**, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). An inversion costs about as much as 40 multiplications with wide arithmetic and 70 with 29-bit limbs, against more than 250 for the usual `exp(x, p-2)` Fermat trick, which needs a squaring per bit of p.
 - **Fast square root** via Tonelli–Shanks optimized after Daniel Bernstein's ["Faster square roots in annoying finite fields"](http://cr.yp.to/papers/sqroot.pdf): the discrete-log phase caches roots-of-unity windows so it drops to a handful of multiplications, leaving the `x^((t−1)/2)` exponentiation as the dominant cost.
-- **64-bit limbs with Wasm wide arithmetic** where available. `i64.mul_wide_u` and `i64.add128` make full-width Montgomery multiplication about 2–2.6x faster than the 29-bit layout, and a branchless batched binary GCD inverts 256-bit field elements in about 0.7 µs. See [`src/wide/README.md`](src/wide/README.md).
-- **Lock-free multithreaded MSM.** Threads claim chunks of work from shared counters, and add points into their own copies of a partition's buckets, so that buckets stay in a core's cache. Batches of affine additions share one inversion and run in a single Wasm call. The bucket reduction also uses batch-affine additions, and sums up the copies along the way.
+- **64-bit limbs with Wasm wide arithmetic** where available. `i64.mul_wide_u` and `i64.add128` make full-width Montgomery multiplication about 2–2.6x faster than the 29-bit layout. See [`src/wide/README.md`](src/wide/README.md).
 
 ## Constant-time: not a design goal
 
 `montgomery` targets high-volume client-side computation (e.g. local SNARK provers) where the threat model does not include timing side channels: an adversary doesn't share the machine or observe wall-clock times of individual operations. Under that assumption we trade constant-time execution for raw throughput, and many core operations branch on their operands:
 
-- `Field.inverse` — Pornin binary GCD with data-dependent branches
+- `Field.inverse` — Pornin binary GCD, with a number of iterations that depends on the input
 - `Field.sqrt` — Tonelli-Shanks with retry and lookup-driven digit extraction
 - `Field.exp` — standard square-and-multiply, branches per exponent bit
 - `Field.reduce` (and `Field.add` / `Field.subtract` through it) — conditional subtraction
