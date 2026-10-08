@@ -91,8 +91,6 @@ Generic constructors `Weierstraß.create(params)` and `TwistedEdwards.create(par
 
 Under the hood, these constructors build a dedicated Wasm module on-the-fly based on the provided parameters, and distribute the module to Workers with memory sharing when parallelism is enabled.
 
-All factories accept options. `backend` selects the base field arithmetic: `"wide"` for 64-bit limbs with Wasm wide arithmetic, `"29-bit"` for the portable layout, or `"auto"` (default) to use wide arithmetic when the runtime supports it. For example, `await Pallas({ backend: "29-bit" })`.
-
 ## Threads
 
 Parallelism in both Node.js and browsers is supported by exposing methods to start and stop a global pool of workers. Performance-critical library methods like the MSM _automatically_ shard their work across the currently available pool.
