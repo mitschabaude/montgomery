@@ -63,7 +63,7 @@ function helpers(
       for (let i = 0; i < packedSize; i++) {
         i32.store8(
           { offset: i },
-          bytes,
+          local.get(bytes),
           i32.wrap_i64(i64.shr_u(X[Math.floor(i / 8)], BigInt(8 * (i % 8))))
         );
       }

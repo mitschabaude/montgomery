@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Module, call, func, i32, memory, type Func } from "wasmati";
+import { Module, call, func, i32, local, memory, type Func } from "wasmati";
 import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
 import { fieldInverse as kaliskiInverse } from "../../src/wasm/inverse.ts";
@@ -109,9 +109,9 @@ async function build(
       ({ scratch, output, inputs, N }, { i }) => {
         forLoop1(i, 0, N, () => {
           call(operation, {
-            scratch,
-            r: output,
-            a: i32.add(inputs, i32.mul(i32.and(i, 255), size)),
+            scratch: local.get(scratch),
+            r: local.get(output),
+            a: i32.add(i32.mul(i32.and(i, 255), size), inputs),
           });
         });
       }

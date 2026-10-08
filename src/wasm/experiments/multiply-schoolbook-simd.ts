@@ -122,9 +122,11 @@ function multiplySchoolbook(p: bigint, w: number, n: number) {
       // outside i loop: final pass of carries
       for (let i = n; i < 2 * n; i++) {
         local.set(tmp, local.get(XY[i - n]));
-        i64.and(tmp, wordMax);
-        i32.wrap_i64();
-        i32.store({ offset: 4 * i }, xy, $);
+        i32.store(
+          { offset: 4 * i },
+          local.get(xy),
+          i32.wrap_i64(i64.and(tmp, wordMax))
+        );
         if (i < 2 * n - 1) {
           local.set(XY[i - n + 1], i64.add(i64.shr_u(tmp, wn), XY[i - n + 1]));
         }

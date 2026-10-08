@@ -41,7 +41,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         local.set(xi, Field.i32.loadLimb(x, i));
         let isNonZero = i32.ne(xi, 0);
         if_(() => {
-          let lengthLimb = i32.sub(32, i32.clz(xi));
+          let lengthLimb = i32.sub(i32.const(32), i32.clz(xi));
           let length = i32.add(lengthLimb, i * w);
           return_();
         });
@@ -112,7 +112,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     if (m !== undefined) {
       local.set(tmp, $);
       if (j === 0) local.set(m, i64.and(i64.mul(tmp, mu), wordMax));
-      i64.add(tmp, i64.mul(m, P[j]));
+      i64.add(i64.mul(m, P[j]), tmp);
     }
     Field.carrySigned($, tmp);
     if (j > 0) local.set(X[j - 1], $);
@@ -385,10 +385,14 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     });
     call(extractBits, { x: u, startBit: hiStart, bitLength: 25 });
     i64.extend_i32_u();
-    call(extractBits, { x: u, startBit: i32.add(hiStart, 25), bitLength: 25 });
+    call(extractBits, {
+      x: local.get(u),
+      startBit: i32.add(hiStart, 25),
+      bitLength: 25,
+    });
     i64.shl(i64.extend_i32_u(), 25n);
     call(extractBits, {
-      x: u,
+      x: local.get(u),
       startBit: i32.add(hiStart, 50),
       bitLength: hiBits - 50,
     });

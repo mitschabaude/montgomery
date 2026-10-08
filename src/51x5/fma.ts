@@ -142,22 +142,30 @@ function Multiply(
         let yj = Y[0];
         let pj = PF[0];
 
-        f64x2.relaxed_madd(xi, yj, constF64x2(c103));
+        f64x2.relaxed_madd(local.get(xi), local.get(yj), constF64x2(c103));
         local.set(hi1);
-        f64x2.relaxed_madd(xi, yj, f64x2.sub(constF64x2(c2), hi1));
+        f64x2.relaxed_madd(
+          local.get(xi),
+          local.get(yj),
+          f64x2.sub(constF64x2(c2), hi1)
+        );
         local.set(lo1);
         local.set(Z[0], i64x2.add(Z[0], lo1));
 
         // compute qi
-        i64x2.mul(Z[0], constI64x2(pInv));
+        i64x2.mul(constI64x2(pInv), Z[0]);
         v128.and($, constI64x2(mask51));
         i64x2.add($, constI64x2(c52n));
         f64x2.sub($, constF64x2(c52));
         local.set(qi);
 
-        f64x2.relaxed_madd(qi, constF64x2(pj), constF64x2(c103));
+        f64x2.relaxed_madd(local.get(qi), constF64x2(pj), constF64x2(c103));
         local.set(hi2);
-        f64x2.relaxed_madd(qi, constF64x2(pj), f64x2.sub(constF64x2(c2), hi2));
+        f64x2.relaxed_madd(
+          local.get(qi),
+          constF64x2(pj),
+          f64x2.sub(constF64x2(c2), hi2)
+        );
         local.set(lo2);
 
         // compute carry from Z[0]
@@ -171,14 +179,18 @@ function Multiply(
           yj = Y[j];
           pj = PF[j];
 
-          f64x2.relaxed_madd(xi, yj, constF64x2(c103));
+          f64x2.relaxed_madd(local.get(xi), local.get(yj), constF64x2(c103));
           local.set(hi1);
-          f64x2.relaxed_madd(qi, constF64x2(pj), constF64x2(c103));
+          f64x2.relaxed_madd(local.get(qi), constF64x2(pj), constF64x2(c103));
           local.set(hi2);
-          f64x2.relaxed_madd(xi, yj, f64x2.sub(constF64x2(c2), hi1));
+          f64x2.relaxed_madd(
+            local.get(xi),
+            local.get(yj),
+            f64x2.sub(constF64x2(c2), hi1)
+          );
           local.set(lo1);
           f64x2.relaxed_madd(
-            qi,
+            local.get(qi),
             constF64x2(pj),
             f64x2.sub(constF64x2(c2), hi2)
           );
@@ -200,7 +212,7 @@ function Multiply(
 
       if (convertOutput)
         for (let i = 0; i < 5; i++) {
-          i64x2.add(Z[i], constI64x2(c52n));
+          i64x2.add(constI64x2(c52n), Z[i]);
           f64x2.sub($, constF64x2(c52));
           local.set(Z[i], $);
         }
@@ -252,7 +264,10 @@ function Multiply(
         local.set(xi);
 
         for (let j = 0; j < 5; j++)
-          local.set(LH[j], f64x2.relaxed_madd(xi, Y[j], constF64x2(c103))); // hi
+          local.set(
+            LH[j],
+            f64x2.relaxed_madd(local.get(xi), local.get(Y[j]), constF64x2(c103))
+          ); // hi
         for (let j = 0; j < 5; j++)
           local.set(Z[j + 1], i64x2.add(Z[j + 1], LH[j]));
         for (let j = 0; j < 5; j++)
@@ -267,7 +282,7 @@ function Multiply(
         // which is ok because we're only using the low 51 bits after that
         // TODO: is int64x2.mul slow here?
         // TODO: is there a possible speedup for p = 2^32*t + 1?
-        i64x2.mul(Z[0], constI64x2(pInv));
+        i64x2.mul(constI64x2(pInv), Z[0]);
         v128.and($, constI64x2(mask51));
         i64x2.add($, constI64x2(c52n));
         f64x2.sub($, constF64x2(c52));
@@ -276,18 +291,25 @@ function Multiply(
         for (let j = 0; j < 5; j++)
           local.set(
             LH[j],
-            f64x2.relaxed_madd(qi, constF64x2(PF[j]), constF64x2(c103))
+            f64x2.relaxed_madd(
+              local.get(qi),
+              constF64x2(PF[j]),
+              constF64x2(c103)
+            )
           );
         for (let j = 0; j < 5; j++)
           local.set(Z[j + 1], i64x2.add(Z[j + 1], LH[j]));
         for (let j = 0; j < 5; j++)
           local.set(LH[j], f64x2.sub(constF64x2(c2), LH[j])); // lo sub
         for (let j = 0; j < 5; j++)
-          local.set(LH[j], f64x2.relaxed_madd(qi, constF64x2(PF[j]), LH[j])); // lo
+          local.set(
+            LH[j],
+            f64x2.relaxed_madd(local.get(qi), constF64x2(PF[j]), LH[j])
+          ); // lo
 
         local.set(Z[0], i64x2.add(Z[0], LH[0]));
         local.set(Z[1], i64x2.add(Z[1], LH[1]));
-        local.set(Z[0], i64x2.add(Z[1], i64x2.shr_s(Z[0], 51)));
+        local.set(Z[0], i64x2.add(i64x2.shr_s(Z[0], 51), Z[1]));
         local.set(Z[1], i64x2.add(Z[2], LH[2]));
         local.set(Z[2], i64x2.add(Z[3], LH[3]));
         local.set(Z[3], i64x2.add(Z[4], LH[4]));
@@ -301,7 +323,7 @@ function Multiply(
       // convert output to f64
       if (convertOutput)
         for (let i = 0; i < 5; i++) {
-          i64x2.add(Z[i], constI64x2(c52n));
+          i64x2.add(constI64x2(c52n), Z[i]);
           f64x2.sub($, constF64x2(c52));
           local.set(Z[i], $);
         }
@@ -356,22 +378,30 @@ function Multiply(
             LH[j],
             f64x2.extract_lane(
               0,
-              f64x2.relaxed_madd(xi, Y[j], constF64x2(c103))
+              f64x2.relaxed_madd(
+                local.get(xi),
+                local.get(Y[j]),
+                constF64x2(c103)
+              )
             )
           );
         for (let j = 0; j < 5; j++)
-          local.set(Z[j + 1], i64.add(Z[j + 1], i64.reinterpret_f64(LH[j])));
+          local.set(Z[j + 1], i64.add(i64.reinterpret_f64(LH[j]), Z[j + 1]));
         for (let j = 0; j < 5; j++) local.set(LH[j], f64.sub(c2, LH[j]));
         for (let j = 0; j < 5; j++)
           local.set(
             LH[j],
             f64x2.extract_lane(
               0,
-              f64x2.relaxed_madd(xi, Y[j], f64x2.splat(LH[j]))
+              f64x2.relaxed_madd(
+                local.get(xi),
+                local.get(Y[j]),
+                f64x2.splat(LH[j])
+              )
             )
           );
         for (let j = 0; j < 5; j++)
-          local.set(Z[j], i64.add(Z[j], i64.reinterpret_f64(LH[j])));
+          local.set(Z[j], i64.add(i64.reinterpret_f64(LH[j]), Z[j]));
 
         // compute qi
         let qi = tmp;
@@ -388,27 +418,35 @@ function Multiply(
             LH[j],
             f64x2.extract_lane(
               0,
-              f64x2.relaxed_madd(qi, constF64x2(PF[j]), constF64x2(c103))
+              f64x2.relaxed_madd(
+                local.get(qi),
+                constF64x2(PF[j]),
+                constF64x2(c103)
+              )
             )
           );
         for (let j = 0; j < 5; j++)
-          local.set(Z[j + 1], i64.add(Z[j + 1], i64.reinterpret_f64(LH[j])));
+          local.set(Z[j + 1], i64.add(i64.reinterpret_f64(LH[j]), Z[j + 1]));
         for (let j = 0; j < 5; j++) local.set(LH[j], f64.sub(c2, LH[j])); // lo sub
         for (let j = 0; j < 5; j++)
           local.set(
             LH[j],
             f64x2.extract_lane(
               0,
-              f64x2.relaxed_madd(qi, constF64x2(PF[j]), f64x2.splat(LH[j]))
+              f64x2.relaxed_madd(
+                local.get(qi),
+                constF64x2(PF[j]),
+                f64x2.splat(LH[j])
+              )
             )
           ); // lo
 
-        local.set(Z[0], i64.add(Z[0], i64.reinterpret_f64(LH[0])));
-        local.set(Z[1], i64.add(Z[1], i64.reinterpret_f64(LH[1])));
-        local.set(Z[0], i64.add(Z[1], i64.shr_s(Z[0], 51n)));
-        local.set(Z[1], i64.add(Z[2], i64.reinterpret_f64(LH[2])));
-        local.set(Z[2], i64.add(Z[3], i64.reinterpret_f64(LH[3])));
-        local.set(Z[3], i64.add(Z[4], i64.reinterpret_f64(LH[4])));
+        local.set(Z[0], i64.add(i64.reinterpret_f64(LH[0]), Z[0]));
+        local.set(Z[1], i64.add(i64.reinterpret_f64(LH[1]), Z[1]));
+        local.set(Z[0], i64.add(i64.shr_s(Z[0], 51n), Z[1]));
+        local.set(Z[1], i64.add(i64.reinterpret_f64(LH[2]), Z[2]));
+        local.set(Z[2], i64.add(i64.reinterpret_f64(LH[3]), Z[3]));
+        local.set(Z[3], i64.add(i64.reinterpret_f64(LH[4]), Z[4]));
         local.set(Z[4], Z[5]);
         if (i < 4) local.set(Z[5], zInitial[6 + i]);
       }
@@ -482,11 +520,11 @@ function Multiply(
         local.set(Y[i], v128.load64_lane({ offset: k * 8 }, 0, y, Y[i]));
       });
       if (convertInputs) {
-        f64x2.sub(i64x2.add(Y[0], constI64x2(c52n)), constF64x2(c52));
+        f64x2.sub(i64x2.add(constI64x2(c52n), Y[0]), constF64x2(c52));
         local.set(Y[0]);
-        f64x2.sub(i64x2.add(Y[1], constI64x2(c52n)), constF64x2(c52));
+        f64x2.sub(i64x2.add(constI64x2(c52n), Y[1]), constF64x2(c52));
         local.set(Y[1]);
-        f64x2.sub(i64x2.add(Y[2], constI64x2(c52n, 0n)), constF64x2(c52, 0));
+        f64x2.sub(i64x2.add(constI64x2(c52n, 0n), Y[2]), constF64x2(c52, 0));
         local.set(Y[2]);
       }
 
@@ -506,13 +544,26 @@ function Multiply(
         local.set(xi, f64x2.splat());
 
         // hi; note LH[5] = xi*0 + 0 = 0
-        local.set(LH[0], f64x2.relaxed_madd(xi, Y[0], constF64x2(c103)));
-        local.set(LH[1], f64x2.relaxed_madd(xi, Y[1], constF64x2(c103)));
-        local.set(LH[2], f64x2.relaxed_madd(xi, Y[2], constF64x2(c103, 0)));
+        local.set(
+          LH[0],
+          f64x2.relaxed_madd(local.get(xi), local.get(Y[0]), constF64x2(c103))
+        );
+        local.set(
+          LH[1],
+          f64x2.relaxed_madd(local.get(xi), local.get(Y[1]), constF64x2(c103))
+        );
+        local.set(
+          LH[2],
+          f64x2.relaxed_madd(
+            local.get(xi),
+            local.get(Y[2]),
+            constF64x2(c103, 0)
+          )
+        );
         // Z[j+1] += hi, and Z[0] += LH[5] = 0
         local.set(Z[1], i64x2.add(Z[1], LH[0]));
         local.set(Z[2], i64x2.add(Z[2], LH[1]));
-        local.set(Z[0], i64x2.add(Z[0], swap64x2(LH[2])));
+        local.set(Z[0], i64x2.add(swap64x2(LH[2]), Z[0]));
         // lo sub; maintains LH[5] = 0
         local.set(LH[0], f64x2.sub(constF64x2(c2), LH[0]));
         local.set(LH[1], f64x2.sub(constF64x2(c2), LH[1]));
@@ -536,20 +587,32 @@ function Multiply(
         // hi; note LH[5] = qi*0 + 0 = 0
         local.set(
           LH[0],
-          f64x2.relaxed_madd(qi, constF64x2(...P[0]), constF64x2(c103))
+          f64x2.relaxed_madd(
+            local.get(qi),
+            constF64x2(...P[0]),
+            constF64x2(c103)
+          )
         );
         local.set(
           LH[1],
-          f64x2.relaxed_madd(qi, constF64x2(...P[1]), constF64x2(c103))
+          f64x2.relaxed_madd(
+            local.get(qi),
+            constF64x2(...P[1]),
+            constF64x2(c103)
+          )
         );
         local.set(
           LH[2],
-          f64x2.relaxed_madd(qi, constF64x2(...P[2]), constF64x2(c103, 0))
+          f64x2.relaxed_madd(
+            local.get(qi),
+            constF64x2(...P[2]),
+            constF64x2(c103, 0)
+          )
         );
         // Z[j+1] += hi, and Z[0] += LH[5] = 0
         local.set(Z[1], i64x2.add(Z[1], LH[0]));
         local.set(Z[2], i64x2.add(Z[2], LH[1]));
-        local.set(Z[0], i64x2.add(Z[0], swap64x2(LH[2])));
+        local.set(Z[0], i64x2.add(swap64x2(LH[2]), Z[0]));
         // lo sub; maintains LH[5] = 0
         local.set(LH[0], f64x2.sub(constF64x2(c2), LH[0]));
         local.set(LH[1], f64x2.sub(constF64x2(c2), LH[1]));
@@ -558,7 +621,11 @@ function Multiply(
         for (let j = 0; j < 3; j++)
           local.set(
             LH[j],
-            f64x2.relaxed_madd(qi, constF64x2(P[j][0], P[j][1]), LH[j])
+            f64x2.relaxed_madd(
+              local.get(qi),
+              constF64x2(P[j][0], P[j][1]),
+              LH[j]
+            )
           );
         // Z[j] += lo and Z[5] += LH[5] = 0
         for (let j = 0; j < 3; j++) local.set(Z[j], i64x2.add(Z[j], LH[j]));
@@ -641,12 +708,12 @@ function Multiply(
       // p = 1 mod 2^w  <==> -p^(-1) = -1 mod 2^w
       // qi = z * (-1) % 2^w = (2^w - z) % 2^w
       return v128.and(
-        i64x2.sub(constI64x2(mask + 1n), v128.and(z, constI64x2(mask))),
+        i64x2.sub(constI64x2(mask + 1n), v128.and(constI64x2(mask), z)),
         constI64x2(mask)
       );
     }
     return v128.and(
-      i64x2.mul(v128.and(z, constI64x2(mask)), constI64x2(pInv)),
+      i64x2.mul(v128.and(constI64x2(mask), z), constI64x2(pInv)),
       constI64x2(mask)
     );
   }
@@ -669,7 +736,7 @@ function Multiply(
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         local.set(xi, v128.load({ offset: i * 16 }, y));
-        local.set(Y[2 * i], v128.and(xi, constI64x2(mask26)));
+        local.set(Y[2 * i], v128.and(constI64x2(mask26), xi));
         local.set(Y[2 * i + 1], i64x2.shr_s(xi, 26));
       }
 
@@ -677,7 +744,7 @@ function Multiply(
         local.set(xix2, v128.load({ offset: i * 16 }, x));
 
         // LOWER HALF
-        local.set(xi, v128.and(xix2, constI64x2(mask26)));
+        local.set(xi, v128.and(constI64x2(mask26), xix2));
 
         local.set(tmp, i64x2.add(i64x2.mul(xi, Y[0]), Z[0]));
         local.set(qi, computeQx2(tmp, pInv26, mask26));
@@ -725,13 +792,16 @@ function Multiply(
       for (let i = 0; i < 4; i++) {
         local.get(Z[2 * i]);
         if (i > 0) i64x2.add(); // add carry
-        v128.and(Z[2 * i + 1], constI64x2(mask25));
+        v128.and(constI64x2(mask25), Z[2 * i + 1]);
         i64x2.shl($, 26);
         local.set(tmp, i64x2.add());
 
         // store 51 bits at a time
-        v128.and(tmp, constI64x2(mask51));
-        v128.store({ offset: i * 16 }, xy, $);
+        v128.store(
+          { offset: i * 16 },
+          local.get(xy),
+          v128.and(constI64x2(mask51), tmp)
+        );
 
         // put carry on the stack
         i64x2.shr_s(tmp, 51);
@@ -739,9 +809,8 @@ function Multiply(
         i64x2.add();
       }
       // final iteration simpler because X[9] is not used
-      local.get(Z[8]);
-      i64x2.add(); // add carry
-      v128.store({ offset: 4 * 16 }, xy, $);
+      local.set(tmp, i64x2.add($, Z[8])); // add carry
+      v128.store({ offset: 4 * 16 }, xy, tmp);
     }
   );
 
@@ -766,13 +835,13 @@ function Multiply(
       // load y from memory into locals
       for (let i = 0; i < 5; i++) {
         local.set(tmp, v128.load({ offset: i * 16 }, y));
-        local.set(Ylo[i], v128.and(tmp, constI64x2(mask26)));
+        local.set(Ylo[i], v128.and(constI64x2(mask26), tmp));
         local.set(Yhi[i], i64x2.shr_s(tmp, 26));
       }
 
       for (let i = 0; i < 5; i++) {
         local.set(tmp, v128.load({ offset: i * 16 }, x));
-        local.set(xiLo, v128.and(tmp, constI64x2(mask26)));
+        local.set(xiLo, v128.and(constI64x2(mask26), tmp));
         local.set(xiHi, i64x2.shr_s(tmp, 26));
 
         for (let j = 0; j < 5; j++) {
@@ -782,7 +851,7 @@ function Multiply(
           local.set(mid, i64x2.add());
 
           // Z[j] += lo + ((mid & mask26) << 26n);
-          v128.and(mid, constI64x2(mask26));
+          v128.and(constI64x2(mask26), mid);
           i64x2.shl($, 26);
           i64x2.mul(xiLo, Ylo[j]);
           i64x2.add();
@@ -800,34 +869,34 @@ function Multiply(
         let qi = tmp;
         let qiLo = xiLo;
         let qiHi = xiHi;
-        i64x2.mul(Z[0], constI64x2(pInv));
+        i64x2.mul(constI64x2(pInv), Z[0]);
         v128.and($, constI64x2(mask51));
         local.set(qi);
-        local.set(qiLo, v128.and(qi, constI64x2(mask26)));
+        local.set(qiLo, v128.and(constI64x2(mask26), qi));
         local.set(qiHi, i64x2.shr_s(qi, 26));
 
         for (let j = 0; j < 5; j++) {
           let mid = tmp;
-          i64x2.mul(qiLo, constI64x2(Phi[j]));
-          i64x2.mul(qiHi, constI64x2(Plo[j]));
+          i64x2.mul(constI64x2(Phi[j]), qiLo);
+          i64x2.mul(constI64x2(Plo[j]), qiHi);
           local.set(mid, i64x2.add());
 
           // Z[j] += lo + ((mid & mask26) << 26n);
-          v128.and(mid, constI64x2(mask26));
+          v128.and(constI64x2(mask26), mid);
           i64x2.shl($, 26);
-          i64x2.mul(qiLo, constI64x2(Plo[j]));
+          i64x2.mul(constI64x2(Plo[j]), qiLo);
           i64x2.add();
           local.set(Z[j], i64x2.add($, Z[j]));
 
           // Z[j + 1] += 2n * ((mid >> 26n) + hi);
           i64x2.shr_s(mid, 26);
-          i64x2.mul(qiHi, constI64x2(Phi[j]));
+          i64x2.mul(constI64x2(Phi[j]), qiHi);
           i64x2.add();
           i64x2.shl($, 1);
           local.set(Z[j + 1], i64x2.add($, Z[j + 1]));
         }
 
-        local.set(Z[1], i64x2.add(Z[1], i64x2.shr_s(Z[0], 51)));
+        local.set(Z[1], i64x2.add(i64x2.shr_s(Z[0], 51), Z[1]));
         for (let j = 0; j < 5; j++) {
           local.set(Z[j], Z[j + 1]);
         }
@@ -936,8 +1005,11 @@ function multiplySingle(
         local.set(tmp, i64.add());
 
         // store 51 bits at a time
-        i64.and(tmp, mask51);
-        i64.store({ offset: i * limbGap + limbOffset }, xy, $);
+        i64.store(
+          { offset: i * limbGap + limbOffset },
+          local.get(xy),
+          i64.and(tmp, mask51)
+        );
 
         // put carry on the stack
         i64.shr_s(tmp, 51n);
@@ -945,9 +1017,8 @@ function multiplySingle(
         i64.add();
       }
       // final iteration simpler because X[9] is not used
-      local.get(Z[8]);
-      i64.add(); // add carry
-      i64.store({ offset: 4 * limbGap + limbOffset }, xy, $);
+      local.set(tmp, i64.add($, Z[8])); // add carry
+      i64.store({ offset: 4 * limbGap + limbOffset }, xy, tmp);
     }
   );
 }
@@ -956,7 +1027,7 @@ function computeQ(z: Input<i64>, pInv: bigint, mask: bigint) {
   if (pInv === mask) {
     // p = 1 mod 2^w  <==> -p^(-1) = -1 mod 2^w
     // qi = z * (-1) % 2^w = (2^w - z) % 2^w
-    return i64.and(i64.sub(mask + 1n, i64.and(z, mask)), mask);
+    return i64.and(i64.sub(i64.const(mask + 1n), i64.and(z, mask)), mask);
   }
   return i64.and(i64.mul(i64.and(z, mask), pInv), mask);
 }
@@ -977,7 +1048,7 @@ function addMulx2(l: Local<v128>, c: bigint) {
     i64x2.add($, l);
     return;
   }
-  i64x2.mul(l, constI64x2(c));
+  i64x2.mul(constI64x2(c), l);
   i64x2.add();
 }
 
@@ -1000,16 +1071,12 @@ let logF64 = importFunc({ in: [{ i: i32 }, { x: f64 }], out: [] }, log);
 let logF64x2_0 = func(
   { in: [{ i: i32 }, { x: v128 }], out: [] },
   ({ i, x }) => {
-    local.get(x);
-    f64x2.extract_lane(0);
-    call(logF64, { i, x: $ });
+    call(logF64, { i: local.get(i), x: f64x2.extract_lane(0, x) });
   }
 );
 let logI64x2_0 = func(
   { in: [{ i: i32 }, { x: v128 }], out: [] },
   ({ i, x }) => {
-    local.get(x);
-    i64x2.extract_lane(0);
-    call(logI64, { i, x: $ });
+    call(logI64, { i: local.get(i), x: i64x2.extract_lane(0, x) });
   }
 );
