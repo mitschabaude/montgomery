@@ -44,8 +44,7 @@ function arithmetic(Field: Field) {
           let yi = Field.loadLimb(y, i);
           i64.add(xi, yi);
           if (i > 0) i64.add();
-          Field.carry($, tmp);
-          Field.storeLimb(out, i, $);
+          Field.carryAndStoreLimb($, tmp, out, i);
         });
         drop();
         if (!doReduce) return;
@@ -68,8 +67,7 @@ function arithmetic(Field: Field) {
           Field.loadLimb(out, i);
           if (i > 0) i64.add(); // add the carry
           i64.sub($, Field.P2[i]);
-          Field.carrySigned($, tmp);
-          Field.storeLimb(out, i, $);
+          Field.carrySignedAndStoreLimb($, tmp, out, i);
         });
         drop();
       }
@@ -92,8 +90,7 @@ function arithmetic(Field: Field) {
           if (i > 0) i64.add();
           Field.loadLimb(y, i);
           i64.sub();
-          Field.carrySigned($, tmp);
-          Field.storeLimb(out, i, $);
+          Field.carrySignedAndStoreLimb($, tmp, out, i);
         });
         if (!doReduce) return drop();
         // check if we underflowed by checking carry === 0 (in that case, we didn't and can return)
@@ -108,8 +105,7 @@ function arithmetic(Field: Field) {
           if (i > 0) i64.add();
           Field.loadLimb(out, i);
           i64.add();
-          Field.carrySigned($, tmp);
-          Field.storeLimb(out, i, $);
+          Field.carrySignedAndStoreLimb($, tmp, out, i);
         });
         drop();
       }
@@ -138,8 +134,7 @@ function arithmetic(Field: Field) {
         i64.add();
         Field.loadLimb(y, i);
         i64.sub();
-        Field.carrySigned($, tmp);
-        Field.storeLimb(out, i, $);
+        Field.carrySignedAndStoreLimb($, tmp, out, i);
       });
       drop();
     }
@@ -173,8 +168,7 @@ function arithmetic(Field: Field) {
         Field.loadLimb(x, i);
         if (i > 0) i64.add(); // add the carry
         i64.sub($, Field.P[i]);
-        Field.carrySigned($, tmp);
-        Field.storeLimb(x, i, $);
+        Field.carrySignedAndStoreLimb($, tmp, x, i);
       });
       drop();
     }

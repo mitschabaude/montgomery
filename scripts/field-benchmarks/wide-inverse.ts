@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { Module, call, func, i32, memory, type Func } from "wasmati";
+import { Module, call, func, i32, local, memory, type Func } from "wasmati";
 import { FieldWithArithmetic } from "../../src/wasm/field-arithmetic.ts";
 import { multiplyMontgomery } from "../../src/wasm/multiply-montgomery.ts";
-import { fieldInverse as kaliskiInverse } from "../../src/wasm/inverse.ts";
-import { fastInverse } from "../../src/inverse/faster-inverse-wasm.ts";
+import { inverseKaliski } from "../../src/wasm/inverse.ts";
+import { fastInverse } from "../../src/wasm/fast-inverse.ts";
 import { ImplicitMemory, forLoop1 } from "../../src/wasm/wasm-util.ts";
 import { createField } from "../../src/wide/field-base.ts";
 import { arithmetic } from "../../src/wide/arithmetic.ts";
@@ -109,9 +109,9 @@ async function build(
       ({ scratch, output, inputs, N }, { i }) => {
         forLoop1(i, 0, N, () => {
           call(operation, {
-            scratch,
-            r: output,
-            a: i32.add(inputs, i32.mul(i32.and(i, 255), size)),
+            scratch: local.get(scratch),
+            r: local.get(output),
+            a: i32.add(i32.mul(i32.and(i, 255), size), inputs),
           });
         });
       }
@@ -172,7 +172,7 @@ async function createMain(p: bigint) {
   };
   return build(p, w, n, F.R, mem, {
     fast: fastInverse(mem, F).inverse,
-    kaliski: kaliskiInverse(mem, F).inverse,
+    kaliski: inverseKaliski(mem, F),
   });
 }
 

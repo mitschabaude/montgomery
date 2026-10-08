@@ -26,22 +26,22 @@ import { mask51 } from "./common.ts";
 export { arithmetic, carryLocals, carryLocalsSingle };
 
 function carryLocals(Z: Local<v128>[]) {
-  local.set(Z[1], i64x2.add(Z[1], i64x2.shr_s(Z[0], 51)));
-  local.set(Z[2], i64x2.add(Z[2], i64x2.shr_s(Z[1], 51)));
-  local.set(Z[3], i64x2.add(Z[3], i64x2.shr_s(Z[2], 51)));
-  local.set(Z[4], i64x2.add(Z[4], i64x2.shr_s(Z[3], 51)));
+  local.set(Z[1], i64x2.add(i64x2.shr_s(Z[0], 51), Z[1]));
+  local.set(Z[2], i64x2.add(i64x2.shr_s(Z[1], 51), Z[2]));
+  local.set(Z[3], i64x2.add(i64x2.shr_s(Z[2], 51), Z[3]));
+  local.set(Z[4], i64x2.add(i64x2.shr_s(Z[3], 51), Z[4]));
 
-  local.set(Z[0], v128.and(Z[0], constI64x2(mask51)));
-  local.set(Z[1], v128.and(Z[1], constI64x2(mask51)));
-  local.set(Z[2], v128.and(Z[2], constI64x2(mask51)));
-  local.set(Z[3], v128.and(Z[3], constI64x2(mask51)));
+  local.set(Z[0], v128.and(constI64x2(mask51), Z[0]));
+  local.set(Z[1], v128.and(constI64x2(mask51), Z[1]));
+  local.set(Z[2], v128.and(constI64x2(mask51), Z[2]));
+  local.set(Z[3], v128.and(constI64x2(mask51), Z[3]));
 }
 
 function carryLocalsSingle(Z: Local<i64>[]) {
-  local.set(Z[1], i64.add(Z[1], i64.shr_s(Z[0], 51n)));
-  local.set(Z[2], i64.add(Z[2], i64.shr_s(Z[1], 51n)));
-  local.set(Z[3], i64.add(Z[3], i64.shr_s(Z[2], 51n)));
-  local.set(Z[4], i64.add(Z[4], i64.shr_s(Z[3], 51n)));
+  local.set(Z[1], i64.add(i64.shr_s(Z[0], 51n), Z[1]));
+  local.set(Z[2], i64.add(i64.shr_s(Z[1], 51n), Z[2]));
+  local.set(Z[3], i64.add(i64.shr_s(Z[2], 51n), Z[3]));
+  local.set(Z[4], i64.add(i64.shr_s(Z[3], 51n), Z[4]));
 
   local.set(Z[0], i64.and(Z[0], mask51));
   local.set(Z[1], i64.and(Z[1], mask51));
@@ -71,8 +71,13 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
 
       // if we're here, x > p but, by assumption, x < 2p, so do x - p
       FieldPair.forEach((i) => {
-        v128.const("i64x2", lane === 0 ? [PI[i], 0n] : [0n, PI[i]]);
-        local.set(X[i], i64x2.sub(X[i], $));
+        local.set(
+          X[i],
+          i64x2.sub(
+            local.get(X[i]),
+            v128.const("i64x2", lane === 0 ? [PI[i], 0n] : [0n, PI[i]])
+          )
+        );
       });
     });
   }
@@ -85,7 +90,7 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
    */
   function reduceLocals(X: Local<v128>[], tmp: Local<v128>, pOr0: Local<i32>) {
     // subtract 0 if x4 <= p4, and p if x4 > p4
-    local.tee(tmp, i64x2.le_s(X[4], constI64x2(PI[4])));
+    local.tee(tmp, i64x2.le_s(local.get(X[4]), constI64x2(PI[4])));
     i32x4.extract_lane(0);
     i32.mul($, 2);
     i32x4.extract_lane(2, tmp);
@@ -100,8 +105,7 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
 
     // if we're here, x > p but, by assumption, x < 2p, so do x - p
     FieldPair.forEach((i) => {
-      FieldPair.loadLimb(pOr0, i);
-      local.set(X[i], i64x2.sub(X[i], $));
+      local.set(X[i], i64x2.sub(local.get(X[i]), FieldPair.loadLimb(pOr0, i)));
     });
   }
 
@@ -141,7 +145,7 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
         if (i > 0) i64.add(); // add the carry
         local.tee(xi, i64.sub($, PI[i]));
         i64.shr_s($, 51n); // carry, left on the stack
-        FieldPair.i64.storeLane(x, i, lane, i64.and(xi, mask51));
+        FieldPair.i64.storeLane(local.get(x), i, lane, i64.and(xi, mask51));
       });
       drop();
     });
@@ -183,7 +187,7 @@ function arithmetic(p: bigint, pSelectPtr: Global<i32>) {
         if (i < 4) {
           local.tee(tmp);
           i64x2.shr_s($, 51); // carry, left on the stack
-          local.set(X[i], v128.and(tmp, constI64x2(mask51)));
+          local.set(X[i], v128.and(constI64x2(mask51), tmp));
         } else {
           local.set(X[i], v128.and($, constI64x2(mask51)));
         }

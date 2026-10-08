@@ -53,10 +53,7 @@ test("curve without a given endomorphism", async () => {
   let scalarPtrs = await Curve.Parallel.randomScalars(N);
   let { result } = await Curve.Parallel.msm(scalarPtrs[0], pointPtrs[0], N);
 
-  let { Field, Scalar, Affine, Projective, Bigint } = Curve;
-  let scratch = Field.local.getPointers(5);
-  let resultAffine = Field.getPointer(Affine.size);
-  Projective.toAffine(scratch, resultAffine, result);
+  let { Scalar, Affine, Bigint } = Curve;
   let scalars = scalarPtrs.map((s) => Scalar.readBigint(s));
   let points = pointPtrs.map((g) =>
     Bigint.Projective.fromAffine(Affine.toBigint(g))
@@ -64,5 +61,5 @@ test("curve without a given endomorphism", async () => {
   let expected = Bigint.Projective.toAffine(
     Bigint.Projective.msm(scalars, points)
   );
-  assert.deepEqual(Affine.toBigint(resultAffine), expected);
+  assert.deepEqual(Affine.toBigint(result), expected);
 });

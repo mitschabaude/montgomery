@@ -44,7 +44,7 @@ function createField(p: bigint, w: number, n: number) {
     assert(i >= 0, "positive index");
     return i32.load({ offset: 4 * i }, x);
   }
-  function storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
+  function storeLimb(x: Input<i32>, i: number, xi: Input<i64>) {
     assert(i >= 0, "positive index");
     i32.store({ offset: 4 * i }, x, i32.wrap_i64(xi));
   }
@@ -90,7 +90,7 @@ function createField(p: bigint, w: number, n: number) {
 
   function store(x: Local<i32>, X: Input<i64>[]) {
     for (let j = 0; j < n; j++) {
-      i32.store({ offset: 4 * j }, x, i32.wrap_i64(X[j]));
+      i32.store({ offset: 4 * j }, local.get(x), i32.wrap_i64(X[j]));
     }
   }
   function store32(x: Local<i32>, X: Input<i32>[]) {
@@ -101,13 +101,15 @@ function createField(p: bigint, w: number, n: number) {
 
   function carryAndStore(x: Local<i32>, X: Local<i64>[]) {
     for (let j = 1; j < n; j++) {
-      i32.wrap_i64(i64.and(X[j - 1], wordMax));
-      i32.store({ offset: 4 * (j - 1) }, x, $);
+      i32.store(
+        { offset: 4 * (j - 1) },
+        local.get(x),
+        i32.wrap_i64(i64.and(X[j - 1], wordMax))
+      );
       i64.shr_u(X[j - 1], wn);
       local.set(X[j], i64.add($, X[j]));
     }
-    i32.wrap_i64(X[n - 1]);
-    i32.store({ offset: 4 * (n - 1) }, x, $);
+    i32.store({ offset: 4 * (n - 1) }, local.get(x), i32.wrap_i64(X[n - 1]));
   }
 
   const limbNames = Array.from({ length: n }, (_, i) => `limb${i}`);
@@ -165,6 +167,32 @@ function createField(p: bigint, w: number, n: number) {
     // mod 2^w the current result
     i64.and(tmp, wordMax);
   }
+  /**
+   * same as {@link carry}, but stores the low part in x[i] instead of putting it on the stack
+   */
+  function carryAndStoreLimb(
+    input: StackVar<i64>,
+    tmp: Local<i64>,
+    x: Local<i32>,
+    i: number
+  ) {
+    local.tee(tmp, input);
+    i64.shr_u($, wn);
+    storeLimb(local.get(x), i, i64.and(tmp, wordMax));
+  }
+  /**
+   * same as {@link carrySigned}, but stores the low part in x[i] instead of putting it on the stack
+   */
+  function carrySignedAndStoreLimb(
+    input: StackVar<i64>,
+    tmp: Local<i64>,
+    x: Local<i32>,
+    i: number
+  ) {
+    local.tee(tmp, input);
+    i64.shr_s($, wn);
+    storeLimb(local.get(x), i, i64.and(tmp, wordMax));
+  }
 
   function optionalCarryAdd(didCarry: boolean) {
     // add carry from stack
@@ -190,6 +218,8 @@ function createField(p: bigint, w: number, n: number) {
     bigintToData,
     carry,
     carrySigned,
+    carryAndStoreLimb,
+    carrySignedAndStoreLimb,
     forEach,
     forEachReversed,
     load,
@@ -426,51 +456,54 @@ function decomposeAndSlice(
     ) => {
       forLoop1(i, 0, nScalars, () => {
         call(decompose, {
-          s0: scratch,
+          s0: local.get(scratch),
           s1: i32.add(scratch, size),
-          s: i32.add(scalars, i32.mul(i, size)),
+          s: i32.add(i32.mul(i, size), scalars),
         });
         local.set(l, $);
         i32.store8({}, i32.add(flags, i), l);
         forLoop1(j, 0, 2, () => {
-          local.set(half, i32.add(scratch, i32.mul(j, size)));
+          local.set(half, i32.add(i32.mul(j, size), scratch));
           // index 2i + j of window 0
           local.set(
             out,
-            i32.add(slices, i32.shl(i32.add(i32.shl(i, 1), j), 2))
+            i32.add(i32.shl(i32.add(i32.shl(i, 1), j), 2), slices)
           );
           local.set(start, 0);
           local.set(carry, 0);
           forLoop1(k, 0, K, () => {
-            local.set(ck, i32.add(c, i32.ge_u(k, kHi)));
+            local.set(ck, i32.add(i32.ge_u(k, kHi), c));
             local.set(limb, i32.div_u(start, w));
             // the window's bits, from at most two limbs
-            i64.load32_u({}, i32.add(half, i32.shl(limb, 2)));
-            i64.load32_u({ offset: 4 }, i32.add(half, i32.shl(limb, 2)));
+            i64.load32_u({}, i32.add(i32.shl(limb, 2), half));
+            i64.load32_u({ offset: 4 }, i32.add(i32.shl(limb, 2), half));
             i64.shl($, BigInt(w));
             i64.const(0n);
             i32.lt_u(i32.add(limb, 1), n0);
             select(i64);
             i64.or();
-            i64.shr_u($, i64.extend_i32_u(i32.sub(start, i32.mul(limb, w))));
+            i64.shr_u(
+              $,
+              i64.extend_i32_u(i32.sub(local.get(start), i32.mul(limb, w)))
+            );
             i32.wrap_i64($);
             i32.and($, i32.sub(i32.shl(1, ck), 1));
             local.set(l, i32.add($, carry));
             // signed digit: if l > L, use 2L - l and carry 1
-            local.set(L, i32.shl(1, i32.sub(ck, 1)));
+            local.set(L, i32.shl(i32.const(1), i32.sub(ck, 1)));
             local.set(carry, i32.gt_u(l, L));
             i32.sub(i32.shl(L, 1), l);
             local.get(l);
             local.get(carry);
             select(i32);
             local.set(l, $);
-            i32.or(l, i32.shl(carry, 31));
+            i32.or(i32.shl(carry, 31), l);
             i32.const(0);
             local.get(l);
             select(i32);
             local.set(l, $);
             i32.store({}, out, l);
-            local.set(out, i32.add(out, i32.shl(stride, 2)));
+            local.set(out, i32.add(i32.shl(stride, 2), out));
             local.set(start, i32.add(start, ck));
           });
         });

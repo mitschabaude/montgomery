@@ -51,9 +51,9 @@ function fieldFormulas(
     let nScratch = 0;
     const at = (ptr: Pointer, offset: number) => () =>
       typeof ptr === "number"
-        ? ptr + offset
+        ? i32.const(ptr + offset)
         : offset === 0
-          ? ptr
+          ? local.get(ptr)
           : i32.add(ptr, offset);
     const pointer = (x: Fe) => {
       assert("ptr" in x);
@@ -136,7 +136,11 @@ function fieldFormulas(
           limbs(zero).forEach((zi) => local.set(zi, 0n));
           K.subtract(L, limbs(z), limbs(zero), limbs(x));
         } else
-          call(Field.subtract, { out: pointer(z), x: zeroPtr, y: pointer(x) });
+          call(Field.subtract, {
+            out: pointer(z),
+            x: i32.const(zeroPtr),
+            y: pointer(x),
+          });
       },
       copy(z: Fe, x: Fe) {
         if (K) limbs(z).forEach((zi, i) => local.set(zi, limbs(x)[i]));

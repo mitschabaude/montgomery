@@ -90,12 +90,26 @@ function fieldMethods(Field: FieldBase) {
     }
   );
 
-  function carry(input: StackVar<i64>, tmp: Local<i64>) {
+  /**
+   * x[i] = input mod 2^51 with the carry put on the stack, or x[i] = input if not `doCarry`
+   */
+  function carryAndStoreLimb(
+    input: StackVar<i64>,
+    tmp: Local<i64>,
+    x: Local<i32>,
+    i: number,
+    doCarry = true
+  ) {
+    if (!doCarry) {
+      local.set(tmp, input);
+      Field.storeLimb(x, i, tmp);
+      return;
+    }
     // put carry on the stack
     local.tee(tmp, input);
     i64.shr_s($, 51n);
     // mod 2^51 the current result
-    i64.and(tmp, mask51);
+    Field.storeLimb(local.get(x), i, i64.and(tmp, mask51));
   }
 
   /**
@@ -128,7 +142,11 @@ function fieldMethods(Field: FieldBase) {
 
       if (carry_ === undefined) {
         Field.forEach((i) => {
-          Field.storeLimb(x, i, i64.sub(Field.loadLimb(x, i), Field.P[i]));
+          Field.storeLimb(
+            local.get(x),
+            i,
+            i64.sub(Field.loadLimb(x, i), Field.P[i])
+          );
         });
         return;
       }
@@ -136,8 +154,7 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(x, i);
         if (i > 0) i64.add(); // add the carry
         i64.sub($, Field.P[i]);
-        if (i < 4) carry($, carry_);
-        Field.storeLimb(x, i, $);
+        carryAndStoreLimb($, carry_, x, i, i < 4);
       });
     });
   }
@@ -153,9 +170,11 @@ function fieldMethods(Field: FieldBase) {
     { in: [{ z: i32 }, { x: i32 }, { y: i32 }], out: [] },
     ({ z, x, y }) => {
       for (let i = 0; i < 5; i++) {
-        Field.loadLimb(x, i);
-        Field.loadLimb(y, i);
-        Field.storeLimb(z, i, i64.add());
+        Field.storeLimb(
+          local.get(z),
+          i,
+          i64.add(Field.loadLimb(x, i), Field.loadLimb(y, i))
+        );
       }
     }
   );
@@ -172,8 +191,7 @@ function fieldMethods(Field: FieldBase) {
         let yi = Field.loadLimb(y, i);
         i64.add(xi, yi);
         if (i > 0) i64.add(); // add carry
-        if (i < 4) carry($, tmp);
-        Field.storeLimb(z, i, $);
+        carryAndStoreLimb($, tmp, z, i, i < 4);
       }
     }
   );
@@ -185,17 +203,18 @@ function fieldMethods(Field: FieldBase) {
     },
     ({ z, x, y }, { tmp }) => {
       for (let i = 0; i < 5; i++) {
-        Field.loadLimb(x, i);
-        Field.loadLimb(y, i);
-        Field.storeLimb(z, i, i64.add());
+        Field.storeLimb(
+          local.get(z),
+          i,
+          i64.add(Field.loadLimb(x, i), Field.loadLimb(y, i))
+        );
       }
       reduceInline(z);
       // carry result
       for (let i = 0; i < 5; i++) {
         Field.loadLimb(z, i);
         if (i > 0) i64.add(); // add carry
-        if (i < 4) carry($, tmp);
-        Field.storeLimb(z, i, $);
+        carryAndStoreLimb($, tmp, z, i, i < 4);
       }
     }
   );
@@ -204,10 +223,11 @@ function fieldMethods(Field: FieldBase) {
     { in: [{ z: i32 }, { x: i32 }, { y: i32 }], out: [] },
     ({ z, x, y }) => {
       for (let i = 0; i < 5; i++) {
-        Field.loadLimb(x, i);
-        Field.loadLimb(y, i);
-        i64.sub();
-        Field.storeLimb(z, i, $);
+        Field.storeLimb(
+          local.get(z),
+          i,
+          i64.sub(Field.loadLimb(x, i), Field.loadLimb(y, i))
+        );
       }
     }
   );
@@ -224,8 +244,7 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(y, i);
         i64.sub();
         if (i > 0) i64.add(); // add carry
-        if (i < 4) carry($, tmp);
-        Field.storeLimb(z, i, $);
+        carryAndStoreLimb($, tmp, z, i, i < 4);
       }
     }
   );
@@ -247,8 +266,7 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(y, i);
         i64.sub();
         if (i > 0) i64.add(); // add carry
-        carry($, tmp); // we leave carry even in the last iteration
-        Field.storeLimb(z, i, $);
+        carryAndStoreLimb($, tmp, z, i); // we leave carry even in the last iteration
       }
       // if we underflowed, carry = -1, otherwise carry = 0
       i64.eqz();
@@ -258,8 +276,7 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(z, i);
         if (i > 0) i64.add(); // add the carry
         i64.add($, Field.P[i]);
-        carry($, tmp);
-        Field.storeLimb(z, i, $);
+        carryAndStoreLimb($, tmp, z, i);
       });
       // since the carry was negative before, we really computed z = x - y + 2^255
       // now with the addition of p, we have x - y + p + 2^255
@@ -271,9 +288,8 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(z, i);
         if (i > 0) i64.add(); // add the carry
         i64.add($, Field.P[i]);
-        if (i < 4) carry($, tmp);
-        else i64.and($, mask51);
-        Field.storeLimb(z, i, $);
+        if (i < 4) carryAndStoreLimb($, tmp, z, i);
+        else carryAndStoreLimb(i64.and($, mask51), tmp, z, i, false);
       });
     }
   );
@@ -303,8 +319,7 @@ function fieldMethods(Field: FieldBase) {
         Field.loadLimb(x, i);
         if (i > 0) i64.add(); // add the carry
         i64.sub($, Field.P[i]);
-        if (i < 4) carry($, tmp);
-        Field.storeLimb(x, i, $);
+        carryAndStoreLimb($, tmp, x, i, i < 4);
       });
     }
   );

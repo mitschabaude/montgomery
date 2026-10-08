@@ -53,7 +53,7 @@ const FieldPair = {
     assert(i >= 0, "positive index");
     return v128.load({ offset: 16 * i }, x);
   },
-  storeLimb(x: Local<i32>, i: number, xi: Input<v128>) {
+  storeLimb(x: Input<i32>, i: number, xi: Input<v128>) {
     assert(i >= 0, "positive index");
     v128.store({ offset: 16 * i }, x, xi);
   },
@@ -77,7 +77,7 @@ const FieldPair = {
     loadLane(x: Local<i32>, i: number, lane: 0 | 1) {
       return i64.load({ offset: 16 * i + 8 * lane }, x);
     },
-    storeLane(x: Local<i32>, i: number, lane: 0 | 1, xi: Input<i64>) {
+    storeLane(x: Input<i32>, i: number, lane: 0 | 1, xi: Input<i64>) {
       i64.store({ offset: 16 * i + 8 * lane }, x, xi);
     },
   },
@@ -85,7 +85,7 @@ const FieldPair = {
     loadLane(x: Local<i32>, i: number, lane: 0 | 1) {
       return f64.load({ offset: 16 * i + 8 * lane }, x);
     },
-    storeLane(x: Local<i32>, i: number, lane: 0 | 1, xi: Input<f64>) {
+    storeLane(x: Input<i32>, i: number, lane: 0 | 1, xi: Input<f64>) {
       f64.store({ offset: 16 * i + 8 * lane }, x, xi);
     },
   },
@@ -125,7 +125,7 @@ function createField(p: bigint, type: FieldLayout) {
       assert(i >= 0, "positive index");
       return i64.load({ offset: limbGap * i + limbOffset }, x);
     },
-    storeLimb(x: Local<i32>, i: number, xi: Input<i64>) {
+    storeLimb(x: Input<i32>, i: number, xi: Input<i64>) {
       assert(i >= 0, "positive index");
       i64.store({ offset: limbGap * i + limbOffset }, x, xi);
     },

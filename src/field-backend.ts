@@ -8,6 +8,7 @@ import {
   type LocalArray,
   type Type,
   type ValueType,
+  local,
 } from "wasmati";
 import { FieldWithArithmetic } from "./wasm/field-arithmetic.ts";
 import { multiplyMontgomery } from "./wasm/multiply-montgomery.ts";
@@ -159,7 +160,8 @@ function createFieldBackend(
           Number((x >> BigInt(8 * i)) & 255n)
         ),
       copyInline(x, y) {
-        for (let i = 0; i < F.n; i++) F.storeLimb(x, i, F.loadLimb(y, i));
+        for (let i = 0; i < F.n; i++)
+          F.storeLimb(local.get(x), i, F.loadLimb(y, i));
       },
       ...ops,
       // There are no spare bits to skip reductions with.

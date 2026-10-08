@@ -169,7 +169,7 @@ function weierstraßOps(
       let f = fused.context(L, scratch, 7);
       local.set(inv, i32.add(scratch, 7 * S));
       let loadPair = () => {
-        local.set(h, i32.add(pairs, i32.shl(i, 3)));
+        local.set(h, i32.add(i32.shl(i, 3), pairs));
         local.set(g, i32.load({}, h));
         local.set(h, i32.load({ offset: 4 }, h));
       };
@@ -188,7 +188,7 @@ function weierstraßOps(
           loadPair();
           f.subtractLoose(M, f.input(h, S), f.input(g, S));
           f.subtractLoose(DX, f.input(h), f.input(g));
-          local.set(dxi, i32.add(dx, i32.mul(i, S)));
+          local.set(dxi, i32.add(i32.mul(i, S), dx));
           f.store(dxi, 0, DX);
           i32.eqz(i);
           if_(
@@ -219,7 +219,7 @@ function weierstraßOps(
         loop((next) => {
           local.set(i, i32.sub(i, 1));
           loadPair();
-          local.set(dxi, i32.add(dx, i32.mul(i, S)));
+          local.set(dxi, i32.add(i32.mul(i, S), dx));
           f.load(DX, dxi);
           f.load(M, g, S);
           f.multiply(M, M, ACC);
@@ -274,7 +274,7 @@ function weierstraßOps(
       let f = fused.context(L, scratch, 8);
       local.set(inv, i32.add(scratch, 8 * S));
       let loadPair = () => {
-        local.set(h, i32.add(pairs, i32.shl(i, 3)));
+        local.set(h, i32.add(i32.shl(i, 3), pairs));
         local.set(g, i32.load({}, h));
         local.set(h, i32.load({ offset: 4 }, h));
       };
@@ -321,8 +321,8 @@ function weierstraßOps(
               });
               call(doubleAffine, {
                 scratch: i32.add(inv, 2 * S),
-                xOut: g,
-                x: g,
+                xOut: local.get(g),
+                x: local.get(g),
                 d: i32.add(inv, S),
               });
               br(classified);
@@ -374,7 +374,7 @@ function weierstraßOps(
             f.multiply(M, ACC, M);
             f.store(g, S, M);
             f.multiply(ACC, ACC, DX);
-            local.set(dxi, i32.add(dx, i32.mul(i, S)));
+            local.set(dxi, i32.add(i32.mul(i, S), dx));
             f.store(dxi, 0, DX);
           });
           i32.store8({}, i32.add(kinds, i), kind);
@@ -400,7 +400,7 @@ function weierstraßOps(
           i32.eq(kind, SKIP);
           br_if(next, { likely: false });
           loadPair();
-          local.set(dxi, i32.add(dx, i32.mul(i, S)));
+          local.set(dxi, i32.add(i32.mul(i, S), dx));
           f.load(DX, dxi);
           f.load(M, g, S);
           f.multiply(M, M, ACC);
@@ -430,8 +430,8 @@ function weierstraßOps(
     ({ out, points, flags, n }, { i, p, g, x, y, yNeg, flag }) => {
       const A = 2 * S + Field.size / Field.n;
       forLoop1(i, 0, n, () => {
-        local.set(g, i32.add(points, i32.mul(i, A)));
-        local.set(p, i32.add(out, i32.mul(i, 4 * A)));
+        local.set(g, i32.add(i32.mul(i, A), points));
+        local.set(p, i32.add(i32.mul(i, 4 * A), out));
         local.set(flag, i32.load8_u({}, i32.add(flags, i)));
         // isNonZero
         local.set(x, i32.load8_u({ offset: 2 * S }, g));
@@ -455,7 +455,7 @@ function weierstraßOps(
           local.set(y, $);
           // the other y of the pair
           local.set(yNeg, i32.add(p, 2 * pair * A + S));
-          local.set(yNeg, i32.sub(i32.add(yNeg, i32.add(yNeg, A)), y));
+          local.set(yNeg, i32.sub(i32.add(i32.add(yNeg, A), yNeg), y));
           copyBytes(y, x, S);
           call(Field.subtract, { out: yNeg, x: unfused.zeroPtr, y: x });
         }

@@ -44,7 +44,7 @@ function createField(p: bigint) {
   function loadLimb(x: Local<i32>, i: number) {
     return i64.load({ offset: 8 * i }, x);
   }
-  function storeLimb(x: Local<i32>, i: number, value: Input<i64>) {
+  function storeLimb(x: Input<i32>, i: number, value: Input<i64>) {
     i64.store({ offset: 8 * i }, x, value);
   }
   function load(X: Local<i64>[], x: Local<i32>) {
@@ -92,7 +92,8 @@ function createField(p: bigint) {
   ) {
     for (let i = 0; i < n; i++) {
       if (i === 0) i64.sub128(X[i], 0n, C[i], 0n);
-      else if (C[i] !== -1n) i64.sub128(X[i], 0n, i64.add(C[i], borrow), 0n);
+      else if (C[i] !== -1n)
+        i64.sub128(local.get(X[i]), i64.const(0n), i64.add(C[i], borrow), 0n);
       else {
         i64.sub128(X[i], 0n, C[i], 0n);
         i64.sub128($, $, borrow, 0n);

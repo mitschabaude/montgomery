@@ -99,9 +99,7 @@ async function runMsm(
     pointsPtrs[0],
     N,
   );
-  let sAffinePtr = Curve.Field.getPointer(Curve.Affine.size);
-  Curve.Projective.toAffine(scratch, sAffinePtr, result);
-  let s = Curve.Affine.toBigint(sAffinePtr);
+  let s = Curve.Affine.toBigint(result);
 
   log.forEach((l) => console.log(...l));
   toc();

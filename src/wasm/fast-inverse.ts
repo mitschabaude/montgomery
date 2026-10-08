@@ -1,8 +1,6 @@
 import {
   localArray,
   func,
-  type Func,
-  type JSFunction,
   i32,
   i64,
   local,
@@ -16,15 +14,14 @@ import {
   drop,
   br,
   br_if,
-  importFunc,
   select,
   v128,
   unreachable,
   i64x2,
 } from "wasmati";
-import { ImplicitMemory, forLoop1 } from "../wasm/wasm-util.ts";
-import { type FieldWithMultiply } from "../wasm/multiply-montgomery.ts";
-import { extractBitSlice } from "../wasm/field-helpers.ts";
+import { ImplicitMemory } from "./wasm-util.ts";
+import { type FieldWithMultiply } from "./multiply-montgomery.ts";
+import { extractBitSlice } from "./field-helpers.ts";
 import { inverse as bigintInverse } from "../bigint/field.ts";
 import { mod } from "../bigint/field-util.ts";
 import { assert } from "../util.ts";
@@ -41,7 +38,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
         local.set(xi, Field.i32.loadLimb(x, i));
         let isNonZero = i32.ne(xi, 0);
         if_(() => {
-          let lengthLimb = i32.sub(32, i32.clz(xi));
+          let lengthLimb = i32.sub(i32.const(32), i32.clz(xi));
           let length = i32.add(lengthLimb, i * w);
           return_();
         });
@@ -53,38 +50,6 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   const extractBits = extractBitSlice(w, n);
 
   const hiBits = 63;
-
-  const logHex = (...args: bigint[]) => console.log(...args.map(hex));
-  const logBin = (...args: bigint[]) => console.log(...args.map(bin));
-
-  const log64 = importFunc({ in: [{ value: i64 }], out: [] }, console.log);
-  const log64Hex = importFunc({ in: [{ value: i64 }], out: [] }, logHex);
-  const log64Bin = importFunc({ in: [{ value: i64 }], out: [] }, logBin);
-  const log64x2 = importFunc(
-    { in: [{ value0: i64 }, { value1: i64 }], out: [] },
-    console.log
-  );
-  const log64x4 = importFunc(
-    {
-      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
-      out: [],
-    },
-    console.log
-  );
-  const log64x4Hex = importFunc(
-    {
-      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
-      out: [],
-    },
-    logHex
-  );
-  const log64x4Bin = importFunc(
-    {
-      in: [{ value0: i64 }, { value1: i64 }, { value2: i64 }, { value3: i64 }],
-      out: [],
-    },
-    logBin
-  );
 
   const { wn, wordMax, P, size } = Field;
   const mu = bigintInverse(-Field.p, 1n << wn);
@@ -112,7 +77,7 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     if (m !== undefined) {
       local.set(tmp, $);
       if (j === 0) local.set(m, i64.and(i64.mul(tmp, mu), wordMax));
-      i64.add(tmp, i64.mul(m, P[j]));
+      i64.add(i64.mul(m, P[j]), tmp);
     }
     Field.carrySigned($, tmp);
     if (j > 0) local.set(X[j - 1], $);
@@ -385,10 +350,14 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
     });
     call(extractBits, { x: u, startBit: hiStart, bitLength: 25 });
     i64.extend_i32_u();
-    call(extractBits, { x: u, startBit: i32.add(hiStart, 25), bitLength: 25 });
+    call(extractBits, {
+      x: local.get(u),
+      startBit: i32.add(hiStart, 25),
+      bitLength: 25,
+    });
     i64.shl(i64.extend_i32_u(), 25n);
     call(extractBits, {
-      x: u,
+      x: local.get(u),
       startBit: i32.add(hiStart, 50),
       bitLength: hiBits - 50,
     });
@@ -398,11 +367,4 @@ function fastInverse(implicitMemory: ImplicitMemory, Field: FieldWithMultiply) {
   }
 
   return { inverse, getBitLength };
-}
-
-function hex(m: bigint) {
-  return "0x" + m.toString(16);
-}
-function bin(m: bigint) {
-  return "0b" + m.toString(2);
 }
