@@ -115,8 +115,7 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
           i64.mul(X1[j] ?? 0n, V01[i - j] ?? 0n);
           addSigned(x1Sign * v01Sign);
         }
-        Field.carrySigned($, tmp);
-        Field.storeLimb(s0, i, $);
+        Field.carrySignedAndStoreLimb($, tmp, s0, i);
       }
 
       // if final value on the stack is -1, we have to sign-flip the representation
@@ -142,8 +141,7 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
           i64.mul(X1[j] ?? 0n, V11[i - j] ?? 0n);
           addSigned(x1Sign * v11Sign);
         }
-        Field.carrySigned($, tmp);
-        Field.storeLimb(s1, i, $);
+        Field.carrySignedAndStoreLimb($, tmp, s1, i);
       }
 
       // if final value on the stack is -1, we have to sign-flip the representation
@@ -169,10 +167,9 @@ function glvGeneral(q: bigint, lambda: bigint, w: number, n: number) {
   function flipSign(x: Local<i32>, xi: Local<i64>, n: number) {
     i64.const(1n);
     for (let i = 0; i < n; i++) {
-      i64.sub(Field.wordMax, Field.loadLimb(x, i));
+      i64.sub(i64.const(Field.wordMax), Field.loadLimb(x, i));
       i64.add();
-      Field.carrySigned($, xi);
-      Field.storeLimb(x, i, $);
+      Field.carrySignedAndStoreLimb($, xi, x, i);
     }
     drop();
   }
@@ -295,8 +292,11 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
         i64.const(LAMBDA[i]);
         i64.sub();
         local.set(tmp);
-        i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i }, r, $);
+        i32.store(
+          { offset: 4 * i },
+          local.get(r),
+          i32.wrap_i64(i64.and(tmp, wordMax))
+        );
         local.set(carry, i64.shr_s(tmp, wn));
       }
       local.set(carry, 1n);
@@ -304,8 +304,11 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
         // (carry, l[i]) = l[i] + carry;
         i64.add(i64.extend_i32_u(i32.load({ offset: 4 * i }, l)), carry);
         local.set(tmp);
-        i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i }, l, $);
+        i32.store(
+          { offset: 4 * i },
+          local.get(l),
+          i32.wrap_i64(i64.and(tmp, wordMax))
+        );
         local.set(carry, i64.shr_s(tmp, wn));
       }
     }
@@ -329,8 +332,11 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
         i64.extend_i32_u(i32.load({ offset: 4 * i }, x));
         i64.sub();
         local.set(tmp);
-        i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i }, x, $);
+        i32.store(
+          { offset: 4 * i },
+          local.get(x),
+          i32.wrap_i64(i64.and(tmp, wordMax))
+        );
         local.set(carry, i64.shr_s(tmp, wn));
       }
     }
@@ -351,8 +357,11 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
         i64.extend_i32_u(i32.load({ offset: 4 * i }, s0));
         i64.sub();
         local.set(tmp);
-        i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i }, s0, $);
+        i32.store(
+          { offset: 4 * i },
+          local.get(s0),
+          i32.wrap_i64(i64.and(tmp, wordMax))
+        );
         local.set(carry, i64.shr_s(tmp, wn));
       }
       // s1 = s1 + 1
@@ -363,8 +372,11 @@ function glvSpecial(q: bigint, lambda: bigint, w: number, n: number) {
         local.get(carry);
         i64.add();
         local.set(tmp);
-        i32.wrap_i64(i64.and(tmp, wordMax));
-        i32.store({ offset: 4 * i }, s1, $);
+        i32.store(
+          { offset: 4 * i },
+          local.get(s1),
+          i32.wrap_i64(i64.and(tmp, wordMax))
+        );
         local.set(carry, i64.shr_s(tmp, wn));
       }
     }

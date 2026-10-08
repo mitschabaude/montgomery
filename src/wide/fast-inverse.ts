@@ -66,7 +66,7 @@ function fastInverse(
     i64.mul_wide_u(x, c);
     local.set(hi, $);
     local.set(lo, $);
-    local.set(hi, i64.sub(hi, i64.and(x, cSign)));
+    local.set(hi, i64.sub(local.get(hi), i64.and(x, cSign)));
   }
   // lo = limb j of f*x + g*y, with the signed carry from limb j-1 in carry
   function linear(
@@ -80,7 +80,7 @@ function fastInverse(
     product(x, f, fSign, lo, hi);
     product(y, g, gSign, otherLo, otherHi);
     i64.add128(lo, hi, otherLo, otherHi);
-    if (!first) i64.add128($, $, carry, i64.shr_s(carry, 63n));
+    if (!first) i64.add128($, $, local.get(carry), i64.shr_s(carry, 63n));
     local.set(carry, $);
     local.set(lo, $);
   }
@@ -324,7 +324,7 @@ function fastInverse(
           local.set(length, 0);
           for (let j = 0; j < F.n; j++) {
             local.set(lo, i64.or(F.loadLimb(a, j), F.loadLimb(b, j)));
-            i32.sub(64 * (j + 1), i32.wrap_i64(i64.clz(lo)));
+            i32.sub(i32.const(64 * (j + 1)), i32.wrap_i64(i64.clz(lo)));
             local.get(length);
             i64.ne(lo, 0n);
             select(i32);
@@ -334,15 +334,16 @@ function fastInverse(
           local.set(offset, i32.sub(length, 63));
           local.set(
             offset,
-            i32.and(offset, i32.xor(i32.shr_s(offset, 31), -1))
+            i32.and(i32.xor(i32.shr_s(offset, 31), -1), offset)
           );
           local.set(bitShift, i64.extend_i32_u(i32.and(offset, 63)));
           // bits from the next limb exist unless the shift is 0 or this is the top limb
+          i64.const(0n);
           i32.and(
             i64.ne(bitShift, 0n),
             i32.lt_u(i32.shr_u(offset, 6), F.n - 1)
           );
-          local.set(nextMask, i64.sub(0n, i64.extend_i32_u($)));
+          local.set(nextMask, i64.sub($, i64.extend_i32_u($)));
           local.set(offset, i32.shl(i32.shr_u(offset, 6), 3));
           for (const [x, out] of [
             [a, ahi],
@@ -368,7 +369,7 @@ function fastInverse(
           local.set(k, i64.ctz(i64.or(alo, rem)));
           local.set(alo, i64.shr_u(alo, k));
           local.set(ahi, i64.shr_s(ahi, k));
-          local.set(FB, i64x2.shl(FB, i32.wrap_i64(k)));
+          local.set(FB, i64x2.shl(local.get(FB), i32.wrap_i64(k)));
           local.set(rem, i64.shr_u(rem, k));
           block((stepsDone) => {
             loop((step) => {
@@ -397,8 +398,8 @@ function fastInverse(
               // rows: FB = sign ? FA : FB, FA = |FA - FB|, then FB *= 2^k
               local.set(S, i64x2.splat(sign));
               local.set(D, i64x2.sub(FA, FB));
-              local.set(FB, v128.xor(FB, v128.and(v128.xor(FA, FB), S)));
-              local.set(FB, i64x2.shl(FB, i32.wrap_i64(k)));
+              local.set(FB, v128.xor(v128.and(v128.xor(FA, FB), S), FB));
+              local.set(FB, i64x2.shl(local.get(FB), i32.wrap_i64(k)));
               local.set(FA, i64x2.sub(v128.xor(D, S), S));
               br(step);
             });

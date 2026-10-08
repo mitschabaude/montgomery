@@ -53,15 +53,15 @@ function fieldInverse(
       call(ops.copy, { x: z, y: x });
       forLoop1(i, 1, $n, () => {
         call(ops.multiply, {
-          xy: i32.add(z, i32.mul(i, size)),
-          x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
-          y: i32.add(x, i32.mul(i, size)),
+          xy: i32.add(i32.mul(i, size), z),
+          x: i32.add(i32.mul(i32.sub(i, 1), size), z),
+          y: i32.add(i32.mul(i, size), x),
         });
       });
       call(inverse, {
-        scratch,
-        r: inv,
-        a: i32.add(z, i32.mul(i32.sub($n, 1), size)),
+        scratch: local.get(scratch),
+        r: local.get(inv),
+        a: i32.add(i32.mul(i32.sub($n, 1), size), z),
       });
       block((done) => {
         local.set(i, i32.sub($n, 1));
@@ -69,14 +69,14 @@ function fieldInverse(
           i32.eqz(i);
           br_if(done);
           call(ops.multiply, {
-            xy: i32.add(z, i32.mul(i, size)),
-            x: i32.add(z, i32.mul(i32.sub(i, 1), size)),
+            xy: i32.add(i32.mul(i, size), z),
+            x: i32.add(i32.mul(i32.sub(i, 1), size), z),
             y: inv,
           });
           call(ops.multiply, {
-            xy: inv,
-            x: inv,
-            y: i32.add(x, i32.mul(i, size)),
+            xy: local.get(inv),
+            x: local.get(inv),
+            y: i32.add(i32.mul(i, size), x),
           });
           local.set(i, i32.sub(i, 1));
           br(again);
@@ -153,25 +153,27 @@ function inverseKaliski(
         local.set(l, i64.sub(64n, k));
         local.set(tmp, F.loadLimb(u, 0));
         for (let i = 0; i < n; i++) {
+          local.get(u);
           i64.shr_u(tmp, k);
           if (i + 1 < n) {
             local.tee(tmp, F.loadLimb(u, i + 1));
             i64.shl($, l);
             i64.or();
           }
-          F.storeLimb(u, i, $);
+          F.storeLimb($, i, $);
         }
         local.set(tmp, F.loadLimb(s, n - 1));
         for (let i = n - 2; i >= 0; i--) {
+          local.get(s);
           i64.shl(tmp, k);
           local.tee(tmp, F.loadLimb(s, i));
           i64.shr_u($, l);
           i64.or();
-          F.storeLimb(s, i + 1, $);
+          F.storeLimb($, i + 1, $);
         }
-        F.storeLimb(s, 0, i64.shl(tmp, k));
+        F.storeLimb(local.get(s), 0, i64.shl(tmp, k));
       });
-      i32.add(total, i32.wrap_i64(k));
+      i32.add(i32.wrap_i64(k), total);
     }
   );
 
@@ -229,9 +231,9 @@ function inverseKaliski(
       if_(() => unreachable());
       call(ops.subtractNoReduce, { out: r, x: pPtr, y: r });
       call(ops.multiply, {
-        xy: r,
-        x: r,
-        y: i32.add(correctionPtr, i32.mul(k, size)),
+        xy: local.get(r),
+        x: local.get(r),
+        y: i32.add(i32.mul(k, size), correctionPtr),
       });
     }
   );

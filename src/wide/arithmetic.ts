@@ -101,7 +101,7 @@ function additionKernels(F: FieldBase) {
       const limb = () => (L === -1n ? local.get(borrow) : i64.and(borrow, L));
       if (i === n - 1) {
         let sum: Input<i64> = T[i];
-        if (L !== 0n) sum = i64.add(sum, limb());
+        if (L !== 0n) sum = i64.add(limb(), sum);
         if (hasCarry) sum = i64.add(sum, carry);
         local.set(Z[i], sum);
       } else if (L === 0n && !hasCarry) {
@@ -109,7 +109,7 @@ function additionKernels(F: FieldBase) {
       } else {
         if (L === 0n) i64.add128(T[i], 0n, carry, 0n);
         else {
-          i64.add128(T[i], 0n, limb(), 0n);
+          i64.add128(limb(), 0n, T[i], 0n);
           if (hasCarry) i64.add128($, $, carry, 0n);
         }
         local.set(carry, $);
@@ -164,7 +164,7 @@ function arithmetic(F: FieldBase) {
     },
     ({ out, x, y }, { carry, X }) => {
       for (let i = 0; i < F.n; i++) {
-        i64.add128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
+        i64.add128(F.loadLimb(x, i), i64.const(0n), F.loadLimb(y, i), 0n);
         if (i !== 0) i64.add128($, $, carry, 0n);
         local.set(carry, $);
         local.set(X[i], $);
@@ -180,7 +180,7 @@ function arithmetic(F: FieldBase) {
     },
     ({ out, x, y }, { borrow, X }) => {
       for (let i = 0; i < F.n; i++) {
-        i64.sub128(F.loadLimb(x, i), 0n, F.loadLimb(y, i), 0n);
+        i64.sub128(F.loadLimb(x, i), i64.const(0n), F.loadLimb(y, i), 0n);
         if (i !== 0) i64.sub128($, $, borrow, 0n);
         local.set(borrow, i64.and($, 1n));
         local.set(X[i], $);

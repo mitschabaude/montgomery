@@ -254,7 +254,7 @@ function multiplyMontgomery(
       // figure out the value of i0, xi0 where 2^k has its bit set
       // i0 = 4 * k // w, xi0 = 2^(k % w)
       local.set(i0, i32.shl(i32.div_u(k, w), 2));
-      local.set(xi0, i32.shl(1, i32.rem_u(k, w)));
+      local.set(xi0, i32.shl(i32.const(1), i32.rem_u(k, w)));
 
       forLoop4(i, 0, n, () => {
         // compute x[i]
@@ -340,13 +340,12 @@ function multiplyMontgomery(
    */
   function computeQ(x: Input<i64>) {
     // q = ((x & wordMax) * mu) & wordMax, where wordMax = 2^w - 1
-    x = i64.and(x, wordMax);
     if (mu === wordMax) {
       // special case relevant for high 2-adicity curves: mu = 2^w - 1
       // (mu * x) % 2^w = -x % 2^w  = 2^w - x
-      return i64.sub(wordMax + 1n, x);
+      return i64.sub(i64.const(wordMax + 1n), i64.and(x, wordMax));
     } else {
-      return i64.and(i64.mul(x, mu), wordMax);
+      return i64.and(i64.mul(i64.and(x, wordMax), mu), wordMax);
     }
   }
 
