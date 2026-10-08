@@ -1,4 +1,4 @@
-import { createMsmField } from "../field-msm.ts";
+import { compileField, createFieldFromWasm } from "../field-msm.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "../types.ts";
 import { t, T, ThreadPool } from "./threads.ts";
 
@@ -6,10 +6,11 @@ export { createTest, startThreads, stopThreads };
 
 async function createTest(
   x: number,
-  params: Parameters<typeof createMsmField>[0],
+  params: Parameters<typeof compileField>[0],
   wasm?: WasmArtifacts
 ) {
-  let Field = await createMsmField(params, wasm);
+  wasm ??= await compileField(params);
+  let Field = await createFieldFromWasm(params, wasm);
   console.log(
     "instance on thread",
     t,

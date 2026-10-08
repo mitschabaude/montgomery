@@ -13,7 +13,13 @@ import { extractBitSlice, fromPackedBytes } from "./wasm/field-helpers.ts";
 import { montgomeryParams } from "./bigint/field-util.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 
-export { createScalar, type Scalar, type ScalarParams };
+export {
+  createScalar,
+  compileScalar,
+  createScalarFromWasm,
+  type Scalar,
+  type ScalarParams,
+};
 
 type Scalar = UnwrapPromise<ReturnType<typeof createScalar>>;
 type ScalarParams = { q: bigint; w: number };
@@ -21,9 +27,8 @@ type ScalarParams = { q: bigint; w: number };
 /**
  * scalar module for basic MSM
  */
-async function createScalar(params: ScalarParams, wasm?: WasmArtifacts) {
-  wasm ??= await compileScalar(params);
-  return await createScalarFromWasm(params, wasm);
+async function createScalar(params: ScalarParams) {
+  return await createScalarFromWasm(params, await compileScalar(params));
 }
 
 /**

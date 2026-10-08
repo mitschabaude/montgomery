@@ -11,23 +11,31 @@ import {
 import { inverse } from "../bigint/field.ts";
 import { assert } from "../util.ts";
 
-export { createField, type FieldBase, mask64 };
+export { createField, wideParams, type FieldBase, mask64 };
 
 const mask64 = (1n << 64n) - 1n;
 type FieldBase = ReturnType<typeof createField>;
 
-function createField(p: bigint) {
+/**
+ * Number of limbs, radix and output bound for p, without generating any code
+ */
+function wideParams(p: bigint) {
   assert(
     p > 2n && (p & 1n) === 1n,
     "wide Montgomery arithmetic requires an odd modulus > 2"
   );
   const n = Math.ceil(p.toString(2).length / 64);
   const R = 1n << BigInt(64 * n);
+  const lazy = 2n * p < R;
+  const limit = lazy ? 2n * p : p;
+  return { n, size: 8 * n, R, lazy, limit };
+}
+
+function createField(p: bigint) {
+  const { n, size, R, lazy, limit } = wideParams(p);
   const P = Array.from({ length: n }, (_, i) =>
     BigInt.asIntN(64, p >> BigInt(64 * i))
   );
-  const lazy = 2n * p < R;
-  const limit = lazy ? 2n * p : p;
   const Limit = Array.from({ length: n }, (_, i) =>
     BigInt.asIntN(64, limit >> BigInt(64 * i))
   );
@@ -98,7 +106,7 @@ function createField(p: bigint) {
     p,
     n,
     w: 64,
-    size: 8 * n,
+    size,
     R,
     P,
     mu,
