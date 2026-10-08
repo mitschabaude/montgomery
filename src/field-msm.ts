@@ -14,7 +14,13 @@ import {
   type FieldBackendName,
 } from "./field-backend.ts";
 
-export { createMsmField, type MsmField, type MsmFieldParams };
+export {
+  createMsmField,
+  compileField,
+  createFieldFromWasm,
+  type MsmField,
+  type MsmFieldParams,
+};
 export { createConstants };
 
 type MsmFieldParams = {
@@ -27,9 +33,8 @@ type MsmFieldParams = {
   localRatio?: number;
 };
 
-async function createMsmField(params: MsmFieldParams, wasm?: WasmArtifacts) {
-  wasm ??= await compileField(params);
-  return await createFieldFromWasm(params, wasm);
+async function createMsmField(params: MsmFieldParams) {
+  return await createFieldFromWasm(params, await compileField(params));
 }
 
 type MsmFieldInstance = ModuleInstance<ReturnType<typeof fieldModule>>;
@@ -95,9 +100,10 @@ async function compileField(params: MsmFieldParams): Promise<WasmArtifacts> {
 }
 
 async function createFieldFromWasm(
-  { p, backend = "29-bit", w, minExtraBits, localRatio }: MsmFieldParams,
+  params: Omit<MsmFieldParams, "beta">,
   wasmArtifacts: WasmArtifacts
 ) {
+  let { p, backend = "29-bit", w, minExtraBits, localRatio } = params;
   let instance = (await WebAssembly.instantiate(
     wasmArtifacts.module,
     wasmArtifacts.importMap

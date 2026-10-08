@@ -18,7 +18,13 @@ import {
 import { mod, montgomeryParams } from "./bigint/field-util.ts";
 import { type UnwrapPromise, type WasmArtifacts } from "./types.ts";
 
-export { createGlvScalar, type GlvScalar, type GlvScalarParams };
+export {
+  createGlvScalar,
+  compileGlvScalar,
+  createGlvScalarFromWasm,
+  type GlvScalar,
+  type GlvScalarParams,
+};
 
 type GlvScalar = UnwrapPromise<ReturnType<typeof createGlvScalar>>;
 type Params = { q: bigint; lambda: bigint; w: number };
@@ -27,12 +33,8 @@ type GlvScalarParams = Params & { n: number; n0: number; maxBits: number };
 /**
  * scalar module for MSM with GLV
  */
-async function createGlvScalar(
-  params: Params,
-  wasmAndFullParams?: { wasm: WasmArtifacts; fullParams: GlvScalarParams }
-) {
-  let { wasm, fullParams } =
-    wasmAndFullParams ?? (await compileGlvScalar(params));
+async function createGlvScalar(params: Params) {
+  let { wasm, fullParams } = await compileGlvScalar(params);
   return await createGlvScalarFromWasm(fullParams, wasm);
 }
 

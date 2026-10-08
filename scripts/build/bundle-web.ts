@@ -37,9 +37,12 @@ async function buildWeb(
   );
 }
 
+// the worker only needs the file's side effects (registering functions with the
+// thread pool). importing it instead of using it as entry point lets esbuild
+// drop exports that only the main thread calls, like code generation
 async function buildBlobUrl(path: string, { minify = false } = {}) {
   let { outputFiles } = await esbuild.build({
-    entryPoints: [path],
+    stdin: { contents: `import ${JSON.stringify(path)};`, resolveDir: "." },
     bundle: true,
     keepNames: true,
     write: false,

@@ -16,7 +16,10 @@ import { fieldExp } from "./wasm/exp.ts";
 import { fromPackedBytes, toPackedBytes } from "./wasm/field-helpers.ts";
 import { ImplicitMemory } from "./wasm/wasm-util.ts";
 import { montgomeryParams } from "./bigint/field-util.ts";
-import { createField as createWideField } from "./wide/field-base.ts";
+import {
+  createField as createWideField,
+  wideParams,
+} from "./wide/field-base.ts";
 import { wideOps } from "./wide/field.ts";
 import { fieldKernels } from "./wide/kernels.ts";
 import { log2 } from "./util.ts";
@@ -137,8 +140,8 @@ function fieldLayout(
     let { n, R } = montgomeryParams(p, w, minExtraBits);
     return { name, p, w, n, size: 4 * n, R, limit: 2n * p };
   }
-  let F = createWideField(p);
-  return { name, p, w: 64, n: F.n, size: F.size, R: F.R, limit: F.limit };
+  let { n, size, R, limit } = wideParams(p);
+  return { name, p, w: 64, n, size, R, limit };
 }
 
 function createFieldBackend(
