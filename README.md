@@ -8,18 +8,14 @@ A fast, multi-threaded implementation of elliptic curve multi-scalar multiplicat
 
 ## Performance
 
-MSM timings with 8 threads on an AMD Ryzen 7 3700X (8 cores), in Node.js 27, from `node scripts/run-msm-<curve>.ts <log2 n> 8 --evaluate`:
+MSM timings for 2^20 points with 8 threads on an AMD Ryzen 7 3700X (8 cores), from `node scripts/run-msm-<curve>.ts 20 8 --evaluate`:
 
-| Curve                    | Points | Wide arithmetic | 29-bit limbs |
-| ------------------------ | ------ | --------------- | ------------ |
-| Pallas                   | 2^16   | 33 ms           | 62 ms        |
-| Pallas                   | 2^18   | 95 ms           | 196 ms       |
-| BLS12-377                | 2^16   | 60 ms           | 143 ms       |
-| BLS12-377                | 2^18   | 196 ms          | 449 ms       |
-| Ed-377 (twisted Edwards) | 2^16   | 47 ms           | 100 ms       |
-| Ed-377 (twisted Edwards) | 2^18   | 196 ms          | 394 ms       |
-
-On Weierstrass curves, the MSM is lock-free: threads claim chunks of work from shared counters, and add points into their own copies of a partition's buckets, so that buckets stay in a core's cache. Batches of affine additions share one inversion and run in a single Wasm call. The bucket reduction also uses batch-affine additions, and sums up the copies along the way.
+| Curve                    | Node LTS | Node 27 with `--wasm-wide-arithmetic` |
+| ------------------------ | -------- | ------------------------------------- |
+| BN254                    | 1218 ms  | 448 ms                                |
+| Pallas                   | 960 ms   | 422 ms                                |
+| BLS12-377                | 1782 ms  | 750 ms                                |
+| Ed-377 (twisted Edwards) | 1608 ms  | 850 ms                                |
 
 ## Install
 
@@ -51,6 +47,7 @@ import { Pallas, startThreads, stopThreads, type AffinePoint } from "montgomery"
 
 // lazy factory: instantiates the Pallas curve on first call
 const pallas = await Pallas();
+
 // optional: spin up worker threads to parallelize large MSMs
 await startThreads(4);
 
@@ -155,15 +152,14 @@ For Weierstrass curves `curve.Bigint` has both `Affine` and `Projective` layers 
 Underneath the MSM, every curve exposes its full wasm field/scalar/curve arithmetic on raw pointers:
 
 - `curve.Field` / `curve.Scalar` — `add`, `subtract`, `multiply`, `square`, `inverse`, `exp`, `sqrt`, `isEqual`, `isZero`, `reduce`, `toMontgomery`/`fromMontgomery`, `fromPackedBytes`/`toPackedBytes`, `writeBigint`/`readBigint`, …
-- `curve.Affine` (Weierstrass) — `add`, `negate`, `double`, `scale`, `isOnCurve`, `batchNormalize`, `toBigint`/`writeBigint`, …
-- `curve.Projective` (Weierstrass) and `curve.Curve` (twisted edwards) — `add`, `double`, `negate`, `scale`, `isOnCurve`, `toBigint`/`fromBigint`, …
+- `curve.Affine` / `curve.Projective` (Weierstrass) or `curve.Curve` (twisted edwards) — `add`, `double`, `negate`, `scale`, `isOnCurve`, `batchNormalize`, `toBigint`/`writeBigint`, …
 
 These are the same primitives the library's MSMs are built on: `msm-batched-affine.ts` (~530 lines of pure TS) and `msm-basic.ts` (~240 lines) touch no handwritten wasm — they compose the operations exposed on `curve.Field` / `curve.Scalar` / `curve.Affine` / `curve.Projective`. You can build other curve-level algorithms (pairings, zk-SNARK prover kernels, …) on the same API without leaving TypeScript.
 
 A few highlights:
 
 - **29×9 limb layout** for 256-bit fields. 29-bit limbs packed into 9 i64 lanes let the Montgomery multiplication use i64 multiplies with enough headroom in the upper bits to accumulate partial products before carrying — a sweet spot for wasm, which has no native 64×64→128 multiply. Bain Capital Crypto's [_Optimizing Montgomery Multiplication in WebAssembly_](https://baincapitalcrypto.com/optimizing-montgomery-multiplication-in-webassembly/) benchmarks several wasm multiplication variants against each other and finds this one (which they call "Mitscha-Baude's method", referencing this repo) the fastest.
-- **Fast modular inverse**, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). An inversion costs about as much as 40 multiplications with wide arithmetic and 70 with 29-bit limbs, against roughly 300 for the usual `exp(x, p-2)` Fermat trick.
+- **Fast modular inverse**, based on Pornin's "Optimized Binary GCD for Modular Inversion" ([eprint 2020/972](https://eprint.iacr.org/2020/972)). An inversion costs about as much as 40 multiplications with wide arithmetic and 70 with 29-bit limbs, against more than 250 for the usual `exp(x, p-2)` Fermat trick, which needs a squaring per bit of p.
 - **Fast square root** via Tonelli–Shanks optimized after Daniel Bernstein's ["Faster square roots in annoying finite fields"](http://cr.yp.to/papers/sqroot.pdf): the discrete-log phase caches roots-of-unity windows so it drops to a handful of multiplications, leaving the `x^((t−1)/2)` exponentiation as the dominant cost.
 - **64-bit limbs with Wasm wide arithmetic** where available. `i64.mul_wide_u` and `i64.add128` make full-width Montgomery multiplication about 2–2.6x faster than the 29-bit layout. See [`src/wide/README.md`](src/wide/README.md).
 
