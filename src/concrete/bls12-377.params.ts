@@ -1,10 +1,4 @@
-import { mod } from "../bigint/field-util.ts";
-import { exp, inverse } from "../bigint/field.ts";
-import { assert } from "../util.ts";
-import {
-  type CurveParams,
-  createCurveAffine,
-} from "../bigint/affine-weierstrass.ts";
+import { type CurveParams } from "../bigint/affine-weierstrass.ts";
 
 export { p, q, h, b, lambda, beta, nBits, nBytes, G, curveParams };
 
@@ -43,26 +37,3 @@ const curveParams: CurveParams = {
   generator: { x: G.x, y: G.y },
   endomorphism: { lambda, beta },
 };
-
-const debug = false;
-
-if (debug) {
-  // compute cube root in Fq (endo scalar) as lambda =  x^(q - 1)/3 for some small x
-  const lambda_ = exp(11n, (q - 1n) / 3n, q);
-
-  assert(lambda === lambda_, "lambda is correct");
-  const lambda2 = mod(lambda * lambda, q);
-  assert(mod(lambda * lambda2, q) === 1n, "lambda is a cube root");
-
-  // compute beta such that lambda * (x, y) = (beta * x, y) (endo base)
-  let lambdaG = createCurveAffine(curveParams).scale(lambda, G);
-  assert(lambdaG.y === G.y, "multiplication by lambda is a cheap endomorphism");
-
-  const beta_ = mod(lambdaG.x * inverse(G.x, p), p);
-  assert(beta === beta_, "beta is correct");
-  assert(exp(beta, 3n, p) === 1n, "beta is a cube root");
-
-  // note: since both phi1: p -> lambda*p and phi2: p -> (beta*p.x, p.y) are homomorphisms (easy to check),
-  // and they agree on a single point, they must agree on all points in the same subgroup:
-  // (phi1 - phi2)(s*G) = s*(phi1 - pgi2)(G) = 0
-}

@@ -1,6 +1,4 @@
 import type { CurveParams } from "../bigint/affine-weierstrass.ts";
-import { mod } from "../bigint/field-util.ts";
-import { createField, exp } from "../bigint/field.ts";
 
 export { p, q, b, lambda, beta, nBits, nBytes, pallasParams, vestaParams };
 
@@ -16,20 +14,12 @@ const b = 5n;
 const nBits = 255;
 const nBytes = 32;
 
-// compute cube root in Fq (endo scalar) as lambda =  5 ^ (q - 1)/3
-const lambda = exp(5n, (q - 1n) / 3n, q);
-const lambda2 = mod(lambda * lambda, q);
-
-if (mod(lambda2 * lambda, q) !== 1n) throw Error("lambda is not cube root");
-
-// corresponding cube root in Fp (endo base) is found by computing beta such that
-// lambda * (1, y) = (beta, y)
-// where (1, y) is the canonical generator of E(Fp)
-// turns out that beta is lambda^2 in Fp and vice versa
-const beta2 = exp(5n, (p - 1n) / 3n, p);
-const beta = mod(beta2 * beta2, p);
-
-if (mod(beta2 * beta, p) !== 1n) throw Error("beta is not cube root");
+// GLV endomorphism: beta is a primitive cube root of 1 in Fp, lambda a
+// primitive cube root of 1 in Fq, with lambda * (x, y) = (beta * x, y)
+const lambda =
+  0x6819a58283e528e511db4d81cf70f5a0fed467d47c033af2aa9d2e050aa0e4fn;
+const beta =
+  0x12ccca834acdba712caad5dc57aab1b01d1f8bd237ad31491dad5ebdfdfe4ab9n;
 
 const pallasParams: CurveParams = {
   label: "pallas",
@@ -47,15 +37,14 @@ const pallasParams: CurveParams = {
 
 // Vesta is Pallas' sister: same curve equation y^2 = x^3 + 5, base/scalar
 // fields swapped.
-const lambdaV = exp(5n, (p - 1n) / 3n, p);
-if (mod(lambdaV * lambdaV * lambdaV, p) !== 1n) throw Error("lambdaV broken");
-const betaV2 = exp(5n, (q - 1n) / 3n, q);
-const betaV = mod(betaV2 * betaV2, q);
-if (mod(betaV2 * betaV, q) !== 1n) throw Error("betaV broken");
+const lambdaV =
+  0x2d33357cb532458ed3552a23a8554e5005270d29d19fc7d27b7fd22f0201b547n;
+const betaV =
+  0x397e65a7d7c1ad71aee24b27e308f0a61259527ec1d4752e619d1840af55f1b1n;
 
 // Vesta generator: (1, y) with y = sqrt(6) mod q
-const vestaGeneratorY = createField(q).sqrt(6n);
-if (vestaGeneratorY === undefined) throw Error("vesta generator y not found");
+const vestaGeneratorY =
+  0x1943666ea922ae6b13b64e3aae89754cacce3a7f298ba20c4e4389b9b0276a62n;
 
 const vestaParams: CurveParams = {
   label: "vesta",
