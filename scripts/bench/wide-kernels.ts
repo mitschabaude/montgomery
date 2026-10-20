@@ -7,7 +7,7 @@
  * the engine-neutral harness, from identical bytes:
  *
  * node --wasm-wide-arithmetic --print-wasm-code --no-liftoff scripts/bench/wide-kernels-harness.js
- * js -m scripts/bench/wide-kernels-harness.js   (debug shell for disassembly)
+ * js --wasm-compiler=optimizing -m scripts/bench/wide-kernels-harness.js -- --dis   (debug shell)
  */
 import fs from "node:fs";
 import { Module, call, func, i32, i64, local, memory, $ } from "wasmati";

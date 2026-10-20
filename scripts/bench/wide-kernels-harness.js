@@ -41,7 +41,8 @@ bench("pallas multiply (latency)", () => multiplyLoop(0, M), M);
 
 // keep these alive so the engine prints their code
 globalThis.keep = [mulWide, multiply];
-if (typeof wasmDis === "function") {
+// `js --wasm-compiler=optimizing -m harness.js -- --dis` in a debug shell
+if (typeof scriptArgs !== "undefined" && scriptArgs.includes("--dis")) {
   for (const name of ["mulWide", "add128", "macLoop", "multiply"]) {
     log(`\n--- ${name} ---`);
     wasmDis(instance.exports[name], { tier: "ion" });

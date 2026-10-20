@@ -1,0 +1,49 @@
+name: bench
+
+# SpiderMonkey vs V8 on x64 and arm64, see scripts/bench/README.md.
+# Shared runners are noisy: compare engines within one job, not across runs.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: [scripts/bench/**, .github/workflows/bench.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, ubuntu-latest]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "27-nightly"
+          cache: npm
+      - run: npm ci
+      - run: lscpu | grep -E "Model name|^CPU\(s\)"
+
+      - name: kernels, V8
+        run: node scripts/bench/wide-kernels.ts && node --wasm-wide-arithmetic scripts/bench/wide-kernels-harness.js
+      - name: kernels, SpiderMonkey
+        run: node scripts/bench/shell.ts scripts/bench/wide-kernels-harness.js
+
+      - name: fields, V8
+        run: node --wasm-wide-arithmetic scripts/field-benchmarks/wide.ts pallas bn254-scalar
+      - name: fields, SpiderMonkey
+        run: node scripts/bench/shell.ts scripts/field-benchmarks/wide.ts pallas bn254-scalar
+
+      - run: npx playwright install --with-deps chromium && npx playwright install-deps firefox
+      - name: MSM, Firefox
+        run: |
+          for b in wide 29-bit; do
+            node scripts/bench/browser.ts firefox scripts/run-msm-pallas.ts 16 4 --evaluate --backend=$b | grep -E "backend|^msm \(n="
+          done
+      - name: MSM, Chromium
+        run: |
+          for b in wide 29-bit; do
+            node scripts/bench/browser.ts chromium --wide scripts/run-msm-pallas.ts 16 4 --evaluate --backend=$b | grep -E "backend|^msm \(n="
+          done

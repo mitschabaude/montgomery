@@ -1,5 +1,5 @@
 /**
- * Downloads Firefox builds into ~/.cache/montgomery/ (linux x64)
+ * Downloads Firefox builds into ~/.cache/montgomery/ (linux x64 and arm64)
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -8,6 +8,9 @@ import path from "node:path";
 
 export { getJsShell, getFirefox };
 
+const arch = { x64: "x86_64", arm64: "aarch64" }[os.arch() as string];
+if (arch === undefined) throw Error(`unsupported architecture ${os.arch()}`);
+
 // `version` is a Firefox release like "158.0", "latest" or "nightly"
 async function getJsShell(version = "latest") {
   version = await resolveVersion(version);
@@ -15,8 +18,8 @@ async function getJsShell(version = "latest") {
     `jsshell-${version}`,
     "js",
     version === "nightly"
-      ? "https://archive.mozilla.org/pub/firefox/nightly/latest-mozilla-central/jsshell-linux-x86_64.zip"
-      : `https://archive.mozilla.org/pub/firefox/releases/${version}/jsshell/jsshell-linux-x86_64.zip`,
+      ? `https://archive.mozilla.org/pub/firefox/nightly/latest-mozilla-central/jsshell-linux-${arch}.zip`
+      : `https://archive.mozilla.org/pub/firefox/releases/${version}/jsshell/jsshell-linux-${arch}.zip`,
   );
 }
 
@@ -27,7 +30,7 @@ async function getFirefox(version = "latest") {
   return download(
     `firefox-${version}`,
     "firefox/firefox",
-    `https://download-installer.cdn.mozilla.net/pub/firefox/releases/${version}/linux-x86_64/en-US/firefox-${version}.tar.xz`,
+    `https://download-installer.cdn.mozilla.net/pub/firefox/releases/${version}/linux-${arch}/en-US/firefox-${version}.tar.xz`,
   );
 }
 
