@@ -39,11 +39,11 @@ jobs:
       - run: npx playwright install --with-deps chromium && npx playwright install-deps firefox
       - name: MSM, Firefox
         run: |
-          for b in wide 29-bit; do
-            node scripts/bench/browser.ts firefox scripts/run-msm-pallas.ts 16 4 --evaluate --backend=$b | grep -E "backend|^msm \(n="
-          done
+          for t in 1 4; do for b in wide 29-bit; do
+            node scripts/bench/browser.ts firefox scripts/run-msm-pallas.ts 16 $t --evaluate --backend=$b | grep -E "backend|^msm \(n="
+          done; done
       - name: MSM, Chromium
         run: |
-          for b in wide 29-bit; do
-            node scripts/bench/browser.ts chromium --wide scripts/run-msm-pallas.ts 16 4 --evaluate --backend=$b | grep -E "backend|^msm \(n="
-          done
+          for t in 1 4; do for b in wide 29-bit; do
+            node scripts/bench/browser.ts chromium --wide scripts/run-msm-pallas.ts 16 $t --evaluate --backend=$b | grep -E "backend|^msm \(n="
+          done; done
