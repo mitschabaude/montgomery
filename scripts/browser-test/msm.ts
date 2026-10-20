@@ -39,4 +39,3 @@ let expected = Bigint.Projective.toAffine(
 );
 assertDeepEqual(Affine.toBigint(result), expected, "consistent results");
 console.log(`${Curve.params.label}: results are consistent!`);
-
