@@ -7,7 +7,9 @@ import { pallasParams } from "../../src/concrete/pasta.params.ts";
 import { curveParams as bls12_377 } from "../../src/concrete/bls12-377.params.ts";
 
 console.log(
-  `${process.version}, V8 ${process.versions.v8}, ${cpus()[0].model}`
+  [process.version, process.versions.v8 && `V8 ${process.versions.v8}`, cpus()[0].model]
+    .filter(Boolean)
+    .join(", ")
 );
 
 const fields = [
