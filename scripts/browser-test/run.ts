@@ -41,7 +41,7 @@ let start = Date.now();
 let done = false;
 while (!done && errors.length === 0 && Date.now() - start < timeout) {
   await page.waitForTimeout(200);
-  done = await page.evaluate(() => (globalThis as any).browserTestDone);
+  done = await page.evaluate(() => (globalThis as any).scriptDone);
 }
 await browser.close();
 server.close();

@@ -35,7 +35,15 @@ async function serveWeb(
       // as native node execution of the target script
       window.process = { argv: ${JSON.stringify([process.argv[0], ...argv])} };
     </script>
-    <script type="module" src="./${fileName}">
+    <script type="module">
+      // flags let scripts driving the page know when the entry has finished
+      try {
+        await import("./${fileName}");
+        globalThis.scriptDone = true;
+      } catch (error) {
+        console.error(error?.stack ?? String(error));
+        globalThis.scriptError = String(error);
+      }
     </script>
   </head>
   <body>

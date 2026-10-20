@@ -5,7 +5,7 @@ import * as esbuild from "esbuild";
 import path from "node:path";
 import fs from "node:fs";
 
-export { buildWeb as bundleWeb };
+export { buildWeb as bundleWeb, replaceNodeWithWeb };
 
 // bundle for the web; when `minify` is set, both the outer bundle and
 // the inlined worker source are minified
