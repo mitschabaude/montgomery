@@ -83,9 +83,12 @@ static u128 xs[N], ys[N], zs[N];
       t = now() - t;                                                         \
       xs[1].lo ^= x.lo;                                                      \
       if (t < latency) latency = t;                                          \
+      /* rounds chain through zs so that none can be hoisted; the N products  \
+         of a round are independent */                                        \
+      memcpy(zs, ys, sizeof zs);                                             \
       t = now();                                                             \
       for (int r = 0; r < R; r++)                                            \
-        for (int i = 0; i < N; i++) zs[i] = mul_##name(xs[i], ys[i]);        \
+        for (int i = 0; i < N; i++) zs[i] = mul_##name(xs[i], zs[i]);        \
       t = now() - t;                                                         \
       xs[2].lo ^= zs[N - 1].lo;                                              \
       if (t < throughput) throughput = t;                                    \
