@@ -5,7 +5,8 @@ name: bench
 on:
   workflow_dispatch:
   pull_request:
-    paths: [scripts/bench/**, .github/workflows/bench.yml]
+    paths:
+      [scripts/bench/**, scripts/binary-fields/**, .github/workflows/bench.yml]
 
 permissions:
   contents: read
@@ -47,3 +48,10 @@ jobs:
           for t in 1 4; do for b in wide 29-bit; do
             node scripts/bench/browser.ts chromium --wide scripts/run-msm-pallas.ts 16 $t --evaluate --backend=$b | grep -E "backend|^msm \(n="
           done; done
+
+      - name: binary fields, native
+        run: node scripts/binary-fields/native.ts
+      - name: binary fields, V8
+        run: node --wasm-wide-arithmetic scripts/binary-fields/bench.ts
+      - name: binary fields, SpiderMonkey
+        run: node scripts/bench/shell.ts scripts/binary-fields/bench.ts
